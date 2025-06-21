@@ -1,0 +1,104 @@
+/* src/styles/ClientsListPage.css */
+.clients-container {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    background-color: #232323;
+    font-family: "Bebas Neue", sans-serif;
+    letter-spacing: 1.5px;
+    
+}
+
+.clients-title {
+    text-align: center;
+    color: #ffffff;
+    margin-bottom: 20px;
+}
+
+.clients-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.clients-button {
+    padding: 8px 15px;
+    background-color: #007e3d;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s ease;
+}
+
+.clients-button:hover {
+    background-color: #002412;
+}
+
+.clients-edit-button {
+    background-color: #28a745;
+    margin-right: 5px;
+}
+
+.clients-edit-button:hover {
+    background-color: #218838;
+}
+
+.clients-delete-button {
+    background-color: #dc3545;
+}
+
+.clients-delete-button:hover {
+    background-color: #c82333;
+}
+
+.clients-logout-button {
+    background-color: #6c757d;
+}
+
+.clients-logout-button:hover {
+    background-color: #5a6268;
+}
+
+.clients-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.clients-table th, .clients-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+.clients-table th {
+    background-color: #070707;
+    border-bottom: 1px solid #ddd;
+}
+
+.clients-table .id-column {
+    font-size: 0.8em; /* Para IDs largos */
+}
+
+.clients-table .actions-column {
+    white-space: nowrap; /* Evita que los botones se rompan */
+}
+
+.clients-table tr:hover {
+    background-color: #757575;
+}
+
+.clients-error {
+    color: red;
+    text-align: center;
+    background-color: #ffe0e0;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid red;
+}

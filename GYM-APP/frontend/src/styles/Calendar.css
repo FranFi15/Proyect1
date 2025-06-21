@@ -1,0 +1,270 @@
+/* src/styles/Calendar.css */
+
+/* Contenedor principal del calendario */
+.calendar-container {
+    padding: 25px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-top: 30px;
+    border: 1px solid var(--border-color); /* Borde sutil */
+}
+
+.calendar-title {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: var(--primary-color); /* Violeta oscuro */
+    margin-bottom: 25px;
+    text-align: center;
+    border-bottom: 2px solid var(--accent-color);
+    padding-bottom: 10px;
+}
+
+/* Navegación (Mes Anterior/Siguiente) */
+.calendar-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    background-color: var(--background-light); /* Fondo claro con toque violeta */
+    padding: 10px 15px;
+    border-radius: 10px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.calendar-month-year {
+    font-size: 2em;
+    font-weight: 600;
+    color: var(--secondary-color); 
+}
+
+.calendar-btn {
+    padding: 8px 15px;
+    background-color: var(--accent-color); /* Violeta para botones */
+    color: var(--text-color-light);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-btn:hover {
+    background-color: #7b4edc; /* Tono más oscuro de violeta */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Días de la semana (L, M, X, J, V, S, D) */
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-weight: bold;
+    color: var(--primary-color); /* Violeta oscuro */
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+    text-transform: uppercase;
+}
+
+/* Cuadrícula de días del calendario */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+.calendar-day {
+    padding: 12px 5px;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    min-height: 80px; /* Altura mínima para las celdas del día */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Alinea el número y el punto */
+    align-items: center;
+    font-size: 1.1em;
+    font-weight: 500;
+    position: relative; /* Para el punto de clase */
+}
+
+.calendar-current-month {
+    background-color: #fcfcfc; /* Fondo para días del mes actual */
+    color: var(--text-color-dark);
+    border: 1px solid #eee;
+}
+
+.calendar-other-month {
+    background-color: #f0f0f0; /* Fondo para días de otros meses */
+    color: #a0a0a0;
+    opacity: 0.7;
+    border: 1px solid #e0e0e0;
+}
+
+.calendar-day:hover {
+    background-color: #e0e0e0;
+    transform: scale(1.02);
+}
+
+.calendar-today {
+    border: 2px solid var(--secondary-color) !important; /* Resalta el día actual con azul violeta */
+    background-color: #fcf8e3 !important; /* Un toque de amarillo suave para hoy */
+    color: var(--primary-color) !important;
+    font-weight: bold !important;
+}
+
+.calendar-has-classes {
+    background-color: #d1f7e0; /* Verde suave para días con clases */
+    border-color: #8acb88;
+}
+.calendar-has-classes:hover {
+    background-color: #b8e6c7;
+}
+
+.calendar-selected-day {
+    border: 2px solid var(--info-color) !important; /* Borde azul claro para el día seleccionado */
+    background-color: #e6f7ff !important; /* Fondo azul muy suave */
+    box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.3) !important; /* Anillo alrededor del seleccionado */
+}
+
+.calendar-dot {
+    width: 6px;
+    height: 6px;
+    background-color: var(--secondary-color); /* Punto violeta para indicar clases */
+    border-radius: 50%;
+    margin-top: 5px;
+}
+
+/* Lista de clases del día seleccionado */
+.selected-day-classes-list {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #fdfdff;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 5px rgba(0, 0, 0, 0.08); /* Sombra interior */
+    border: 1px solid #e9e9e9;
+}
+
+.selected-day-classes-title {
+    font-size: 1.6em;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.no-classes-message {
+    font-style: italic;
+    color: #666;
+    text-align: center;
+    padding: 15px;
+}
+
+.class-item {
+    margin-bottom: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    border: 1px solid var(--class-item-bg-color, #e0e0e0); /* Borde con el color de la clase */
+    background-color: var(--class-item-bg-color, #f8f8f8); /* Color de fondo dinámico */
+    color: var(--text-color-dark); /* Asegura que el texto sea legible */
+}
+
+.class-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    filter: brightness(0.95); /* Oscurece ligeramente el color de fondo al pasar el mouse */
+}
+
+.class-title {
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--primary-color); /* Nombre de la clase en violeta oscuro */
+    margin-bottom: 5px;
+}
+
+.class-details {
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+.class-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 8px; /* Espaciado entre botones */
+}
+
+/* Badges de estado de clase (reutilizados del Dashboard.css si se desea) */
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 0.75em;
+    font-weight: bold;
+    color: white;
+    display: inline-block;
+    margin-left: 5px; /* Espacio para el badge */
+}
+
+.status-activa { background-color: var(--success-color); }
+.status-cancelada { background-color: var(--danger-color); }
+.status-llena { background-color: var(--warning-color); } /* Considera un color para "llena" */
+
+
+/* Media Queries para responsividad */
+@media (max-width: 768px) {
+    .calendar-container {
+        padding: 15px;
+    }
+    .calendar-title {
+        font-size: 1.5em;
+        margin-bottom: 20px;
+    }
+    .calendar-navigation {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .calendar-month-year {
+        font-size: 1.3em;
+    }
+    .calendar-btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    .calendar-weekdays {
+        font-size: 0.8em;
+    }
+    .calendar-day {
+        min-height: 60px;
+        font-size: 0.9em;
+        padding: 8px 3px;
+    }
+    .selected-day-classes-list {
+        padding: 15px;
+    }
+    .selected-day-classes-title {
+        font-size: 1.4em;
+    }
+    .class-item {
+        padding: 10px;
+    }
+    .class-title {
+        font-size: 1.1em;
+    }
+    .class-details {
+        font-size: 0.85em;
+    }
+    .class-actions {
+        flex-direction: column;
+        gap: 5px;
+    }
+    .class-actions .btn {
+        width: 100%;
+    }
+}
