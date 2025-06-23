@@ -24,7 +24,7 @@ function ClientCreateEditPage() {
     const [client, setClient] = useState({
         nombre: '',
         emailContacto: '',
-        urlIdentifier: '', // 1. Añadimos urlIdentifier al estado inicial
+        urlIdentifier: '', 
         estadoSuscripcion: 'periodo_prueba', 
         clientId: '',
         apiSecretKey: '',
@@ -43,7 +43,7 @@ function ClientCreateEditPage() {
                     setClient({
                         nombre: data.nombre,
                         emailContacto: data.emailContacto,
-                        urlIdentifier: data.urlIdentifier || '', // Cargar el identificador si existe
+                        urlIdentifier: data.urlIdentifier || '', 
                         estadoSuscripcion: data.estadoSuscripcion, 
                         clientId: data.clientId,
                         apiSecretKey: data.apiSecretKey,
@@ -90,7 +90,8 @@ function ClientCreateEditPage() {
                 await clientService.updateClient(id, {
                     nombre: client.nombre,
                     emailContacto: client.emailContacto,
-                    estadoSuscripcion: client.estadoSuscripcion, 
+                    estadoSuscripcion: client.estadoSuscripcion,
+                    urlIdentifier: client.urlIdentifier, 
                 });
                 setSuccess(true);
                 alert('Gimnasio actualizado exitosamente.');

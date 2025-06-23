@@ -20,51 +20,52 @@ function RegisterPage() {
     const [direccion, setDireccion] = useState('');
     const [numeroTelefono, setNumeroTelefono] = useState('');
     const [obraSocial, setObraSocial] = useState('');
+    const [sexo, setSexo] = useState('');
 
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        
-        if (!gymIdentifier) {
-            setError("No se puede registrar: falta el identificador del gimnasio en la URL.");
-            return;
-        }
+   const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (contraseña !== confirmContraseña) {
+        setError('Las contraseñas no coinciden');
+        return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+        await authService.registerAdmin({
+            nombre,
+            apellido,
+            fechaNacimiento,
+            email,
+            contraseña,
+            dni,
+            telefonoEmergencia,
+            direccion,
+            numeroTelefono,
+            obraSocial,
+            sexo,
+        }, gymIdentifier);
 
-        if (contraseña !== confirmContraseña) {
-            setError('Las contraseñas no coinciden.');
-            return;
-        }
+        alert('¡Administrador registrado exitosamente!');
+      
+        navigate(`/gym/${gymIdentifier}/dashboard`);
 
-        setLoading(true);
-        try {
-            const userData = {
-                nombre, apellido, email, contraseña, dni, fechaNacimiento,
-                telefonoEmergencia, direccion, numeroTelefono, obraSocial
-            };
+    } catch (err) {
+        setError(err.message || 'Error en el registro.');
+        console.error('Error de registro:', err);
+    } finally {
+        setLoading(false);
+    }
 
-            // 3. Pasar el identificador al servicio de registro
-            await authService.registerAdmin(userData, gymIdentifier);
-
-            alert('Registro exitoso. ¡Ahora puedes iniciar sesión!');
-            // 4. Redirigir a la página de login del mismo gimnasio
-            navigate(`/gym/${gymIdentifier}/login`);
-        } catch (err) {
-            setError(err || 'Error en el registro. Inténtalo de nuevo.');
-            console.error('Error de registro:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+};
     return (
         <div className="auth-container">
             <div className="auth-card">
                 <h2 className="auth-title">Registro de Nuevo Socio</h2>
                 <h3 style={{color: '#555', marginTop: '-20px', marginBottom: '20px'}}>Gimnasio: {gymIdentifier}</h3>
-                {error && <p className="auth-error">{error}</p>}
+                {error && <p className="error-message">{error.message || 'Ocurrió un error inesperado.'}</p>}
                 <form onSubmit={handleSubmit} className="auth-form">
                     {/* (Todos tus inputs del formulario se mantienen igual) */}
                     <div className="form-group">
@@ -80,20 +81,28 @@ function RegisterPage() {
                         <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="auth-input" />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="password">Contraseña:</label>
-                        <input type="password" id="password" value={contraseña} onChange={(e) => setContraseña(e.target.value)} required className="auth-input" />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="confirmPassword">Confirmar Contraseña:</label>
-                        <input type="password" id="confirmPassword" value={confirmContraseña} onChange={(e) => setConfirmContraseña(e.target.value)} required className="auth-input" />
-                    </div>
-                    <div className="form-group">
                         <label htmlFor="dni">DNI:</label>
                         <input type="text" id="dni" value={dni} onChange={(e) => setDni(e.target.value)} required className="auth-input" />
                     </div>
                     <div className="form-group">
                         <label htmlFor="fechaNacimiento">Fecha de Nacimiento:</label>
                         <input type="date" id="fechaNacimiento" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} required className="auth-input" />
+                    </div>
+                    <div className="form-group">
+                       <label htmlFor="sexo">Sexo:</label>
+                    <select name="sexo" id="sexo" value={sexo} onChange={(e) => setSexo(e.target.value)} className="auth-input">
+                        <option value="Masculino">Masculino</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="password">Contraseña:</label>
+                        <input type="password" id="password" value={contraseña} onChange={(e) => setContraseña(e.target.value)} required className="auth-input" />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="confirmPassword">Confirmar Contraseña:</label>
+                        <input type="password" id="confirmPassword" value={confirmContraseña} onChange={(e) => setConfirmContraseña(e.target.value)} required className="auth-input" />
                     </div>
                     <div className="form-group">
                         <label htmlFor="telefonoEmergencia">Teléfono de Emergencia:</label>

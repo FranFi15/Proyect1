@@ -1,26 +1,27 @@
 import axios from 'axios';
-import appConfig from '../config/appConfig'; // DEBE ESTAR
+import authService from './authService';
 
-const API_BASE_URL_GYM_APP = 'http://localhost:5000/api'; // Puerto de tu backend del gimnasio
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const gymApiClient = axios.create({
-    baseURL: API_BASE_URL_GYM_APP,
-    headers: {
-        'Content-Type': 'application/json',
-        'x-client-id': appConfig.APP_CLIENT_ID,      // USANDO appConfig
-        'x-api-secret': appConfig.APP_API_SECRET_KEY // USANDO appConfig
-    }
+const apiClient = axios.create({
+  baseURL: API_URL,
 });
 
-gymApiClient.interceptors.request.use( // Esto para añadir el token JWT después del login
-    config => {
-        const token = localStorage.getItem('gymAdminToken');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    error => Promise.reject(error)
+// Interceptor para añadir automáticamente los headers a cada petición
+apiClient.interceptors.request.use(
+  (config) => {
+    const user = authService.getCurrentUser();
+    if (user && user.token) {
+      // Adjuntamos el token para la autenticación
+      config.headers.Authorization = `Bearer ${user.token}`;
+      // Adjuntamos el clientId para identificar al gimnasio
+      config.headers['x-client-id'] = user.clientId;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-export default gymApiClient;
+export default apiClient;

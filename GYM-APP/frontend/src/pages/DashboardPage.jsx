@@ -1,9 +1,10 @@
-// src/pages/DashboardPage.jsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { jwtDecode } from 'jwt-decode';
-import axios from 'axios'; // Importar axios para fetching global
+
+// --- PASO 1: IMPORTAMOS apiClient EN LUGAR DE axios ---
+import apiClient from '../services/api'; 
 
 // Importar los componentes modulares
 import ClientManagement from '../components/dashboard/ClientManagement';
@@ -13,53 +14,31 @@ import MetricsManagement from '../components/dashboard/MetricsDashboard';
 
 import '../styles/Dashboard.css';
 
-// URL base de tu backend de la app del gimnasio (para uso en DashboardPage)
-const GYM_APP_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// --- PASO 2: HEMOS ELIMINADO getAuthHeaders() y GYM_APP_API_BASE_URL PORQUE YA NO SON NECESARIOS ---
+// El apiClient se encarga de todo eso automáticamente.
 
-// Headers para peticiones autenticadas (reutilizado de otros componentes)
-const getAuthHeaders = () => {
-    const user = authService.getCurrentUser();
-    if (user && user.token) {
-        const clientId = import.meta.env.VITE_CLIENT_ID;
-        const apiSecret = import.meta.env.VITE_API_SECRET;
-        return {
-            'x-client-id': clientId,
-            'x-api-secret': apiSecret,
-            'Authorization': `Bearer ${user.token}`
-        };
-    }
-    return {};
-};
-
-// Componente para proteger rutas (mantener aquí si no está en App.jsx)
-const PrivateRoute = ({ children, currentUser }) => {
-    return currentUser ? children : <Navigate to="/login" />;
-};
-
-
-// ====================================================================================
-// COMPONENTE PRINCIPAL DASHBOARD
-// ====================================================================================
 
 function DashboardPage() {
     const navigate = useNavigate();
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState('');
-    const [activeSection, setActiveSection] = useState('clients'); // Estado para la sección activa
+    const [activeSection, setActiveSection] = useState('clients');
 
-    // Estado centralizado para los tipos de clase
     const [classTypes, setClassTypes] = useState([]);
 
-    // Función para obtener los tipos de clase (será pasada a componentes hijos)
     const fetchClassTypes = async () => {
         try {
             console.log('[DashboardPage] Fetching class types...');
-            const response = await axios.get(`${GYM_APP_API_BASE_URL}/tipos-clase`, { headers: getAuthHeaders() });
+            
+            // --- PASO 3: LA PETICIÓN AHORA ES MÁS SIMPLE Y USA apiClient ---
+            // Ya no necesita headers manuales, apiClient los añade por nosotros.
+            const response = await apiClient.get('/tipos-clase');
+            
             if (response.data && Array.isArray(response.data.tiposClase)) {
                 setClassTypes(response.data.tiposClase);
                 console.log('[DashboardPage] Class types fetched successfully:', response.data.tiposClase.length);
             } else {
-                console.error('[DashboardPage] API for tipos-clase returned non-array data in .tiposClase property:', response.data);
+                console.error('[DashboardPage] API for tipos-clase returned non-array data:', response.data);
                 setClassTypes([]);
             }
         } catch (error) {
@@ -70,32 +49,28 @@ function DashboardPage() {
 
     useEffect(() => {
         const currentUser = authService.getCurrentUser();
+        if (!currentUser || !currentUser.token) {
+            console.log("No hay usuario logueado, redirigiendo.");
+            navigate('/login'); // Redirige si no hay usuario
+            return; // Detiene la ejecución del efecto
+        }
 
-        if (currentUser && currentUser.token) {
-            try {
-                const decodedToken = jwtDecode(currentUser.token);
-                setUserEmail(decodedToken.email || 'Email no disponible');
-                setUserName(decodedToken.nombre || decodedToken.name || 'Usuario');
-
-                // Llama a fetchClassTypes al montar el DashboardPage
-                fetchClassTypes();
-
-            } catch (e) {
-                console.error("Error al decodificar el token JWT o token inválido:", e);
-                setUserEmail('Usuario desconocido');
-                setUserName('Desconocido');
-                authService.logout();
-                navigate('/login');
-            }
-        } else {
-            console.log("No hay usuario logueado o token no disponible, redirigiendo a /login.");
+        try {
+            const decodedToken = jwtDecode(currentUser.token);
+            setUserEmail(decodedToken.email || 'Email no disponible');
+            setUserName(decodedToken.nombre || 'Usuario');
+            fetchClassTypes();
+        } catch (e) {
+            console.error("Token inválido:", e);
+            authService.logout();
             navigate('/login');
         }
-    }, [navigate]); // Dependencias de useEffect
+    }, [navigate]);
 
     const handleLogout = () => {
         authService.logout();
-        navigate('/login');
+        const gymIdentifier = authService.getGymIdentifier();
+        navigate(gymIdentifier ? `/gym/${gymIdentifier}/login` : '/');
     };
 
     return (
@@ -133,11 +108,8 @@ function DashboardPage() {
                     }</h2>
                 </header>
                 <div className="dashboard-content-area">
-                    {/* Pasa classTypes y fetchClassTypes a ClientManagement */}
                     {activeSection === 'clients' && <ClientManagement classTypes={classTypes} fetchClassTypes={fetchClassTypes} />}
-                    {/* Pasa classTypes y fetchClassTypes a ClassTypeManagement */}
                     {activeSection === 'class-types' && <ClassTypeManagement classTypes={classTypes} fetchClassTypes={fetchClassTypes} />}
-                    {/* Pasa classTypes y fetchClassTypes a ClassManagement */}
                     {activeSection === 'classes' && <ClassManagement classTypes={classTypes} fetchClassTypes={fetchClassTypes} />}
                     {activeSection === 'metrics' && <MetricsManagement />}
                 </div>

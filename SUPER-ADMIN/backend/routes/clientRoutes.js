@@ -8,33 +8,35 @@ import {
     updateClient,
     updateClientStatus,
     deleteClient,
-    getClientDbInfo // Asegúrate de importar también getClientDbInfo
+    getClientDbInfo,
+    getClientInternalDbInfo,
 } from '../controllers/clientController.js'; 
-// Asume que tienes middleware de autenticación/autorización para tu panel de administración si las rutas son privadas
-// import { protect, authorizeRoles } from '../middleware/authMiddleware.js'; 
 
 const router = express.Router();
 
-// Ruta para registrar un nuevo gimnasio (probablemente privada para un superadmin)
-router.post('/register-gym', registerClient); // Aquí podrías añadir protect y authorizeRoles('superadmin')
+router.route('/')
+    // La petición GET a '/api/clients' es manejada por getClients
+    .get(getClients) // Cuando soluciones el problema, vuelve a añadir 'protect'
+    // La petición POST a '/api/clients' ahora es manejada por registerClient
+    .post(registerClient); // Cuando soluciones el problema, vuelve a añadir 'protect'
 
-// Ruta para obtener todos los clientes (para el dashboard del panel de admin)
-router.get('/', getClients); // Añade protect y authorizeRoles('admin') si es necesario
 
 // Ruta para obtener todos los clientes para uso interno del sistema (ej: cron job de gym-app-backend)
 // Esta ruta debe ser accesible por el gym-app-backend usando la INTERNAL_ADMIN_API_KEY
-router.get('/internal/all-clients', getAllInternalClients); // <-- NUEVA RUTA INTERNA
+router.get('/internal/all-clients', getAllInternalClients);
 
 // Rutas para clientes específicos por ID de MongoDB
 router.route('/:id')
-    .get(getClientById) // Añade protect y authorizeRoles si es necesario
-    .put(updateClient) // Añade protect y authorizeRoles si es necesario
-    .delete(deleteClient); // Añade protect y authorizeRoles si es necesario
+    .get(getClientById) 
+    .put(updateClient) 
+    .delete(deleteClient); 
 
 // Ruta para obtener información de DB de un cliente específico (para gym-app-backend)
-router.get('/:clientId/db-info', getClientDbInfo); // Esencialmente protegida por x-api-secret
+router.get('/:clientId/db-info', getClientDbInfo); 
 
 // Ruta para actualizar solo el estado de suscripción por clientId
-router.put('/:clientId/status', updateClientStatus); // Añade protect y authorizeRoles si es necesario
+router.put('/:clientId/status', updateClientStatus); 
+
+router.get('/:clientId/internal-db-info', getClientInternalDbInfo);
 
 export default router;

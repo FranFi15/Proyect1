@@ -12,12 +12,11 @@ import userRoutes from './routes/userRoutes.js';
 import classRoutes from './routes/classRoutes.js';
 import tipoClaseRoutes from './routes/tipoClaseRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
-import publicRoutes from './routes/publicRoutes.js';
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 import { generateFutureFixedClasses } from './controllers/classController.js'; 
 
 dotenv.config();
-
+console.log('Valor de la API Key al arrancar:', process.env.INTERNAL_API_KEY_FOR_SUPERADMIN);
 const app = express();
 
 // Middlewares globales
@@ -29,7 +28,6 @@ app.use(cors({
 }));
 app.use(express.json()); 
 
-app.use('/api/public', publicRoutes);
 
 // Definir las rutas de la API
 app.use('/api/auth', gymTenantMiddleware, authRoutes);

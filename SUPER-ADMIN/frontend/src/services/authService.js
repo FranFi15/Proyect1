@@ -1,7 +1,7 @@
 // src/services/authService.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/admin'; 
+const API_URL = 'http://localhost:6001/api/admin'; 
 
 const login = async (email, password) => {
     try {

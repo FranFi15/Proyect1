@@ -12,7 +12,23 @@ const app = express();
 connectDB();
 
 app.use(express.json());
-app.use(cors({ origin: 'http://localhost:5173' }))
+
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Permite peticiones si el origen está en nuestra lista blanca
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('No permitido por CORS'));
+        }
+    }
+}));
+
 app.use('/api/public', publicRoutes);
 
 app.use('/api/admin', adminRoutes);
@@ -23,7 +39,7 @@ app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 6001;
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

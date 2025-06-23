@@ -26,7 +26,6 @@ function App() {
     return (
         <Router>
             <Routes>
-                {/* Rutas dinámicas que capturan el identificador del gimnasio */}
                 <Route path="/gym/:gymIdentifier/login" element={<LoginPage />} />
                 <Route path="/gym/:gymIdentifier/register" element={<RegisterPage />} />
 

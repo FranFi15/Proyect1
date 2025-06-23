@@ -4,7 +4,7 @@ import axios from 'axios';
 // La URL base del backend de la App de Gym
 const API_BASE_URL_GYM_APP = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'; 
 // La URL base del backend del Superadmin
-const API_BASE_URL_SUPERADMIN = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:5001/api'; // Asumiendo que corre en otro puerto
+const API_BASE_URL_SUPERADMIN = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:6001/api'; // Asumiendo que corre en otro puerto
 
 // Función para obtener el clientId desde el backend del superadmin
 async function fetchClientId(gymIdentifier) {
@@ -23,8 +23,7 @@ const login = async (credentials, gymIdentifier) => {
     try {
         const response = await axios.post(`${API_BASE_URL_GYM_APP}/auth/login`, credentials, {
             headers: {
-                'x-client-id': clientId,
-                'x-api-secret': import.meta.env.VITE_API_SECRET, 
+                'x-client-id': clientId,              
             },
         });
         
@@ -47,7 +46,6 @@ const registerAdmin = async (userData, gymIdentifier) => {
         const response = await axios.post(`${API_BASE_URL_GYM_APP}/auth/register`, userData, {
             headers: {
                 'x-client-id': clientId,
-                'x-api-secret': import.meta.env.VITE_API_SECRET,
             },
         });
          if (response.data.token) {
@@ -77,7 +75,6 @@ const getAuthHeaders = () => {
     if (user && user.token && user.clientId) { 
         return {
             'x-client-id': user.clientId,
-            'x-api-secret': import.meta.env.VITE_API_SECRET,
             'Authorization': `Bearer ${user.token}`
         };
     }

@@ -3,68 +3,53 @@ import asyncHandler from 'express-async-handler';
 import Client from '../models/Client.js';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import { randomBytes, randomUUID } from 'crypto';
 dotenv.config();
 
-const MONGO_URI_BASE = process.env.MONGO_URI_BASE;
+
 
 // @desc    Registrar un nuevo cliente (gimnasio)
 // @route   POST /api/clients/
 // @access  Private (solo para administradores del panel)
 const registerClient = asyncHandler(async (req, res) => {
-    const { nombre, emailContacto } = req.body;
+    const { nombre, emailContacto, urlIdentifier } = req.body;
 
-    if (!nombre || !emailContacto) {
+    if (!nombre || !emailContacto || !urlIdentifier) {
         res.status(400);
-        throw new Error('Por favor, introduce todos los campos requeridos: nombre, emailContacto.');
+        throw new Error('Por favor, introduce todos los campos requeridos.');
     }
+
+    const client = new Client({
+        nombre,
+        emailContacto,
+        urlIdentifier,
+    });
+    
+    // Obtenemos el host del clúster desde las variables de entorno
+    const mongoHost = process.env.MONGO_DB_HOST;
+    if (!mongoHost) {
+        res.status(500);
+        throw new Error('La configuración del host de la base de datos no está definida en el servidor.');
+    }
+
+    // Generamos un nombre de base de datos único
+    const uniqueDbSuffix = client.clientId.substring(0, 8);
+    const tenantDbName = `gym_${urlIdentifier.replace(/-/g, '_')}_${uniqueDbSuffix}`;
+
+    // Construimos la cadena de conexión para el nuevo gimnasio
+    client.connectionStringDB = `${mongoHost}/${tenantDbName}?retryWrites=true&w=majority`;
 
     try {
-        const newClient = new Client({
-            nombre,
-            emailContacto,
-        });
-
-        const cleanedGymName = newClient.nombre
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
-        
-        const uniqueDbSuffix = newClient.clientId.substring(0, 8); 
-        const tenantDbName = `gym_${cleanedGymName}_${uniqueDbSuffix}`;
-
-        if (!MONGO_URI_BASE) {
-            console.error("Error de configuración: MONGO_URI_BASE no está definida en el archivo .env del admin-panel-backend.");
-            res.status(500);
-            throw new Error('Error interno del servidor. Contacte al administrador (MONGO_URI_BASE no configurada).');
-        }
-
-        newClient.connectionStringDB = `${MONGO_URI_BASE}${tenantDbName}?retryWrites=true&w=majority`;
-
-        await newClient.save(); 
-
-        res.status(201).json({
-            message: 'Cliente creado exitosamente.',
-            client: {
-                _id: newClient._id,
-                nombre: newClient.nombre,
-                emailContacto: newClient.emailContacto,
-                clientId: newClient.clientId,
-                apiSecretKey: newClient.apiSecretKey,
-                estadoSuscripcion: newClient.estadoSuscripcion,
-                fechaVencimientoSuscripcion: newClient.fechaVencimientoSuscripcion
-            }
-        });
+        const createdClient = await client.save();
+        res.status(201).json(createdClient);
     } catch (error) {
+        res.status(400);
         if (error.code === 11000) {
-            res.status(400);
-            throw new Error('El email de contacto ya está registrado.');
+            throw new Error('El email o el identificador de URL ya existen.');
         }
-        console.error('Error al crear cliente:', error);
-        res.status(500);
-        throw new Error('Error interno del servidor al crear cliente.');
+        throw error;
     }
 });
-
 // @desc    Obtener un cliente específico por su ID de MongoDB
 // @route   GET /api/clients/:id
 // @access  Private (solo para administradores de tu panel)
@@ -168,9 +153,6 @@ const getClientDbInfo = asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     const apiSecretKey = req.headers['x-api-secret'];
 
-    console.log(`[Admin Panel] Petición a /api/clients/${clientId}/db-info`);
-    console.log(`[Admin Panel] Recibido clientId: "${clientId}"`);
-
     if (!apiSecretKey) {
         console.warn('[Admin Panel] Acceso no autorizado: X-Api-Secret missing.');
         res.status(401);
@@ -211,11 +193,6 @@ const getClientDbInfo = asyncHandler(async (req, res) => {
 // @access  Internal (protegida por x-internal-api-key)
 const getAllInternalClients = asyncHandler(async (req, res) => {
     const internalApiKey = req.headers['x-internal-api-key'];
-
-    console.log(`[Admin Panel - Internal Clients] Petición para obtener todos los clientes internos.`);
-    console.log(`[Admin Panel - Internal Clients] internalApiKey recibida: ${internalApiKey}`);
-    console.log(`[Admin Panel - Internal Clients] INTERNAL_ADMIN_API_KEY esperada: ${process.env.INTERNAL_ADMIN_API_KEY}`);
-
     if (internalApiKey !== process.env.INTERNAL_ADMIN_API_KEY) {
         console.warn('[Admin Panel - Internal Clients] Acceso no autorizado: Clave API interna no coincide.');
         res.status(403);
@@ -236,7 +213,6 @@ const getAllInternalClients = asyncHandler(async (req, res) => {
             createdAt: client.createdAt
         }));
         res.status(200).json(safeClients); // Envía los clientes como JSON
-        console.log(`[Admin Panel - Internal Clients] ${safeClients.length} clientes enviados.`);
     } catch (error) {
         console.error('[Admin Panel - Internal Clients] Error al obtener clientes internos:', error);
         res.status(500);
@@ -293,6 +269,30 @@ const deleteClient = asyncHandler(async (req, res) => {
     }
 });
 
+const getClientInternalDbInfo = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const internalApiKey = req.headers['x-internal-api-key'];
+
+    // Verifica que la clave interna recibida coincida con la guardada en el entorno de SUPER-ADMIN
+    if (internalApiKey !== process.env.INTERNAL_ADMIN_API_KEY) {
+        res.status(401);
+        throw new Error('Acceso no autorizado. Clave interna inválida.');
+    }
+
+    const client = await Client.findOne({ clientId });
+
+    if (!client) {
+        res.status(404);
+        throw new Error('Cliente no encontrado.');
+    }
+
+    res.status(200).json({
+        clientId: client.clientId,
+        connectionStringDB: client.connectionStringDB,
+        estadoSuscripcion: client.estadoSuscripcion
+    });
+});
+
 
 export {
     registerClient,
@@ -302,5 +302,6 @@ export {
     getClientDbInfo,
     getClients,
     deleteClient,
-    getAllInternalClients, // <-- Exportar la nueva función
+    getAllInternalClients, 
+    getClientInternalDbInfo,
 };
