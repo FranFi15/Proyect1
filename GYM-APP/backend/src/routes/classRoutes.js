@@ -14,10 +14,15 @@ import {
     bulkDeleteClasses,
      getGroupedClasses,
      bulkExtendClasses,
+     cancelClassesByDate,
+     reactivateClassesByDate,
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
+
+router.post('/cancel-day', protect, authorizeRoles('admin'), cancelClassesByDate);
+router.post('/reactivate-day', protect, authorizeRoles('admin'), reactivateClassesByDate);
 
 router.get('/grouped', protect, authorizeRoles('admin'), getGroupedClasses);
 router.post('/bulk-extend', protect, authorizeRoles('admin'), bulkExtendClasses); 

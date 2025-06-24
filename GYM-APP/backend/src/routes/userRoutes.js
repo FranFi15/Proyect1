@@ -5,11 +5,12 @@ import {
     getAllUsers,
     getUserById,
     getMe,
-    updateUserCredits,
     deleteUser,
     updateUserProfileByAdmin,
-    manageUserSubscription, 
+    updateUserPlan,
     getUserMetrics,
+    clearUserCredits,
+    removeUserSubscription,
 } from '../controllers/userController.js'; 
 
 const router = express.Router();
@@ -27,12 +28,11 @@ router.route('/:id')
     .put(protect, authorizeRoles('admin'), updateUserProfileByAdmin) 
     .delete(protect, authorizeRoles('admin'), deleteUser); 
 
-// Ruta para asignar créditos a un usuario (solo admin)
-router.route('/:id/credits')
-    .put(protect, authorizeRoles('admin'), updateUserCredits);
-
-// Ruta para administrar las suscripciones mensuales de un usuario (solo admin)
-router.route('/:id/subscription')
-    .put(protect, authorizeRoles('admin'), manageUserSubscription); 
+router.route('/:id/plan')
+    .put(protect, authorizeRoles('admin'), updateUserPlan);
+    router.route('/:id/credits/clear')
+    .put(protect, authorizeRoles('admin'), clearUserCredits);
+    router.route('/:userId/subscription/:tipoClaseId')
+    .delete(protect, authorizeRoles('admin'), removeUserSubscription);
 
 export default router;

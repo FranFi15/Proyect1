@@ -1,5 +1,3 @@
-/* src/styles/Dashboard.css */
-
 /* Variables de color para un esquema violeta */
 :root {
     --primary-color: #150224; /* Violeta oscuro principal */
@@ -9,45 +7,45 @@
     --text-color-dark: #333; /* Texto oscuro */
     --text-color-light: #f8f8f8; /* Texto claro */
     --border-color: #ccc; /* Bordes suaves */
-    --success-color: #28a745; /* Verde para éxito */
+    --success-color: #047900; /* Verde para éxito */
     --danger-color: #dc3545; /* Rojo para peligro */
     --info-color: #17a2b8; /* Azul claro para información */
-    --warning-color: #ffc107; /* Amarillo para advertencia */
+    --warning-color: #ff9b3d; /* Amarillo para advertencia */
+    --add-class-color: #047900;
 
-    /* Colores para tipos de clase dinámicos - Asegúrate de que haya suficientes para tus tipos de clase */
-    --class-type-color-1: #3633ff5b; /* Rojo-Naranja */
-    --class-type-color-2: #c9ff3354; /* Verde Lima */
-    --class-type-color-3: #5833ff60; /* Azul Violeta */
-    --class-type-color-4: #ff33c959; /* Fucsia */
-    --class-type-color-5: #33c9ff62; /* Azul Cielo */
-    --class-type-color-6: #ffc9336b; /* Amarillo-Naranja */
-    --class-type-color-7: #a52a2a65; /* Marrón */
-    --class-type-color-8: #00808062; /* Teal */
-    --class-type-color-9: #daa5206c; /* Dorado */
-    --class-type-color-10: #ff634771; /* Tomate */
-    /* Puedes añadir más colores aquí según necesites */
+    /* Colores para tipos de clase dinámicos */
+    --class-type-color-1: #3633ff5b;
+    --class-type-color-2: #c9ff3354;
+    --class-type-color-3: #5833ff60;
+    --class-type-color-4: #ff33c959;
+    --class-type-color-5: #33c9ff62;
+    --class-type-color-6: #ffc9336b;
+    --class-type-color-7: #a52a2a65;
+    --class-type-color-8: #00808062;
+    --class-type-color-9: #daa5206c;
+    --class-type-color-10: #ff634771;
 }
 
 /* Estilos generales del layout del Dashboard */
 .dashboard-layout {
     display: flex;
-    min-height: 100vh; /* Altura mínima de la ventana */
-    font-family: 'Bebas Neue', sans-serif; /* Fuente consistente */
-    letter-spacing: 1px;
-    background-color: var(--background-light); /* Fondo general claro */
-    color: var(--text-color-dark); /* Color de texto por defecto */
+    min-height: 100vh;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 2px;
+    background-color: var(--background-light);
+    color: var(--text-color-dark);
 }
 
 /* Sidebar de navegación */
 .dashboard-sidebar {
     width: 250px;
-    background-color: var(--primary-color); /* Fondo violeta oscuro */
-    color: var(--text-color-light); /* Texto claro */
+    background-color: var(--primary-color);
+    color: var(--text-color-light);
     padding: 20px;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    border-top-right-radius: 15px; /* Bordes redondeados */
+    border-top-right-radius: 15px;
     border-bottom-right-radius: 15px;
 }
 
@@ -76,35 +74,36 @@
 .sidebar-menu {
     list-style: none;
     padding: 0;
-    flex-grow: 1; /* Permite que el menú ocupe el espacio disponible */
+    flex-grow: 1;
 }
 
 .sidebar-menu li {
     padding: 12px 15px;
     margin-bottom: 10px;
     cursor: pointer;
-    border-radius: 8px; /* Bordes redondeados para items del menú */
+    border-radius: 8px;
     transition: background-color 0.3s ease, transform 0.2s ease;
     display: flex;
     align-items: center;
     gap: 10px;
+    font-size: 1.2rem;
 }
 
 .sidebar-menu li:hover {
-    background-color: var(--secondary-color); /* Tono de violeta más claro al pasar el mouse */
-    transform: translateX(5px); /* Pequeño desplazamiento al pasar el mouse */
+    background-color: var(--secondary-color);
+    transform: translateX(5px);
 }
 
 .sidebar-menu li.active {
-    background-color: var(--secondary-color); /* Fondo para el elemento activo */
+    background-color: var(--secondary-color);
     font-weight: bold;
-    box-shadow: inset 3px 0 0 var(--accent-color); /* Borde lateral resaltado */
+    box-shadow: inset 3px 0 0 var(--accent-color);
 }
 
 .sidebar-logout {
-    margin-top: auto; /* Empuja el botón de logout hacia abajo */
+    margin-top: auto;
     width: 100%;
-    background-color: var(--danger-color); /* Rojo para cerrar sesión */
+    background-color: var(--danger-color);
     color: var(--text-color-light);
     border: none;
     padding: 10px 15px;
@@ -114,7 +113,7 @@
 }
 
 .sidebar-logout:hover {
-    background-color: #cc0000; /* Tono más oscuro de rojo */
+    background-color: #cc0000;
     transform: translateY(-2px);
 }
 
@@ -125,7 +124,7 @@
 }
 
 .dashboard-header {
-    background-color: #ffffff; /* Fondo blanco para el encabezado */
+    background-color: #ffffff;
     padding: 20px 30px;
     margin-bottom: 20px;
     border-radius: 15px;
@@ -137,7 +136,7 @@
 
 .dashboard-header h2 {
     font-size: 2em;
-    color: var(--primary-color); /* Título del encabezado en violeta */
+    color: var(--primary-color);
     margin: 0;
 }
 
@@ -161,7 +160,7 @@
     font-size: 1.8em;
     color: var(--primary-color);
     margin-bottom: 25px;
-    border-bottom: 2px solid var(--accent-color); /* Subrayado en violeta */
+    border-bottom: 2px solid var(--accent-color);
     padding-bottom: 10px;
 }
 
@@ -173,7 +172,7 @@
     cursor: pointer;
     font-weight: bold;
     transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    margin-right: 10px; /* Espaciado entre botones */
+    margin-right: 10px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -181,75 +180,21 @@
     margin-right: 0;
 }
 
-.btn.primary {
-    background-color: var(--accent-color); /* Violeta para acciones primarias */
-    color: var(--text-color-light);
-}
-
-.btn.primary:hover {
-    background-color: #7b4edc; /* Tono más oscuro de violeta */
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.success {
-    background-color: var(--success-color); /* Verde para éxito */
-    color: var(--text-color-light);
-}
-
-.btn.success:hover {
-    background-color: #218838;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.danger {
-    background-color: var(--danger-color); /* Rojo para peligro/eliminar */
-    color: var(--text-color-light);
-}
-
-.btn.danger:hover {
-    background-color: #c82333;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.info {
-    background-color: var(--info-color); /* Azul para información */
-    color: var(--text-color-light);
-}
-
-.btn.info:hover {
-    background-color: #138496;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.warning {
-    background-color: var(--warning-color); /* Amarillo para advertencia */
-    color: var(--text-color-dark); /* Texto oscuro para contraste */
-}
-
-.btn.warning:hover {
-    background-color: #e0a800;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.accent {
-    background-color: #ff6f61; /* Naranja rojizo, para suscripciones */
-    color: var(--text-color-light);
-}
-.btn.accent:hover {
-    background-color: #e65c50;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn.btn-sm {
-    padding: 6px 12px;
-    font-size: 0.85em;
-}
+.btn.primary { background-color: var(--accent-color); color: var(--text-color-light); }
+.btn.primary:hover { background-color: #7b4edc; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.primary1 { background-color: var(--add-class-color); color: var(--text-color-light); }
+.btn.primary1:hover { background-color: #035000; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.success { background-color: var(--success-color); color: var(--text-color-light); }
+.btn.success:hover { background-color: #218838; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.danger { background-color: var(--danger-color); color: var(--text-color-light); }
+.btn.danger:hover { background-color: #c82333; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.info { background-color: var(--info-color); color: var(--text-color-light); }
+.btn.info:hover { background-color: #138496; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.warning { background-color: var(--warning-color); color: var(--text-color-dark); }
+.btn.warning:hover { background-color: #e0a800; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.accent { background-color: #ff6f61; color: var(--text-color-light); }
+.btn.accent:hover { background-color: #e65c50; transform: translateY(-2px); box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); }
+.btn.btn-sm { padding: 6px 12px; font-size: 0.85em; }
 
 /* Estilos de formularios */
 .form-card {
@@ -265,6 +210,7 @@
 .form-card h4 {
     font-size: 1.5em;
     color: var(--primary-color);
+    margin-top: 0;
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--border-color);
@@ -273,6 +219,7 @@
 .form-card label {
     display: block;
     margin-bottom: 8px;
+    margin-top: 10px;
     font-weight: bold;
     color: var(--text-color-dark);
 }
@@ -290,7 +237,7 @@
     margin-bottom: 15px;
     border: 1px solid #ddd;
     border-radius: 8px;
-    box-sizing: border-box; /* Incluye padding y border en el ancho total */
+    box-sizing: border-box;
     font-size: 1em;
 }
 
@@ -300,12 +247,17 @@
 }
 
 .form-card select {
-    appearance: none; /* Elimina estilos por defecto del sistema */
+    appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236a0dad'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 16px;
     padding-right: 30px;
+}
+
+.form-card select[multiple] {
+    background-image: none;
+    min-height: 100px;
 }
 
 .form-card button[type="submit"] {
@@ -315,7 +267,7 @@
 
 /* Estilos de tablas */
 .table-responsive {
-    overflow-x: auto; /* Permite scroll horizontal en tablas grandes */
+    overflow-x: auto;
     margin-top: 20px;
 }
 
@@ -325,7 +277,7 @@
     margin-top: 20px;
     background-color: #ffffff;
     border-radius: 8px;
-    overflow: hidden; /* Asegura que los bordes redondeados se apliquen */
+    overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
@@ -347,27 +299,6 @@
 .data-table tbody tr:hover {
     background-color: #f9f9f9;
 }
-
-.data-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-/* Regla para aplicar color de fondo a filas de tabla según el tipo de clase */
-/* Usamos una variable CSS personalizada para el color de fondo de la fila */
-.data-table tbody tr[data-class-type-color] {
-    transition: background-color 0.3s ease;
-}
-
-.data-table tbody tr[data-class-type-color] {
-    background-color: var(--row-bg-color, #ffffff); /* Fallback a blanco si no se define --row-bg-color */
-}
-
-/* Asegura que el hover siga funcionando */
-.data-table tbody tr[data-class-type-color]:hover {
-    filter: brightness(0.95); /* Oscurece ligeramente el color de fondo al pasar el mouse */
-    background-color: var(--row-bg-color-hover, #f9f9f9); /* Define un color de hover para override si es necesario */
-}
-
 
 /* Estilos para el modal */
 .modal-overlay {
@@ -394,147 +325,93 @@
     animation: fadeInScale 0.3s ease-out;
 }
 
-.modal-content h4 {
-    font-size: 1.8em;
-    color: var(--primary-color);
-    margin-bottom: 20px;
-}
-
-.modal-content p {
-    font-size: 1.1em;
-    color: var(--text-color-dark);
-    margin-bottom: 25px;
-}
-
-.modal-content .btn {
-    margin: 0 8px;
-}
-
-/* Animación de entrada del modal */
-@keyframes fadeInScale {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* Estilos específicos de Metrics Dashboard */
-.metrics-section {
-    padding: 20px;
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    margin-top: 30px; /* Espaciado con secciones anteriores */
-}
-
-.metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
     margin-top: 20px;
 }
 
-.metric-card {
-    background-color: #fdfdff;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+/* Estilos para el modal de gestión de plan */
+.plan-section {
+  border: 1px solid #e0e0e0;
+  padding: 1rem 1.5rem 1.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.plan-section legend {
+  font-weight: bold;
+  font-size: 1.1em;
+  padding: 0 0.5em;
+  margin-left: 1em;
+  color: var(--primary-color);
+}
+
+.subscription-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.subscription-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #fff;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  border: 1px solid #ddd;
+}
+
+.subscription-item span {
+  font-weight: 500;
+}
+
+.add-plan-form {
+  margin-top: 0;
+}
+
+.subscription-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.subscription-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.subscription-toggle label {
+  margin-bottom: 0;
+  font-weight: normal;
+}
+
+.auto-renew-section {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+}
+
+.no-data-message {
+    color: #888;
     text-align: center;
+    padding: 10px;
 }
 
-.metric-card.full-width {
-    grid-column: 1 / -1; /* Ocupa todo el ancho disponible */
+.danger-zone {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #ffcdd2;
+  text-align: center;
 }
 
-.metric-card h4 {
-    font-size: 1.4em;
-    color: var(--secondary-color);
-    margin-bottom: 15px;
-}
-
-/* Asegura que los contenedores de Recharts sean responsivos */
-.recharts-wrapper {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: 100%;
-}
-
-/* Estilos para el checkbox de días de la semana */
-.flex-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.flex-wrap label {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    background-color: #f0f0f0;
-    padding: 8px 12px;
-    border-radius: 6px;
-    transition: background-color 0.2s ease;
-}
-
-.flex-wrap label:hover {
-    background-color: #e0e0e0;
-}
-
-.flex-wrap input[type="checkbox"] {
-    margin-right: 8px;
-    width: 18px; /* Ajusta el tamaño del checkbox */
-    height: 18px;
-    appearance: none; /* Oculta el checkbox nativo */
-    border: 2px solid var(--accent-color);
-    border-radius: 4px;
-    position: relative;
-    cursor: pointer;
-}
-
-.flex-wrap input[type="checkbox"]:checked {
-    background-color: var(--accent-color);
-    border-color: var(--accent-color);
-}
-
-.flex-wrap input[type="checkbox"]:checked::after {
-    content: '✔';
-    color: white;
-    font-size: 12px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-/* Estilos para entradas de suscripción en ClientManagement */
-.subscription-entry-card {
-    background-color: #f7f7f7;
-    border: 1px solid #e9e9e9;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.subscription-entry-card h5 {
-    font-size: 1.2em;
-    color: var(--secondary-color);
-    margin-bottom: 15px;
-    padding-bottom: 5px;
-    border-bottom: 1px dashed #e0e0e0;
-}
-
-/* Badges de estado de clase */
+/* Badges de estado */
 .status-badge {
     padding: 4px 8px;
     border-radius: 5px;
@@ -544,109 +421,18 @@
     display: inline-block;
 }
 
-.status-activa {
-    background-color: var(--success-color);
-}
-
-.status-cancelada {
-    background-color: var(--danger-color);
-}
-
-.status-finalizada {
-    background-color: #6c757d; /* Gris para finalizada */
-}
+.status-activa { background-color: var(--success-color); }
+.status-cancelada { background-color: var(--danger-color); }
+.status-llena { background-color: var(--warning-color); color: var(--text-color-dark); }
 
 
-/* Media Queries para responsividad */
-@media (max-width: 768px) {
-    .dashboard-layout {
-        flex-direction: column;
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
     }
-
-    .dashboard-sidebar {
-        width: 100%;
-        border-radius: 0 0 15px 15px; /* Redondea solo la parte inferior */
-        padding: 15px;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap; /* Permite que los elementos de la barra lateral se envuelvan */
-    }
-
-    .sidebar-title {
-        margin-bottom: 0;
-        font-size: 1.5em;
-        width: auto; /* Permite que el título se ajuste */
-    }
-
-    .sidebar-user-info {
-        display: none; /* Oculta la info del usuario en móvil para ahorrar espacio */
-    }
-
-    .sidebar-menu {
-        flex-direction: row; /* Menú horizontal en móvil */
-        justify-content: center;
-        gap: 10px;
-        margin-top: 15px;
-        width: 100%;
-    }
-
-    .sidebar-menu li {
-        padding: 8px 12px;
-        margin-bottom: 0;
-        font-size: 0.9em;
-    }
-
-    .sidebar-logout {
-        margin-top: 15px;
-        width: 100%;
-    }
-
-    .dashboard-main-content {
-        padding: 15px;
-    }
-
-    .dashboard-header {
-        padding: 15px 20px;
-        border-radius: 10px;
-    }
-
-    .dashboard-header h2 {
-        font-size: 1.5em;
-    }
-
-    .dashboard-content-area {
-        padding: 20px;
-        border-radius: 10px;
-    }
-
-    .dashboard-section {
-        padding: 15px;
-        border-radius: 10px;
-    }
-
-    .dashboard-section h3 {
-        font-size: 1.5em;
-        margin-bottom: 15px;
-    }
-
-    .form-card {
-        padding: 20px;
-        border-radius: 10px;
-    }
-
-    .form-card h4 {
-        font-size: 1.3em;
-        margin-bottom: 15px;
-    }
-
-    .data-table th,
-    .data-table td {
-        padding: 10px;
-        font-size: 0.9em;
-    }
-
-    .metrics-grid {
-        grid-template-columns: 1fr; /* Una columna en pantallas pequeñas */
+    to {
+        opacity: 1;
+        transform: scale(1);
     }
 }

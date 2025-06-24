@@ -785,6 +785,91 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     res.json({ message: 'Clases extendidas exitosamente.', creadas: createdCount });
 });
 
+// @desc    Cancelar todas las clases de una fecha específica
+// @route   POST /api/classes/cancel-day
+// @access  Private/Admin
+const cancelClassesByDate = asyncHandler(async (req, res) => {
+    const { date } = req.body; // Se espera una fecha en formato 'YYYY-MM-DD'
+    const Clase = getClassModel(req.gymDBConnection);
+    const Notification = getNotificationModel(req.gymDBConnection);
+
+    if (!date) {
+        res.status(400);
+        throw new Error('Se requiere una fecha para cancelar las clases.');
+    }
+
+    const startOfDay = new Date(`${date}T00:00:00.000Z`);
+    const endOfDay = new Date(`${date}T23:59:59.999Z`);
+
+    // 1. Encontrar todas las clases activas para ese día
+    const classesToCancel = await Clase.find({
+        fecha: { $gte: startOfDay, $lte: endOfDay },
+        estado: 'activa'
+    });
+
+    if (classesToCancel.length === 0) {
+        return res.status(404).json({ message: 'No se encontraron clases activas para cancelar en esa fecha.' });
+    }
+
+    const classIdsToCancel = classesToCancel.map(c => c._id);
+    let usersToNotify = [];
+
+    // 2. Recolectar todos los usuarios inscritos
+    classesToCancel.forEach(c => {
+        usersToNotify.push(...c.usuariosInscritos);
+    });
+    const uniqueUsers = [...new Set(usersToNotify.map(u => u.toString()))];
+
+    // 3. Crear notificaciones para los usuarios afectados
+    if (uniqueUsers.length > 0) {
+        const notificationPromises = uniqueUsers.map(userId => {
+            return Notification.create({
+                user: userId,
+                message: `Atención: Las clases del día ${startOfDay.toLocaleDateString('es-AR')} han sido canceladas. Si estabas inscrito, por favor busca un nuevo horario.`
+            });
+        });
+        await Promise.all(notificationPromises);
+    }
+    
+    // 4. Actualizar el estado de las clases a 'cancelada'
+    const updateResult = await Clase.updateMany(
+        { _id: { $in: classIdsToCancel } },
+        { $set: { estado: 'cancelada' } }
+    );
+
+    res.status(200).json({ 
+        message: `Se cancelaron ${updateResult.modifiedCount} clases y se notificó a ${uniqueUsers.length} usuarios.` 
+    });
+});
+
+// @desc    Reactivar todas las clases de una fecha específica
+// @route   POST /api/classes/reactivate-day
+// @access  Private/Admin
+const reactivateClassesByDate = asyncHandler(async (req, res) => {
+    const { date } = req.body;
+    const Clase = getClassModel(req.gymDBConnection);
+    
+    if (!date) {
+        res.status(400);
+        throw new Error('Se requiere una fecha para reactivar las clases.');
+    }
+    
+    const startOfDay = new Date(`${date}T00:00:00.000Z`);
+    const endOfDay = new Date(`${date}T23:59:59.999Z`);
+
+    const result = await Clase.updateMany(
+        { fecha: { $gte: startOfDay, $lte: endOfDay }, estado: 'cancelada' },
+        { $set: { estado: 'activa' } }
+    );
+
+    if (result.modifiedCount === 0) {
+        return res.status(404).json({ message: 'No se encontraron clases canceladas para reactivar en esa fecha.' });
+    }
+    
+    res.status(200).json({ message: `Se reactivaron ${result.modifiedCount} clases.` });
+});
+
+
 export {
     createClass,
     getAllClasses,
@@ -800,4 +885,6 @@ export {
     bulkDeleteClasses,
     getGroupedClasses,
     bulkExtendClasses,
+    cancelClassesByDate,
+    reactivateClassesByDate,
 };

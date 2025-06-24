@@ -1,14 +1,10 @@
 // src/components/dashboard/ClassManagement.jsx
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '../../services/api'; 
 import authService from '../../services/authService';
 import ClassCalendar from '../common/ClassCalendar'; 
 import Notification from '../common/Notification';
 import ConfirmationModal from '../common/ConfirmationModal';
-
-// URL base de tu backend de la app del gimnasio
-const GYM_APP_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'; 
-
 
 // Array de colores para asignar a los tipos de clase en el calendario y lista.
 // Estos corresponden a las variables CSS --class-type-color-X definidas en Dashboard.css
@@ -74,6 +70,8 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     const [showReactivateModal, setShowReactivateModal] = useState(false); // Nuevo estado para modal de reactivar
     const [classToReactivate, setClassToReactivate] = useState(null); // Nuevo estado para clase a reactivar
 
+    const [dayToManage, setDayToManage] = useState('');
+
     const daysOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
      const showNotification = (message, type = 'success', duration = 4000) => {
@@ -99,11 +97,8 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
 
     const fetchClasses = async () => {
         try {
-            console.log('[ClassManagement] Fetching classes...');
-            const response = await axios.get(`${GYM_APP_API_BASE_URL}/classes`, { headers: authService.getAuthHeaders() });
+            const response = await apiClient.get('/classes');
             setClasses(response.data);
-            console.log('[ClassManagement] Classes fetched successfully. IDs received:', response.data.map(c => c._id));
-            console.log('[ClassManagement] Detalles de las clases recibidas:', response.data);
 
         } catch (error) {
             console.error('[ClassManagement] Error al obtener clases:', error.response?.data?.message || error.message);
@@ -113,11 +108,9 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
 
     const fetchTeachers = async () => {
         try {
-            console.log('[ClassManagement] Fetching teachers...');
-            const response = await axios.get(`${GYM_APP_API_BASE_URL}/users?role=profesor`, { headers: authService.getAuthHeaders() });
+            const response = await apiClient.get('/users?role=profesor');
             if (Array.isArray(response.data)) {
-                setTeachers(response.data);
-                console.log('[ClassManagement] Teachers fetched successfully:', response.data.length);
+                setTeachers(response.data)
             } else {
                 console.error('[ClassManagement] API for teachers returned non-array data:', response.data);
                 setTeachers([]); 
@@ -130,7 +123,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
 
     const fetchGroupedClasses = async () => {
         try {
-            const response = await axios.get(`${GYM_APP_API_BASE_URL}/classes/grouped`, { headers: authService.getAuthHeaders() });
+             const response = await apiClient.get('/classes/grouped');
             setGroupedClasses(response.data);
         } catch (error) {
             console.error('Error al obtener clases agrupadas:', error.response?.data?.message || error.message);
@@ -168,7 +161,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
         const payload = { ...formData };
         if (!payload.profesor) delete payload.profesor;
         try {
-            await axios.post(`${GYM_APP_API_BASE_URL}/classes`, payload, { headers: authService.getAuthHeaders() });
+             await apiClient.post('/classes', payload);
             showNotification('Clase/s creada/s exitosamente.', 'success');
             setShowForm(false);
             setFormData({ /* ...reset... */ });
@@ -223,7 +216,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
             delete payload.diaDeSemana;
         }
         try {
-            await axios.put(`${GYM_APP_API_BASE_URL}/classes/${editingClass._id}`, payload, { headers: authService.getAuthHeaders() });
+            await apiClient.put(`/classes/${editingClass._id}`, payload);
             setShowForm(false);
             setEditingClass(null);
             setFormData({ 
@@ -248,8 +241,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
         if (!classToCancel) return;
 
         try {
-            const url = `${GYM_APP_API_BASE_URL}/classes/${classToCancel._id}/cancel`;
-            await axios.put(url, { refundCredits }, { headers: authService.getAuthHeaders() });
+             await apiClient.put(`/classes/${classToCancel._id}/cancel`, { refundCredits });
             setShowCancelModal(false);
             setClassToCancel(null);
             fetchClasses(); 
@@ -266,8 +258,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     const confirmReactivateClass = async () => {
         if (!classToReactivate) return;
         try {
-            const url = `${GYM_APP_API_BASE_URL}/classes/${classToReactivate._id}/reactivate`;
-            await axios.put(url, {}, { headers: authService.getAuthHeaders() });
+           await apiClient.put(`/classes/${classToReactivate._id}/reactivate`, {});
             setShowReactivateModal(false);
             setClassToReactivate(null);
             fetchClasses(); // Refetch classes to update the calendar
@@ -279,7 +270,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     const handleDelete = (classId) => {
         askConfirmation('¿Seguro que quieres eliminar esta clase permanentemente?', async () => {
             try {
-                await axios.delete(`${GYM_APP_API_BASE_URL}/classes/${classId}`, { headers: authService.getAuthHeaders() });
+                await apiClient.delete(`/classes/${classId}`);
                 showNotification('Clase eliminada.', 'success');
                 fetchClasses();
             } catch (error) {
@@ -293,6 +284,11 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
         setBulkUpdates({ profesor: '', horaInicio: group.horaInicio, horaFin: group.horaFin, diasDeSemana: [...group.diasDeSemana] });
         setShowBulkEditModal(true);
     };
+    const handleOpenExtendModal = (group) => {
+    setExtendingGroup(group); 
+    setShowExtendModal(true);  
+    setExtendUntilDate('');  
+};
 
      const handleBulkUpdateChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -331,7 +327,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
 
     askConfirmation('¿Actualizar todas las instancias futuras de este grupo?', async () => {
             try {
-                const response = await axios.put(`${GYM_APP_API_BASE_URL}/classes/bulk-update`, { filters, updates }, { headers: authService.getAuthHeaders() });
+                const response = await apiClient.put('/classes/bulk-update', { filters, updates });
                 showNotification(response.data.message, 'success');
                 setShowBulkEditModal(false);
                 fetchClasses();
@@ -351,7 +347,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     };
         askConfirmation(`¡CUIDADO! Se eliminarán ${group.cantidadDeInstancias} clases. ¿Continuar?`, async () => {
             try {
-                const response = await axios.post(`${GYM_APP_API_BASE_URL}/classes/bulk-delete`, { filters }, { headers: authService.getAuthHeaders() });
+                const response = await apiClient.post('/classes/bulk-delete', { filters });
                 showNotification(response.data.message, 'success');
                 fetchClasses();
                 fetchGroupedClasses();
@@ -376,7 +372,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
 
         askConfirmation('¿Confirmas la extensión de estas clases?', async () => {
             try {
-                const response = await axios.post(`${GYM_APP_API_BASE_URL}/classes/bulk-extend`, { filters, extension }, { headers: authService.getAuthHeaders() });
+                const response = await apiClient.post('/classes/bulk-extend', { filters, extension });
                 showNotification(response.data.message, 'success');
                 setShowExtendModal(false);
                 fetchClasses();
@@ -386,17 +382,55 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
             }
         });
     };
+    const handleCancelDay = () => {
+        if (!dayToManage) {
+            showNotification('Por favor, selecciona una fecha primero.', 'error');
+            return;
+        }
+        askConfirmation(
+            `¿Seguro que quieres cancelar TODAS las clases del día ${dayToManage}? Se notificará a todos los socios inscritos.`,
+            async () => {
+                try {
+                    const response = await apiClient.post('/classes/cancel-day', { date: dayToManage });
+                    showNotification(response.data.message, 'success');
+                    fetchClasses(); // Actualizamos la lista de clases
+                } catch (error) {
+                    showNotification(error.response?.data?.message || 'Error al cancelar el día.', 'error');
+                }
+            }
+        );
+    };
 
+    const handleReactivateDay = () => {
+        if (!dayToManage) {
+            showNotification('Por favor, selecciona una fecha primero.', 'error');
+            return;
+        }
+        askConfirmation(
+            `¿Seguro que quieres reactivar TODAS las clases canceladas del día ${dayToManage}?`,
+            async () => {
+                try {
+                    const response = await apiClient.post('/classes/reactivate-day', { date: dayToManage });
+                    showNotification(response.data.message, 'success');
+                    fetchClasses(); // Actualizamos la lista de clases
+                } catch (error) {
+                    showNotification(error.response?.data?.message || 'Error al reactivar el día.', 'error');
+                }
+            }
+        );
+    };
     
 
     return (
         <div className="dashboard-section">
              <button onClick={() => setActiveTab('calendar')} className={`btn ${activeTab === 'calendar' ? 'primary' : 'secondary'}`}>Ver Calendario</button>
-            <button onClick={() => setActiveTab('bulk')} className={`btn ${activeTab === 'bulk' ? 'primary' : 'secondary'}`}>Gestionar en Lote</button>
+            <button onClick={() => setActiveTab('bulk')} className={`btn ${activeTab === 'bulk' ? 'primary' : 'secondary'}`}>Gestionar Clases Fijas</button>
+            <button onClick={() => setActiveTab('day-management')} className={`btn ${activeTab === 'day-management' ? 'primary' : 'secondary'}`}>Cancelar Día</button>
+           
             {activeTab === 'calendar' && (
                 <>
-                    <button onClick={() => { setShowForm(!showForm); setEditingClass(null); }} className="btn primary">
-                        {showForm ? 'Cancelar' : 'Añadir Nueva Clase'}
+                    <button onClick={() => { setShowForm(!showForm); setEditingClass(null); }} className="btn primary1">
+                        {showForm ? 'Cancelar' : 'Añadir Nuevas Clases'}
                     </button>
                     {showForm && (
                         <form onSubmit={editingClass ? handleUpdateSubmit : handleAddSubmit} className="form-card">
@@ -481,6 +515,23 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
                             )}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {activeTab === 'day-management' && (
+                <div className="day-management-section">
+                    <h4>Gestión por Día Completo</h4>
+                    <p>Selecciona una fecha para cancelar o reactivar todas sus clases por un evento especial o feriado.</p>
+                    <div className="day-management-controls">
+                        <input 
+                            type="date" 
+                            value={dayToManage}
+                            onChange={(e) => setDayToManage(e.target.value)}
+                            className="form-input"
+                        />
+                        <button onClick={handleCancelDay} className="btn danger">Cancelar Día</button>
+                        <button onClick={handleReactivateDay} className="btn primary1">Reactivar Día</button>
+                    </div>
                 </div>
             )}
             

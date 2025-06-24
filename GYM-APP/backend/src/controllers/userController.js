@@ -229,62 +229,6 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 });
 
 
-// @desc    Actualizar créditos de un usuario (Admin)
-// @route   PUT /api/users/:id/credits
-// @access  Admin
-const updateUserCredits = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const { tipoClaseId, cantidad } = req.body;
-    const userId = req.params.id; 
-
-    if (!tipoClaseId || typeof cantidad !== 'number' || cantidad <= 0) {
-        res.status(400);
-        throw new Error('Se requiere un ID de tipo de clase válido y una cantidad positiva de créditos.');
-    }
-
-    const user = await User.findById(userId);
-
-    if (user) {
-        if (!user.creditosPorTipo || !(user.creditosPorTipo instanceof Map)) {
-            user.creditosPorTipo = new Map();
-        }
-
-        const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-        user.creditosPorTipo.set(tipoClaseId, currentCredits + cantidad);
-
-        const updatedUser = await user.save();
-
-        res.json({
-            _id: updatedUser._id,
-            nombre: updatedUser.nombre,
-            apellido: updatedUser.apellido,
-            email: updatedUser.email,
-            roles: updatedUser.roles,
-            creditosPorTipo: Object.fromEntries(updatedUser.creditosPorTipo || new Map()),
-            clasesInscritas: updatedUser.clasesInscritas,
-            telefonoEmergencia: updatedUser.telefonoEmergencia,
-            dni: updatedUser.dni,
-            fechaNacimiento: updatedUser.fechaNacimiento,
-            sexo: updatedUser.sexo,
-            edad: calculateAge(updatedUser.fechaNacimiento),
-            direccion: updatedUser.direccion, 
-            numeroTelefono: updatedUser.numeroTelefono,
-            obraSocial: updatedUser.obraSocial,
-            planesFijos: Object.fromEntries(updatedUser.planesFijos || new Map()), 
-            monthlySubscriptions: updatedUser.monthlySubscriptions.map(sub => ({ 
-                _id: sub._id,
-                tipoClase: sub.tipoClase, 
-                status: sub.status,
-                autoRenewAmount: sub.autoRenewAmount,
-                lastRenewalDate: sub.lastRenewalDate,
-            })),
-        });
-    } else {
-        res.status(404);
-        throw new Error('Usuario no encontrado.');
-    }
-});
-
 
 // @desc    Eliminar un usuario (Admin)
 // @route   DELETE /api/users/:id
@@ -302,98 +246,104 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Administrar la suscripción mensual de un usuario (para Admin)
-// @route   PUT /api/users/:id/subscription
-// @access  Admin
-const manageUserSubscription = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
-    const userId = req.params.id;
-    
-    // MODIFICACIÓN CLAVE: Espera un array llamado 'monthlySubscriptions'
-    const { monthlySubscriptions } = req.body; 
 
-    // 1. Validar que lo recibido es un array
-    if (!Array.isArray(monthlySubscriptions)) {
-        res.status(400);
-        throw new Error('Formato de suscripciones inválido. Se esperaba un array de suscripciones.');
+const updateUserPlan = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const { tipoClaseId, creditsToAdd, isSubscription, autoRenewAmount } = req.body;
+    const userId = req.params.id;
+
+    if (!tipoClaseId) {
+        return res.status(400).send('Se requiere un tipo de clase.');
     }
 
     const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).send('Usuario no encontrado.');
+    }
+
+    // --- LÓGICA MEJORADA PARA SUMAR Y RESTAR ---
+    if (creditsToAdd !== 0) {
+        const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
+        const newTotal = currentCredits + Number(creditsToAdd);
+
+        if (newTotal < 0) {
+            // Impedimos que el saldo sea negativo
+            return res.status(400).json({ message: 'La operación no puede resultar en un saldo de créditos negativo.' });
+        }
+        user.creditosPorTipo.set(tipoClaseId, newTotal);
+    }
+    // 2. Gestionar la suscripción (esta lógica no cambia)
+    const subscriptionIndex = user.monthlySubscriptions.findIndex(sub => sub.tipoClase.toString() === tipoClaseId);
+
+    if (isSubscription) {
+        const newSubscriptionData = {
+            tipoClase: tipoClaseId,
+            status: 'automatica',
+            autoRenewAmount: autoRenewAmount || 8,
+            lastRenewalDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].lastRenewalDate : null // Mantiene la fecha si ya existía
+        };
+        if (subscriptionIndex > -1) {
+            user.monthlySubscriptions[subscriptionIndex] = newSubscriptionData;
+        } else {
+            user.monthlySubscriptions.push(newSubscriptionData);
+        }
+    } else {
+        if (subscriptionIndex > -1) {
+            user.monthlySubscriptions.splice(subscriptionIndex, 1);
+        }
+    }
+
+    const updatedUser = await user.save();
+    // Populamos la info para devolverla completa al frontend
+    await updatedUser.populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' });
+    res.json(updatedUser);
+});
+
+const clearUserCredits = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+        // Resetea el mapa de créditos a un mapa vacío
+        user.creditosPorTipo = new Map();
+        
+        const updatedUser = await user.save();
+        res.json({
+            message: 'Todos los créditos del usuario han sido eliminados.',
+            creditosPorTipo: Object.fromEntries(updatedUser.creditosPorTipo)
+        });
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+});
+
+const removeUserSubscription = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const { userId, tipoClaseId } = req.params;
+
+    const user = await User.findById(userId);
+
     if (!user) {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
 
-    // 2. Validar cada entrada en el array recibido
-    // Crear un nuevo array para las suscripciones válidas
-    const newMonthlySubscriptions = [];
-    for (const sub of monthlySubscriptions) {
-        // Validaciones básicas para cada objeto de suscripción
-        if (!sub.tipoClaseId || !['manual', 'automatica'].includes(sub.status)) {
-            res.status(400);
-            throw new Error('Cada suscripción requiere un ID de tipo de clase y un estado válido ("manual" o "automatic").');
-        }
+    // Buscamos el índice de la suscripción a eliminar
+    const subscriptionIndex = user.monthlySubscriptions.findIndex(
+        sub => sub.tipoClase.toString() === tipoClaseId
+    );
 
-        if (sub.status === 'automatica' && (typeof sub.autoRenewAmount !== 'number' || sub.autoRenewAmount <= 0)) {
-            res.status(400);
-            throw new Error('Para suscripciones automáticas, "autoRenewAmount" debe ser un número positivo.');
-        }
-
-        // Opcional: Verificar si el tipo de clase existe en la base de datos
-        const tipoClaseExists = await TipoClase.findById(sub.tipoClaseId);
-        if (!tipoClaseExists) {
-            res.status(404);
-            throw new Error(`Tipo de clase con ID ${sub.tipoClaseId} no encontrado.`);
-        }
-
-        // Construir el objeto de suscripción para guardar en la base de datos
-        // Asegúrate de usar mongoose.Types.ObjectId para referenciar
-        newMonthlySubscriptions.push({
-            // Si tu frontend envía un _id para suscripciones existentes, puedes mantenerlo
-            // _id: sub._id ? new mongoose.Types.ObjectId(sub._id) : new mongoose.Types.ObjectId(),
-            tipoClase: new mongoose.Types.ObjectId(sub.tipoClaseId), // Asegúrate que tu modelo User acepte esto
-            status: sub.status,
-            autoRenewAmount: sub.status === 'automatica' ? sub.autoRenewAmount : 0,
-            // lastRenewalDate: sub.lastRenewalDate || undefined, // Decide si quieres mantenerlo si no lo envían
-        });
+    if (subscriptionIndex === -1) {
+        res.status(404);
+        throw new Error('El usuario no tiene una suscripción activa para este tipo de clase.');
     }
 
-    // 3. Reemplazar completamente el array de suscripciones del usuario
-    user.monthlySubscriptions = newMonthlySubscriptions;
+    // Eliminamos la suscripción del array
+    user.monthlySubscriptions.splice(subscriptionIndex, 1);
 
-    const updatedUser = await user.save();
-
-    // Opcional: Popular el tipoClase para la respuesta si es necesario
-    await updatedUser.populate({ path: 'monthlySubscriptions.tipoClase', model: TipoClase, select: 'nombre' });
-
-    res.json({
-        message: 'Suscripciones actualizadas exitosamente.',
-        _id: updatedUser._id,
-        nombre: updatedUser.nombre,
-        apellido: updatedUser.apellido,
-        email: updatedUser.email,
-        roles: updatedUser.roles,
-        creditosPorTipo: Object.fromEntries(updatedUser.creditosPorTipo || new Map()),
-        clasesInscritas: updatedUser.clasesInscritas,
-        telefonoEmergencia: updatedUser.telefonoEmergencia,
-        dni: updatedUser.dni,
-        fechaNacimiento: updatedUser.fechaNacimiento,
-        sexo: updatedUser.sexo,
-        edad: calculateAge(updatedUser.fechaNacimiento),
-        direccion: updatedUser.direccion,
-        numeroTelefono: updatedUser.numeroTelefono,
-        obraSocial: updatedUser.obraSocial,
-        planesFijos: Object.fromEntries(updatedUser.planesFijos || new Map()),
-        // Asegúrate de que el array de suscripciones devuelto sea el que se acaba de guardar
-        monthlySubscriptions: updatedUser.monthlySubscriptions.map(sub => ({
-            _id: sub._id,
-            tipoClase: sub.tipoClase, // Ya viene populado si se hizo await updatedUser.populate
-            status: sub.status,
-            autoRenewAmount: sub.autoRenewAmount,
-            lastRenewalDate: sub.lastRenewalDate,
-        })),
-    });
+    await user.save();
+    res.json({ message: 'Suscripción eliminada exitosamente.' });
 });
 
 // @desc    Función lógica para enviar notificaciones de pago mensual (sería llamada por un cron job)
@@ -442,6 +392,7 @@ const getUserMetrics = asyncHandler(async (req, res) => {
 
     // 1. Distribución por Sexo (sin cambios, ya estaba bien)
     const genderDistribution = await User.aggregate([
+        { $match: { roles: 'cliente' } },
         { $match: { sexo: { $in: ['Masculino', 'Femenino', 'Otro'] } } },
         { $group: { _id: '$sexo', count: { $sum: 1 } } },
         { $project: { name: '$_id', value: '$count', _id: 0 } }
@@ -449,7 +400,7 @@ const getUserMetrics = asyncHandler(async (req, res) => {
 
     // 2. Distribución por Edad (LÓGICA CORREGIDA Y MEJORADA)
     const ageDistribution = await User.aggregate([
-        { $match: { fechaNacimiento: { $exists: true, $ne: null } } },
+        { $match: {  roles: 'cliente', fechaNacimiento: { $exists: true, $ne: null } } },
         { 
             $addFields: {
                 age: {
@@ -491,6 +442,7 @@ const getUserMetrics = asyncHandler(async (req, res) => {
 
     // 3. Créditos totales por tipo de clase (sin cambios, ya estaba bien)
     const creditsPerClassType = await User.aggregate([
+        { $match: { roles: 'cliente' } },
         { $project: { creditosArray: { $objectToArray: "$creditosPorTipo" } } },
         { $unwind: "$creditosArray" },
         { $group: { _id: "$creditosArray.k", totalCredits: { $sum: "$creditosArray.v" } } },
@@ -504,7 +456,7 @@ const getUserMetrics = asyncHandler(async (req, res) => {
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
     const newClientsPerMonth = await User.aggregate([
-        { $match: { createdAt: { $gte: oneYearAgo } } },
+        { $match: { roles: 'cliente', createdAt: { $gte: oneYearAgo } } },
         { $group: {
             _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
             count: { $sum: 1 }
@@ -529,10 +481,11 @@ export {
     getAllUsers,
     getUserById,
     getMe,
-    updateUserCredits,
     deleteUser,
     updateUserProfileByAdmin,
-    manageUserSubscription, 
+    updateUserPlan, 
     triggerMonthlyPaymentNotifications, 
     getUserMetrics,
+    clearUserCredits,
+    removeUserSubscription,
 };
