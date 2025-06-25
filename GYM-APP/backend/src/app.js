@@ -21,7 +21,10 @@ const app = express();
 
 // Middlewares globales
 app.use(cors({
-    origin: 'http://localhost:5174',
+    origin: [
+        'http://localhost:5174', // Para tu frontend web del GYM-APP
+        'http://localhost:8081'  // Para tu app móvil en desarrollo
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'X-Api-Secret', 'X-Internal-Api-Key'],
     credentials: true
@@ -68,9 +71,6 @@ console.log('[Cron Job Setup] Programando tarea mensual...');
 // Programar tarea para que se ejecute todos los días a las 2 AM
 // Para probar más frecuentemente durante el desarrollo, cambia a '* * * * *' (cada minuto)
 cron.schedule('0 2 1 * *', async () => { 
-    console.log('[Cron Job] Ejecutando tarea mensual programada para generar clases futuras...');
-    console.log(`[Cron Job] ADMIN_PANEL_API_URL: ${ADMIN_PANEL_API_URL ? 'Configurada' : 'NO Configurada'}`);
-    console.log(`[Cron Job] INTERNAL_ADMIN_API_KEY: ${INTERNAL_ADMIN_API_KEY ? 'Configurada' : 'NO Configurada'}`);
 
     if (!ADMIN_PANEL_API_URL || !INTERNAL_ADMIN_API_KEY) {
         console.error('[Cron Job] Error: ADMIN_PANEL_API_URL o INTERNAL_ADMIN_API_KEY no están configuradas en .env. El cron job no se ejecutará completamente.');

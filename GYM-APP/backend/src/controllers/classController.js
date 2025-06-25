@@ -116,7 +116,7 @@ const getAllClasses = asyncHandler(async (req, res) => {
     const classes = await Class.find({})
         .populate({ path: 'tipoClase', model: TipoClase, select: 'nombre' }) 
         .populate({ path: 'profesor', model: User, select: 'nombre apellido' }) 
-        .populate({ path: 'usuariosInscritos', model: User, select: 'nombre apellido email' }); 
+        .populate({ path: 'usuariosInscritos', model: User, select: 'nombre apellido sexo fechaNacimiento' }); 
     res.json(classes);
 });
 

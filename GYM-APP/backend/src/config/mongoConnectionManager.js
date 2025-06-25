@@ -30,12 +30,7 @@ const connectToGymDB = async (clientId) => {
 
     const connectionString = data.connectionStringDB;
 
-    // --- CORRECCIÓN CLAVE AQUÍ ---
-    // Usamos opciones explícitas para crear la conexión y evitar errores de parsing
-    const gymDBConnection = await mongoose.createConnection(connectionString, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-    });
+    const gymDBConnection = await mongoose.createConnection(connectionString);
 
     console.log(`Conectado exitosamente a la base de datos del gimnasio: ${gymDBConnection.name}`);
     gymConnections[clientId] = gymDBConnection;
