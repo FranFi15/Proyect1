@@ -1,25 +1,26 @@
 // src/controllers/userController.js
 import getUserModel from '../models/User.js'; 
+import getClassModel from '../models/Clase.js';
 import getTipoClaseModel from '../models/TipoClase.js'; 
 import getNotificationModel from '../models/Notification.js'; 
 import asyncHandler from 'express-async-handler'; 
 import { calculateAge } from '../utils/ageUtils.js'; 
 import mongoose from 'mongoose';
 
-// @desc    Obtener todos los usuarios (socios, profesores, etc.)
-// @route   GET /api/users
-// @access  Admin
 const getAllUsers = asyncHandler(async (req, res) => {
     const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); 
+    const TipoClase = getTipoClaseModel(req.gymDBConnection);
     
-    const { role } = req.query; 
+    const { role } = req.query;
     let query = {};
     if (role) {
-        query.roles = role; 
+        query.roles = role;
     }
 
-    const users = await User.find(query).populate({ path: 'monthlySubscriptions.tipoClase', model: TipoClase, select: 'nombre' }); 
+    // 1. Nos aseguramos de que se popule tanto 'monthlySubscriptions' como 'planesFijos'
+    const users = await User.find(query)
+        .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
+        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
 
     const usersWithCalculatedAge = users.map(user => ({
         _id: user._id,
@@ -27,24 +28,19 @@ const getAllUsers = asyncHandler(async (req, res) => {
         apellido: user.apellido,
         email: user.email,
         roles: user.roles,
-        creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()), 
+        creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
         clasesInscritas: user.clasesInscritas,
         telefonoEmergencia: user.telefonoEmergencia,
         dni: user.dni,
         fechaNacimiento: user.fechaNacimiento,
         sexo: user.sexo,
         edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A',
-        direccion: user.direccion, 
+        direccion: user.direccion,
         numeroTelefono: user.numeroTelefono,
         obraSocial: user.obraSocial,
-        planesFijos: Object.fromEntries(user.planesFijos || new Map()), 
-        monthlySubscriptions: user.monthlySubscriptions.map(sub => ({
-            _id: sub._id, 
-            tipoClase: sub.tipoClase, 
-            status: sub.status,
-            autoRenewAmount: sub.autoRenewAmount,
-            lastRenewalDate: sub.lastRenewalDate,
-        })),
+        planesFijos: user.planesFijos || [],
+        monthlySubscriptions: user.monthlySubscriptions || [],
+        
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
     }));
@@ -477,6 +473,106 @@ const getUserMetrics = asyncHandler(async (req, res) => {
     });
 });
 
+const subscribeUserToPlan = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const Class = getClassModel(req.gymDBConnection);
+
+    // 1. AÑADIMOS 'horaInicio' A LOS DATOS RECIBIDOS
+    const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin } = req.body;
+    const userId = req.params.id;
+
+    // 2. VALIDACIÓN ACTUALIZADA
+    if (!tipoClaseId || !diasDeSemana || !fechaInicio || !fechaFin || !horaInicio) {
+        res.status(400);
+        throw new Error('Faltan datos: tipo de clase, días, rango de fechas y horario son requeridos.');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    // 3. BÚSQUEDA ACTUALIZADA para ser más específica
+    const classesToEnroll = await Class.find({
+        tipoClase: tipoClaseId,
+        diaDeSemana: { $in: diasDeSemana },
+        horaInicio: horaInicio, // <-- FILTRO CLAVE: Busca solo el horario exacto
+        fecha: {
+            $gte: new Date(`${fechaInicio}T00:00:00Z`),
+            $lte: new Date(`${fechaFin}T23:59:59Z`),
+        },
+        estado: 'activa'
+    });
+
+    if (classesToEnroll.length === 0) {
+        res.status(404);
+        throw new Error('No se encontraron clases que coincidan con los criterios exactos (días, fechas y horario).');
+    }
+
+    // El resto de la función se mantiene igual, ya que ahora solo procesará las clases del horario correcto.
+    let enrolledCount = 0;
+    for (const classInstance of classesToEnroll) {
+        if (!classInstance.usuariosInscritos.includes(userId) && classInstance.usuariosInscritos.length < classInstance.capacidad) {
+            classInstance.usuariosInscritos.push(userId);
+
+            if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
+                classInstance.estado = 'llena';
+            }
+            await classInstance.save();
+
+            if (!user.clasesInscritas.includes(classInstance._id)) {
+                user.clasesInscritas.push(classInstance._id);
+            }
+            enrolledCount++;
+        }
+    }
+
+    const planDefinition = {
+    tipoClase: tipoClaseId,
+    diasDeSemana,
+    horaInicio,
+    horaFin, 
+    fechaInicio: new Date(`${fechaInicio}T00:00:00Z`),
+    fechaFin: new Date(`${fechaFin}T23:59:59Z`),
+};
+
+user.planesFijos.push(planDefinition);
+await user.save(); // Este save ahora guarda también el plan fijo
+
+res.status(200).json({ // El resto se mantiene
+    message: `Inscripción masiva completada. El usuario fue añadido a ${enrolledCount} clases.`
+});
+});
+const removeFixedPlan = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const { userId, planId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    // --- LÓGICA A PRUEBA DE ERRORES ---
+    // 1. Verificamos si 'planesFijos' es un array.
+    if (Array.isArray(user.planesFijos)) {
+        // 2. Si es un array, usamos .filter() para crear uno nuevo sin el plan a eliminar.
+        //    Esto es más seguro que .pull() con datos potencialmente inconsistentes.
+        user.planesFijos = user.planesFijos.filter(
+            (plan) => plan._id.toString() !== planId
+        );
+    } else {
+        // 3. Si no es un array (es un dato antiguo), simplemente lo ignoramos o lo reseteamos.
+        //    De esta forma, la operación nunca falla.
+        console.warn(`El usuario ${userId} tenía un campo 'planesFijos' con formato incorrecto. Se ha ignorado.`);
+    }
+
+    await user.save();
+    res.status(200).json({ message: 'Plan de horario fijo eliminado.' });
+});
+
+
 export {
     getAllUsers,
     getUserById,
@@ -488,4 +584,6 @@ export {
     getUserMetrics,
     clearUserCredits,
     removeUserSubscription,
+    subscribeUserToPlan,
+    removeFixedPlan,
 };

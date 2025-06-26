@@ -16,6 +16,7 @@ import {
      bulkExtendClasses,
      cancelClassesByDate,
      reactivateClassesByDate,
+     getAvailableSlotsForPlan,
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -25,6 +26,7 @@ router.post('/cancel-day', protect, authorizeRoles('admin'), cancelClassesByDate
 router.post('/reactivate-day', protect, authorizeRoles('admin'), reactivateClassesByDate);
 
 router.get('/grouped', protect, authorizeRoles('admin'), getGroupedClasses);
+router.route('/available-slots').get(protect, authorizeRoles('admin'), getAvailableSlotsForPlan);
 router.post('/bulk-extend', protect, authorizeRoles('admin'), bulkExtendClasses); 
 router.put('/bulk-update', protect, authorizeRoles('admin'), bulkUpdateClasses);
 router.post('/bulk-delete', protect, authorizeRoles('admin'), bulkDeleteClasses);
@@ -45,5 +47,7 @@ router.post('/:id/unenroll', protect, unenrollUserFromClass);
 
 router.put('/:id/cancel', protect, authorizeRoles('admin', 'teacher'), cancelClassInstance);
 router.put('/:id/reactivate', protect, authorizeRoles('admin'), reactivateClass); 
+
+
 
 export default router;

@@ -5,11 +5,13 @@ import apiClient from '../../services/apiClient';
 import { useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MyClassesScreen = () => {
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' o 'past'
+    const [activeTab, setActiveTab] = useState('upcoming'); 
+    const { user, refreshUser } = useAuth();
 
     const fetchMyClasses = async () => {
         try {
@@ -39,19 +41,27 @@ const MyClassesScreen = () => {
         }, [])
     );
 
-    const handleUnenroll = async (classId) => {
+    const handleUnenroll = (classId) => {
         Alert.alert(
             "Confirmar Anulación",
-            "¿Estás seguro de que quieres anular tu inscripción en esta clase?",
+            "¿Estás seguro de que quieres anular tu inscripción?",
             [
                 { text: "Cancelar", style: "cancel" },
                 {
-                    text: "Sí, anular",
+                    text: "Sí, Anular",
                     onPress: async () => {
                         try {
-                            await apiClient.post(`/classes/${classId}/unenroll`);
-                            Alert.alert('Éxito', 'Inscripción anulada correctamente.');
-                            fetchMyClasses(); // Volver a cargar las clases
+                            const response = await apiClient.post(`/classes/${classId}/unenroll`);
+                            
+                            // CORRECCIÓN: Nos aseguramos de mostrar el mensaje (string) y no toda la respuesta.
+                            Alert.alert('Anulación Procesada', response.data.message);
+                            
+                            // Llamamos a refreshUser para actualizar el estado global del usuario
+                            await refreshUser();
+                            
+                            // Llamamos a fetchUserClasses para refrescar la lista de esta pantalla
+                            fetchMyClasses();
+
                         } catch (error) {
                             Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');
                         }

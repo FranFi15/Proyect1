@@ -74,11 +74,14 @@ const userSchema = mongoose.Schema({
         type: String,
         required: false, 
     },
-    planesFijos: {
-        type: Map,
-        of: [String], // Almacena un array de días de la semana para cada ID de clase fija
-        default: {},
-    },
+    planesFijos: [{
+        tipoClase: { type: mongoose.Schema.Types.ObjectId, ref: 'TipoClase' },
+        horaInicio: String,
+        horaFin: String,
+        diasDeSemana: [String],
+        fechaInicio: Date,
+        fechaFin: Date,
+    }],
     roles: {
         type: [String],
         default: ['cliente'],

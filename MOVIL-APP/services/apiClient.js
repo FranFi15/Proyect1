@@ -2,7 +2,7 @@
 import axios from 'axios';
 import authService from './authService';
 
-const API_URL = 'http://192.168.0.102:5000/api'; // URL de tu GYM-APP backend
+const API_URL = 'http://192.168.0.109:5000/api'; // URL de tu GYM-APP backend
 
 const apiClient = axios.create({
   baseURL: API_URL,

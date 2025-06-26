@@ -319,10 +319,12 @@
     padding: 30px;
     border-radius: 12px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-    max-width: 500px;
+    max-width: 600px; /* Un poco más ancho para todo el contenido */
     width: 90%;
-    text-align: center;
     animation: fadeInScale 0.3s ease-out;
+    max-height: 90vh;
+    overflow-y: auto;
+    text-align: left;
 }
 
 .modal-actions {
@@ -330,23 +332,39 @@
     justify-content: flex-end;
     gap: 10px;
     margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
 }
 
-/* Estilos para el modal de gestión de plan */
+/* ===================================================== */
+/* == ESTILOS CORREGIDOS PARA GESTIÓN DE PLAN Y SOCIOS == */
+/* ===================================================== */
+
 .plan-section {
   border: 1px solid #e0e0e0;
   padding: 1rem 1.5rem 1.5rem 1.5rem;
   margin-bottom: 1.5rem;
   border-radius: 8px;
-  background-color: #fafafa;
+  background-color: #f9f9f9;
+}
+
+.plan-section:last-of-type {
+    margin-bottom: 0;
 }
 
 .plan-section legend {
   font-weight: bold;
-  font-size: 1.1em;
+  font-size: 1.2em;
   padding: 0 0.5em;
   margin-left: 1em;
   color: var(--primary-color);
+}
+
+.plan-section p {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 0;
+    margin-bottom: 15px;
 }
 
 .subscription-list {
@@ -370,25 +388,24 @@
   font-weight: 500;
 }
 
-.add-plan-form {
-  margin-top: 0;
-}
-
 .subscription-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 15px;
+  margin-top: 20px;
+  margin-bottom: 10px;
 }
 
 .subscription-toggle input[type="checkbox"] {
   width: 18px;
   height: 18px;
+  accent-color: var(--secondary-color);
 }
 
 .subscription-toggle label {
   margin-bottom: 0;
   font-weight: normal;
+  cursor: pointer;
 }
 
 .auto-renew-section {
@@ -401,14 +418,34 @@
 .no-data-message {
     color: #888;
     text-align: center;
-    padding: 10px;
+    padding: 15px;
 }
 
-.danger-zone {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #ffcdd2;
-  text-align: center;
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 15px;
+  margin: 10px 0 15px 0;
+  background-color: #f0f0f0;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.95em;
+  color: var(--text-color-dark);
+  margin: 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--secondary-color);
 }
 
 /* Badges de estado */
@@ -421,10 +458,11 @@
     display: inline-block;
 }
 
+
+
 .status-activa { background-color: var(--success-color); }
 .status-cancelada { background-color: var(--danger-color); }
 .status-llena { background-color: var(--warning-color); color: var(--text-color-dark); }
-
 
 @keyframes fadeInScale {
     from {

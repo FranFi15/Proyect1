@@ -39,10 +39,22 @@ export const AuthProvider = ({ children }) => {
     await authService.logout();
     setUser(null);
   };
+  
+  const refreshUser = async () => {
+    console.log("Refrescando datos del usuario desde la API...");
+    try {
+        const userData = await authService.getMe(); 
+        if (userData) {
+            setUser(userData);
+        }
+    } catch (error) {
+        console.error("No se pudo refrescar la información del usuario:", error);
+    }
+};
 
   return (
     // 3. Usamos el AuthContext que definimos arriba
-    <AuthContext.Provider value={{ user, login, logout, isLoading: loading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading: loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

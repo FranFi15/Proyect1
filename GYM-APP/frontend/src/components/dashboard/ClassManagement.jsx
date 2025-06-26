@@ -60,6 +60,9 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     const [editingGroup, setEditingGroup] = useState(null);
     const [bulkUpdates, setBulkUpdates] = useState({ profesor: '', horaInicio: '', horaFin: '' });
 
+    const [showRosterModal, setShowRosterModal] = useState(false);
+    const [viewingClassRoster, setViewingClassRoster] = useState(null);
+
     const [showExtendModal, setShowExtendModal] = useState(false);
     const [extendingGroup, setExtendingGroup] = useState(null);
     const [extendUntilDate, setExtendUntilDate] = useState('');
@@ -419,6 +422,16 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
             }
         );
     };
+
+    const handleViewRoster = async (classId) => {
+    try {
+        const response = await apiClient.get(`/classes/${classId}`);
+        setViewingClassRoster(response.data);
+        setShowRosterModal(true);
+    } catch (error) {
+        showNotification('Error al obtener los detalles de la clase.', 'error');
+    }
+};
     
 
     return (
@@ -474,7 +487,7 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
                         </form>
                     )}
                     <div style={{marginTop: '2rem'}}>
-                        <ClassCalendar classes={classes} onEditClass={handleEdit} onCancelClass={handleCancelClass} onDeleteClass={handleDelete} onReactivateClass={handleReactivateClass} classTypes={classTypes} getColorForClassType={getColorForClassType} />
+                        <ClassCalendar classes={classes} onEditClass={handleEdit} onCancelClass={handleCancelClass} onDeleteClass={handleDelete} onReactivateClass={handleReactivateClass} classTypes={classTypes} getColorForClassType={getColorForClassType} onViewRoster={handleViewRoster} />
                     </div>
                 </>
             )}
@@ -621,6 +634,53 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
                     </div>
                 </div>
             )}
+            {showRosterModal && viewingClassRoster && (
+            <div className="modal-overlay">
+                <div className="modal-content form-card" style={{ maxWidth: '800px', minWidth: '600px' }}>
+                    <h4>Inscriptos en: {viewingClassRoster.nombre}</h4>
+                    <p>
+                        {new Date(viewingClassRoster.fecha).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        {' de '}
+                        {viewingClassRoster.horaInicio} a {viewingClassRoster.horaFin}
+                    </p>
+                    
+                    <div className="table-responsive" style={{ marginTop: '20px' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre y Apellido</th>
+                                    <th>Edad</th>
+                                    <th>Sexo</th>
+                                    <th>Tel. Emergencia</th>
+                                    <th>Obra Social</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {viewingClassRoster.usuariosInscritos.length > 0 ? (
+                                    viewingClassRoster.usuariosInscritos.map(user => (
+                                        <tr key={user._id}>
+                                            <td>{user.nombre} {user.apellido}</td>
+                                            <td>{user.edad}</td>
+                                            <td>{user.sexo}</td>
+                                            <td>{user.telefonoEmergencia}</td>
+                                            <td>{user.obraSocial || 'N/A'}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="5" style={{ textAlign: 'center' }}>No hay socios inscriptos en esta clase.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="modal-actions">
+                        <button onClick={() => setShowRosterModal(false)} className="btn">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        )}
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ show: false })} />
             <ConfirmationModal show={confirmation.show} message={confirmation.message} onConfirm={handleConfirm} onCancel={closeConfirmation} />
         </div>

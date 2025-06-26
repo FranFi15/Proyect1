@@ -33,7 +33,8 @@ const CalendarScreen = () => {
     const [selectedDate, setSelectedDate] = useState(null); // null para indicar que no hay selección
     const [markedDates, setMarkedDates] = useState({});
     const [isLoading, setIsLoading] = useState(true);
-    const { user, login } = useAuth();
+    const { user, login, refreshUser } = useAuth();
+
     
     // Estados para el filtro
     const [classTypes, setClassTypes] = useState([]);
@@ -85,22 +86,23 @@ const CalendarScreen = () => {
             });
     }, [allClasses, selectedDate, selectedClassType]);
 
-    // --- HANDLERS (Iguales que antes) ---
     const handleEnroll = async (classId) => {
     try {
         await apiClient.post(`/classes/${classId}/enroll`);
         Alert.alert('¡Éxito!', 'Te has inscrito en la clase.');
-        // Refrescamos los datos para que la UI se actualice
-        fetchData(); 
+        
+        // 2. LLAMAMOS A LA FUNCIÓN PARA ACTUALIZAR LOS DATOS DEL USUARIO
+        await refreshUser();
+        
+        // Mantenemos la llamada a fetchData para actualizar los cupos
+        fetchData();
     } catch (error) {
-        // Mostramos el mensaje de error que viene del backend
         Alert.alert('Error', error.response?.data?.message || 'No se pudo procesar la inscripción.');
     }
 };
     const handleUnenroll = async (classId) => {
     Alert.alert(
         "Confirmar Anulación",
-        "¿Estás seguro de que quieres anular tu inscripción?",
         [
             { text: "Cancelar", style: "cancel" },
             {
@@ -108,9 +110,11 @@ const CalendarScreen = () => {
                 onPress: async () => {
                     try {
                         const response = await apiClient.post(`/classes/${classId}/unenroll`);
-                        // El backend nos dirá si el crédito fue reembolsado o no
                         Alert.alert('Anulación Procesada', response.data.message);
-                        // Refrescamos los datos
+                        
+                        // 3. LA LLAMAMOS AQUÍ TAMBIÉN
+                        await refreshUser();
+                        
                         fetchData();
                     } catch (error) {
                         Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');

@@ -18,7 +18,7 @@ const getOccupancyClass = (inscritos, capacidad) => {
 
 // --- COMPONENTE PRINCIPAL ---
 
-function ClassCalendar({ classes, onEditClass, onCancelClass, onDeleteClass, onReactivateClass, classTypes }) {
+function ClassCalendar({ classes, onEditClass, onCancelClass, onDeleteClass, onReactivateClass, classTypes,onViewRoster  }) {
     const [currentDate, setCurrentDate] = useState(new Date()); 
     const [selectedDayClasses, setSelectedDayClasses] = useState([]); 
     const [selectedDate, setSelectedDate] = useState(null); 
@@ -27,18 +27,19 @@ function ClassCalendar({ classes, onEditClass, onCancelClass, onDeleteClass, onR
     const getMonthName = (date) => date.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
     const classesByDay = useMemo(() => {
-        const map = new Map();
-        (classes || []).forEach(clase => {
-            if (clase.fecha) {
-                const classDate = new Date(clase.fecha);
-                const dateKey = classDate.toISOString().substring(0, 10); 
-                if (!map.has(dateKey)) map.set(dateKey, []);
-                map.get(dateKey).push(clase);
-            }
-        });
-        return map;
-    }, [classes]); 
+    const map = new Map();
+    (classes || []).forEach(clase => {
+        if (clase.fecha) {
+            const dateKey = clase.fecha.substring(0, 10);
 
+            if (!map.has(dateKey)) {
+                map.set(dateKey, []);
+            }
+            map.get(dateKey).push(clase);
+        }
+    });
+    return map;
+}, [classes]);
     useEffect(() => {
         if (selectedDate) {
             const dateKey = selectedDate.toISOString().substring(0, 10);
@@ -154,12 +155,15 @@ function ClassCalendar({ classes, onEditClass, onCancelClass, onDeleteClass, onR
                                             <p className="class-details">Horario: {clase.horarioFijo || `${clase.horaInicio || ''} - ${clase.horaFin || ''}`}</p>
                                             <p className="class-details">Ocupación: {clase.usuariosInscritos.length}/{clase.capacidad}</p>
                                             <div className="class-actions">
-                                                {clase.estado !== 'cancelada'
-                                                    ? (<><button onClick={() => onEditClass(clase)} className="btn btn-sm primary1">Editar</button><button onClick={() => onCancelClass(clase)} className="btn btn-sm warning">Cancelar</button></>)
-                                                    : <button onClick={() => onReactivateClass(clase)} className="btn btn-sm info">Reactivar</button>
-                                                }
-                                                <button onClick={() => onDeleteClass(clase._id)} className="btn btn-sm danger">Eliminar</button>
-                                            </div>
+                <button onClick={() => onViewRoster(clase._id)} className="btn btn-sm info">Ver Inscriptos</button>
+                
+                {clase.estado !== 'cancelada'
+                    ? (<><button onClick={() => onEditClass(clase)} className="btn btn-sm primary1">Editar</button><button onClick={() => onCancelClass(clase)} className="btn btn-sm warning">Cancelar</button></>)
+                    : <button onClick={() => onReactivateClass(clase)} className="btn btn-sm info">Reactivar</button>
+                }
+                <button onClick={() => onDeleteClass(clase._id)} className="btn btn-sm danger">Eliminar</button>
+            </div>
+                                            
                                         </li>
                                     );
                                 })}
