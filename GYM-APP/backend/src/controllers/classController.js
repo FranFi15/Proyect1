@@ -394,7 +394,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     const TipoClase = getTipoClaseModel(req.gymDBConnection);
 
     // El resto de las variables que ya tenías
-    const Class = getClaseModel(req.gymDBConnection);
+    const Class = getClassModel(req.gymDBConnection);
     const User = getUserModel(req.gymDBConnection);
     const Notification = getNotificationModel(req.gymDBConnection);
 

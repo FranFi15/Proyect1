@@ -26,18 +26,19 @@ app.use(cors({
         'http://localhost:8081'  // Para tu app móvil en desarrollo
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'X-Api-Secret', 'X-Internal-Api-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'x-gym-domain', 'X-Api-Secret', 'X-Internal-Api-Key'],
     credentials: true
 }));
 app.use(express.json()); 
 
 
 // Definir las rutas de la API
-app.use('/api/auth', gymTenantMiddleware, authRoutes);
 app.use('/api/users', gymTenantMiddleware, userRoutes); 
 app.use('/api/classes', gymTenantMiddleware, classRoutes);
 app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
 app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
+
+app.use('/api/auth', gymTenantMiddleware, authRoutes);
 
 
 // Ruta de prueba

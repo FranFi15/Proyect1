@@ -73,6 +73,7 @@ const registerUser = asyncHandler(async (req, res) => {
                 obraSocial: user.obraSocial,
                 sexo: user.sexo,
                 token: generateToken(user._id, user.roles, user.email, user.nombre),
+                gymId: req.gymId,
             });
         } else {
             res.status(400);
@@ -114,7 +115,8 @@ const loginUser = asyncHandler(async (req, res) => {
             direccion: user.direccion, 
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,
-            token: generateToken(user._id, user.roles, user.email, user.nombre),
+            token: generateToken(user._id, user.roles, user.email, user.nombre, req.gymId),
+            gymId: req.gymId 
         });
     } else {
         res.status(401);

@@ -13,6 +13,9 @@ import {
     removeUserSubscription,
     subscribeUserToPlan,
     removeFixedPlan,
+    getUserProfile,
+    updateUserProfile,
+    changeUserPassword,
 } from '../controllers/userController.js'; 
 
 const router = express.Router();
@@ -24,6 +27,9 @@ router.route('/')
 
 router.route('/me')
     .get(protect, getMe);
+router.route('/me').get(protect, getUserProfile);
+router.route('/profile').put(protect, updateUserProfile);
+router.route('/profile/change-password').put(protect, changeUserPassword);
 
 router.route('/:id')
     .get(protect, authorizeRoles('admin', 'profesor'), getUserById) 

@@ -31,14 +31,25 @@ export const AuthProvider = ({ children }) => {
         setUser(credentials);
         return credentials;
     }
+    
+    console.log("Llamando a authService.login...");
     const userData = await authService.login(credentials, gymIdentifier);
+
+    // --- INICIO DE LA DEPURACIÓN ---
+    // Inspeccionemos aquí. ¿Qué datos llegaron del servicio?
+    console.log("Datos recibidos en AuthContext después del login:", JSON.stringify(userData, null, 2));
+    // --- FIN DE LA DEPURACIÓN ---
+    
+    // Si userData es null o no tiene un gymId, las siguientes pantallas fallarán.
+    // authService.login debería haber guardado todo en AsyncStorage.
     setUser(userData);
     return userData;
-  };
-  const logout = async () => {
-    await authService.logout();
-    setUser(null);
-  };
+};
+
+  const logout = async (router) => {
+        await authService.logout();
+        setUser(null);
+    };
   
   const refreshUser = async () => {
     console.log("Refrescando datos del usuario desde la API...");

@@ -571,6 +571,79 @@ const removeFixedPlan = asyncHandler(async (req, res) => {
     await user.save();
     res.status(200).json({ message: 'Plan de horario fijo eliminado.' });
 });
+// @desc    Obtener el perfil del usuario logueado
+// @route   GET /api/users/me
+// @access  Private
+const getUserProfile = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const user = await User.findById(req.user._id).select('-password');
+    if (user) {
+        res.json(user);
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+});
+
+// @desc    Actualizar el perfil del usuario
+// @route   PUT /api/users/profile
+// @access  Private
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        // Actualizamos todos los campos que pueden venir del formulario
+        user.nombre = req.body.nombre || user.nombre;
+        user.apellido = req.body.apellido || user.apellido;
+        user.email = req.body.email || user.email;
+        user.dni = req.body.dni || user.dni;
+        user.fechaNacimiento = req.body.fechaNacimiento || user.fechaNacimiento;
+        user.sexo = req.body.sexo || user.sexo;
+        user.numeroTelefono = req.body.numeroTelefono || user.numeroTelefono;
+        user.obraSocial = req.body.obraSocial || user.obraSocial;
+        user.telefonoEmergencia = req.body.telefonoEmergencia || user.telefonoEmergencia;
+        user.direccion = req.body.direccion || user.direccion;
+        
+        const updatedUser = await user.save();
+        
+        res.json({
+            _id: updatedUser._id,
+            nombre: updatedUser.nombre,
+            apellido: updatedUser.apellido,
+            email: updatedUser.email,
+            // Devuelve todos los datos actualizados que necesites en el frontend
+        });
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+});
+
+// --- INICIO DE LA SOLUCIÓN: NUEVO CONTROLADOR PARA CONTRASEÑA ---
+// @desc    Cambiar la contraseña del usuario
+// @route   PUT /api/users/profile/change-password
+// @access  Private
+const changeUserPassword = asyncHandler(async (req, res) => {
+    const User = getUserModel(req.gymDBConnection);
+    const user = await User.findById(req.user._id);
+
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        res.status(400);
+        throw new Error('Por favor, proporciona la contraseña actual y la nueva.');
+    }
+
+    if (user && (await user.matchPassword(currentPassword))) {
+        user.password = newPassword;
+        await user.save();
+        res.json({ message: 'Contraseña actualizada con éxito.' });
+    } else {
+        res.status(401);
+        throw new Error('La contraseña actual es incorrecta.');
+    }
+});
 
 
 export {
@@ -586,4 +659,7 @@ export {
     removeUserSubscription,
     subscribeUserToPlan,
     removeFixedPlan,
+    getUserProfile,
+    updateUserProfile,
+    changeUserPassword,
 };

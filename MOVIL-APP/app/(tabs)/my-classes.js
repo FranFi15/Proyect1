@@ -1,11 +1,20 @@
-// app/(tabs)/my-classes.js
-import React, { useState, useCallback } from 'react';
-import { View, Text, Button, FlatList, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
+// Archivo: MOVIL-APP/app/(tabs)/my-classes.js
+
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, Button, SectionList, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import apiClient from '../../services/apiClient';
 import { useFocusEffect } from 'expo-router';
-import { format } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Función para capitalizar los títulos de las fechas
+const capitalize = (str) => {
+    if (typeof str !== 'string' || str.length === 0) return '';
+    const formattedStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return formattedStr.replace(' De ', ' de ');
+};
+
 
 const MyClassesScreen = () => {
     const [enrolledClasses, setEnrolledClasses] = useState([]);
@@ -16,17 +25,21 @@ const MyClassesScreen = () => {
     const fetchMyClasses = async () => {
         try {
             setLoading(true);
-            // 1. Obtener los datos del usuario, incluyendo las clases inscritas
             const userResponse = await apiClient.get('/users/me');
             const enrolledIds = new Set(userResponse.data.clasesInscritas || []);
 
-            // 2. Obtener todas las clases para tener los detalles
             const classesResponse = await apiClient.get('/classes');
             
-            // 3. Filtrar para obtener solo las clases del usuario
             const myClasses = classesResponse.data.filter(cls => enrolledIds.has(cls._id));
-            setEnrolledClasses(myClasses);
+            
+            // Ordenamos las clases por fecha y hora
+            const sortedClasses = myClasses.sort((a, b) => {
+                const dateComparison = new Date(a.fecha) - new Date(b.fecha);
+                if (dateComparison !== 0) return dateComparison;
+                return a.horaInicio.localeCompare(b.horaInicio);
+            });
 
+            setEnrolledClasses(sortedClasses);
         } catch (error) {
             Alert.alert('Error', 'No se pudieron cargar tus clases.');
         } finally {
@@ -34,50 +47,107 @@ const MyClassesScreen = () => {
         }
     };
 
-    // useFocusEffect se ejecuta cada vez que la pantalla está en foco
-    useFocusEffect(
-        useCallback(() => {
-            fetchMyClasses();
-        }, [])
-    );
+    useFocusEffect(useCallback(() => { fetchMyClasses(); }, []));
 
     const handleUnenroll = (classId) => {
-        Alert.alert(
-            "Confirmar Anulación",
-            "¿Estás seguro de que quieres anular tu inscripción?",
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Sí, Anular",
-                    onPress: async () => {
-                        try {
-                            const response = await apiClient.post(`/classes/${classId}/unenroll`);
-                            
-                            // CORRECCIÓN: Nos aseguramos de mostrar el mensaje (string) y no toda la respuesta.
-                            Alert.alert('Anulación Procesada', response.data.message);
-                            
-                            // Llamamos a refreshUser para actualizar el estado global del usuario
-                            await refreshUser();
-                            
-                            // Llamamos a fetchUserClasses para refrescar la lista de esta pantalla
-                            fetchMyClasses();
+        const performUnenroll = async () => {
+            try {
+                const response = await apiClient.post(`/classes/${classId}/unenroll`);
+                Alert.alert('Anulación Procesada', response.data.message);
+                await refreshUser();
+                fetchMyClasses();
+            } catch (error) {
+                Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');
+            }
+        };
 
-                        } catch (error) {
-                            Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');
-                        }
-                    },
-                    style: 'destructive'
-                }
-            ]
+        if (Platform.OS === 'web') {
+            if (window.confirm("¿Estás seguro de que quieres anular tu inscripción?")) {
+                performUnenroll();
+            }
+        } else {
+            Alert.alert("Confirmar Anulación", "¿Estás seguro de que quieres anular tu inscripción?", [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Sí, Anular", onPress: performUnenroll, style: 'destructive' }
+            ]);
+        }
+    };
+
+    
+    
+    // --- INICIO DE LA SOLUCIÓN ---
+
+    // 1. Filtramos y agrupamos las clases para la SectionList
+    const sectionedClasses = useMemo(() => {
+        const now = new Date();
+
+        // 1. Filtra y ordena las clases según la pestaña activa
+        const sortedAndFilteredClasses = enrolledClasses
+            .map(cls => ({
+                ...cls,
+                // Creamos un objeto Date completo para poder ordenar correctamente
+                dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`)
+            }))
+            .filter(cls => {
+                // 'upcoming' incluye las de hoy que no han pasado y las futuras
+                // 'past' incluye las de hoy que ya pasaron y las pasadas
+                return activeTab === 'upcoming' ? cls.dateTime >= now : cls.dateTime < now;
+            })
+            .sort((a, b) => {
+                // Ordenamos ascendentemente para 'upcoming' y descendentemente para 'past'
+                return activeTab === 'upcoming' 
+                    ? a.dateTime - b.dateTime 
+                    : b.dateTime - a.dateTime;
+            });
+
+        if (sortedAndFilteredClasses.length === 0) return [];
+
+        // 2. Agrupa las clases por fecha para la SectionList
+        const grouped = sortedAndFilteredClasses.reduce((acc, clase) => {
+            const dateKey = format(clase.dateTime, "EEEE, d 'de' MMMM", { locale: es });
+            const capitalizedDateKey = capitalize(dateKey);
+            if (!acc[capitalizedDateKey]) {
+                acc[capitalizedDateKey] = [];
+            }
+            acc[capitalizedDateKey].push(clase);
+            return acc;
+        }, {});
+
+        // 3. Convierte el objeto agrupado en un array para la SectionList
+        return Object.keys(grouped).map(dateKey => ({
+            title: dateKey,
+            data: grouped[dateKey]
+        }));
+    }, [activeTab, enrolledClasses]);
+
+
+    const renderClassItem = ({ item }) => {
+        const now = new Date();
+        const canUnenroll = item.dateTime >= now; // Solo se puede anular si la clase es futura
+
+        return (
+            <View style={styles.classItem}>
+                <Text style={styles.className}>{item.nombre} - {item.tipoClase?.nombre || ''}</Text>
+                {item.profesor ? (
+                    <Text style={styles.classInfoText}>Profesor: {item.profesor.nombre} {item.profesor.apellido}</Text>
+                ) : (
+                    <Text style={styles.classInfoText}>Profesor: A confirmar</Text>
+                )}
+                <Text style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</Text>
+                
+                <View style={styles.buttonContainer}>
+                    {activeTab === 'upcoming' && canUnenroll && (
+                        <Button title="Anular Inscripción" color="#e74c3c" onPress={() => handleUnenroll(item._id)} />
+                    )}
+                </View>
+            </View>
         );
     };
-    
-    const now = new Date();
-    const upcomingClasses = enrolledClasses.filter(cls => new Date(cls.fecha) >= now);
-    const pastClasses = enrolledClasses.filter(cls => new Date(cls.fecha) < now);
+
+    // --- FIN DE LA SOLUCIÓN ---
 
     if (loading) {
-        return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
+        return <ActivityIndicator size="large" style={{ marginTop: 50, flex: 1 }} />;
     }
 
     return (
@@ -90,36 +160,72 @@ const MyClassesScreen = () => {
                     <Text style={styles.tabText}>Historial</Text>
                 </TouchableOpacity>
             </View>
-
-            <FlatList
-                data={activeTab === 'upcoming' ? upcomingClasses : pastClasses}
-                keyExtractor={(item) => item._id}
-                renderItem={({ item }) => (
-                    <View style={styles.classItem}>
-                        <Text style={styles.className}>{item.nombre}</Text>
-                        <Text>Fecha: {format(new Date(item.fecha), "EEEE, d 'de' MMMM", { locale: es })}</Text>
-                        <Text>Horario: {item.horaInicio} - {item.horaFin}</Text>
-                        {activeTab === 'upcoming' && (
-                            <Button title="Anular Inscripción" color="#dc3545" onPress={() => handleUnenroll(item._id)} />
-                        )}
-                    </View>
+            
+            {/* 3. Reemplazamos FlatList por SectionList */}
+            <SectionList
+                sections={sectionedClasses}
+                keyExtractor={(item, index) => item._id + index}
+                renderItem={renderClassItem}
+                renderSectionHeader={({ section: { title } }) => (
+                    <Text style={styles.sectionHeader}>{title}</Text>
                 )}
                 ListEmptyComponent={<Text style={styles.emptyText}>No hay clases en esta sección.</Text>}
+                contentContainerStyle={{ paddingBottom: 20 }}
             />
         </View>
     );
 };
 
-// ... (añade tus estilos en un objeto StyleSheet)
+
+// 4. Añadimos los nuevos estilos para las tarjetas y las secciones
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    tabContainer: { flexDirection: 'row', justifyContent: 'space-around', padding: 10 },
-    tab: { padding: 10 },
-    activeTab: { borderBottomWidth: 2, borderBottomColor: '#6f5c94' },
-    tabText: { fontSize: 16, fontWeight: 'bold' },
-    classItem: { padding: 15, borderBottomWidth: 1, borderColor: '#eee' },
-    className: { fontSize: 18, fontWeight: 'bold' },
-    emptyText: { textAlign: 'center', marginTop: 30, fontSize: 16 }
+    container: { flex: 1, backgroundColor:'#f7f7f7' },
+    tabContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingTop: 10,
+        backgroundColor:'#150224',
+        
+    },
+    tab: { paddingVertical: 10, paddingHorizontal: 10 },
+    activeTab: { borderBottomWidth: 3, borderBottomColor: '#9282b3' },
+    tabText: { fontSize: 16, fontWeight: '600', color:'#ffffff' },
+    sectionHeader: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#495057',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        marginTop: 10,
+    },
+    classItem: {
+        backgroundColor: '#ffffff',
+        padding: 20,
+        marginHorizontal: 8,
+        marginVertical: 8,
+        borderRadius: 1,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2, },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    className: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#343a40',
+        marginBottom: 8,
+    },
+    classInfoText: {
+        fontSize: 14,
+        color: '#6c757d',
+        marginBottom: 4,
+    },
+    buttonContainer: {
+        marginTop: 12,
+        alignSelf: 'flex-start'
+    },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' }
 });
 
 export default MyClassesScreen;
