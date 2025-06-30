@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Apuntamos al backend del GYM-APP en el puerto 5000
-const baseURL = 'http://192.168.0.105:5000/api'; 
+const baseURL = 'http://192.168.0.118:5000/api'; 
 
 const apiClient = axios.create({
     baseURL: baseURL,

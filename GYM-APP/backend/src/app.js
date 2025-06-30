@@ -25,7 +25,7 @@ app.use(cors({
     origin: [
         'http://localhost:5174', // Para tu frontend web del GYM-APP
         'http://localhost:8081',  // Para tu app móvil en desarrollo
-        'http://192.168.0.105',
+        'http://192.168.0.118',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'x-gym-domain', 'X-Api-Secret', 'X-Internal-Api-Key'],
@@ -39,7 +39,7 @@ app.use('/api/users', gymTenantMiddleware, userRoutes);
 app.use('/api/classes', gymTenantMiddleware, classRoutes);
 app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
 app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
-app.use('/api/credit-logs', creditLogRoutes);
+app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 
 app.use('/api/auth', gymTenantMiddleware, authRoutes);
 
