@@ -12,7 +12,7 @@ dotenv.config();
 // @route   POST /api/clients/
 // @access  Private (solo para administradores del panel)
 const registerClient = asyncHandler(async (req, res) => {
-    const { nombre, emailContacto, urlIdentifier } = req.body;
+    const { nombre, emailContacto, urlIdentifier, logoUrl } = req.body;
 
     if (!nombre || !emailContacto || !urlIdentifier) {
         res.status(400);
@@ -23,6 +23,7 @@ const registerClient = asyncHandler(async (req, res) => {
         nombre,
         emailContacto,
         urlIdentifier,
+        logoUrl,
     });
     
     // Obtenemos el host del clúster desde las variables de entorno
@@ -76,7 +77,7 @@ const getClientById = asyncHandler(async (req, res) => {
 // @route   PUT /api/clients/:id
 // @access  Private (solo para administradores de tu panel)
 const updateClient = asyncHandler(async (req, res) => {
-    const { nombre, emailContacto, estadoSuscripcion } = req.body;
+    const { nombre, emailContacto, estadoSuscripcion, logoUrl } = req.body;
 
     try {
         const client = await Client.findById(req.params.id);
@@ -89,6 +90,7 @@ const updateClient = asyncHandler(async (req, res) => {
         if (nombre !== undefined) client.nombre = nombre;
         if (emailContacto !== undefined) client.emailContacto = emailContacto;
         if (estadoSuscripcion !== undefined) client.estadoSuscripcion = estadoSuscripcion;
+        if (logoUrl !== undefined) client.logoUrl = logoUrl;
 
         await client.save();
         res.json({ message: 'Gimnasio actualizado exitosamente.', client });
@@ -100,7 +102,7 @@ const updateClient = asyncHandler(async (req, res) => {
         }
         if (error.code === 11000) {
             res.status(400);
-            throw new new Error('El email de contacto ya está registrado para otro gimnasio.');
+            throw new  Error('El email de contacto ya está registrado para otro gimnasio.');
         }
         res.status(500);
         throw new Error('Error interno del servidor al actualizar gimnasio.');
@@ -292,6 +294,36 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
         estadoSuscripcion: client.estadoSuscripcion
     });
 });
+/**
+ * @desc    Obtener información de la BD de un cliente para uso interno.
+ * @route   GET /api/clients/:id/internal-db-info
+ * @access  Internal (Protegido por clave de API)
+ */
+const getInternalDbInfo = asyncHandler(async (req, res) => {
+    const client = await Client.findById(req.params.id);
+
+    if (client) {
+        // --- CORRECCIÓN FINAL AQUÍ ---
+        // Leemos el campo correcto de la base de datos: "connectionStringDB"
+        const connectionString = client.connectionStringDB;
+
+        // Verificamos que el campo exista y no esté vacío.
+        if (!connectionString) {
+            res.status(500);
+            throw new Error(`El cliente con ID ${req.params.id} fue encontrado, pero no tiene una cadena de conexión (connectionStringDB) configurada.`);
+        }
+        
+        // Devolvemos la cadena de conexión en una propiedad estandarizada 'dbConnectionString'
+        // para que el GYM-APP no tenga que preocuparse por el nombre del campo.
+        res.json({
+            dbConnectionString: connectionString
+        });
+
+    } else {
+        res.status(404);
+        throw new Error('Cliente no encontrado');
+    }
+});
 
 
 
@@ -305,4 +337,5 @@ export {
     deleteClient,
     getAllInternalClients, 
     getClientInternalDbInfo,
+    getInternalDbInfo,
 };

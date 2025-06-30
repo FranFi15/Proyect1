@@ -1,15 +1,12 @@
 // src/controllers/tipoClaseController.js
-import getTipoClaseModel from '../models/TipoClase.js'; // <-- Importa la FUNCIÓN
-import getClassModel from '../models/Clase.js';       // <-- Importa la FUNCIÓN
-import getUserModel from '../models/User.js';         // <-- Importa la FUNCIÓN
+import getModels from '../utils/getModels.js';        // <-- Importa la FUNCIÓN
 import asyncHandler from 'express-async-handler';
 
 // --- MODIFICACIÓN CLAVE: Todas las funciones del controlador necesitan obtener los modelos dinámicamente ---
 
 // Crear un nuevo tipo de clase (solo admin)
 const createTipoClase = asyncHandler(async (req, res) => {
-    // Obtener el modelo TipoClase para la conexión actual del gimnasio
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // <-- Cambio aquí
+    const { TipoClase } = getModels(req.gymDBConnection);
 
     const { nombre, descripcion } = req.body;
 
@@ -35,8 +32,7 @@ const createTipoClase = asyncHandler(async (req, res) => {
 
 // Obtener todos los tipos de clase con paginación, filtrado y búsqueda
 const getTiposClase = asyncHandler(async (req, res) => {
-    // Obtener el modelo TipoClase para la conexión actual del gimnasio
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // <-- Cambio aquí
+    const { TipoClase } = getModels(req.gymDBConnection);
 
     // --- Paginación ---
     const page = parseInt(req.query.page) || 1;
@@ -84,8 +80,7 @@ const getTiposClase = asyncHandler(async (req, res) => {
 
 // Obtener un tipo de clase por ID
 const getTipoClaseById = asyncHandler(async (req, res) => {
-    // Obtener el modelo TipoClase para la conexión actual del gimnasio
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // <-- Cambio aquí
+    const { TipoClase } = getModels(req.gymDBConnection);
 
     const tipoClase = await TipoClase.findById(req.params.id);
 
@@ -99,8 +94,7 @@ const getTipoClaseById = asyncHandler(async (req, res) => {
 
 // Actualizar un tipo de clase (solo admin)
 const updateTipoClase = asyncHandler(async (req, res) => {
-    // Obtener el modelo TipoClase para la conexión actual del gimnasio
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // <-- Cambio aquí
+    const { TipoClase } = getModels(req.gymDBConnection);
 
     const { nombre, descripcion } = req.body;
 
@@ -120,10 +114,7 @@ const updateTipoClase = asyncHandler(async (req, res) => {
 
 // Eliminar un tipo de clase (solo admin)
 const deleteTipoClase = asyncHandler(async (req, res) => {
-    // Obtener los modelos para la conexión actual del gimnasio
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // <-- Cambio aquí
-    const Clase = getClassModel(req.gymDBConnection);         // <-- Cambio aquí
-    const User = getUserModel(req.gymDBConnection);           // <-- Cambio aquí
+    const { Clase, TipoClase, User } = getModels(req.gymDBConnection);
 
     const tipoClaseId = req.params.id;
     const tipoClase = await TipoClase.findById(tipoClaseId);

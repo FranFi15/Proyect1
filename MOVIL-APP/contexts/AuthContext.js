@@ -1,77 +1,139 @@
-// contexts/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/authService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../services/apiClient';
 
-// 1. Creamos el contexto aquí, en su propio archivo.
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // Empezamos cargando
+    const [user, setUser] = useState(null);
+    const [clientId, setClientId] = useState(null);
+    // --- ESTADOS ACTUALIZADOS ---
+    // Reemplazamos gymIdentifier por gymName y añadimos gymLogo
+    const [gymName, setGymName] = useState(null);
+    const [gymLogo, setGymLogo] = useState(null);
+    // --- FIN DE ESTADOS ACTUALIZADOS ---
+    const [loading, setLoading] = useState(true);
 
-  // 2. useEffect para verificar el usuario al iniciar la app
-  useEffect(() => {
-    const checkStoredUser = async () => {
-      try {
-        const storedUser = await authService.getCurrentUser();
-        if (storedUser) {
-          setUser(storedUser);
+    useEffect(() => {
+        const checkInitialState = async () => {
+            try {
+                // Cargamos todos los datos de sesión desde el almacenamiento
+                const storedClientId = await AsyncStorage.getItem('clientId');
+                const storedGymName = await AsyncStorage.getItem('gymName');
+                const storedGymLogo = await AsyncStorage.getItem('gymLogo');
+                const storedUser = await authService.getCurrentUser();
+
+                if (storedGymName) setGymName(storedGymName);
+                if (storedGymLogo) setGymLogo(storedGymLogo);
+
+                if (storedClientId) {
+                    setClientId(storedClientId);
+                    apiClient.defaults.headers.common['x-client-id'] = storedClientId;
+                }
+                if (storedUser) {
+                    setUser(storedUser);
+                }
+            } catch (e) {
+                console.error("No se pudo verificar el estado inicial", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        checkInitialState();
+    }, []);
+
+    useEffect(() => {
+        console.log('[AuthContext] El estado del usuario ha cambiado:', user ? `Usuario logueado: ${user.email}` : 'Usuario es null');
+    }, [user]);
+
+    // --- FUNCIÓN ACTUALIZADA ---
+    // Ahora acepta un objeto 'data' con toda la información del gimnasio
+    const setGymContext = async (data) => {
+        try {
+            await AsyncStorage.setItem('clientId', data.clientId);
+            await AsyncStorage.setItem('gymName', data.gymName);
+            await AsyncStorage.setItem('gymLogo', data.logoUrl || ''); // Guardamos '' si no viene
+
+            setClientId(data.clientId);
+            setGymName(data.gymName);
+            setGymLogo(data.logoUrl || '');
+
+            apiClient.defaults.headers.common['x-client-id'] = data.clientId;
+        } catch (error) {
+            console.error("Error guardando el contexto del gym", error);
+            throw error;
         }
-      } catch (e) {
-        console.error("No se pudo verificar el usuario guardado", e);
-      } finally {
-        setLoading(false); // Terminamos de cargar
-      }
     };
-    checkStoredUser();
-  }, []);
 
-  const login = async (credentials, gymIdentifier) => {
-    if (!credentials.email || !credentials.contraseña) {
-        setUser(credentials);
-        return credentials;
-    }
-    
-    console.log("Llamando a authService.login...");
-    const userData = await authService.login(credentials, gymIdentifier);
-
-    // --- INICIO DE LA DEPURACIÓN ---
-    // Inspeccionemos aquí. ¿Qué datos llegaron del servicio?
-    console.log("Datos recibidos en AuthContext después del login:", JSON.stringify(userData, null, 2));
-    // --- FIN DE LA DEPURACIÓN ---
-    
-    // Si userData es null o no tiene un gymId, las siguientes pantallas fallarán.
-    // authService.login debería haber guardado todo en AsyncStorage.
-    setUser(userData);
-    return userData;
-};
-
-  const logout = async (router) => {
-        await authService.logout();
-        setUser(null);
-    };
-  
-  const refreshUser = async () => {
-    console.log("Refrescando datos del usuario desde la API...");
-    try {
-        const userData = await authService.getMe(); 
-        if (userData) {
+    const login = async (credentials) => {
+        const userData = await authService.login(credentials);
+        if (userData && userData.token) {
             setUser(userData);
+        } else {
+            throw new Error('La respuesta del servidor no fue válida.');
         }
-    } catch (error) {
-        console.error("No se pudo refrescar la información del usuario:", error);
-    }
+        return userData;
+    };
+
+    // --- FUNCIÓN LOGOUT ACTUALIZADA ---
+    const logout = async () => {
+        try {
+            await authService.logout();
+            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo']);
+            
+            setUser(null);
+            setClientId(null);
+            setGymName(null);
+            setGymLogo(null);
+            
+            delete apiClient.defaults.headers.common['Authorization'];
+            delete apiClient.defaults.headers.common['x-client-id'];
+            
+            console.log('[AuthContext] Sesión cerrada exitosamente.');
+        } catch (error) {
+            console.error('[AuthContext] Error durante el logout:', error);
+        }
+    };
+
+    const refreshUser = async () => {
+        try {
+            const updatedUserData = await authService.getMe();
+            if (updatedUserData) {
+                setUser(updatedUserData);
+            }
+        } catch (error) {
+            console.error('[AuthContext] No se pudo refrescar la información del usuario:', error);
+            if (error.response && error.response.status === 401) {
+                await logout();
+            }
+        }
+    };
+
+    const register = async (userData) => {
+        try {
+            const newUserData = await authService.register(userData);
+            if (newUserData && newUserData.token) {
+                setUser(newUserData);
+            } else {
+                throw new Error('El registro fue exitoso pero no se recibieron datos de usuario válidos.');
+            }
+            return newUserData;
+        } catch (error) {
+            console.error('[AuthContext] Error durante el registro:', error);
+            throw error;
+        }
+    };
+
+    return (
+        // --- PROVEEDOR ACTUALIZADO ---
+        <AuthContext.Provider value={{ 
+            user, clientId, gymName, gymLogo, loading, 
+            login, logout, refreshUser, register, setGymContext 
+        }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
-  return (
-    // 3. Usamos el AuthContext que definimos arriba
-    <AuthContext.Provider value={{ user, login, logout, isLoading: loading, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-// Hook personalizado para no tener que importar useContext y AuthContext en cada archivo
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);

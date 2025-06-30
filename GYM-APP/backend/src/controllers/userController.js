@@ -1,23 +1,17 @@
 // src/controllers/userController.js
-import getUserModel from '../models/User.js'; 
-import getClassModel from '../models/Clase.js';
-import getTipoClaseModel from '../models/TipoClase.js'; 
-import getNotificationModel from '../models/Notification.js'; 
+import getModels from '../utils/getModels.js';
 import asyncHandler from 'express-async-handler'; 
 import { calculateAge } from '../utils/ageUtils.js'; 
 import mongoose from 'mongoose';
 
 const getAllUsers = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
-    
+    const { User } = getModels(req.gymDBConnection);
     const { role } = req.query;
     let query = {};
     if (role) {
         query.roles = role;
     }
 
-    // 1. Nos aseguramos de que se popule tanto 'monthlySubscriptions' como 'planesFijos'
     const users = await User.find(query)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
@@ -40,22 +34,17 @@ const getAllUsers = asyncHandler(async (req, res) => {
         obraSocial: user.obraSocial,
         planesFijos: user.planesFijos || [],
         monthlySubscriptions: user.monthlySubscriptions || [],
-        
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
     }));
-
     res.json(usersWithCalculatedAge);
 });
 
-// @desc    Obtener perfil del usuario logeado
-// @route   GET /api/users/me
-// @access  Authenticated User
 const getMe = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); 
-
-    const user = await User.findById(req.user._id).populate({ path: 'monthlySubscriptions.tipoClase', model: TipoClase, select: 'nombre' });
+    const { User } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.user._id)
+        .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
+        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
     
     if (user) {
         const userProfile = {
@@ -71,16 +60,17 @@ const getMe = asyncHandler(async (req, res) => {
             fechaNacimiento: user.fechaNacimiento,
             sexo: user.sexo,
             edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A',
-            direccion: user.direccion, 
+            direccion: user.direccion,
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,
-            planesFijos: Object.fromEntries(user.planesFijos || new Map()), 
+            planesFijos: user.planesFijos || [],
             monthlySubscriptions: user.monthlySubscriptions.map(sub => ({
                 _id: sub._id,
                 tipoClase: sub.tipoClase,
                 status: sub.status,
                 autoRenewAmount: sub.autoRenewAmount,
                 lastRenewalDate: sub.lastRenewalDate,
+                startDate: sub.startDate,
             })),
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
@@ -92,60 +82,11 @@ const getMe = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Obtener usuario por ID (para Admin/Teacher)
-// @route   GET /api/users/:id
-// @access  Admin, Teacher
 const getUserById = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); 
-
-    const user = await User.findById(req.params.id).populate({ path: 'monthlySubscriptions.tipoClase', model: TipoClase, select: 'nombre' });
-
+    const { User } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.params.id).populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' });
     if (user) {
-        const requestingUserRoles = req.user.roles; 
-        let userData;
-
-        if (requestingUserRoles.includes('admin') || requestingUserRoles.includes('profesor')) {
-            userData = {
-                _id: user._id,
-                nombre: user.nombre,
-                apellido: user.apellido,
-                email: user.email,
-                roles: user.roles,
-                creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
-                clasesInscritas: user.clasesInscritas,
-                telefonoEmergencia: user.telefonoEmergencia,
-                dni: user.dni,
-                fechaNacimiento: user.fechaNacimiento,
-                sexo: user.sexo,
-                edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A',
-                direccion: user.direccion, 
-                numeroTelefono: user.numeroTelefono,
-                obraSocial: user.obraSocial,
-                planesFijos: Object.fromEntries(user.planesFijos || new Map()), 
-                monthlySubscriptions: user.monthlySubscriptions.map(sub => ({
-                    _id: sub._id,
-                    tipoClase: sub.tipoClase,
-                    status: sub.status,
-                    autoRenewAmount: sub.autoRenewAmount,
-                    lastRenewalDate: sub.lastRenewalDate,
-                })),
-                createdAt: user.createdAt,
-                updatedAt: user.updatedAt,
-            };
-        } else {
-            // Para otros roles (ej. 'user'), solo devuelve información básica
-            userData = {
-                _id: user._id,
-                nombre: user.nombre,
-                apellido: user.apellido,
-                email: user.email,
-                roles: user.roles,
-                creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
-                clasesInscritas: user.clasesInscritas,
-            };
-        }
-        res.json(userData);
+        res.json(user);
     } else {
         res.status(404);
         throw new Error('Usuario no encontrado.');
@@ -157,7 +98,8 @@ const getUserById = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/:id
 // @access  Admin
 const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const {User} = getModels(req.gymDBConnection);
+
     const user = await User.findById(req.params.id);
 
     if (user) {
@@ -193,31 +135,7 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 
         const updatedUser = await user.save(); 
 
-        res.json({
-            _id: updatedUser._id,
-            nombre: updatedUser.nombre,
-            apellido: updatedUser.apellido,
-            email: updatedUser.email,
-            roles: updatedUser.roles,
-            creditosPorTipo: Object.fromEntries(updatedUser.creditosPorTipo || new Map()),
-            clasesInscritas: updatedUser.clasesInscritas,
-            telefonoEmergencia: updatedUser.telefonoEmergencia,
-            dni: updatedUser.dni,
-            fechaNacimiento: updatedUser.fechaNacimiento,
-            sexo: updatedUser.sexo,
-            edad: calculateAge(updatedUser.fechaNacimiento),
-            direccion: updatedUser.direccion, 
-            numeroTelefono: updatedUser.numeroTelefono,
-            obraSocial: updatedUser.obraSocial,
-            planesFijos: Object.fromEntries(updatedUser.planesFijos || new Map()), 
-            monthlySubscriptions: updatedUser.monthlySubscriptions.map(sub => ({ // Asegurar que se devuelvan
-                _id: sub._id,
-                tipoClase: sub.tipoClase, // No se popula aquí, solo el ID
-                status: sub.status,
-                autoRenewAmount: sub.autoRenewAmount,
-                lastRenewalDate: sub.lastRenewalDate,
-            })),
-        });
+        res.json(updatedUser);
     } else {
         res.status(404);
         throw new Error('Usuario no encontrado.');
@@ -226,15 +144,11 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 
 
 
-// @desc    Eliminar un usuario (Admin)
-// @route   DELETE /api/users/:id
-// @access  Admin
 const deleteUser = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id);
-
     if (user) {
-        await user.deleteOne(); 
+        await user.deleteOne();
         res.json({ message: 'Usuario eliminado correctamente.' });
     } else {
         res.status(404);
@@ -244,9 +158,10 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 
 const updateUserPlan = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User, CreditLog } = getModels(req.gymDBConnection);
     const { tipoClaseId, creditsToAdd, isSubscription, autoRenewAmount } = req.body;
     const userId = req.params.id;
+    const adminId = req.user._id;
 
     if (!tipoClaseId) {
         return res.status(400).send('Se requiere un tipo de clase.');
@@ -257,18 +172,27 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         return res.status(404).send('Usuario no encontrado.');
     }
 
-    // --- LÓGICA MEJORADA PARA SUMAR Y RESTAR ---
-    if (creditsToAdd !== 0) {
+    if (creditsToAdd !== undefined && Number(creditsToAdd) !== 0) {
+        const creditsToAddNum = Number(creditsToAdd);
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-        const newTotal = currentCredits + Number(creditsToAdd);
+        const newTotal = currentCredits + creditsToAddNum;
 
         if (newTotal < 0) {
-            // Impedimos que el saldo sea negativo
-            return res.status(400).json({ message: 'La operación no puede resultar en un saldo de créditos negativo.' });
+            return res.status(400).json({ message: 'La operación no puede resultar en un saldo negativo.' });
         }
         user.creditosPorTipo.set(tipoClaseId, newTotal);
+
+        await CreditLog.create({
+            user: userId,
+            admin: adminId,
+            amount: creditsToAddNum,
+            tipoClase: tipoClaseId,
+            newBalance: newTotal,
+            reason: 'ajuste_manual_admin',
+            details: `Ajuste manual desde el panel de administrador.`
+        });
     }
-    // 2. Gestionar la suscripción (esta lógica no cambia)
+
     const subscriptionIndex = user.monthlySubscriptions.findIndex(sub => sub.tipoClase.toString() === tipoClaseId);
 
     if (isSubscription) {
@@ -276,7 +200,8 @@ const updateUserPlan = asyncHandler(async (req, res) => {
             tipoClase: tipoClaseId,
             status: 'automatica',
             autoRenewAmount: autoRenewAmount || 8,
-            lastRenewalDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].lastRenewalDate : null // Mantiene la fecha si ya existía
+            startDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].startDate : new Date(),
+            lastRenewalDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].lastRenewalDate : null,
         };
         if (subscriptionIndex > -1) {
             user.monthlySubscriptions[subscriptionIndex] = newSubscriptionData;
@@ -290,64 +215,44 @@ const updateUserPlan = asyncHandler(async (req, res) => {
     }
 
     const updatedUser = await user.save();
-    // Populamos la info para devolverla completa al frontend
     await updatedUser.populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' });
     res.json(updatedUser);
 });
 
 const clearUserCredits = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id);
-
     if (user) {
-        // Resetea el mapa de créditos a un mapa vacío
         user.creditosPorTipo = new Map();
-        
-        const updatedUser = await user.save();
-        res.json({
-            message: 'Todos los créditos del usuario han sido eliminados.',
-            creditosPorTipo: Object.fromEntries(updatedUser.creditosPorTipo)
-        });
+        await user.save();
+        res.json({ message: 'Todos los créditos del usuario han sido eliminados.' });
     } else {
-        res.status(404);
-        throw new Error('Usuario no encontrado.');
+        res.status(404).send('Usuario no encontrado.');
     }
 });
 
 const removeUserSubscription = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const { userId, tipoClaseId } = req.params;
-
     const user = await User.findById(userId);
-
     if (!user) {
-        res.status(404);
-        throw new Error('Usuario no encontrado.');
+        res.status(404).send('Usuario no encontrado.');
+        return;
     }
-
-    // Buscamos el índice de la suscripción a eliminar
-    const subscriptionIndex = user.monthlySubscriptions.findIndex(
-        sub => sub.tipoClase.toString() === tipoClaseId
-    );
-
-    if (subscriptionIndex === -1) {
-        res.status(404);
-        throw new Error('El usuario no tiene una suscripción activa para este tipo de clase.');
+    const subscriptionIndex = user.monthlySubscriptions.findIndex(sub => sub.tipoClase.toString() === tipoClaseId);
+    if (subscriptionIndex > -1) {
+        user.monthlySubscriptions.splice(subscriptionIndex, 1);
+        await user.save();
+        res.json({ message: 'Suscripción eliminada exitosamente.' });
+    } else {
+        res.status(404).send('Suscripción no encontrada.');
     }
-
-    // Eliminamos la suscripción del array
-    user.monthlySubscriptions.splice(subscriptionIndex, 1);
-
-    await user.save();
-    res.json({ message: 'Suscripción eliminada exitosamente.' });
 });
 
 // @desc    Función lógica para enviar notificaciones de pago mensual (sería llamada por un cron job)
 // @access  Interno (No expuesto directamente vía HTTP)
-const triggerMonthlyPaymentNotifications = async (gymDBConnection) => {
-    const User = getUserModel(gymDBConnection);
-    const Notification = getNotificationModel(gymDBConnection);
-    const TipoClase = getTipoClaseModel(gymDBConnection); 
+const triggerMonthlyPaymentNotifications = async (req, res) => {
+    const {TipoClase, User, Notification } = getModels(req.gymDBConnection);
 
     const users = await User.find({
         'monthlySubscriptions.status': 'automatica' 
@@ -383,8 +288,7 @@ const triggerMonthlyPaymentNotifications = async (gymDBConnection) => {
 };
 
 const getUserMetrics = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
+    const { TipoClase, User } = getModels(req.gymDBConnection);
 
     // 1. Distribución por Sexo (sin cambios, ya estaba bien)
     const genderDistribution = await User.aggregate([
@@ -474,8 +378,7 @@ const getUserMetrics = asyncHandler(async (req, res) => {
 });
 
 const subscribeUserToPlan = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const Class = getClassModel(req.gymDBConnection);
+    const { Clase, User } = getModels(req.gymDBConnection);
 
     // 1. AÑADIMOS 'horaInicio' A LOS DATOS RECIBIDOS
     const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin } = req.body;
@@ -494,7 +397,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
     }
 
     // 3. BÚSQUEDA ACTUALIZADA para ser más específica
-    const classesToEnroll = await Class.find({
+    const classesToEnroll = await Clase.find({
         tipoClase: tipoClaseId,
         diaDeSemana: { $in: diasDeSemana },
         horaInicio: horaInicio, // <-- FILTRO CLAVE: Busca solo el horario exacto
@@ -545,7 +448,7 @@ res.status(200).json({ // El resto se mantiene
 });
 });
 const removeFixedPlan = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const { userId, planId } = req.params;
 
     const user = await User.findById(userId);
@@ -575,13 +478,12 @@ const removeFixedPlan = asyncHandler(async (req, res) => {
 // @route   GET /api/users/me
 // @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
-    const user = await User.findById(req.user._id).select('-password');
+    const { User } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.user._id).select('-contraseña');
     if (user) {
         res.json(user);
     } else {
-        res.status(404);
-        throw new Error('Usuario no encontrado');
+        res.status(404).send('Usuario no encontrado.');
     }
 });
 
@@ -589,7 +491,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.user._id);
 
     if (user) {
@@ -620,28 +522,16 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
-// --- INICIO DE LA SOLUCIÓN: NUEVO CONTROLADOR PARA CONTRASEÑA ---
-// @desc    Cambiar la contraseña del usuario
-// @route   PUT /api/users/profile/change-password
-// @access  Private
 const changeUserPassword = asyncHandler(async (req, res) => {
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.user._id);
-
     const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-        res.status(400);
-        throw new Error('Por favor, proporciona la contraseña actual y la nueva.');
-    }
-
     if (user && (await user.matchPassword(currentPassword))) {
-        user.password = newPassword;
+        user.contraseña = newPassword;
         await user.save();
         res.json({ message: 'Contraseña actualizada con éxito.' });
     } else {
-        res.status(401);
-        throw new Error('La contraseña actual es incorrecta.');
+        res.status(401).send('La contraseña actual es incorrecta.');
     }
 });
 

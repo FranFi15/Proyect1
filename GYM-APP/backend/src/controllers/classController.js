@@ -1,12 +1,8 @@
 // src/controllers/classController.js
-import getClassModel from '../models/Clase.js';
 import rrule from 'rrule';
-import getUserModel from '../models/User.js'; 
-import getTipoClaseModel from '../models/TipoClase.js'; 
-import getNotificationModel from '../models/Notification.js'; 
 import asyncHandler from 'express-async-handler';
 import { calculateAge } from '../utils/ageUtils.js';
-import getConfiguracionModel from '../models/Configuracion.js';
+import getModels from '../utils/getModels.js';
 import { parse, subHours } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
@@ -33,116 +29,66 @@ const getDayName = (date) => {
     return days[date.getUTCDay()];
 };
 
-// =================================================================
-// --- VERSIÓN DEFINITIVA DE createClass ---
-// =================================================================
 const createClass = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    // Extraemos todos los campos que envía el frontend
+    const { Clase } = getModels(req.gymDBConnection);
     const { nombre, tipoClase, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
 
     if (tipoInscripcion === 'fijo') {
-        // --- LÓGICA PARA CLASES FIJAS (RECURRENTES) ---
-        // Validamos los campos necesarios para este tipo de clase
-        if (!fechaInicio || !fechaFin || !diaDeSemana || diaDeSemana.length === 0) {
+        if (!fechaInicio || !fechaFin || !diaDeSemana || !Array.isArray(diaDeSemana) || diaDeSemana.length === 0) {
             res.status(400);
             throw new Error("Para clases fijas, se requieren fechas de inicio, fin y al menos un día de la semana.");
         }
-
-        // Construimos la regla de recurrencia (rrule) aquí en el backend
         const rule = new RRule({
             freq: RRule.WEEKLY,
-            byweekday: diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean), // Mapeamos y filtramos días inválidos
-            dtstart: new Date(`${fechaInicio}T00:00:00.000Z`), // Forzamos UTC para evitar errores
-            until: new Date(`${fechaFin}T23:59:59.000Z`), // Forzamos UTC para evitar errores
+            byweekday: diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
+            dtstart: new Date(`${fechaInicio}T00:00:00.000Z`),
+            until: new Date(`${fechaFin}T23:59:59.000Z`),
         });
-
         const allDates = rule.all();
-        console.log(`[Clases Fijas] Regla generó ${allDates.length} fechas.`);
-
         if (allDates.length === 0) {
             return res.status(400).json({ message: "La configuración no generó ninguna clase. Revisa las fechas y los días seleccionados." });
         }
-
         const classCreationPromises = allDates.map(dateInstance => {
-            const newClassData = {
-                nombre, tipoClase, profesor, capacidad, horaInicio, horaFin,
-                fecha: dateInstance,
-                diaDeSemana: [getDayName(dateInstance)],
-                tipoInscripcion: 'fijo',
-                rrule: rule.toString(), // Guardamos la regla generada
-                estado: 'activa',
-                usuariosInscritos: [],
-            };
-            return Class.create(newClassData);
+            const newClassData = { nombre, tipoClase, profesor, capacidad, horaInicio, horaFin, fecha: dateInstance, diaDeSemana: [getDayName(dateInstance)], tipoInscripcion: 'fijo', rrule: rule.toString(), estado: 'activa', usuariosInscritos: [] };
+            return Clase.create(newClassData);
         });
-
         const createdClasses = await Promise.all(classCreationPromises);
         res.status(201).json({ message: `Se crearon ${createdClasses.length} clases.`, data: createdClasses });
-
     } else {
-        // --- LÓGICA PARA CLASE ÚNICA (LIBRE) ---
         if (!fecha) {
             res.status(400);
             throw new Error('La fecha es obligatoria para una clase única.');
         }
-
         const safeDate = new Date(`${fecha}T12:00:00.000Z`);
-
-        const newClass = new Class({
-            nombre, tipoClase, profesor, capacidad, horaInicio, horaFin, fecha: safeDate,
-            diaDeSemana: [getDayName(safeDate)],
-            tipoInscripcion: 'libre',
-        });
-
+        const newClass = new Clase({ nombre, tipoClase, profesor, capacidad, horaInicio, horaFin, fecha: safeDate, diaDeSemana: [getDayName(safeDate)], tipoInscripcion: 'libre' });
         const createdClass = await newClass.save();
         res.status(201).json({ message: "Clase única creada.", data: createdClass });
     }
 });
 
 
-// =================================================================
-// --- VERSIÓN getAllClasses (SIMPLE Y FUNCIONAL) ---
-// =================================================================
 const getAllClasses = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    // Por ahora, traemos todas las clases para que tu calendario actual funcione.
-    // Más adelante podemos optimizarlo con filtros de fecha.
-    const classes = await Class.find({})
-        .populate('tipoClase', 'nombre color')
-        .populate('profesor', 'nombre apellido');
+    const { Clase } = getModels(req.gymDBConnection);
+    const classes = await Clase.find({}).populate('tipoClase', 'nombre').populate('profesor', 'nombre apellido');
     res.json(classes);
 });
 
 
-// @desc    Obtener clase por ID
-// @route   GET /api/classes/:id
-// @access  Public
 const getClassById = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    
-    
-    // 1. Poblamos 'usuariosInscritos' con los campos que necesitamos
-    const classItem = await Class.findById(req.params.id)
+    const { Clase } = getModels(req.gymDBConnection);
+    const classItem = await Clase.findById(req.params.id)
         .populate('tipoClase', 'nombre')
         .populate('profesor', 'nombre apellido')
         .populate('usuariosInscritos', 'nombre apellido fechaNacimiento sexo telefonoEmergencia obraSocial');
 
     if (classItem) {
-        // 2. Convertimos el documento de Mongoose a un objeto plano para poder modificarlo
         const classWithAge = classItem.toObject();
-        
-        // 3. Calculamos la edad para cada usuario inscrito y la añadimos al objeto
         if (classWithAge.usuariosInscritos && classWithAge.usuariosInscritos.length > 0) {
-            classWithAge.usuariosInscritos = classWithAge.usuariosInscritos.map(user => {
-                return {
-                    ...user,
-                    edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A'
-                };
-            });
+            classWithAge.usuariosInscritos = classWithAge.usuariosInscritos.map(user => ({
+                ...user,
+                edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A'
+            }));
         }
-
-        // 4. Enviamos el objeto completo con las edades calculadas
         res.json(classWithAge);
     } else {
         res.status(404);
@@ -150,76 +96,46 @@ const getClassById = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Actualizar una clase
-// @route   PUT /api/classes/:id
-// @access  Private/Admin/Teacher
 const updateClass = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    const { nombre, tipoClase, capacidad, fecha, horaInicio, horaFin, horarioFijo, diaDeSemana, tipoInscripcion, estado, profesor } = req.body;
-
-    const classItem = await Class.findById(req.params.id);
+    const { Clase } = getModels(req.gymDBConnection);
+    const { nombre, tipoClase, capacidad, fecha, horaInicio, horaFin, tipoInscripcion, estado, profesor } = req.body;
+    const classItem = await Clase.findById(req.params.id);
 
     if (!classItem) {
         res.status(404);
         throw new Error('Clase no encontrada.');
     }
-
+    
     classItem.nombre = nombre !== undefined ? nombre : classItem.nombre;
     classItem.tipoClase = tipoClase !== undefined ? tipoClase : classItem.tipoClase;
     classItem.capacidad = capacidad !== undefined ? capacidad : classItem.capacidad;
     classItem.estado = estado !== undefined ? estado : classItem.estado;
-    classItem.profesor = profesor !== undefined ? profesor : classItem.profesor; 
-
-    // Aquí evitamos cambiar el tipo de inscripción de una clase ya creada
-    if (tipoInscripcion && classItem.tipoInscripcion !== tipoInscripcion) {
-        res.status(400); 
-        throw new Error('No se puede cambiar el tipo de inscripción de una clase existente.');
-    }
-
-    // Ajustamos los campos según el tipo de inscripción
-    if (classItem.tipoInscripcion === 'fijo') {
-        classItem.horaInicio = horaInicio !== undefined ? horaInicio : classItem.horaInicio;
-        classItem.horaFin = horaFin !== undefined ? horaFin : classItem.horaFin;
-        classItem.horarioFijo = `${classItem.horaInicio} - ${classItem.horaFin}`;
-        classItem.diaDeSemana = diaDeSemana !== undefined ? diaDeSemana : classItem.diaDeSemana;
-        classItem.fecha = undefined; // Asegurarse de que no haya fecha para clases fijas
-    } else { // tipoInscripcion === 'libre'
+    classItem.profesor = profesor !== undefined ? profesor : classItem.profesor;
+    classItem.horaInicio = horaInicio !== undefined ? horaInicio : classItem.horaInicio;
+    classItem.horaFin = horaFin !== undefined ? horaFin : classItem.horaFin;
+    
+    if (classItem.tipoInscripcion === 'libre') {
         classItem.fecha = fecha !== undefined ? new Date(fecha) : classItem.fecha;
-        classItem.horaInicio = horaInicio !== undefined ? horaInicio : classItem.horaInicio;
-        classItem.horaFin = horaFin !== undefined ? horaFin : classItem.horaFin;
-        classItem.horarioFijo = undefined; // Asegurarse de que no haya horarioFijo para clases libres
-        classItem.diaDeSemana = undefined; // Asegurarse de que no haya diaDeSemana para clases libres
     }
 
     const updatedClass = await classItem.save();
     res.json(updatedClass);
 });
 
-// @desc    Cancelar una clase específica
-// @route   PUT /api/classes/:id/cancel
-// @access  Private/Admin
 const cancelClassInstance = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    const User = getUserModel(req.gymDBConnection); 
-    const Notification = getNotificationModel(req.gymDBConnection); 
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
-
-    const classId = req.params.id;
-    const { refundCredits } = req.body; 
-
-    const classItem = await Class.findById(classId).populate('tipoClase');
+    const { Clase, User, Notification } = getModels(req.gymDBConnection);
+    const { refundCredits } = req.body;
+    const classItem = await Clase.findById(req.params.id).populate('tipoClase');
 
     if (!classItem) {
         res.status(404);
         throw new Error('Clase no encontrada.');
     }
-
     if (classItem.estado === 'cancelada') {
         res.status(400);
         throw new Error('La clase ya ha sido cancelada.');
     }
-
-    classItem.estado = 'cancelada'; 
+    classItem.estado = 'cancelada';
 
     if (refundCredits) {
         for (const userId of classItem.usuariosInscritos) {
@@ -227,85 +143,49 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
             if (user) {
                 const tipoClaseId = classItem.tipoClase._id.toString();
                 const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                user.creditosPorTipo.set(tipoClaseId, currentCredits + 1); 
+                user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
                 await user.save();
-
-                const notificationMessage = `Se te ha reembolsado 1 crédito para la clase "${classItem.nombre}" del ${classItem.fecha ? new Date(classItem.fecha).toLocaleDateString() : classItem.horarioFijo} debido a su cancelación.`;
                 await Notification.create({
                     user: user._id,
-                    message: notificationMessage,
+                    message: `Se te ha reembolsado 1 crédito para la clase "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
                     type: 'class_cancellation_refund',
-                    class: classId,
+                    class: classItem._id
                 });
             }
         }
     }
-
     classItem.usuariosInscritos = [];
     await classItem.save();
-
     res.json({ message: 'Clase cancelada exitosamente.', class: classItem });
 });
 
-// @desc    Reactivar una clase cancelada
-// @route   PUT /api/classes/:id/reactivate
-// @access  Private/Admin
 const reactivateClass = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-
-    const classId = req.params.id;
-    const classItem = await Class.findById(classId);
+    const { Clase } = getModels(req.gymDBConnection);
+    const classItem = await Clase.findById(req.params.id);
 
     if (!classItem) {
         res.status(404);
         throw new Error('Clase no encontrada.');
     }
-
     if (classItem.estado === 'activa' || classItem.estado === 'llena') {
         res.status(400);
-        throw new Error('La clase ya está activa o llena y no necesita ser reactivada.');
+        throw new Error('La clase ya está activa o llena.');
     }
-
     classItem.estado = 'activa';
-    // Opcional: Si al reactivar quieres permitir que los usuarios vuelvan a inscribirse,
-    // asegúrate de que usuariosInscritos esté vacío o reseteado.
-    // classItem.usuariosInscritos = []; // Puedes descomentar si quieres que la clase esté vacía al reactivar.
-    
     await classItem.save();
     res.json({ message: 'Clase reactivada exitosamente.', class: classItem });
 });
 
 
-// @desc    Eliminar una clase
-// @route   DELETE /api/classes/:id
-// @access  Private/Admin
 const deleteClass = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    const User = getUserModel(req.gymDBConnection); 
-
-    const classItem = await Class.findById(req.params.id);
+    const { Clase, User } = getModels(req.gymDBConnection);
+    const classItem = await Clase.findById(req.params.id);
 
     if (classItem) {
-        // En lugar de iterar sobre usuariosInscritos, busquemos usuarios que tengan esta clase en sus arrays
-        // y la eliminamos. Esto es importante para clases fijas que podrían tener el ID en 'planesFijos' o 'clasesInscritas'
-        const usersToUpdate = await User.find({
-            $or: [
-                { clasesInscritas: classItem._id },
-                { [`planesFijos.${classItem._id.toString()}`]: { $exists: true } }
-            ]
-        });
-
-        for (const user of usersToUpdate) {
-            // Remover de clasesInscritas si existe
-            user.clasesInscritas = user.clasesInscritas.filter(id => id.toString() !== classItem._id.toString());
-            
-            // Remover de planesFijos si es una clase fija
-            if (classItem.tipoInscripcion === 'fijo' && user.planesFijos.has(classItem._id.toString())) {
-                user.planesFijos.delete(classItem._id.toString());
-            }
-            await user.save(); 
-        }
-
+        await User.updateMany(
+            { clasesInscritas: classItem._id },
+            { $pull: { clasesInscritas: classItem._id } }
+        );
         await classItem.deleteOne();
         res.json({ message: 'Clase eliminada correctamente.' });
     } else {
@@ -315,37 +195,26 @@ const deleteClass = asyncHandler(async (req, res) => {
 });
 
 const enrollUserInClass = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection); // Necesario para el crédito universal
-
+    const { Clase, User, TipoClase } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
-    const classItem = await Class.findById(classId).populate('tipoClase');
+    const classItem = await Clase.findById(classId).populate('tipoClase');
     const user = await User.findById(userId);
 
     if (!classItem || !user) {
         res.status(404);
         throw new Error('Clase o usuario no encontrados.');
     }
-
-    if (classItem.estado === 'cancelada') {
+    if (classItem.estado !== 'activa') {
         res.status(400);
-        throw new Error('No te puedes inscribir a una clase cancelada.');
+        throw new Error(`No te puedes inscribir a una clase ${classItem.estado}.`);
     }
-
     if (classItem.usuariosInscritos.includes(userId)) {
         res.status(400);
         throw new Error('Ya estás inscrito en esta clase.');
     }
-
-    if (classItem.usuariosInscritos.length >= classItem.capacidad) {
-        res.status(400);
-        throw new Error('La clase está llena.');
-    }
-
-    // --- LÓGICA DE CRÉDITOS (INCLUYENDO UNIVERSAL) ---
+    
     const tipoClaseId = classItem.tipoClase._id.toString();
     let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
     let creditDeducted = false;
@@ -370,91 +239,63 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}" ni créditos universales.`);
     }
 
-    // --- LÓGICA DE INSCRIPCIÓN ---
     classItem.usuariosInscritos.push(userId);
     if (classItem.usuariosInscritos.length >= classItem.capacidad) {
         classItem.estado = 'llena';
     }
-
-    if (!user.clasesInscritas.includes(classId)) {
-        user.clasesInscritas.push(classId);
-    }
-    
-    // --- BLOQUE DE CÓDIGO OBSOLETO ELIMINADO ---
-    // El bloque que intentaba usar user.planesFijos.has() se ha quitado.
+    user.clasesInscritas.push(classId);
 
     await user.save();
     await classItem.save();
-
     res.json({ message: 'Inscripción exitosa.', class: classItem });
 });
 
 
 const unenrollUserFromClass = asyncHandler(async (req, res) => {
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
-
-    // El resto de las variables que ya tenías
-    const Class = getClassModel(req.gymDBConnection);
-    const User = getUserModel(req.gymDBConnection);
-    const Notification = getNotificationModel(req.gymDBConnection);
-
+    const { Clase, User } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
-    // Esta línea ahora funcionará sin problemas
-    const classItem = await Class.findById(classId).populate('tipoClase');
+    const classItem = await Clase.findById(classId).populate('tipoClase');
     const user = await User.findById(userId);
 
-    // ... (EL RESTO DE LA FUNCIÓN SE MANTIENE EXACTAMENTE IGUAL)
     if (!classItem || !user) {
         res.status(404);
         throw new Error('Clase o usuario no encontrados.');
     }
-    // ...etc
 
-    // --- Lógica de validación de tiempo ---
-    const now = new Date();
     const classStartDateTime = parse(`${classItem.fecha.toISOString().substring(0, 10)} ${classItem.horaInicio}`, 'yyyy-MM-dd HH:mm', new Date());
     const cancellationDeadline = subHours(classStartDateTime, 1);
-
-    if (now > cancellationDeadline) {
+    if (new Date() > cancellationDeadline) {
         res.status(400);
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio de la clase.');
     }
 
-    // --- Lógica de otorgamiento de crédito ---
     const tipoClaseId = classItem.tipoClase._id.toString();
     const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
     user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
 
-    // --- Lógica de desinscripción ---
-    const userIndexInClass = classItem.usuariosInscritos.map(id => id.toString()).indexOf(userId.toString());
+    const userIndexInClass = classItem.usuariosInscritos.indexOf(userId);
     if (userIndexInClass > -1) {
         classItem.usuariosInscritos.splice(userIndexInClass, 1);
     }
-    
     if (classItem.estado === 'llena') {
         classItem.estado = 'activa';
     }
-
-    const classIndexInUser = user.clasesInscritas.map(id => id.toString()).indexOf(classId.toString());
+    const classIndexInUser = user.clasesInscritas.indexOf(classId);
     if (classIndexInUser > -1) {
         user.clasesInscritas.splice(classIndexInUser, 1);
     }
     
     await user.save();
     await classItem.save();
-
-    res.json({ 
-        message: 'Anulación exitosa. Se ha añadido 1 crédito a tu cuenta para este tipo de clase.' 
-    });
+    res.json({ message: 'Anulación exitosa. Se ha añadido 1 crédito a tu cuenta.' });
 });
 
 // @desc    Generar futuras instancias de clases fijas para un gimnasio específico
 // Esta función será llamada por el cron job para cada gimnasio activo.
-const generateFutureFixedClasses = asyncHandler(async (gymDBConnection) => {
-    console.log(`[Cron Job] Iniciando generación automática de clases para el próximo mes.`);
-    const Class = getClassModel(gymDBConnection);
+const generateFutureFixedClasses = asyncHandler(async (req, res) => {
+    const { Clase, TipoClase } = getModels(req.gymDBConnection);
 
     // 1. DEFINIR EL PERÍODO A GENERAR
     // Generaremos las clases para el mes siguiente al actual.
@@ -464,12 +305,12 @@ const generateFutureFixedClasses = asyncHandler(async (gymDBConnection) => {
     // El último día del mes que viene
     const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-    console.log(`[Cron Job] Período a generar: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+   
 
     // 2. ENCONTRAR LAS CLASES FIJAS "PATRÓN"
     // Buscamos la última instancia de cada clase fija para usarla como plantilla.
     // Usamos una agregación de MongoDB para agrupar por lo que hace única a una clase recurrente.
-    const lastInstances = await Class.aggregate([
+    const lastInstances = await Clase.aggregate([
         // Filtrar solo clases fijas del pasado reciente para usarlas como plantilla
         { $match: { tipoInscripcion: 'fijo', fecha: { $lte: now } } },
         // Ordenar para que la más reciente de cada grupo quede primera
@@ -553,7 +394,7 @@ const generateFutureFixedClasses = asyncHandler(async (gymDBConnection) => {
 // @route   PUT /api/classes/bulk-update
 // @access  Private/Admin
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
+    const { Clase } = getModels(req.gymDBConnection);
     const { filters, updates } = req.body;
 
     if (!filters || !updates || Object.keys(updates).length === 0) {
@@ -579,7 +420,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         const template = futureInstances[0].toObject();
         const idsToDelete = futureInstances.map(inst => inst._id);
         
-        await Class.deleteMany({ _id: { $in: idsToDelete } });
+        await Clase.deleteMany({ _id: { $in: idsToDelete } });
 
         // --- CORRECCIÓN AQUÍ: Aplicamos los otros updates a la plantilla ---
         if (updates.profesor) template.profesor = updates.profesor;
@@ -599,7 +440,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         
         const newDates = rule.all();
         for (const date of newDates) {
-            await Class.create({
+            await Clase.create({
                 ...template, // Usamos la plantilla ya actualizada
                 _id: new mongoose.Types.ObjectId(),
                 fecha: date,
@@ -620,7 +461,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         updateData.$set.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
     }
 
-    const result = await Class.updateMany(query, updateData);
+    const result = await Clase.updateMany(query, updateData);
     res.json({ message: 'Operación completada.', actualizadas: result.modifiedCount, encontradas: result.matchedCount });
 });
 
@@ -628,7 +469,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
 // @route   POST /api/classes/bulk-delete
 // @access  Private/Admin
 const bulkDeleteClasses = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
+    const { Clase } = getModels(req.gymDBConnection);
     const { filters } = req.body;
 
     if (!filters) {
@@ -645,7 +486,7 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
     // MUY IMPORTANTE: Solo eliminar clases futuras
     query.fecha = { $gte: new Date(filters.fechaDesde || new Date()) };
 
-    const result = await Class.deleteMany(query);
+    const result = await Clase.deleteMany(query);
 
     if (result.deletedCount === 0) {
         res.status(404);
@@ -659,11 +500,9 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
 });
 
 const getGroupedClasses = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
-    const User = getUserModel(req.gymDBConnection);
-    const TipoClase = getTipoClaseModel(req.gymDBConnection);
+    const { Clase, TipoClase } = getModels(req.gymDBConnection);
 
-    const groupedClasses = await Class.aggregate([
+    const groupedClasses = await Clase.aggregate([
         { $match: { rrule: { $exists: true, $ne: null }, fecha: { $gte: new Date() } } },
         { $sort: { fecha: 1 } },
         {
@@ -711,7 +550,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
 });
 
 const bulkExtendClasses = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
+    const { Clase } = getModels(req.gymDBConnection);
     const { filters, extension } = req.body;
 
     if (!filters || !extension || !extension.fechaFin) {
@@ -720,7 +559,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     }
 
     // 1. Encontrar la última instancia existente para usarla como plantilla
-    const lastInstance = await Class.findOne({
+    const lastInstance = await Clase.findOne({
         nombre: filters.nombre,
         tipoClase: filters.tipoClase,
         horaInicio: filters.horaInicio
@@ -756,7 +595,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
         // --- CORRECCIÓN CLAVE AQUÍ ---
         // Creamos un objeto nuevo y limpio, copiando solo los datos necesarios
         // de la plantilla, en lugar de usar ...lastInstance.toObject() que copia el _id.
-        await Class.create({
+        await Clase.create({
             nombre: lastInstance.nombre,
             tipoClase: lastInstance.tipoClase,
             horarioFijo: lastInstance.horarioFijo,
@@ -781,8 +620,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const cancelClassesByDate = asyncHandler(async (req, res) => {
     const { date } = req.body; // Se espera una fecha en formato 'YYYY-MM-DD'
-    const Clase = getClassModel(req.gymDBConnection);
-    const Notification = getNotificationModel(req.gymDBConnection);
+    const { Clase, Notification } = getModels(req.gymDBConnection);
 
     if (!date) {
         res.status(400);
@@ -838,7 +676,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const reactivateClassesByDate = asyncHandler(async (req, res) => {
     const { date } = req.body;
-    const Clase = getClassModel(req.gymDBConnection);
+    const { Clase } = getModels(req.gymDBConnection);
     
     if (!date) {
         res.status(400);
@@ -864,7 +702,7 @@ const reactivateClassesByDate = asyncHandler(async (req, res) => {
 // @route   GET /api/classes/available-slots
 // @access  Admin
 const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
-    const Class = getClassModel(req.gymDBConnection);
+    const { Clase } = getModels(req.gymDBConnection);
     const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = req.query;
 
     if (!tipoClaseId || !diasDeSemana || !fechaInicio || !fechaFin) {
@@ -873,7 +711,7 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
     }
     const diasArray = diasDeSemana.split(',');
 
-    const availableSlots = await Class.aggregate([
+    const availableSlots = await Clase.aggregate([
         {
             $match: {
                 // 1. Filtros primarios que no fallan

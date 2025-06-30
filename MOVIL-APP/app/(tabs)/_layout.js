@@ -1,19 +1,45 @@
-// app/(tabs)/_layout.js
+import React from 'react';
 import { Tabs } from 'expo-router';
+import { Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext'; // Asegúrate de que la ruta sea correcta
+
+// Componente personalizado que busca y muestra el logo del gimnasio.
+function HeaderLogoTitle() {
+  const { gymLogo } = useAuth();
+
+  // Si no hay logo, no mostramos nada. La cabecera aparecerá vacía.
+  if (!gymLogo) {
+    return null;
+  }
+
+  // Si hay logo, mostramos el componente Image.
+  return (
+    <Image
+      style={{ width: 120, height: 40, resizeMode: 'contain' }}
+      source={{ uri: gymLogo }}
+    />
+  );
+}
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{
+    <Tabs 
+      screenOptions={{
         tabBarActiveTintColor: '#150224',
-      }}>
+        // --- OPCIONES DE CABECERA AÑADIDAS ---
+        headerTitleAlign: 'center',
+        headerTitle: (props) => <HeaderLogoTitle {...props} />, 
+        headerStyle: {
+          backgroundColor: '#150224', 
+        },
+      }}
+    >
       <Tabs.Screen 
         name="calendar" 
         options={{ 
           title: 'Calendario',
-          // 2. Usamos la opción tabBarIcon, que es una función
           tabBarIcon: ({ color, size, focused }) => (
-            // 3. Renderizamos un icono diferente si la pestaña está activa (focused) o no
             <Ionicons 
               name={focused ? 'calendar' : 'calendar-outline'} 
               size={size} 
@@ -28,7 +54,7 @@ export default function TabsLayout() {
           title: 'Mis Clases',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? 'list-circle' : 'list-outline'} 
+              name={focused ? 'list' : 'list-outline'} 
               size={size} 
               color={color} 
             />

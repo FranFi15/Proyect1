@@ -10,7 +10,9 @@ import {
     deleteClient,
     getClientDbInfo,
     getClientInternalDbInfo,
+    getInternalDbInfo,
 } from '../controllers/clientController.js'; 
+import { protectInternal } from '../middleware/authInternalMiddleware.js'; 
 
 const router = express.Router();
 
@@ -31,6 +33,8 @@ router.route('/:id')
     .put(updateClient) 
     .delete(deleteClient); 
 
+router.route('/:id/internal-db-info').get(protectInternal, getInternalDbInfo);
+
 // Ruta para obtener información de DB de un cliente específico (para gym-app-backend)
 router.get('/:clientId/db-info', getClientDbInfo); 
 
@@ -38,5 +42,6 @@ router.get('/:clientId/db-info', getClientDbInfo);
 router.put('/:clientId/status', updateClientStatus); 
 
 router.get('/:clientId/internal-db-info', getClientInternalDbInfo);
+
 
 export default router;

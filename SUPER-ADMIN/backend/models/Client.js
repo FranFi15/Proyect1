@@ -39,12 +39,15 @@ const ClientSchema = new mongoose.Schema({
         enum: ['activo', 'inactivo', 'periodo_prueba', 'vencido'], 
         default: 'periodo_prueba' 
     },
-    // ... (resto de los campos se mantienen igual)
+    logoUrl: { 
+        type: String,
+        default: '' 
+    },
     fechaInicioSuscripcion: { type: Date, default: Date.now },
     fechaVencimientoSuscripcion: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
     connectionStringDB: { type: String, required: true, unique: true },
     createdAt: { type: Date, default: Date.now }
-});
+}, { timestamps: true });
 
 const Client = mongoose.model('Client', ClientSchema);
 

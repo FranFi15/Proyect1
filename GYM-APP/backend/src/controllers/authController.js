@@ -1,21 +1,15 @@
-import getUserModel from '../models/User.js';
 import asyncHandler from 'express-async-handler';
 import generateToken from '../utils/generateToken.js';
 import { calculateAge } from '../utils/ageUtils.js';
+import getModels from '../utils/getModels.js';
 
-// @desc    Registrar un nuevo usuario
-// @route   POST /api/auth/register
-// @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    // La verificación de conexión redundante ha sido eliminada.
-    // Confiamos en que el middleware ya hizo su trabajo.
-    const User = getUserModel(req.gymDBConnection);
-
+    const { User } = getModels(req.gymDBConnection);
     const { nombre, apellido, email, contraseña, dni, fechaNacimiento, telefonoEmergencia, direccion, numeroTelefono, obraSocial, sexo } = req.body;
 
     if (!nombre || !apellido || !email || !contraseña || !dni || !fechaNacimiento || !telefonoEmergencia) {
         res.status(400);
-        throw new Error('Por favor, ingresa todos los campos obligatorios: nombre, apellido, email, contraseña, DNI, fecha de nacimiento y teléfono de emergencia.');
+        throw new Error('Por favor, ingresa todos los campos obligatorios.');
     } 
 
     const userExists = await User.findOne({ email });
@@ -23,79 +17,20 @@ const registerUser = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Ya existe un usuario con este email.');
     }
-     
-    const dniExists = await User.findOne({ dni });
-    if (dniExists) {
+    
+    const userData = { nombre, apellido, email, contraseña, dni, fechaNacimiento: new Date(fechaNacimiento), telefonoEmergencia, direccion: direccion || '', numeroTelefono: numeroTelefono || '', obraSocial: obraSocial || '', roles: ['cliente'], sexo: sexo || 'Otro' };
+    const user = await User.create(userData);
+
+    if (user) {
+        res.status(201).json({_id: user._id, nombre: user.nombre, email: user.email, token: generateToken(user._id, user.roles, user.email, user.nombre) });
+    } else {
         res.status(400);
-        throw new Error('Ya existe un usuario con este DNI.');
-    }
-
-    const userCount = await User.countDocuments();
-    let roles = ['cliente'];
-
-    if (userCount === 0) {
-        roles = ['admin'];
-    }
-
-    const userData = {
-        nombre,
-        apellido,
-        email,
-        contraseña: contraseña,
-        dni,
-        fechaNacimiento: new Date(fechaNacimiento),
-        telefonoEmergencia,
-        direccion: direccion || '', 
-        numeroTelefono: numeroTelefono || '',
-        obraSocial: obraSocial || '',
-        roles: roles,
-        sexo: sexo || 'Otro',
-    };
-
-    try { 
-        const user = await User.create(userData);
-
-        if (user) {
-            res.status(201).json({
-                _id: user._id,
-                nombre: user.nombre,
-                apellido: user.apellido,
-                email: user.email,
-                roles: user.roles,
-                creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
-                clasesInscritas: user.clasesInscritas,
-                telefonoEmergencia: user.telefonoEmergencia,
-                dni: user.dni,
-                fechaNacimiento: user.fechaNacimiento,
-                edad: calculateAge(user.fechaNacimiento),
-                direccion: user.direccion, 
-                numeroTelefono: user.numeroTelefono,
-                obraSocial: user.obraSocial,
-                sexo: user.sexo,
-                token: generateToken(user._id, user.roles, user.email, user.nombre),
-                gymId: req.gymId,
-            });
-        } else {
-            res.status(400);
-            throw new Error('Datos de usuario inválidos después de la creación.');
-        }
-    } catch (dbError) {
-        if (dbError.name === 'ValidationError') {
-            res.status(400);
-            throw new Error(`Error de validación al crear usuario: ${dbError.message}`);
-        }
-        console.error("Error no manejado en registerUser:", dbError);
-        res.status(500);
-        throw new Error('Error interno del servidor al crear usuario en la base de datos del inquilino.');
+        throw new Error('Datos de usuario inválidos.');
     }
 });
 
-// @desc    Autenticar un usuario y obtener token
-// @route   POST /api/auth/login
-// @access  Public
 const loginUser = asyncHandler(async (req, res) => {
-    // También eliminamos la verificación redundante aquí para mantener la consistencia.
-    const User = getUserModel(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     const { email, contraseña } = req.body;
     const user = await User.findOne({ email });
 
@@ -111,7 +46,7 @@ const loginUser = asyncHandler(async (req, res) => {
             telefonoEmergencia: user.telefonoEmergencia,
             dni: user.dni,
             fechaNacimiento: user.fechaNacimiento,
-            edad: calculateAge(user.fechaNacimiento),
+            edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 0,
             direccion: user.direccion, 
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,

@@ -1,6 +1,18 @@
 // app/(tabs)/calendar.js
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, Button, FlatList, SectionList, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { 
+    StyleSheet, 
+    Alert, 
+    ActivityIndicator, 
+    TouchableOpacity, 
+    Platform,
+    useColorScheme, // Hook para detectar el tema
+    SectionList,
+    FlatList,
+    Button,
+    View, // Mantenemos View para algunos contenedores simples
+    Text, // Mantenemos Text para botones y elementos sin tema
+} from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
@@ -9,110 +21,102 @@ import { useAuth } from '../../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// --- COMPONENTES Y CONSTANTES TEMÁTICAS ---
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/ThemedText';
+import { Colors } from '@/constants/Colors';
+
+// --- CONFIGURACIÓN DE IDIOMA (SIN CAMBIOS) ---
 LocaleConfig.locales['es'] = {
-  monthNames: [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ],
-  monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
-  dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
-  dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
-  today: "Hoy"
+    monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+    monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
+    dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
+    today: "Hoy"
 };
 LocaleConfig.defaultLocale = 'es';
 
 const capitalize = (str) => {
-  if (typeof str !== 'string' || str.length === 0) return '';
-  const formattedStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  return formattedStr.replace(' De ', ' de '); // Para que 'de' quede en minúscula
+    if (typeof str !== 'string' || str.length === 0) return '';
+    const formattedStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return formattedStr.replace(' De ', ' de ');
 };
 
-const calendarTheme = {
-    calendarBackground: '#f7f7f7',
-    textSectionTitleColor: '#9e9e9e', // Un gris más suave para los días de la semana (L, M, etc)
-    selectedDayBackgroundColor: '#6f5c94',
+// --- TEMA DEL CALENDARIO AHORA ES UNA FUNCIÓN DINÁMICA ---
+const getCalendarTheme = (colorScheme) => ({
+    calendarBackground: Colors[colorScheme].background,
+    textSectionTitleColor: Colors[colorScheme].text,
+    selectedDayBackgroundColor: Colors.light.tint, // Usamos un color fijo para mejor visibilidad
     selectedDayTextColor: '#ffffff',
-    
-    // Hacemos el color de "hoy" un azul más vibrante
-    todayTextColor: '#007AFF',
-    
-    // Hacemos los números de los días un poco más pequeños para que "respiren"
-    dayTextColor: '#2d4150',
-    textDayFontWeight: '400', // Un grosor normal se ve más limpio
-    textDayFontSize: 16,
-
-    // Días deshabilitados (de otros meses)
-    textDisabledColor: '#d9e1e8',
-    
-    // Puntos y Flechas
-    dotColor: '#6f5c94',
+    todayTextColor: Colors.light.tint,
+    dayTextColor: Colors[colorScheme].text,
+    textDisabledColor: Colors[colorScheme].icon,
+    dotColor: Colors.light.tint,
     selectedDotColor: '#ffffff',
-    arrowColor: '#6f5c94',
-    disabledArrowColor: '#e0e0e0',
-
-    // Título del Mes
-    monthTextColor: '#333333',
+    arrowColor: Colors.light.tint,
+    disabledArrowColor: Colors[colorScheme].icon,
+    monthTextColor: Colors[colorScheme].text,
+    textDayFontWeight: '400',
     textMonthFontWeight: 'bold',
-    textMonthfontWeight: 600,
-    textMonthFontSize: 25, // Un tamaño más balanceado para el título del mes
-
-    // Nombres de los días de la semana (L, M, M, J, V, S, D)
     textDayHeaderFontWeight: '500',
+    textDayFontSize: 16,
+    textMonthFontSize: 20,
     textDayHeaderFontSize: 14,
-};
+});
+
 
 const CalendarScreen = () => {
-    // --- ESTADOS ---
-    const [activeView, setActiveView] = useState('calendar'); // 'calendar' o 'list'
+    // --- ESTADOS (SIN CAMBIOS) ---
+    const [activeView, setActiveView] = useState('calendar');
     const [allClasses, setAllClasses] = useState([]);
-    const [selectedDate, setSelectedDate] = useState(null); // null para indicar que no hay selección
+    const [selectedDate, setSelectedDate] = useState(null);
     const [markedDates, setMarkedDates] = useState({});
     const [isLoading, setIsLoading] = useState(true);
-    const { user, login, refreshUser } = useAuth();
-
-    
-    // Estados para el filtro
+    const { user, refreshUser } = useAuth();
     const [classTypes, setClassTypes] = useState([]);
     const [selectedClassType, setSelectedClassType] = useState('all');
+    
+    // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
+    const colorScheme = useColorScheme() ?? 'light';
+    const styles = getStyles(colorScheme);
+    const calendarTheme = getCalendarTheme(colorScheme);
 
+    // --- LÓGICA DE DATOS ---
     const fetchData = async () => {
         try {
             setIsLoading(true);
             const [classesResponse, typesResponse, userResponse] = await Promise.all([
                 apiClient.get('/classes'),
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/users/me') // Obtenemos al usuario para saber sus clases
+                apiClient.get('/users/me')
             ]);
-
+    
             const fetchedClasses = classesResponse.data;
             const userEnrolledClassIds = new Set(userResponse.data.clasesInscritas || []);
-
+    
             setAllClasses(fetchedClasses);
             setClassTypes(typesResponse.data.tiposClase || []);
-
+    
             const markers = {};
             fetchedClasses.forEach(cls => {
                 if (cls.estado !== 'cancelada') {
                     const dateString = cls.fecha.substring(0, 10);
-                    // Si la fecha no ha sido marcada aún, la inicializamos
                     if (!markers[dateString]) {
                         markers[dateString] = {
                             customStyles: {
                                 container: {
-                                    backgroundColor: '#e9ecef',
+                                    backgroundColor: colorScheme === 'dark' ? '#333' : '#e9ecef',
                                     borderRadius: 10,
                                 }
                             }
                         };
                     }
-                    
-                    // Si el usuario está inscrito en esta clase, añadimos el punto morado
                     if (userEnrolledClassIds.has(cls._id)) {
                         markers[dateString].marked = true;
                         markers[dateString].dotColor = '#6f5c94'; 
                     }
                 }
             });
-
             setMarkedDates(markers);
         } catch (error) {
             Alert.alert('Error', 'No se pudieron cargar los datos.');
@@ -274,44 +278,32 @@ const handleUnenroll = (classId) => {
      const renderClassItem = ({ item }) => {
         const isEnrolled = user?.clasesInscritas?.includes(item._id);
         const isCancelled = item.estado === 'cancelada';
-        
-        // 1. Lógica para determinar si la clase ya terminó
         const now = new Date();
-        const classDateTime = parseISO(`${item.fecha.substring(0, 10)}T${item.horaFin}:00`); // Usamos horaFin para la comparación
+        const classDateTime = parseISO(`${item.fecha.substring(0, 10)}T${item.horaFin}:00`);
         const isFinished = classDateTime < now && !isCancelled;
-
         const dynamicStyle = getClassStyle(item);
 
         return (
-            // 2. Aplicamos el estilo de clase terminada si corresponde
-            <View style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
-                <Text style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>
+            <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
+                <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>
                     {item.nombre} - {item.tipoClase?.nombre || ''}
-                </Text>
-                <Text style={(isCancelled || isFinished) && styles.disabledText}>Horario: {item.horaInicio} - {item.horaFin}</Text>
-                <Text style={(isCancelled || isFinished) && styles.disabledText}>Profesor: {item.profesor?.nombre || 'A confirmar'}</Text>
-                <Text style={(isCancelled || isFinished) && styles.disabledText}>Cupos: {item.usuariosInscritos.length}/{item.capacidad}</Text>
+                </ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Profesor: {item.profesor?.nombre || 'A confirmar'}</ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {item.usuariosInscritos.length}/{item.capacidad}</ThemedText>
                 
                 <View style={styles.buttonContainer}>
-                    {/* 3. Lógica de renderizado condicional para el badge/botón */}
-                    {isCancelled ? (
-                        <View style={styles.badgeCancelled}><Text style={styles.badgeText}>CANCELADA</Text></View>
-                    ) : isFinished ? (
-                        <View style={styles.badgeFinished}><Text style={styles.badgeText}>TERMINADA</Text></View>
-                    ) : isEnrolled ? (
-                        <Button title="Anular Inscripción" color="#e74c3c" onPress={() => handleUnenroll(item._id)} />
-                    ) : (
-                        <Button title="Inscribirme" color="#2ecc71" onPress={() => handleEnroll(item._id)} disabled={item.usuariosInscritos.length >= item.capacidad} />
-                    )}
+                    {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
+                    : isFinished ? <Text style={styles.badgeFinished}>TERMINADA</Text>
+                    : isEnrolled ? <Button title="Anular" color="#e74c3c" onPress={() => handleUnenroll(item._id)} />
+                    : <Button title="Inscribirme" color="#2ecc71" onPress={() => handleEnroll(item._id)} disabled={item.usuariosInscritos.length >= item.capacidad} />}
                 </View>
-            </View>
+            </ThemedView>
         );
     };
 
-    // --- RENDERIZADO PRINCIPAL DEL COMPONENTE ---
     return (
-        <View style={styles.container}>
-            {/* --- SELECTOR DE VISTA (ESTILO ACTUALIZADO) --- */}
+        <ThemedView style={styles.container}>
             <View style={styles.tabContainer}>
                 <TouchableOpacity onPress={() => { setActiveView('calendar'); setSelectedDate(null); }} style={[styles.tab, activeView === 'calendar' && styles.activeTab]}>
                     <Text style={styles.tabText}>Calendario</Text>
@@ -322,118 +314,100 @@ const handleUnenroll = (classId) => {
             </View>
 
             {activeView === 'calendar' && (
-                <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme}  />
+                <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
             )}
 
             {activeView === 'list' && (
                 <>
-                    {/* El título cambia según si hay una fecha seleccionada o no */}
-                    <Text style={styles.listHeader}>{formattedDateTitle}</Text>
+                    <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
                     
                     <View style={styles.pickerContainer}>
-                        <Picker selectedValue={selectedClassType} onValueChange={itemValue => setSelectedClassType(itemValue)}>
-                            <Picker.Item label="Todas las Clases" value="all" />
+                        <Picker 
+                            selectedValue={selectedClassType} 
+                            onValueChange={itemValue => setSelectedClassType(itemValue)}
+                            style={{ color: Colors[colorScheme].text }}
+                            dropdownIconColor={Colors[colorScheme].text}
+                        >
+                            <Picker.Item label="Todas las Clases" value="all" color={Colors[colorScheme].text} />
                             {classTypes.map(type => (
-                                <Picker.Item key={type._id} label={type.nombre} value={type._id} />
+                                <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
                             ))}
                         </Picker>
                     </View>
 
-                    {isLoading ? (
-                        <ActivityIndicator size="large" color="#6f5c94" style={{flex: 1}} />
+                    {isLoading ? <ActivityIndicator size="large" color={Colors[colorScheme].tint} style={{flex: 1}} />
+                    : !selectedDate ? (
+                        <SectionList
+                            sections={sectionedClasses}
+                            keyExtractor={(item, index) => item._id + index}
+                            renderItem={renderClassItem}
+                            renderSectionHeader={({ section: { title } }) => (
+                                <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
+                            )}
+                            ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximas clases.</ThemedText>}
+                        />
                     ) : (
-                        // Si no hay fecha seleccionada, usa SectionList. Si la hay, usa FlatList.
-                        !selectedDate ? (
-                            <SectionList
-                                sections={sectionedClasses}
-                                keyExtractor={(item, index) => item._id + index}
-                                renderItem={renderClassItem}
-                                renderSectionHeader={({ section: { title } }) => (
-                                    <Text style={styles.sectionHeader}>{title}</Text>
-                                )}
-                                ListEmptyComponent={<Text style={styles.emptyText}>No hay próximas clases que coincidan.</Text>}
-                            />
-                        ) : (
-                            <FlatList
-                                data={visibleClasses}
-                                keyExtractor={item => item._id}
-                                renderItem={renderClassItem}
-                                ListEmptyComponent={<Text style={styles.emptyText}>No hay clases para este día.</Text>}
-                            />
-                        )
+                        <FlatList
+                            data={visibleClasses}
+                            keyExtractor={item => item._id}
+                            renderItem={renderClassItem}
+                            ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clases para este día.</ThemedText>}
+                        />
                     )}
                 </>
             )}
-        </View>
+        </ThemedView>
     );
 };
 
-// --- ESTILOS ---
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor:'#f7f7f7' },
+// --- FUNCIÓN QUE GENERA LOS ESTILOS DINÁMICOS ---
+const getStyles = (colorScheme) => StyleSheet.create({
+    container: { flex: 1 },
     tabContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        paddingHorizontal: 10,
-        paddingTop: 20,
-        backgroundColor:'#150224',
-
+        paddingTop: Platform.OS === 'android' ? 10 : 0,
+        backgroundColor: '#150224',
     },
-    tab: { paddingBottom: 10, paddingHorizontal: 10 , },
+    tab: { paddingBottom: 10, paddingHorizontal: 10, paddingTop: 10 },
     activeTab: { borderBottomWidth: 3, borderBottomColor: '#9282b3' },
-    tabText: { fontSize: 16, fontWeight: '600', color:'#ffffff' },
-    pickerContainer: { marginHorizontal: 15, marginVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ced4da', },
-    listHeader: { textAlign: 'center', fontSize: 22, fontWeight: 'bold', color: '#343a40', padding: 15 },
-    sectionHeader: { fontSize: 18, fontWeight: 'bold', color: '#495057', paddingVertical: 10, paddingHorizontal: 15, },
-    
-    // --- ESTILO DE TARJETA PARA CADA CLASE ---
+    tabText: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
+    pickerContainer: { 
+        marginHorizontal: 15, 
+        marginVertical: 10, 
+        borderRadius: 8, 
+        borderWidth: 1, 
+        borderColor: Colors[colorScheme].icon,
+        backgroundColor: Colors[colorScheme].background,
+        justifyContent: 'center', // Centra el Picker verticalmente en Android
+    },
+    listHeader: { textAlign: 'center', fontSize: 22, fontWeight: 'bold', padding: 15 },
+    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
     classItem: {
-        backgroundColor: '#ffffff',
         padding: 20,
-        marginHorizontal: 8,
+        marginHorizontal: 16,
         marginVertical: 8,
-        borderRadius: 1,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: '#e9ecef',
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
+        borderColor: Colors[colorScheme].icon,
     },
-    className: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#343a40',
-        marginBottom: 8,
-    },
-    classInfoText: {
-        fontSize: 14,
-        color: '#6c757d',
-        marginBottom: 4,
-    },
-     buttonContainer: {
-        marginTop: 12,
-        alignSelf: 'flex-start'
-    },
-    emptyText: {
-        textAlign: 'center', marginTop: 30, fontSize: 16, color: '#888'
-    },
-    cancelledClass: { backgroundColor: '#f5f5f5' },
-    cancelledText: { textDecorationLine: 'line-through', color: '#b0bec5' },
-    badge: {
-        backgroundColor: '#cfd8dc', paddingVertical: 5, paddingHorizontal: 10,  alignSelf: 'flex-start',
-    },
-    badgeText: {
-        color: '#546e7a', fontWeight: 'bold',
-    },
-    emptyClass: { borderWidth:0, borderLeftWidth:15, borderColor: '#4CAF50',backgroundColor: '#e8f5e9' },
-    almostEmptyClass: {borderWidth:0, borderLeftWidth:15, borderColor: '#FFC107', backgroundColor: '#fffde7' },
-    almostFullClass: {borderWidth:0, borderLeftWidth:15, borderColor: '#ff7707', backgroundColor: '#fff3e0' },
-    fullClass: {borderWidth:0, borderLeftWidth:15, borderColor: '#F44336', backgroundColor: '#ffebee' },
+    className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+    classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4 },
+    buttonContainer: { marginTop: 12, alignSelf: 'flex-start' },
+    emptyText: { textAlign: 'center', marginTop: 30, fontSize: 16, opacity: 0.7 },
+    
+    // Estilos de estado de clase que respetan el modo oscuro
+    cancelledClass: { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5', borderColor: colorScheme === 'dark' ? '#555' : '#e0e0e0', borderLeftWidth: 0, borderWidth: 1 },
+    finishedClass: { opacity: 0.6 },
+    disabledText: { color: Colors[colorScheme].icon },
+    badgeCancelled: { color: Colors[colorScheme].icon, fontStyle: 'italic', fontWeight: 'bold' },
+    badgeFinished: { color: Colors[colorScheme].icon, fontStyle: 'italic', fontWeight: 'bold' },
+
+    // --- ESTILOS DE OCUPACIÓN ADAPTADOS PARA DARK MODE ---
+    emptyClass: { borderLeftWidth: 15, borderColor: '#4CAF50', backgroundColor: colorScheme === 'dark' ? 'rgba(76, 175, 80, 0.2)' : '#e8f5e9' },
+    almostEmptyClass: { borderLeftWidth: 15, borderColor: '#FFC107', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 193, 7, 0.2)' : '#fffde7' },
+    almostFullClass: { borderLeftWidth: 15, borderColor: '#ff7707', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 119, 7, 0.2)' : '#fff3e0' },
+    fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
 });
 
 export default CalendarScreen;

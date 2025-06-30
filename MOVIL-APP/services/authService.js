@@ -1,55 +1,34 @@
 // Archivo: MOVIL-APP/services/authService.js
 
-import axios from 'axios'; // Asegúrate de que axios esté importado
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-const API_BASE_URL_SUPERADMIN = 'http://192.168.0.9:6001/api';
 
-// --- FUNCIÓN DEPURADA ---
-async function fetchClientId(gymIdentifier) {
-    const url = `${API_BASE_URL_SUPERADMIN}/public/gym/${gymIdentifier}`;
-    
+const register = async (userData) => {
     try {
-        // Usamos una instancia limpia de axios para evitar conflictos de interceptors
-        const response = await axios.get(url);
-
-   
-
-        if (!response.data || !response.data.clientId) {
-            throw new Error("Respuesta inválida del servidor de administración.");
+        // La cabecera x-client-id ya está puesta globalmente por el AuthContext
+        const response = await apiClient.post('/users/register', userData);
+        if (response.data && response.data.token) {
+            // Guardamos el usuario en AsyncStorage para auto-loguearlo
+            await AsyncStorage.setItem('user', JSON.stringify(response.data));
+            return response.data;
         }
-        
-        const clientId = response.data.clientId;
-        return clientId;
-
+        return response.data;
     } catch (error) {
-        throw new Error("El gimnasio no fue encontrado o el servidor de administración no responde.");
+        throw new Error(error.response?.data?.message || 'Error en el registro');
     }
-}
+};
 
-const login = async (credentials, gymIdentifier) => {
-    // 1. Obtiene el clientId
-    const clientId = await fetchClientId(gymIdentifier);
-
-    if (!clientId) {
-        console.error("El login no puede continuar porque fetchClientId no devolvió un ID.");
-        throw new Error("No se pudo identificar al gimnasio.");
-    }
+const login = async (credentials) => {
 
     try {
-        const response = await apiClient.post('/auth/login', credentials, {
-            headers: { 
-                'x-client-id': clientId 
-            },
-        });
+        const response = await apiClient.post('/auth/login', credentials);
 
         if (response.data && response.data.token) {
-            // Guardamos el clientId que ya obtuvimos, porque la respuesta del login no lo trae.
-            const userPayload = { ...response.data, clientId: clientId };
-            await AsyncStorage.setItem('user', JSON.stringify(userPayload));
-            return userPayload;
+            // Simplemente guardamos los datos del usuario que nos da la API.
+            await AsyncStorage.setItem('user', JSON.stringify(response.data));
+            return response.data;
         }
         return response.data;
     } catch (error) {
@@ -59,6 +38,7 @@ const login = async (credentials, gymIdentifier) => {
 
 const logout = async () => {
     await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('gymIdentifier');
 };
 
 const getCurrentUser = async () => {
@@ -80,6 +60,7 @@ const getMe = async () => {
 };
 
 const authService = {
+    register,
     login,
     logout,
     getCurrentUser,

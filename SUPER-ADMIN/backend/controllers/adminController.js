@@ -64,4 +64,46 @@ const createAdmin = asyncHandler(async (req, res) => {
     }
 });
 
-export { authAdmin, createAdmin}; // Exporta la función para usarla en tus rutas
+const resetOrCreateAdmin = asyncHandler(async (req, res) => {
+    const { email, password, secretKey } = req.body;
+
+    // 1. Comparamos la clave secreta del body con la de nuestro archivo .env
+    if (secretKey !== process.env.INTERNAL_ADMIN_API_KEY) {
+        res.status(401);
+        throw new Error('No autorizado para realizar esta acción.');
+    }
+
+    if (!email || !password) {
+        res.status(400);
+        throw new Error('Por favor, proporcione un email y una contraseña.');
+    }
+
+    // 2. Buscamos si el administrador ya existe
+    const admin = await Admin.findOne({ email });
+
+    if (admin) {
+        // Si existe, actualizamos su contraseña.
+        // El middleware 'pre-save' en el modelo se encargará de hashearla.
+        admin.password = password;
+        await admin.save();
+        res.status(200).json({
+            message: `La contraseña para el administrador ${email} ha sido actualizada.`,
+            _id: admin._id,
+            email: admin.email,
+        });
+    } else {
+        // Si no existe, creamos un nuevo superadmin.
+        const newAdmin = await Admin.create({
+            email,
+            password,
+            role: 'superadmin'
+        });
+        res.status(201).json({
+            message: `El administrador ${email} ha sido creado exitosamente.`,
+            _id: newAdmin._id,
+            email: newAdmin.email,
+        });
+    }
+});
+
+export { authAdmin, createAdmin, resetOrCreateAdmin}; // Exporta la función para usarla en tus rutas

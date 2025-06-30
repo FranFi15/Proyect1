@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '../../services/api';
 import Notification from '../common/Notification';
 import ConfirmationModal from '../common/ConfirmationModal';
+import CreditLogModal from './CreditLogModal';
 
 function ClientManagement({ classTypes }) {
     // --- ESTADOS EXISTENTES (SIN CAMBIOS) ---
@@ -26,6 +27,7 @@ function ClientManagement({ classTypes }) {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+     const [viewingLogsFor, setViewingLogsFor] = useState(null);
 
     // --- FUNCIONES DE NOTIFICACIÓN Y CONFIRMACIÓN (SIN CAMBIOS) ---
     const showNotification = (message, type = 'success', duration = 4000) => {
@@ -529,6 +531,7 @@ function ClientManagement({ classTypes }) {
                                 </td>
                                 <td>{client.roles.join(', ')}</td>
                                 <td>
+                                    <button onClick={() => setViewingLogsFor(client)} className="btn btn-sm secondary">Historial</button>
                                     <button onClick={() => handleOpenPlanForm(client)} className="btn btn-sm info">Plan/Créditos</button>
                                     <button onClick={() => handleEditClient(client)} className="btn btn-sm primary">Editar</button>
                                     <button onClick={() => handleDeleteClient(client._id)} className="btn btn-sm danger">Eliminar</button>
@@ -538,6 +541,15 @@ function ClientManagement({ classTypes }) {
                     </tbody>
                 </table>
             </div>
+            
+
+            {/* --- RENDERIZADO DEL NUEVO MODAL --- */}
+            {viewingLogsFor && (
+                <CreditLogModal
+                    client={viewingLogsFor}
+                    onClose={() => setViewingLogsFor(null)}
+                />
+            )}
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ show: false, message: '', type: '' })} />
             <ConfirmationModal show={confirmation.show} message={confirmation.message} onConfirm={handleConfirm} onCancel={closeConfirmation} />
         </div>

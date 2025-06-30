@@ -25,6 +25,7 @@ function ClientCreateEditPage() {
         nombre: '',
         emailContacto: '',
         urlIdentifier: '', 
+        logoUrl: '', 
         estadoSuscripcion: 'periodo_prueba', 
         clientId: '',
         apiSecretKey: '',
@@ -44,6 +45,7 @@ function ClientCreateEditPage() {
                         nombre: data.nombre,
                         emailContacto: data.emailContacto,
                         urlIdentifier: data.urlIdentifier || '', 
+                        logoUrl: data.logoUrl || '',
                         estadoSuscripcion: data.estadoSuscripcion, 
                         clientId: data.clientId,
                         apiSecretKey: data.apiSecretKey,
@@ -90,6 +92,7 @@ function ClientCreateEditPage() {
                 await clientService.updateClient(id, {
                     nombre: client.nombre,
                     emailContacto: client.emailContacto,
+                    logoUrl: client.logoUrl,
                     estadoSuscripcion: client.estadoSuscripcion,
                     urlIdentifier: client.urlIdentifier, 
                 });
@@ -106,6 +109,7 @@ function ClientCreateEditPage() {
                     nombre: client.nombre,
                     emailContacto: client.emailContacto,
                     urlIdentifier: client.urlIdentifier,
+                    logoUrl: client.logoUrl,
                 });
                 
                 setSuccess(true);
@@ -149,6 +153,10 @@ function ClientCreateEditPage() {
                         readOnly={!isEditing} 
                     />
                      {!isEditing && <small>Se genera automáticamente a partir del nombre.</small>}
+                </div>
+                <div className="client-form-group">
+                    <label htmlFor="logoUrl" className="client-label">URL del Logo:</label>
+                    <input type="text" id="logoUrl" name="logoUrl" value={client.logoUrl} onChange={handleChange} className="client-input" placeholder="https://ejemplo.com/logo.png" />
                 </div>
 
                 <div className="client-form-group">

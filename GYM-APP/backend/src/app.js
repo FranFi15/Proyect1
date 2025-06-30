@@ -12,6 +12,7 @@ import userRoutes from './routes/userRoutes.js';
 import classRoutes from './routes/classRoutes.js';
 import tipoClaseRoutes from './routes/tipoClaseRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import creditLogRoutes from './routes/creditLogRoutes.js';
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 import { generateFutureFixedClasses } from './controllers/classController.js'; 
 
@@ -23,7 +24,8 @@ const app = express();
 app.use(cors({
     origin: [
         'http://localhost:5174', // Para tu frontend web del GYM-APP
-        'http://localhost:8081'  // Para tu app móvil en desarrollo
+        'http://localhost:8081',  // Para tu app móvil en desarrollo
+        'http://192.168.0.105',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'x-gym-domain', 'X-Api-Secret', 'X-Internal-Api-Key'],
@@ -37,6 +39,7 @@ app.use('/api/users', gymTenantMiddleware, userRoutes);
 app.use('/api/classes', gymTenantMiddleware, classRoutes);
 app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
 app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
+app.use('/api/credit-logs', creditLogRoutes);
 
 app.use('/api/auth', gymTenantMiddleware, authRoutes);
 

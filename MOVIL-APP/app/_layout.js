@@ -1,54 +1,59 @@
 import React, { useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { ActivityIndicator, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
-const RootLayout = () => {
-    const { user, isLoading } = useAuth();
+// Prevenir que la pantalla de carga nativa se oculte automáticamente.
+SplashScreen.preventAutoHideAsync();
+
+const InitialLayout = () => {
+    // Simplificamos los hooks: ya no necesitamos useRootNavigationState
+    const { user, clientId, loading } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
     useEffect(() => {
-        // No hacemos nada hasta que el estado de autenticación esté cargado
-        if (isLoading) {
+        // El único chequeo de preparación que necesitamos es si el estado de autenticación ya cargó.
+        if (loading) {
             return;
         }
 
-        // Verificamos si la ruta actual está dentro del grupo principal de la app
-        const inTabsGroup = segments[0] === '(tabs)';
+        // Una vez que 'loading' es false, estamos listos para navegar. Ocultamos la pantalla de carga.
+        SplashScreen.hideAsync();
 
-        // Si el usuario está logueado pero NO está en el área de pestañas,
-        // lo redirigimos a la pantalla principal de la app.
-        if (user && !inTabsGroup) {
-            router.replace('/(tabs)/calendar');
-        } 
-        // Si el usuario NO está logueado pero está intentando acceder
-        // al área de pestañas, lo expulsamos al login.
-        else if (!user && inTabsGroup) {
-            router.replace('/(auth)/login');
+        const inAuthGroup = segments[0] === '(auth)';
+
+        // Prioridad 1: Si no hay un ID de cliente, forzamos su selección.
+        if (!clientId) {
+            router.replace('/(auth)/gymIdentifier');
+            return;
         }
 
-    }, [user, isLoading, segments]); // El efecto se ejecuta si cambia alguno de estos valores
+        // Prioridad 2: Si hay cliente pero no usuario, y no estamos en una pantalla de auth, forzamos el login.
+        if (!user && !inAuthGroup) {
+            router.replace('/(auth)/login');
+            return;
+        }
 
-    // Mientras se verifica el estado, mostramos un indicador de carga.
-    // Esto es crucial para evitar que se muestre una pantalla incorrecta por un instante.
-    if (isLoading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" />
-            </View>
-        );
-    }
-    
-    // El componente <Slot /> renderizará el layout correspondiente: (auth) o (tabs).
+        // Prioridad 3: Si hay usuario y está en una pantalla de auth, lo llevamos a la app.
+        if (user && inAuthGroup) {
+            router.replace('/(tabs)');
+            return;
+        }
+
+    // La dependencia de 'navigationReady' se ha eliminado.
+    }, [loading, user, clientId, segments]);
+
+    // Siempre renderizamos <Slot />. La SplashScreen se encarga de la carga visual.
+    // Esto resuelve el error "Attempted to navigate before mounting".
     return <Slot />;
 };
 
-// Envolvemos toda la aplicación en el AuthProvider
+// Componente principal del Layout
 export default function AppLayout() {
     return (
         <AuthProvider>
-            <RootLayout />
+            <InitialLayout />
         </AuthProvider>
     );
 }
