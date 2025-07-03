@@ -1,54 +1,42 @@
-// src/App.jsx
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext.jsx';
+
+// Páginas
+import GymIdentifierPage from './pages/Auth/GymIdentifierPage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
-import authService from './services/authService';
 
-const PrivateRoute = ({ children, currentUser }) => {
-    return currentUser ? children : <Navigate to="/" />;
-};
+// Componentes de Lógica
+import PrivateRoute from './components/common/PrivateRoute.jsx';
 
 function App() {
-    const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
+  const { userInfo } = useAuth();
 
-    useEffect(() => {
-        const handleAuthChange = () => {
-            setCurrentUser(authService.getCurrentUser());
-        };
-        window.addEventListener('authChange', handleAuthChange);
-        return () => {
-            window.removeEventListener('authChange', handleAuthChange);
-        };
-    }, []);
+  return (
+    <Routes>
+      {/* La ruta raíz ahora es la página de identificación */}
+      {/* Si el usuario ya está logueado, lo mandamos al dashboard */}
+      <Route 
+        path="/" 
+        element={userInfo ? <Navigate to="/dashboard" /> : <GymIdentifierPage />} 
+      />
 
-    return (
-        <Router>
-            <Routes>
-                <Route path="/gym/:gymIdentifier/login" element={<LoginPage />} />
-                <Route path="/gym/:gymIdentifier/register" element={<RegisterPage />} />
+      {/* Rutas públicas que no requieren autenticación */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-                <Route
-                    path="/dashboard"
-                    element={
-                        <PrivateRoute currentUser={currentUser}>
-                            <DashboardPage />
-                        </PrivateRoute>
-                    }
-                />
-                
-                <Route path="/" element={
-                    <div style={{ textAlign: 'center', paddingTop: '50px', fontFamily: 'Arial, sans-serif' }}>
-                        <h1>Bienvenido al Sistema de Gestión de Gimnasios</h1>
-                        <p>Por favor, accede a través de la URL proporcionada por tu gimnasio.</p>
-                    </div>
-                } />
+      {/* Envolvemos las rutas protegidas con PrivateRoute */}
+      <Route element={<PrivateRoute />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        {/* Aquí puedes añadir más rutas protegidas, ej: /profile */}
+      </Route>
 
-                <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-        </Router>
-    );
+      {/* Cualquier otra ruta no definida redirige a la raíz */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
 }
 
 export default App;

@@ -17,6 +17,7 @@ import {
     updateUserProfile,
     changeUserPassword,
 } from '../controllers/userController.js'; 
+import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js'; 
 
 const router = express.Router();
 
@@ -51,4 +52,14 @@ router.route('/:id/subscribe-to-plan')
 router.route('/:userId/fixed-plan/:planId')
     .delete(protect, authorizeRoles('admin'), removeFixedPlan);
 
+router.post('/test-reset', protect, authorizeRoles('admin'), async (req, res) => {
+    console.log('--- EJECUTANDO RESET DE CRÉDITOS MANUALMENTE PARA PRUEBAS ---');
+    // Usamos el gymId que ya viene en el request gracias al middleware
+    const gymId = req.gymId; 
+    if (!gymId) {
+        return res.status(400).send('No se pudo identificar el Gym ID para la prueba.');
+    }
+    await resetCreditsForCurrentGym(gymId);
+    res.status(200).send(`Reseteo de créditos ejecutado para el gimnasio ${gymId}. Revisa la consola y la base de datos.`);
+});
 export default router;

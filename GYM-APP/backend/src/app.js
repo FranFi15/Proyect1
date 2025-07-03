@@ -15,6 +15,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import creditLogRoutes from './routes/creditLogRoutes.js';
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 import { generateFutureFixedClasses } from './controllers/classController.js'; 
+import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 
 dotenv.config();
 console.log('Valor de la API Key al arrancar:', process.env.INTERNAL_API_KEY_FOR_SUPERADMIN);
@@ -121,6 +122,8 @@ cron.schedule('0 2 1 * *', async () => {
     timezone: "America/Argentina/Buenos_Aires" 
 });
 console.log('[Cron Job Setup] Tarea cron mensual programada.');
+
+scheduleMonthlyCreditReset();
 
 
 // Middlewares de manejo de errores
