@@ -1,24 +1,21 @@
+// MOVIL-APP/contexts/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiClient from '../services/apiClient';
+import apiClient from '../services/apiClient'; // Ensure this path is correct
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [clientId, setClientId] = useState(null);
-    // --- ESTADOS ACTUALIZADOS ---
-    // Reemplazamos gymIdentifier por gymName y añadimos gymLogo
     const [gymName, setGymName] = useState(null);
     const [gymLogo, setGymLogo] = useState(null);
-    // --- FIN DE ESTADOS ACTUALIZADOS ---
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const checkInitialState = async () => {
             try {
-                // Cargamos todos los datos de sesión desde el almacenamiento
                 const storedClientId = await AsyncStorage.getItem('clientId');
                 const storedGymName = await AsyncStorage.getItem('gymName');
                 const storedGymLogo = await AsyncStorage.getItem('gymLogo');
@@ -44,17 +41,16 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
+        // This log helps debug, but doesn't cause the loop itself if user object reference is stable
         console.log('[AuthContext] El estado del usuario ha cambiado:', user ? `Usuario logueado: ${user.email}` : 'Usuario es null');
     }, [user]);
 
-    // --- FUNCIÓN ACTUALIZADA ---
-    // Ahora acepta un objeto 'data' con toda la información del gimnasio
     const setGymContext = async (data) => {
         try {
             await AsyncStorage.setItem('clientId', data.clientId);
             await AsyncStorage.setItem('gymName', data.gymName);
-            await AsyncStorage.setItem('gymLogo', data.logoUrl || ''); // Guardamos '' si no viene
-
+            await AsyncStorage.setItem('gymLogo', data.logoUrl || '');
+            
             setClientId(data.clientId);
             setGymName(data.gymName);
             setGymLogo(data.logoUrl || '');
@@ -76,17 +72,18 @@ export const AuthProvider = ({ children }) => {
         return userData;
     };
 
-    // --- FUNCIÓN LOGOUT ACTUALIZADA ---
     const logout = async () => {
         try {
             await authService.logout();
-            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo']);
+            // Clear all relevant AsyncStorage items, including 'user'
+            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user']); 
             
             setUser(null);
             setClientId(null);
             setGymName(null);
             setGymLogo(null);
             
+            // Clear Axios default headers
             delete apiClient.defaults.headers.common['Authorization'];
             delete apiClient.defaults.headers.common['x-client-id'];
             
@@ -96,19 +93,34 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // --- CRITICAL FIX FOR INFINITE LOOP: Stabilize user object update ---
     const refreshUser = async () => {
         try {
-            const updatedUserData = await authService.getMe();
-            if (updatedUserData) {
-                setUser(updatedUserData);
+            const updatedUserData = await authService.getMe(); // Call backend to get fresh user data
+            
+            // Only update user state if the content actually changed or if user was null
+            // Compare JSON strings for a deep content comparison
+            if (updatedUserData) { // If there's new data
+                if (JSON.stringify(user) !== JSON.stringify(updatedUserData)) {
+                    setUser(updatedUserData);
+                }
+            } else if (user) { // If updatedUserData is null/undefined but user was previously logged in
+                console.log('[AuthContext] User data refresh returned null. Forcing logout.');
+                await logout(); // Force logout if user data disappears from backend
             }
         } catch (error) {
             console.error('[AuthContext] No se pudo refrescar la información del usuario:', error);
+            // If 401 (Unauthorized), it means the token is expired/invalid, so force logout
             if (error.response && error.response.status === 401) {
+                console.log('[AuthContext] Token expired or invalid during refresh. Forcing logout.');
                 await logout();
+            } else if (error.message.includes('Network Error')) {
+                console.warn('[AuthContext] Network error during refresh. User might be offline.');
+                // Don't necessarily logout, but user state might be stale
             }
         }
     };
+    // --- END CRITICAL FIX ---
 
     const register = async (userData) => {
         try {
@@ -126,11 +138,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        // --- PROVEEDOR ACTUALIZADO ---
-        <AuthContext.Provider value={{ 
-            user, clientId, gymName, gymLogo, loading, 
-            login, logout, refreshUser, register, setGymContext 
-        }}>
+        <AuthContext.Provider value={{ user, clientId, gymName, gymLogo, loading, login, logout, refreshUser, register, setGymContext }}>
             {children}
         </AuthContext.Provider>
     );
