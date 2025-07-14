@@ -1,0 +1,158 @@
+/* GYM-APP/frontend/src/styles/Auth.css */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(to right, #4b187b, #150224); /* Degradado de morado oscuro a negro */
+    padding: 20px;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
+.auth-card {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+.auth-logo {
+    max-width: 150px;
+    margin-bottom: 20px;
+}
+
+.auth-title {
+    color: #150224;
+    margin-bottom: 25px;
+    font-size: 2.2em;
+    font-weight: bold;
+}
+
+.auth-subtitle {
+    color: #555;
+    margin-bottom: 30px;
+    font-size: 1.1em;
+}
+
+.auth-error {
+    color: #e74c3c;
+    background-color: #fce4e4;
+    border: 1px solid #e74c3c;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+}
+
+.error-message { /* Used in RegisterPage for consistency */
+    color: #e74c3c;
+    background-color: #fce4e4;
+    border: 1px solid #e74c3c;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    margin-bottom: 18px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: bold;
+    font-size: 0.95em;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1em;
+    color: #333;
+    box-sizing: border-box;
+}
+
+.auth-input:focus {
+    border-color: #4b187b;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(75, 24, 123, 0.2);
+}
+
+.auth-input::placeholder {
+    color: #999;
+}
+
+.auth-button {
+    background-color: #150224;
+    color: #fff;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-top: 15px;
+}
+
+.auth-button:hover:not(:disabled) {
+    background-color: #4b187b;
+    transform: translateY(-2px);
+}
+
+.auth-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.auth-link-text {
+    margin-top: 25px;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.auth-link {
+    color: #4b187b;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.auth-link:hover {
+    color: #150224;
+    text-decoration: underline;
+}
+
+/* Specific styles for select input */
+.auth-input select {
+    appearance: none; /* Remove default arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2C197.3L159.1%2C69.5c-4.7-4.7-12.3-4.7-17%2C0L5.4%2C197.3c-4.7%2C4.7-4.7%2C12.3%2C0%2C17l8.5%2C8.5c4.7%2C4.7%2C12.3%2C4.7%2C17%2C0l118.8-118.7l118.8%2C118.7c4.7%2C4.7%2C12.3%2C4.7%2C17%2C0l8.5-8.5C291.7%2C209.6%2C291.7%2C202%2C287%2C197.3z%22%2F%3E%3C%2Fsvg%3E'); /* Custom arrow */
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 12px auto;
+    padding-right: 35px; /* Make room for the arrow */
+}
+
+/* Styles for GymIdentifierPage */
+.auth-subtitle {
+    font-size: 1em;
+    color: #666;
+    margin-bottom: 20px;
+}

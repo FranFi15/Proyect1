@@ -1,0 +1,205 @@
+/* GYM-APP/frontend/src/styles/NotificationAdminPage.css */
+
+.notification-admin-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 20px auto;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    font-family: Arial, sans-serif;
+}
+
+.notification-admin-container h2 {
+    color: #150224;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2em;
+}
+
+.notification-form .form-group {
+    margin-bottom: 20px;
+}
+
+.notification-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: bold;
+}
+
+.notification-form textarea,
+.notification-form select,
+.notification-form input[type="text"],
+.notification-form input[type="date"] /* Add styling for date input */
+{
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+.notification-form textarea {
+    resize: vertical;
+}
+
+.notification-form select {
+    height: 40px;
+    appearance: none;
+    background-color: #fff;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2C197.3L159.1%2C69.5c-4.7-4.7-12.3-4.7-17%2C0L5.4%2C197.3c-4.7%2C4.7-4.7%2C12.3%2C0%2C17l8.5%2C8.5c4.7%2C4.7%2C12.3%2C4.7%2C17%2C0l118.8-118.7l118.8%2C118.7c4.7%2C4.7%2C12.3%2C4.7%2C17%2C0l8.5-8.5C291.7%2C209.6%2C291.7%2C202%2C287%2C197.3z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    padding-right: 30px;
+}
+
+.notification-form input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.notification-form .checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.notification-form .radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.notification-form .radio-group label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    color: #555;
+    cursor: pointer;
+}
+
+.notification-form .radio-group input[type="radio"] {
+    margin-right: 8px;
+    transform: scale(1.1);
+}
+
+.notification-form h3 {
+    color: #4b187b;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.5em;
+}
+
+/* Styles for the new selection lists */
+.selection-list-container {
+    margin-bottom: 20px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background-color: #fff;
+    padding: 15px;
+}
+
+.selection-list-container label {
+    font-weight: bold;
+    margin-bottom: 10px;
+    display: block;
+    color: #333;
+}
+
+.selection-list {
+    list-style: none;
+    padding: 0;
+    max-height: 250px; /* Limit height for scrollability */
+    overflow-y: auto; /* Enable vertical scrolling */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.selection-list .list-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.selection-list .list-item:last-child {
+    border-bottom: none;
+}
+
+.selection-list .list-item:hover {
+    background-color: #f0f0f0;
+}
+
+.selection-list .list-item.selected {
+    background-color: #e6f7ff; /* Highlight for selected item */
+    border-left: 4px solid #4b187b;
+    padding-left: 11px;
+}
+
+.selection-list .list-item input[type="radio"] {
+    cursor: pointer;
+    /* Basic styling for radio button */
+    margin-right: 10px;
+}
+
+.selection-list .no-results {
+    padding: 15px;
+    color: #777;
+    text-align: center;
+}
+
+.selection-hint {
+    color: #555;
+    font-size: 0.9em;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.submit-button {
+    background-color: #150224;
+    color: #fff;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    width: 100%;
+}
+
+.submit-button:hover:not(:disabled) {
+    background-color: #4b187b;
+}
+
+.submit-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.error-message {
+    color: #e74c3c;
+    background-color: #fce4e4;
+    border: 1px solid #e74c3c;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.success-message {
+    color: #27ae60;
+    background-color: #e6ffee;
+    border: 1px solid #27ae60;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    text-align: center;
+}

@@ -1,0 +1,69 @@
+/* Contenedor principal de la notificación */
+.notification {
+  position: fixed; /* Fija la notificación en la pantalla */
+  top: 80px; /* Espacio desde la parte superior */
+  right: 20px; /* Espacio desde la derecha */
+  padding: 15px 25px;
+  border-radius: 8px;
+  color: #fff; /* Texto blanco por defecto */
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1050; /* Asegura que esté por encima de otros elementos */
+  animation: slideIn 0.3s ease-out;
+  border-left: 5px solid; /* Borde lateral para dar énfasis */
+}
+
+/* Estilo para notificaciones de éxito (verdes) */
+.notification-success {
+  background-color: #28a745; /* Verde éxito */
+  border-left-color: #218838; /* Verde más oscuro */
+}
+
+/* Estilo para notificaciones de error (rojas) */
+.notification-error {
+  background-color: #dc3545; /* Rojo error */
+  border-left-color: #c82333; /* Rojo más oscuro */
+}
+
+/* Estilo para notificaciones de advertencia (amarillas) */
+.notification-warning {
+  background-color: #ffc107; /* Amarillo advertencia */
+  border-left-color: #e0a800;
+  color: #212529; /* Texto oscuro para mejor contraste */
+}
+
+/* Botón para cerrar la notificación */
+.notification-close {
+  background: none;
+  border: none;
+  color: inherit; /* Hereda el color del texto (blanco o negro) */
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 0 0 20px; /* Espacio a la izquierda del botón */
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
+
+/* Animación de entrada */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%); /* Empieza fuera de la pantalla a la derecha */
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0); /* Termina en su posición final */
+    opacity: 1;
+  }
+}
