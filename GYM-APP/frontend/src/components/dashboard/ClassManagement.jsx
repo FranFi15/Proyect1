@@ -366,12 +366,17 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
         return alert('Por favor, selecciona una fecha para extender las clases.');
     }
 
+    // Asegúrate de que 'extendingGroup.diasDeSemana' exista y contenga los días correctos.
+    // console.log("Extending Group Days:", extendingGroup.diasDeSemana); // <-- ¡Añade esto para depurar!
+
     const filters = {
         nombre: extendingGroup.nombre,
         tipoClase: extendingGroup.tipoClase._id,
         horaInicio: extendingGroup.horaInicio,
-        // AÑADIR ESTA LÍNEA: Pasar los días de la semana del grupo
-        diasDeSemana: extendingGroup.diasDeSemana, 
+        // **ESTA ES LA LÍNEA CRÍTICA:**
+        // Asegúrate de pasar los días de la semana que vienen del grupo,
+        // ya que `getGroupedClasses` debería traerlos correctamente.
+        diasDeSemana: extendingGroup.diasDeSemana,
     };
 
     const extension = { fechaFin: extendUntilDate };
