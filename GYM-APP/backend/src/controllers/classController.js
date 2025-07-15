@@ -905,7 +905,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(classId)
         .populate({
             path: 'usuariosInscritos',
-            select: 'nombre apellido dni email numeroTelefono', // Seleccionamos los campos que necesita el profesor
+            select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocia', // Seleccionamos los campos que necesita el profesor
         })
         .select('profesor usuariosInscritos'); // Solo traemos los campos necesarios para la lógica
 

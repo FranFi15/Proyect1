@@ -15,6 +15,14 @@ const capitalize = (str) => {
     const dateStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     return dateStr.replace(' De ', ' de ');
 };
+const calculateAge = (birthDateString) => {
+    if (!birthDateString) return 'N/A';
+    try {
+        return differenceInYears(new Date(), parseISO(birthDateString));
+    } catch (error) {
+        return 'N/A';
+    }
+};
 
 const ProfessorMyClassesScreen = () => {
     const [myClasses, setMyClasses] = useState([]);
@@ -85,11 +93,14 @@ const ProfessorMyClassesScreen = () => {
     const renderStudentItem = ({ item }) => (
         <View style={styles.studentItem}>
             <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
-            <Text style={styles.studentInfo}>DNI: {item.dni}</Text>
-            <Text style={styles.studentInfo}>Email: {item.email}</Text>
+            <Text style={styles.studentInfo}>DNI: {item.dni || 'No provisto'}</Text>
+            <Text style={styles.studentInfo}>Edad: {calculateAge(item.fechaNacimiento)} años</Text>
+            <Text style={styles.studentInfo}>Email: {item.email || 'No provisto'}</Text>
             <Text style={styles.studentInfo}>Teléfono: {item.numeroTelefono || 'No provisto'}</Text>
+            <Text style={styles.studentInfo}>Tel. Emergencia: {item.telefonoEmergencia || 'No provisto'}</Text>
+            <Text style={styles.studentInfo}>Obra Social: {item.obraSocial || 'No provisto'}</Text>
         </View>
-    );
+    );  
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
