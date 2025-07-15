@@ -24,7 +24,7 @@ function GymIdentifierPage() {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get(`${SUPER_ADMIN_API_URL}/gym/${identifier}`);
+            const response = await axios.get(`${SUPER_ADMIN_API_URL}/public/gym/${identifier}`);
             
             const { clientId, gymName, logoUrl } = response.data;
 
