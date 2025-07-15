@@ -601,17 +601,21 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
 
 const bulkExtendClasses = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
+    // Desestructuramos para obtener los 'diasDeSemana' directamente de los filtros
     const { filters, extension } = req.body;
+    const { nombre, tipoClase, horaInicio, diasDeSemana } = filters; // AÑADIDO: diasDeSemana de los filtros
 
-    if (!filters || !extension || !extension.fechaFin) {
+    if (!filters || !extension || !extension.fechaFin || !diasDeSemana || diasDeSemana.length === 0) {
         res.status(400);
-        throw new Error('Se requieren filtros y una fecha final de extensión.');
+        throw new Error('Se requieren filtros, una fecha final de extensión y los días de la semana para la extensión.');
     }
 
+    // Buscamos la *última* instancia de este grupo para obtener su fecha final
+    // y otros datos como capacidad, profesor, etc., que son comunes a todas las instancias.
     const lastInstance = await Clase.findOne({
-        nombre: filters.nombre,
-        tipoClase: filters.tipoClase,
-        horaInicio: filters.horaInicio
+        nombre: nombre,
+        tipoClase: tipoClase,
+        horaInicio: horaInicio
     }).sort({ fecha: -1 });
 
     if (!lastInstance) {
@@ -620,7 +624,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     }
 
     const startDate = new Date(lastInstance.fecha);
-    startDate.setDate(startDate.getDate() + 1);
+    startDate.setDate(startDate.getDate() + 1); // Empezar un día después de la última clase existente
     const endDate = new Date(extension.fechaFin);
 
     if (startDate > endDate) {
@@ -630,7 +634,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
 
     const rule = new RRule({
         freq: RRule.WEEKLY,
-        byweekday: lastInstance.diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
+        byweekday: diasDeSemana.map(day => mapDayToRRule(day)).filter(Boolean), // USAMOS diasDeSemana DEL FILTRO
         dtstart: startDate,
         until: endDate,
     });
@@ -639,11 +643,14 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     let createdCount = 0;
 
     for (const date of newDates) {
+        // Asegurarse de que el diaDeSemana guardado es correcto para cada instancia
+        const classDayName = getDayName(date); // Obtiene el nombre del día de la fecha generada
+
         await Clase.create({
             nombre: lastInstance.nombre,
             tipoClase: lastInstance.tipoClase,
             horarioFijo: lastInstance.horarioFijo,
-            diaDeSemana: [getDayName(date)], // CORRECCIÓN
+            diaDeSemana: [classDayName], // Guarda el día específico de esta instancia
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
             profesor: lastInstance.profesor,
@@ -652,6 +659,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             horaFin: lastInstance.horaFin,
             estado: 'activa',
             usuariosInscritos: [],
+            rrule: lastInstance.rrule // Es importante mantener la rrule para agrupaciones futuras si es necesario
         });
         createdCount++;
     }

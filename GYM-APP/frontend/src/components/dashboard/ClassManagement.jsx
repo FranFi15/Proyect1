@@ -362,30 +362,33 @@ function ClassManagement({ classTypes, fetchClassTypes }) {
     };
 
     const handleExtendSubmit = async () => {
-        if (!extendingGroup || !extendUntilDate) {
-            return alert('Por favor, selecciona una fecha para extender las clases.');
-        }
+    if (!extendingGroup || !extendUntilDate) {
+        return alert('Por favor, selecciona una fecha para extender las clases.');
+    }
 
-        const filters = {
-            nombre: extendingGroup.nombre,
-            tipoClase: extendingGroup.tipoClase._id,
-            horaInicio: extendingGroup.horaInicio,
-        };
-
-        const extension = { fechaFin: extendUntilDate };
-
-        askConfirmation('¿Confirmas la extensión de estas clases?', async () => {
-            try {
-                const response = await apiClient.post('/classes/bulk-extend', { filters, extension });
-                showNotification(response.data.message, 'success');
-                setShowExtendModal(false);
-                fetchClasses();
-                fetchGroupedClasses();
-            } catch (error) {
-                showNotification(error.response?.data?.message || 'Error al extender.', 'error');
-            }
-        });
+    const filters = {
+        nombre: extendingGroup.nombre,
+        tipoClase: extendingGroup.tipoClase._id,
+        horaInicio: extendingGroup.horaInicio,
+        // AÑADIR ESTA LÍNEA: Pasar los días de la semana del grupo
+        diasDeSemana: extendingGroup.diasDeSemana, 
     };
+
+    const extension = { fechaFin: extendUntilDate };
+
+    askConfirmation('¿Confirmas la extensión de estas clases?', async () => {
+        try {
+            const response = await apiClient.post('/classes/bulk-extend', { filters, extension });
+            showNotification(response.data.message, 'success');
+            setShowExtendModal(false);
+            fetchClasses();
+            fetchGroupedClasses();
+        } catch (error) {
+            showNotification(error.response?.data?.message || 'Error al extender.', 'error');
+        }
+    });
+};
+
      const handleCancelDay = () => { 
         if (!dayToManage) { 
             showNotification('Por favor, selecciona una fecha primero.', 'error'); 
