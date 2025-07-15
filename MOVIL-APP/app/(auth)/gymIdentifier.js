@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/ThemedText';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 
-const SUPER_ADMIN_API_URL = process.env.SUPER_ADMIN_URL || 'http://192.168.0.100:6001/api/public';
+const SUPER_ADMIN_API_URL = process.env.EXPO_PUBLIC_SUPER_ADMIN_URL;
 
 export default function GymIdentifierScreen() {
     const [identifier, setIdentifier] = useState('');

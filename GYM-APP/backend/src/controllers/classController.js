@@ -885,7 +885,47 @@ const unsubscribeFromWaitlist = asyncHandler(async (req, res) => {
 
     res.status(200).json({ message: 'Has sido removido de la lista de espera.' });
 });
+const getProfessorClasses = asyncHandler(async (req, res) => {
+    const { Clase } = getModels(req.gymDBConnection);
+    
+    // req.user._id viene del middleware 'protect'
+    const professorId = req.user._id;
 
+    const classes = await Clase.find({ profesor: professorId })
+        .populate('tipoClase', 'nombre') // Traemos el nombre del tipo de clase
+        .sort({ fecha: 'asc' }); // Ordenamos por fecha ascendente
+
+    res.status(200).json(classes);
+});
+
+const getClassStudents = asyncHandler(async (req, res) => {
+    const { Clase } = getModels(req.gymDBConnection);
+    const classId = req.params.id;
+    
+    const classItem = await Clase.findById(classId)
+        .populate({
+            path: 'usuariosInscritos',
+            select: 'nombre apellido dni email numeroTelefono', // Seleccionamos los campos que necesita el profesor
+        })
+        .select('profesor usuariosInscritos'); // Solo traemos los campos necesarios para la lógica
+
+    if (!classItem) {
+        res.status(404);
+        throw new Error('Clase no encontrada.');
+    }
+
+    // --- Lógica de Autorización ---
+    // Un usuario puede ver los alumnos si es el profesor de la clase O si es un admin.
+    const isTheProfessor = classItem.profesor?.toString() === req.user._id.toString();
+    const isAdmin = req.user.roles.includes('admin');
+
+    if (!isTheProfessor && !isAdmin) {
+        res.status(403); // 403 Forbidden
+        throw new Error('No tienes autorización para ver los alumnos de esta clase.');
+    }
+
+    res.status(200).json(classItem.usuariosInscritos);
+});
 
 export {
     createClass,
@@ -907,4 +947,6 @@ export {
     getAvailableSlotsForPlan,
     unsubscribeFromWaitlist,
     subscribeToWaitlist,
+    getProfessorClasses,
+    getClassStudents,
 };

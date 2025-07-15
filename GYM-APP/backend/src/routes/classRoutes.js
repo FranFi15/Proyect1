@@ -19,10 +19,15 @@ import {
      getAvailableSlotsForPlan,
      subscribeToWaitlist,
      unsubscribeFromWaitlist,
+     getProfessorClasses,
+    getClassStudents,
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
+
+router.get('/profesor/me', protect, authorizeRoles('profesor', 'admin'), getProfessorClasses);
+router.get('/:id/students', protect, authorizeRoles('profesor', 'admin'), getClassStudents);
 
 router.post('/cancel-day', protect, authorizeRoles('admin'), cancelClassesByDate);
 router.post('/reactivate-day', protect, authorizeRoles('admin'), reactivateClassesByDate);

@@ -119,16 +119,33 @@ function AppContent() {
 
     useEffect(() => {
         if (loading) return;
+
         SplashScreen.hideAsync();
+
         const inAuthGroup = segments[0] === '(auth)';
+        
         if (!user) {
             if (!clientId) {
                 router.replace('/(auth)/gymIdentifier');
             } else if (!inAuthGroup) {
                 router.replace('/(auth)/login');
             }
-        } else if (inAuthGroup) {
-            router.replace('/(tabs)');
+        } else {
+            const isProfessor = user.roles && user.roles.includes('profesor');
+            
+            if (isProfessor) {
+                const inProfessorTabs = segments[0] === '(profesor-tabs)';
+                if (!inProfessorTabs) {
+                    // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
+                    // Redirigimos a la raíz del grupo de pestañas del profesor.
+                    router.replace('/(profesor-tabs)'); 
+                }
+            } else {
+                const inClientTabs = segments[0] === '(tabs)';
+                if (!inClientTabs) {
+                    router.replace('/(tabs)'); // Es buena práctica redirigir a la raíz del grupo
+                }
+            }
         }
     }, [loading, user, clientId, segments, router]); 
 
