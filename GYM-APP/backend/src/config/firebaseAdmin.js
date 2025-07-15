@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 
 // Necesario para importar un archivo JSON en módulos ES
 const require = createRequire(import.meta.url);
-const serviceAccount = require('./firebase-service-account-key.json');
+const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
 
 let firebaseApp;
 
