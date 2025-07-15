@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import '../../styles/Auth.css'; // Make sure this CSS file exists and has relevant styles
 
 
-const SUPER_ADMIN_API_URL = 'http://localhost:6001/api/public'; 
+const SUPER_ADMIN_API_URL = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:6001/api'; // Adjust the base URL as needed
 
 function GymIdentifierPage() {
     const [identifier, setIdentifier] = useState('');
