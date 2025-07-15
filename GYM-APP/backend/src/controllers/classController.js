@@ -445,9 +445,6 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
     console.log(`[Cron Job] Finalizado. Clases nuevas generadas: ${classesGeneratedCount}`);
     return classesGeneratedCount;
 });
-// @desc    Actualizar múltiples clases en lote basado en filtros
-// @route   PUT /api/classes/bulk-update
-// @access  Private/Admin
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
     const { filters, updates } = req.body;
@@ -466,7 +463,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     };
 
     if (updates.diasDeSemana) {
-        const futureInstances = await Class.find(query).sort({ fecha: 1 });
+        const futureInstances = await Clase.find(query).sort({ fecha: 1 });
         if (futureInstances.length === 0) {
             res.status(404);
             throw new Error('No se encontraron clases futuras para modificar los días.');
@@ -477,7 +474,6 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         
         await Clase.deleteMany({ _id: { $in: idsToDelete } });
 
-        // --- CORRECCIÓN AQUÍ: Aplicamos los otros updates a la plantilla ---
         if (updates.profesor) template.profesor = updates.profesor;
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
@@ -496,10 +492,10 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         const newDates = rule.all();
         for (const date of newDates) {
             await Clase.create({
-                ...template, // Usamos la plantilla ya actualizada
+                ...template,
                 _id: new mongoose.Types.ObjectId(),
                 fecha: date,
-                diaDeSemana: [getDayName(date.getUTCDay())],
+                diaDeSemana: [getDayName(date)], // CORRECCIÓN
                 usuariosInscritos: [],
                 estado: 'activa',
             });
@@ -507,7 +503,6 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         return res.json({ message: 'Días de clase actualizados.', eliminadas: idsToDelete.length, creadas: newDates.length });
     }
     
-    // Si no se cambian los días, se ejecuta la lógica simple de siempre
     const updateData = { $set: {} };
     if (updates.profesor) updateData.$set.profesor = updates.profesor;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
@@ -613,7 +608,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
         throw new Error('Se requieren filtros y una fecha final de extensión.');
     }
 
-    // 1. Encontrar la última instancia existente para usarla como plantilla
     const lastInstance = await Clase.findOne({
         nombre: filters.nombre,
         tipoClase: filters.tipoClase,
@@ -625,7 +619,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
         throw new Error('No se encontró una clase existente que coincida con los filtros para usar como plantilla.');
     }
 
-    // 2. Definir el rango para generar las nuevas clases
     const startDate = new Date(lastInstance.fecha);
     startDate.setDate(startDate.getDate() + 1);
     const endDate = new Date(extension.fechaFin);
@@ -635,7 +628,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
         throw new Error('La fecha de extensión debe ser posterior a la última clase existente.');
     }
 
-    // 3. Crear la regla de recurrencia y generar las fechas
     const rule = new RRule({
         freq: RRule.WEEKLY,
         byweekday: lastInstance.diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
@@ -647,22 +639,19 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     let createdCount = 0;
 
     for (const date of newDates) {
-        // --- CORRECCIÓN CLAVE AQUÍ ---
-        // Creamos un objeto nuevo y limpio, copiando solo los datos necesarios
-        // de la plantilla, en lugar de usar ...lastInstance.toObject() que copia el _id.
         await Clase.create({
             nombre: lastInstance.nombre,
             tipoClase: lastInstance.tipoClase,
             horarioFijo: lastInstance.horarioFijo,
-            diaDeSemana: [getDayName(date.getDay())], // Día actualizado para la nueva fecha
+            diaDeSemana: [getDayName(date)], // CORRECCIÓN
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
             profesor: lastInstance.profesor,
-            fecha: date, // Nueva fecha
+            fecha: date,
             horaInicio: lastInstance.horaInicio,
             horaFin: lastInstance.horaFin,
             estado: 'activa',
-            usuariosInscritos: [], // Siempre vacío para una nueva clase
+            usuariosInscritos: [],
         });
         createdCount++;
     }

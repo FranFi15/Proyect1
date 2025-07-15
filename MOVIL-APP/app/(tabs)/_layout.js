@@ -115,6 +115,13 @@ export default function TabsLayout() {
           ),
         }} 
       />
+      <Tabs.Screen
+    // Esto le dice a Expo Router que ignore esta ruta para la barra de pestañas.
+    name="index"
+    options={{
+        href: null,
+    }}
+/>
     </Tabs>
   );
 }

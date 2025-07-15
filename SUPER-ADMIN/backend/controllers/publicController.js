@@ -21,7 +21,6 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
     });
 
     if (gym) {
-        console.log('Gimnasio encontrado:', gym.nombre);
         res.status(200).json({ 
             clientId: gym._id,
             gymName: gym.nombre,

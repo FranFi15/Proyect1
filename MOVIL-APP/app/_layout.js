@@ -125,25 +125,33 @@ function AppContent() {
         const inAuthGroup = segments[0] === '(auth)';
         
         if (!user) {
+            // Lógica para usuario no autenticado (sin cambios)
             if (!clientId) {
                 router.replace('/(auth)/gymIdentifier');
             } else if (!inAuthGroup) {
                 router.replace('/(auth)/login');
             }
         } else {
+            // --- LÓGICA DE ROLES ACTUALIZADA ---
+            // Se verifica en orden de prioridad: admin > profesor > cliente
+            const isAdmin = user.roles && user.roles.includes('admin');
             const isProfessor = user.roles && user.roles.includes('profesor');
-            
-            if (isProfessor) {
+
+            if (isAdmin) {
+                const inAdminTabs = segments[0] === '(admin-tabs)';
+                if (!inAdminTabs) {
+                    router.replace('/(admin-tabs)'); // Redirigir a la interfaz de admin
+                }
+            } else if (isProfessor) {
                 const inProfessorTabs = segments[0] === '(profesor-tabs)';
                 if (!inProfessorTabs) {
-                    // --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-                    // Redirigimos a la raíz del grupo de pestañas del profesor.
-                    router.replace('/(profesor-tabs)'); 
+                    router.replace('/(profesor-tabs)'); // Redirigir a la interfaz de profesor
                 }
             } else {
+                // Si no es ni admin ni profesor, es cliente
                 const inClientTabs = segments[0] === '(tabs)';
                 if (!inClientTabs) {
-                    router.replace('/(tabs)'); // Es buena práctica redirigir a la raíz del grupo
+                    router.replace('/(tabs)');
                 }
             }
         }
