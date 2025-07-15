@@ -28,7 +28,7 @@ export default function ProfessorTabsLayout() {
         options={{ 
           title: 'Mis Clases',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
+           <Ionicons 
               name={focused ? 'list' : 'list-outline'} 
               size={size} 
               color={color} 
@@ -47,9 +47,24 @@ export default function ProfessorTabsLayout() {
                 size={size} 
                 color={color} 
               />
+              {/* Display badge if there are unread notifications */}
               {user?.unreadNotificationsCount > 0 && (
-                <View style={{ position: 'absolute', right: -6, top: -3, backgroundColor: 'red', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                <View style={{
+                  position: 'absolute',
+                  right: -6, // Adjust position relative to the icon
+                  top: -3,   // Adjust position relative to the icon
+                  backgroundColor: 'red', // Badge background color
+                  borderRadius: 8, // Half of width/height for a circular badge
+                  width: 16,
+                  height: 16,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ 
+                    color: 'white', 
+                    fontSize: 10, 
+                    fontWeight: 'bold' 
+                  }}>
                     {user.unreadNotificationsCount}
                   </Text>
                 </View>

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { StyleSheet, Alert, ActivityIndicator, SectionList, View, Text, Modal, FlatList, TouchableOpacity, useColorScheme } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInYears } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
@@ -15,6 +15,7 @@ const capitalize = (str) => {
     const dateStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     return dateStr.replace(' De ', ' de ');
 };
+
 const calculateAge = (birthDateString) => {
     if (!birthDateString) return 'N/A';
     try {
@@ -36,28 +37,32 @@ const ProfessorMyClassesScreen = () => {
 
     const styles = getStyles(colorScheme, gymColor);
 
-    const fetchMyClasses = useCallback(async () => {
-        setLoading(true);
-        try {
-            // Backend: Necesitas un endpoint que devuelva las clases del profesor autenticado.
-            const response = await apiClient.get('/classes/profesor/me');
-            const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-            setMyClasses(sorted);
-        } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar tus clases asignadas.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    // --- CORRECCIÓN DE useFocusEffect ---
+    // Se aplica el patrón recomendado para evitar la advertencia.
+    useFocusEffect(
+        useCallback(() => {
+            const fetchMyClasses = async () => {
+                setLoading(true);
+                try {
+                    const response = await apiClient.get('/classes/profesor/me');
+                    const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+                    setMyClasses(sorted);
+                } catch (error) {
+                    Alert.alert('Error', 'No se pudieron cargar tus clases asignadas.');
+                } finally {
+                    setLoading(false);
+                }
+            };
 
-    useFocusEffect(fetchMyClasses);
+            fetchMyClasses();
+        }, [])
+    );
 
     const handleViewStudents = async (classId, className) => {
         setSelectedClassName(className);
         setModalVisible(true);
         setLoadingStudents(true);
         try {
-            // Backend: Necesitas un endpoint para ver los detalles de los alumnos de una clase.
             const response = await apiClient.get(`/classes/${classId}/students`);
             setSelectedClassStudents(response.data);
         } catch (error) {
@@ -100,7 +105,7 @@ const ProfessorMyClassesScreen = () => {
             <Text style={styles.studentInfo}>Tel. Emergencia: {item.telefonoEmergencia || 'No provisto'}</Text>
             <Text style={styles.studentInfo}>Obra Social: {item.obraSocial || 'No provisto'}</Text>
         </View>
-    );  
+    );
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
@@ -151,7 +156,6 @@ const ProfessorMyClassesScreen = () => {
     );
 };
 
-// ... (El resto del componente con los estilos)
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -168,8 +172,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     buttonClose: { borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20, elevation: 2, marginTop: 15, width: '100%' },
     textStyle: { color: 'white', fontWeight: 'bold', textAlign: 'center' },
     studentItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, width: '100%' },
-    studentName: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
-    studentInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginTop: 3 }
+    studentName: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 5 },
+    studentInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 4 }
 });
 
 export default ProfessorMyClassesScreen;
