@@ -1,7 +1,7 @@
 // src/services/authService.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:6001/api/admin'; 
+const API_URL = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:6001/api'; 
 
 const login = async (email, password) => {
     try {

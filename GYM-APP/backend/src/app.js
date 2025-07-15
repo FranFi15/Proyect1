@@ -23,7 +23,6 @@ import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
 
 dotenv.config();
-console.log('Valor de la API Key al arrancar:', process.env.INTERNAL_API_KEY_FOR_SUPERADMIN);
 const app = express();
 
 initializeFirebaseAdmin();
