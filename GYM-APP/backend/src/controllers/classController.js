@@ -41,8 +41,8 @@ const createClass = asyncHandler(async (req, res) => {
         const rule = new RRule({
             freq: RRule.WEEKLY,
             byweekday: diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
-            dtstart: new Date(`${fechaInicio}T00:00:00.000Z`),
-            until: new Date(`${fechaFin}T23:59:59.000Z`),
+            dtstart: new Date(`${fechaInicio}T12:00:00.000Z`),
+            until: new Date(`${fechaFin}T12:00:00.000Z`),
         });
         const allDates = rule.all();
         if (allDates.length === 0) {
