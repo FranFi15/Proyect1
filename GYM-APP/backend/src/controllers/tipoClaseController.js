@@ -12,14 +12,14 @@ const createTipoClase = asyncHandler(async (req, res) => {
 
     if (!nombre) {
         res.status(400);
-        throw new Error('El nombre del tipo de clase es obligatorio.');
+        throw new Error('El nombre del tipo de turno es obligatorio.');
     }
 
     const tipoClaseExists = await TipoClase.findOne({ nombre });
 
     if (tipoClaseExists) {
         res.status(400);
-        throw new Error('Ya existe un tipo de clase con este nombre.');
+        throw new Error('Ya existe un tipo de turno con este nombre.');
     }
 
     const tipoClase = await TipoClase.create({
@@ -70,7 +70,7 @@ const getTipoClaseById = asyncHandler(async (req, res) => {
         res.status(200).json(tipoClase);
     } else {
         res.status(404);
-        throw new Error('Tipo de clase no encontrado.');
+        throw new Error('Tipo de turno no encontrado.');
     }
 });
 
@@ -90,7 +90,7 @@ const updateTipoClase = asyncHandler(async (req, res) => {
         res.status(200).json(updatedTipoClase);
     } else {
         res.status(404);
-        throw new Error('Tipo de clase no encontrado.');
+        throw new Error('Tipo de turno no encontrado.');
     }
 });
 
@@ -103,7 +103,7 @@ const deleteTipoClase = asyncHandler(async (req, res) => {
 
     if (!tipoClase) {
         res.status(404);
-        throw new Error('Tipo de clase no encontrado.');
+        throw new Error('Tipo de turno no encontrado.');
     }
 
     // Verificar si el tipo de clase está siendo utilizado por alguna clase
@@ -111,7 +111,7 @@ const deleteTipoClase = asyncHandler(async (req, res) => {
     const classesUsingType = await Clase.findOne({ tipoClase: tipoClaseId });
     if (classesUsingType) {
         res.status(400);
-        throw new Error(`No se puede eliminar el tipo de clase "${tipoClase.nombre}" porque hay clases asociadas a él. Elimina las clases primero.`);
+        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque hay turnos asociados a él. Elimina los turno primero.`);
     }
 
     // Verificar si existen usuarios que tienen créditos de este tipo de clase
@@ -121,11 +121,11 @@ const deleteTipoClase = asyncHandler(async (req, res) => {
 
     if (usersWithCreditsOfType) {
         res.status(400);
-        throw new Error(`No se puede eliminar el tipo de clase "${tipoClase.nombre}" porque algunos usuarios todavía tienen créditos de este tipo. Asigna sus créditos a otro tipo o remuévelos.`);
+        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque algunos usuarios todavía tienen créditos de este tipo. Asigna sus créditos a otro tipo o remuévelos.`);
     }
 
     await tipoClase.deleteOne();
-    res.status(200).json({ message: 'Tipo de clase eliminado exitosamente.' });
+    res.status(200).json({ message: 'Tipo de turno eliminado exitosamente.' });
 });
 
 export {

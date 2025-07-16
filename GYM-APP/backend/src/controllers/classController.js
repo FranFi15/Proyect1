@@ -46,7 +46,7 @@ const createClass = asyncHandler(async (req, res) => {
         });
         const allDates = rule.all();
         if (allDates.length === 0) {
-            return res.status(400).json({ message: "La configuración no generó ninguna clase." });
+            return res.status(400).json({ message: "La configuración no generó ningun turno." });
         }
         const classCreationPromises = allDates.map(dateInstance => {
             const newClassData = { nombre, tipoClase: tipoClaseId, profesor, capacidad: capacidadNum, horaInicio, horaFin, fecha: dateInstance, diaDeSemana: [getDayName(dateInstance)], tipoInscripcion: 'fijo', rrule: rule.toString() };
@@ -70,7 +70,7 @@ const createClass = asyncHandler(async (req, res) => {
         });
     }
 
-    res.status(201).json({ message: `Se crearon ${createdClassesData.length} clases.`, data: createdClassesData });
+    res.status(201).json({ message: `Se crearon ${createdClassesData.length} turnos.`, data: createdClassesData });
 });
 
 
@@ -99,7 +99,7 @@ const getClassById = asyncHandler(async (req, res) => {
         res.json(classWithAge);
     } else {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
 });
 
@@ -110,7 +110,7 @@ const updateClass = asyncHandler(async (req, res) => {
 
     if (!classItem) {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
 
     const oldCapacity = classItem.capacidad;
@@ -140,11 +140,11 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
 
     if (!classItem) {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
     if (classItem.estado === 'cancelada') {
         res.status(400);
-        throw new Error('La clase ya ha sido cancelada.');
+        throw new Error('El turno ya ha sido cancelado.');
     }
     classItem.estado = 'cancelada';
 
@@ -158,7 +158,7 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
                 await user.save();
                 await Notification.create({
                     user: user._id,
-                    message: `Se te ha reembolsado 1 crédito para la clase "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
+                    message: `Se te ha reembolsado 1 crédito para el turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
                     type: 'class_cancellation_refund',
                     class: classItem._id
                 });
@@ -167,7 +167,7 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
     }
     classItem.usuariosInscritos = [];
     await classItem.save();
-    res.json({ message: 'Clase cancelada exitosamente.', class: classItem });
+    res.json({ message: 'Turno cancelada exitosamente.', class: classItem });
 });
 
 const reactivateClass = asyncHandler(async (req, res) => {
@@ -176,15 +176,15 @@ const reactivateClass = asyncHandler(async (req, res) => {
 
     if (!classItem) {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrada.');
     }
     if (classItem.estado === 'activa' || classItem.estado === 'llena') {
         res.status(400);
-        throw new Error('La clase ya está activa o llena.');
+        throw new Error('El turno ya está activo o lleno.');
     }
     classItem.estado = 'activa';
     await classItem.save();
-    res.json({ message: 'Clase reactivada exitosamente.', class: classItem });
+    res.json({ message: 'Turno reactivada exitosamente.', class: classItem });
 });
 
 
@@ -208,10 +208,10 @@ const deleteClass = asyncHandler(async (req, res) => {
             });
         }
         
-        res.json({ message: 'Clase eliminada correctamente.' });
+        res.json({ message: 'Turno eliminada correctamente.' });
     } else {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
 });
 
@@ -225,22 +225,22 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
     if (!classItem || !user) {
         res.status(404);
-        throw new Error('Clase o usuario no encontrados.');
+        throw new Error('Turno o usuario no encontrados.');
     }
 
     // **VALIDACIÓN CLAVE**
     if (!classItem.tipoClase) {
         res.status(500); // O 400, dependiendo de cómo quieras manejarlo
-        throw new Error('La clase no tiene un tipo de clase asociado, no se puede procesar la inscripción.');
+        throw new Error('El turno no tiene un tipo de turno asociado, no se puede procesar la inscripción.');
     }
     
     if (classItem.estado !== 'activa') {
         res.status(400);
-        throw new Error(`No te puedes inscribir a una clase ${classItem.estado}.`);
+        throw new Error(`No te puedes inscribir a un turno ${classItem.estado}.`);
     }
     if (classItem.usuariosInscritos.includes(userId)) {
         res.status(400);
-        throw new Error('Ya estás inscrito en esta clase.');
+        throw new Error('Ya estás inscrito en este turno.');
     }
     
     const tipoClaseId = classItem.tipoClase._id.toString();
@@ -264,7 +264,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
     if (!creditDeducted) {
         res.status(400);
-        throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}" ni créditos universales.`);
+        throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}".`);
     }
 
     classItem.usuariosInscritos.push(userId);
@@ -290,7 +290,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
 
     if (!clase || !user) {
         res.status(404);
-        throw new Error('Clase o usuario no encontrados.');
+        throw new Error('Turno o usuario no encontrados.');
     }
 
     // Lógica de cancelación y devolución de crédito (sin cambios)
@@ -298,7 +298,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     const cancellationDeadline = subHours(classStartDateTime, 1);
     if (new Date() > cancellationDeadline) {
         res.status(400);
-        throw new Error('No puedes anular la inscripción a menos de una hora del inicio de la clase.');
+        throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
     // --- CORRECCIÓN EN DEVOLUCIÓN DE CRÉDITO ---
@@ -309,7 +309,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
     } else {
         // Opcional: Manejar el caso donde no hay tipoClase, quizás devolver un crédito universal o loggear un error.
-        console.warn(`La clase ${clase._id} no tiene un tipoClase definido. No se pudo devolver el crédito específico.`);
+        console.warn(`El turno ${clase._id} no tiene un tipoClase definido. No se pudo devolver el crédito específico.`);
     }
 
     user.clasesInscritas.pull(classId);
@@ -387,7 +387,6 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
     ]);
 
     if (lastInstances.length === 0) {
-        console.log('[Cron Job] No se encontraron clases fijas recientes para usar como plantilla. Finalizando.');
         return 0;
     }
 
@@ -423,7 +422,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
 
             if (!existingClass) {
                 // Si no existe, la creamos
-                await Class.create({
+                await Clase.create({
                     nombre: pattern.nombre,
                     tipoClase: pattern.tipoClase,
                     capacidad: pattern.capacidad,
@@ -442,7 +441,6 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
         }
     }
 
-    console.log(`[Cron Job] Finalizado. Clases nuevas generadas: ${classesGeneratedCount}`);
     return classesGeneratedCount;
 });
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
@@ -500,7 +498,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                 estado: 'activa',
             });
         }
-        return res.json({ message: 'Días de clase actualizados.', eliminadas: idsToDelete.length, creadas: newDates.length });
+        return res.json({ message: 'Días del turno actualizados.', eliminadas: idsToDelete.length, creadas: newDates.length });
     }
     
     const updateData = { $set: {} };
@@ -540,11 +538,11 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
 
     if (result.deletedCount === 0) {
         res.status(404);
-        throw new Error('No se encontraron clases que coincidan con los filtros para eliminar.');
+        throw new Error('No se encontraron turnos que coincidan con los filtros para eliminar.');
     }
 
     res.json({
-        message: 'Clases eliminadas exitosamente.',
+        message: 'Turnos eliminadas exitosamente.',
         eliminadas: result.deletedCount,
     });
 });
@@ -620,7 +618,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
 
     if (!lastInstance) {
         res.status(404);
-        throw new Error('No se encontró una clase existente que coincida con los filtros para usar como plantilla.');
+        throw new Error('No se encontró un turno existente que coincide con los filtros para usar como plantilla.');
     }
 
     const startDate = new Date(lastInstance.fecha);
@@ -629,7 +627,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
 
     if (startDate > endDate) {
         res.status(400);
-        throw new Error('La fecha de extensión debe ser posterior a la última clase existente.');
+        throw new Error('La fecha de extensión debe ser posterior a la último turno existente.');
     }
 
     const rule = new RRule({
@@ -664,7 +662,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
         createdCount++;
     }
 
-    res.json({ message: 'Clases extendidas exitosamente.', creadas: createdCount });
+    res.json({ message: 'Turnos extendidos exitosamente.', creadas: createdCount });
 });
 
 // @desc    Cancelar todas las clases de una fecha específica
@@ -676,7 +674,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
 
     if (!date) {
         res.status(400);
-        throw new Error('Se requiere una fecha para cancelar las clases.');
+        throw new Error('Se requiere una fecha para cancelar los turnos.');
     }
 
     const startOfDay = new Date(`${date}T00:00:00.000Z`);
@@ -689,7 +687,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
     }).populate('tipoClase');
 
     if (classesToCancel.length === 0) {
-        return res.status(404).json({ message: 'No se encontraron clases activas para cancelar en esa fecha.' });
+        return res.status(404).json({ message: 'No se encontraron turnos activos para cancelar en esa fecha.' });
     }
 
     const allAffectedUserIds = new Set();
@@ -720,7 +718,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
 
     // Notificamos a todos los usuarios afectados una sola vez
     if (allAffectedUserIds.size > 0) {
-        const notificationMessage = `Atención: Todas las clases del día ${startOfDay.toLocaleDateString('es-AR')} han sido canceladas. ${refundCredits ? 'Se te ha reembolsado el crédito por las clases a las que estabas inscrito.' : ''}`;
+        const notificationMessage = `Atención: Todas los turnos del día ${startOfDay.toLocaleDateString('es-AR')} han sido cancelados. ${refundCredits ? 'Se te ha reembolsado el crédito por los turnos a los que estabas inscrito.' : ''}`;
         const notificationPromises = Array.from(allAffectedUserIds).map(userId => 
             sendSingleNotification(Notification, User, userId, "Clases Canceladas", notificationMessage, 'class_cancellation', true)
         );
@@ -728,7 +726,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
     }
     
     res.status(200).json({ 
-        message: `Se cancelaron ${classesToCancel.length} clases. ${refundCredits ? 'Se procesaron los reembolsos.' : ''}` 
+        message: `Se cancelaron ${classesToCancel.length} turnos. ${refundCredits ? 'Se procesaron los reembolsos.' : ''}` 
     });
 });
 
@@ -742,7 +740,7 @@ const reactivateClassesByDate = asyncHandler(async (req, res) => {
     
     if (!date) {
         res.status(400);
-        throw new Error('Se requiere una fecha para reactivar las clases.');
+        throw new Error('Se requiere una fecha para reactivar los turnos.');
     }
     
     const startOfDay = new Date(`${date}T00:00:00.000Z`);
@@ -754,10 +752,10 @@ const reactivateClassesByDate = asyncHandler(async (req, res) => {
     );
 
     if (result.modifiedCount === 0) {
-        return res.status(404).json({ message: 'No se encontraron clases canceladas para reactivar en esa fecha.' });
+        return res.status(404).json({ message: 'No se encontraron turnos cancelados para reactivar en esa fecha.' });
     }
     
-    res.status(200).json({ message: `Se reactivaron ${result.modifiedCount} clases.` });
+    res.status(200).json({ message: `Se reactivaron ${result.modifiedCount} turnos.` });
 });
 
 // @desc    Encontrar los horarios únicos para un tipo de clase en días y fechas específicas
@@ -818,13 +816,13 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
 
     if (!clase) {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
 
     // Validación: solo puedes apuntarte si la clase está realmente llena.
     if ((clase.usuariosInscritos || []).length < clase.capacidad) {
         res.status(400);
-        throw new Error('No puedes apuntarte a la lista de espera, la clase aún tiene lugares.');
+        throw new Error('No puedes apuntarte a la lista de espera, el turno aún tiene lugares.');
     }
 
     // --- CORRECCIÓN FINAL ---
@@ -843,7 +841,7 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
 
     try {
         const title = `Confirmación de lista de espera`;
-        const message = `Te has apuntado a la lista de espera para la clase de "${clase.nombre}" del día ${new Date(clase.fecha).toLocaleDateString('es-AR')}. ¡Te avisaremos si se libera un lugar!`;
+        const message = `Te has apuntado a la lista de espera para el turno de "${clase.nombre}" del día ${new Date(clase.fecha).toLocaleDateString('es-AR')}. ¡Te avisaremos si se libera un lugar!`;
 
         await sendSingleNotification(
             Notification,
@@ -908,7 +906,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
 
     if (!classItem) {
         res.status(404);
-        throw new Error('Clase no encontrada.');
+        throw new Error('Turno no encontrada.');
     }
 
     // --- Lógica de Autorización ---
@@ -918,7 +916,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
 
     if (!isTheProfessor && !isAdmin) {
         res.status(403); // 403 Forbidden
-        throw new Error('No tienes autorización para ver los alumnos de esta clase.');
+        throw new Error('No tienes autorización para ver los alumnos de este turno.');
     }
 
     res.status(200).json(classItem.usuariosInscritos);

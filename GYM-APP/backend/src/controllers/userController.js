@@ -173,14 +173,14 @@ const updateUserPlan = asyncHandler(async (req, res) => {
     const adminId = req.user._id;
 
     if (!tipoClaseId) {
-        return res.status(400).send('Se requiere un tipo de clase.');
+        return res.status(400).send('Se requiere un tipo de turno.');
     }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).send('Usuario no encontrado.');
     
     const tipoClase = await TipoClase.findById(tipoClaseId);
-    if (!tipoClase) return res.status(404).send('Tipo de clase no encontrado.');
+    if (!tipoClase) return res.status(404).send('Tipo de turno no encontrado.');
 
     if (creditsToAdd !== undefined && Number(creditsToAdd) !== 0) {
         const creditsToAddNum = Number(creditsToAdd);
@@ -213,7 +213,7 @@ const updateUserPlan = asyncHandler(async (req, res) => {
 
         const title = "Actualización de Créditos";
         const message = creditsToAddNum > 0 
-            ? `Se te han acreditado ${creditsToAddNum} clases de ${tipoClase.nombre}. ¡Ya puedes usarlos!`
+            ? `Se te han acreditado ${creditsToAddNum} para turnos de ${tipoClase.nombre}. ¡Ya puedes usarlos!`
             : `Se han descontado ${Math.abs(creditsToAddNum)} créditos de ${tipoClase.nombre} de tu cuenta.`;
         
         await sendSingleNotification(Notification, User, userId, title, message, 'credit_update', false);
@@ -430,7 +430,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
     const tipoClase = await TipoClase.findById(tipoClaseId);
     if (!tipoClase) {
         res.status(404);
-        throw new Error('Tipo de clase no encontrado.');
+        throw new Error('Tipo de turno no encontrado.');
     }
 
     const classesToEnroll = await Clase.find({
@@ -443,7 +443,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     if (classesToEnroll.length === 0) {
         res.status(404);
-        throw new Error('No se encontraron clases activas que coincidan con los criterios del plan.');
+        throw new Error('No se encontraron turnos activos que coincidan con los criterios del plan.');
     }
 
     // --- LÓGICA CORREGIDA: VERIFICACIÓN DE CUPO SIN CRÉDITOS ---
@@ -453,12 +453,12 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
         if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
             const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR');
             res.status(400);
-            throw new Error(`No se puede inscribir al plan. La clase del día ${classDate} a las ${classInstance.horaInicio} está llena.`);
+            throw new Error(`No se puede inscribir al plan. Los turnos del día ${classDate} a las ${classInstance.horaInicio} está lleno.`);
         }
         if (classInstance.usuariosInscritos.includes(userId)) {
             const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR');
             res.status(400);
-            throw new Error(`El usuario ya está inscrito en la clase del ${classDate}.`);
+            throw new Error(`El usuario ya está inscrito en el turno del ${classDate}.`);
         }
     }
 
@@ -491,11 +491,11 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     // 4. Notificar al usuario sobre su nuevo plan.
     const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Has sido inscrito en un nuevo plan para las clases de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}.`;
+    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
 
     res.status(200).json({
-        message: `Inscripción masiva completada. El usuario fue añadido a ${enrolledCount} clases.`
+        message: `Inscripción masiva completada. El usuario fue añadido a ${enrolledCount} turnos.`
     });
 });
 
