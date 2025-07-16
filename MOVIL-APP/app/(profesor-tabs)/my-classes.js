@@ -26,19 +26,25 @@ const calculateAge = (birthDateString) => {
 };
 
 const ProfessorMyClassesScreen = () => {
+    // --- STATE MANAGEMENT ---
     const [myClasses, setMyClasses] = useState([]);
     const [loading, setLoading] = useState(true);
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
-    const [modalVisible, setModalVisible] = useState(false);
+    
+    // State for the main student list modal
+    const [isListModalVisible, setListModalVisible] = useState(false);
     const [selectedClassStudents, setSelectedClassStudents] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [selectedClassName, setSelectedClassName] = useState('');
 
+    // State for the student detail modal
+    const [isDetailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+
     const styles = getStyles(colorScheme, gymColor);
 
-    // --- CORRECCIÓN DE useFocusEffect ---
-    // Se aplica el patrón recomendado para evitar la advertencia.
+    // --- DATA FETCHING ---
     useFocusEffect(
         useCallback(() => {
             const fetchMyClasses = async () => {
@@ -48,7 +54,7 @@ const ProfessorMyClassesScreen = () => {
                     const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                     setMyClasses(sorted);
                 } catch (error) {
-                    Alert.alert('Error', 'No se pudieron cargar tus clases asignadas.');
+                    Alert.alert('Error', 'No se pudieron cargar tus turnos asignados.');
                 } finally {
                     setLoading(false);
                 }
@@ -58,21 +64,31 @@ const ProfessorMyClassesScreen = () => {
         }, [])
     );
 
+    // --- MODAL HANDLERS ---
+
+    // Opens the list of students for a specific class.
     const handleViewStudents = async (classId, className) => {
         setSelectedClassName(className);
-        setModalVisible(true);
+        setListModalVisible(true);
         setLoadingStudents(true);
         try {
             const response = await apiClient.get(`/classes/${classId}/students`);
             setSelectedClassStudents(response.data);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar los alumnos de la clase.');
-            setModalVisible(false);
+            Alert.alert('Error', 'No se pudieron cargar los alumnos del turno.');
+            setListModalVisible(false);
         } finally {
             setLoadingStudents(false);
         }
     };
 
+    // Opens the detail view for a single selected student.
+    const handleViewStudentDetails = (student) => {
+        setSelectedStudent(student);
+        setDetailModalVisible(true);
+    };
+
+    // --- DATA STRUCTURING ---
     const sectionedClasses = useMemo(() => {
         const grouped = myClasses.reduce((acc, clase) => {
             const dateKey = capitalize(format(parseISO(clase.fecha), "EEEE, d 'de' MMMM", { locale: es }));
@@ -83,6 +99,9 @@ const ProfessorMyClassesScreen = () => {
         return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
     }, [myClasses]);
 
+    // --- RENDER FUNCTIONS ---
+
+    // Renders a single class item in the main screen list.
     const renderClassItem = ({ item }) => (
         <ThemedView style={styles.classItem}>
             <ThemedText style={styles.className}>{item.nombre} - {item.tipoClase?.nombre || 'General'}</ThemedText>
@@ -95,17 +114,32 @@ const ProfessorMyClassesScreen = () => {
         </ThemedView>
     );
 
-    const renderStudentItem = ({ item }) => (
-        <View style={styles.studentItem}>
-            <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
-            <Text style={styles.studentInfo}>DNI: {item.dni || 'No provisto'}</Text>
-            <Text style={styles.studentInfo}>Edad: {calculateAge(item.fechaNacimiento)} años</Text>
-            <Text style={styles.studentInfo}>Email: {item.email || 'No provisto'}</Text>
-            <Text style={styles.studentInfo}>Teléfono: {item.numeroTelefono || 'No provisto'}</Text>
-            <Text style={styles.studentInfo}>Tel. Emergencia: {item.telefonoEmergencia || 'No provisto'}</Text>
-            <Text style={styles.studentInfo}>Obra Social: {item.obraSocial || 'No provisto'}</Text>
-        </View>
+    // Renders a student's name in the first modal list.
+    const renderStudentListItem = ({ item }) => (
+        <TouchableOpacity onPress={() => handleViewStudentDetails(item)}>
+            <View style={styles.studentListItem}>
+                <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
+                <FontAwesome5 name="chevron-right" size={16} color={Colors[colorScheme].icon} />
+            </View>
+        </TouchableOpacity>
     );
+
+    // Renders the full details of a student in the second modal.
+    const renderStudentDetail = () => {
+        if (!selectedStudent) return null;
+
+        return (
+            <View style={styles.studentDetailContainer}>
+                 <Text style={styles.detailTitle}>{selectedStudent.nombre} {selectedStudent.apellido}</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>DNI:</Text> {selectedStudent.dni || 'No provisto'}</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Edad:</Text> {calculateAge(selectedStudent.fechaNacimiento)} años</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Email:</Text> {selectedStudent.email || 'No provisto'}</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Teléfono:</Text> {selectedStudent.numeroTelefono || 'No provisto'}</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Tel. Emergencia:</Text> {selectedStudent.telefonoEmergencia || 'No provisto'}</Text>
+                 <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Obra Social:</Text> {selectedStudent.obraSocial || 'No provisto'}</Text>
+            </View>
+        );
+    };
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
@@ -120,34 +154,56 @@ const ProfessorMyClassesScreen = () => {
                 renderSectionHeader={({ section: { title } }) => (
                     <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
                 )}
-                ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes clases asignadas en el futuro.</ThemedText>}
+                ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes turnos asignados en el futuro.</ThemedText>}
             />
             
+            {/* Modal 1: List of Students */}
             <Modal
                 animationType="slide"
                 transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
+                visible={isListModalVisible}
+                onRequestClose={() => setListModalVisible(false)}
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
-                        <ThemedText style={styles.modalTitle}>Alumnos en "{selectedClassName}"</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Alumnos en {selectedClassName}</ThemedText>
                         {loadingStudents ? (
                             <ActivityIndicator size="large" color={gymColor} />
                         ) : (
                             <FlatList
                                 data={selectedClassStudents}
-                                renderItem={renderStudentItem}
+                                renderItem={renderStudentListItem}
                                 keyExtractor={(item) => item._id}
                                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay alumnos inscritos.</ThemedText>}
                                 style={{width: '100%'}}
                             />
                         )}
                         <TouchableOpacity
-                            style={[styles.buttonClose, {backgroundColor: gymColor}]}
-                            onPress={() => setModalVisible(false)}
+                            style={[styles.buttonClose, {backgroundColor: '#1a5276'}]}
+                            onPress={() => setListModalVisible(false)}
                         >
                             <Text style={styles.textStyle}>Cerrar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Modal 2: Student Details */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isDetailModalVisible}
+                onRequestClose={() => setDetailModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalView}>
+                        <ThemedText style={styles.modalTitle}>Detalles del Alumno</ThemedText>
+                        {renderStudentDetail()}
+                        <TouchableOpacity
+                            style={[styles.buttonClose, {backgroundColor: '#1a5276'}]}
+                            onPress={() => setDetailModalVisible(false)}
+                        >
+                            <Text style={styles.textStyle}>Volver</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -159,21 +215,53 @@ const ProfessorMyClassesScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, borderBottomWidth: 0, borderBottomColor: Colors[colorScheme].border },
     classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 2, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
-    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a5276', paddingVertical: 10, borderRadius: 8, marginTop: 12 },
+    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor:'#1a5276', paddingVertical: 10, borderRadius: 2, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
     modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 25, alignItems: 'center', elevation: 5, width: '90%', maxHeight: '80%' },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
-    buttonClose: { borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20, elevation: 2, marginTop: 15, width: '100%' },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
+    buttonClose: { borderRadius: 2, paddingVertical: 12, paddingHorizontal: 20, elevation: 2, marginTop: 15, width: '100%' },
     textStyle: { color: 'white', fontWeight: 'bold', textAlign: 'center' },
-    studentItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, width: '100%' },
-    studentName: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 5 },
-    studentInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 4 }
+    // Styles for the first modal (student list)
+    studentListItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 18,
+        borderBottomWidth: 0,
+        borderBottomColor: Colors[colorScheme].border,
+        width: '100%'
+    },
+    studentName: {
+        fontSize: 18,
+        color: Colors[colorScheme].text,
+    },
+    // Styles for the second modal (student details)
+    studentDetailContainer: {
+        width: '100%',
+        marginBottom: 20,
+    },
+    detailTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: gymColor,
+        textAlign: 'center',
+        marginBottom: 15,
+    },
+    studentInfo: {
+        fontSize: 16,
+        color: Colors[colorScheme].text,
+        opacity: 0.9,
+        marginTop: 8,
+    },
+    infoLabel: {
+        fontWeight: 'bold',
+    }
 });
 
 export default ProfessorMyClassesScreen;

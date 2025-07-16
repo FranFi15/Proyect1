@@ -31,10 +31,23 @@ export default function AdminTabsLayout() {
           ),
         }} 
       />
+       <Tabs.Screen 
+        name="class-type" 
+        options={{ 
+          title: 'Tipo de Turnos',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'list' : 'list-outline'} 
+              size={size} 
+              color={color} 
+            />
+          ),
+        }} 
+      />
       <Tabs.Screen 
         name="classes" 
         options={{ 
-          title: 'Clases',
+          title: 'Turnos',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color} />
           ),

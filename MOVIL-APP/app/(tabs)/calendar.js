@@ -183,7 +183,7 @@ const CalendarScreen = () => {
     const handleEnroll = async (classId) => {
         try {
             await apiClient.post(`/classes/${classId}/enroll`);
-            Alert.alert('¡Éxito!', 'Te has inscrito en la clase.');
+            Alert.alert('¡Éxito!', 'Te has inscrito en el turno.');
             await refreshUser(); // Update user's enrolled classes in AuthContext
             fetchData(); // Refresh all data to update class capacities and user's enrollment status
         } catch (error) {
@@ -239,7 +239,7 @@ const CalendarScreen = () => {
 
     const formattedDateTitle = useMemo(() => {
         if (activeView === 'calendar' || !selectedDate) {
-            return 'Próximas Clases'; 
+            return 'Próximos Turnos'; 
         }
         try {
             const date = parseISO(selectedDate);
@@ -284,14 +284,14 @@ const CalendarScreen = () => {
                     {item.nombre} - {item.tipoClase?.nombre || ''}
                 </ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Profesor: {item.profesor?.nombre || 'A confirmar'} {item.profesor?.apellido || ''}</ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de : {item.profesor?.nombre || 'A confirmar'} {item.profesor?.apellido || ''}</ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
 
                 <View style={styles.buttonContainer}>
     {isCancelled ? (
-        <Text style={styles.badgeCancelled}>CANCELADA</Text>
+        <Text style={styles.badgeCancelled}>CANCELADO</Text>
     ) : isFinished ? (
-        <Text style={styles.badgeFinished}>TERMINADA</Text>
+        <Text style={styles.badgeFinished}>TERMINADO</Text>
     ) : isEnrolled ? (
         // Botón para anular
         <ActionButton
@@ -372,7 +372,7 @@ const CalendarScreen = () => {
                     <Text style={styles.tabText}>Calendario</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setActiveView('list')} style={[styles.tab, activeView === 'list' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Clases</Text>
+                    <Text style={styles.tabText}>Turnos</Text>
                 </TouchableOpacity>
             </View>
 
@@ -397,7 +397,7 @@ const CalendarScreen = () => {
                             style={{ color: Colors[colorScheme].text }}
                             dropdownIconColor={Colors[colorScheme].text}
                         >
-                            <Picker.Item label="Todas las Clases" value="all" color={Colors[colorScheme].text} />
+                            <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
                             {classTypes.map(type => (
                                 <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
                             ))}
@@ -405,14 +405,14 @@ const CalendarScreen = () => {
                     </View>
 
                     {visibleClasses.length === 0 && !isLoading ? ( // Show empty text only if not loading and no classes
-                         <ThemedText style={styles.emptyText}>No hay clases para los filtros seleccionados.</ThemedText>
+                         <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
                     ) : (
                         selectedDate ? ( // If specific date selected, use FlatList
                             <FlatList
                                 data={visibleClasses}
                                 keyExtractor={item => item._id}
                                 renderItem={renderClassItem}
-                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clases para este día.</ThemedText>}
+                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
                                 contentContainerStyle={{ paddingBottom: 20 }}
                             />
                         ) : ( // If no date selected, use SectionList for upcoming classes grouped by day
@@ -423,7 +423,7 @@ const CalendarScreen = () => {
                                 renderSectionHeader={({ section: { title } }) => (
                                     <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
                                 )}
-                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximas clases.</ThemedText>}
+                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
                                 contentContainerStyle={{ paddingBottom: 20 }}
                             />
                         )

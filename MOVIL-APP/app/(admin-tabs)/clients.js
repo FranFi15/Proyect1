@@ -418,7 +418,7 @@ const ManageClientsScreen = () => {
                                         <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({...prev, autoRenewAmount: text}))}/>
                                     </>
                                 )}
-                                <Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor} />
+                                <Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color='#1a5276' />
                             </View>
 
                             <View style={styles.section}>
@@ -465,7 +465,7 @@ const ManageClientsScreen = () => {
                                     />
                                 )}
 
-                                <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor} />
+                                <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color='#1a5276' />
 
                                 {availableSlots.length > 0 && (
                                     <View style={{marginTop: 20}}>
@@ -476,7 +476,7 @@ const ManageClientsScreen = () => {
                                             </TouchableOpacity>
                                         ))}
                                         <View style={{marginTop: 15}}>
-                                            <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#28a745'} />
+                                            <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
                                         </View>
                                     </View>
                                 )}
@@ -503,7 +503,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row' },
     actionButton: { marginLeft: 10, padding: 8 },
-    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 30, bottom: 30, backgroundColor: gymColor || Colors.light.tint, borderRadius: 30, elevation: 8 },
+    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, fontSize: 12, fontWeight: 'bold', alignSelf: 'flex-start', overflow: 'hidden', textTransform: 'capitalize' },
     clienteBadge: { backgroundColor: '#e0f3ffff', color: '#0561daff' },

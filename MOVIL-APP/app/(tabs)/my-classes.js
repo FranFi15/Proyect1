@@ -66,7 +66,7 @@ const MyClassesScreen = () => {
 
             setEnrolledClasses(sortedClasses);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar tus clases.');
+            Alert.alert('Error', 'No se pudieron cargar tus turnos.');
         } finally {
             setLoading(false);
         }
@@ -135,9 +135,9 @@ const MyClassesScreen = () => {
             <ThemedView style={styles.classItem}>
                 <ThemedText style={styles.className}>{item.nombre} - {item.tipoClase?.nombre || ''}</ThemedText>
                 {item.profesor ? (
-                    <ThemedText style={styles.classInfoText}>Profesor: {item.profesor.nombre} {item.profesor.apellido}</ThemedText>
+                    <ThemedText style={styles.classInfoText}>A cargo de : {item.profesor.nombre} {item.profesor.apellido}</ThemedText>
                 ) : (
-                    <ThemedText style={styles.classInfoText}>Profesor: A confirmar</ThemedText>
+                    <ThemedText style={styles.classInfoText}>A cargo de : A confirmar</ThemedText>
                 )}
                 <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
                 
@@ -183,7 +183,7 @@ const MyClassesScreen = () => {
                 renderSectionHeader={({ section: { title } }) => (
                     <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
                 )}
-                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clases en esta sección.</ThemedText>}
+                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en esta sección.</ThemedText>}
                 contentContainerStyle={{ paddingBottom: 20 }}
             />
         </ThemedView>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -44,13 +44,18 @@ export default function GymIdentifierScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <ThemedText type="title" style={styles.title}>Identifica tu Gimnasio</ThemedText>
-            <ThemedText style={styles.subtitle}>
-                Introduce el código único proporcionado por tu gimnasio para continuar.
-            </ThemedText>
+            {/* Imagen local de la app */}
+            <Image
+                // Cambiamos la fuente a un recurso local usando require
+                // Asegúrate de que la ruta sea correcta y la imagen exista en tu proyecto.
+                source={require('../../assets/images/1.png')} 
+                style={styles.logo}
+            />
+            <ThemedText type="title" style={styles.title}>Introduce tu Código</ThemedText>
+            
             <TextInput
                 style={styles.input}
-                placeholder="Código del Gimnasio"
+                placeholder="Código"
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
@@ -65,9 +70,15 @@ export default function GymIdentifierScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-    title: { marginBottom: 10 },
-    subtitle: { marginBottom: 30, textAlign: 'center', paddingHorizontal: 20 },
-    input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: '#333', backgroundColor: '#fff' },
-    button: { width: '100%', height: 50, backgroundColor: '#00177d', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    logo: {
+        width: 150,
+        height: 150,
+        marginBottom: 30, // Space between logo and title
+        resizeMode: 'contain', // Asegura que la imagen se escale correctamente
+        borderRadius:2,
+    },
+    title: { marginBottom: 15, padding:5, },
+    input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 2, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: '#333', backgroundColor: '#fff' },
+    button: { width: '100%', height: 50, backgroundColor: '#000000ff', borderRadius: 2, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

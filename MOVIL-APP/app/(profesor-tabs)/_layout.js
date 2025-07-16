@@ -20,13 +20,13 @@ export default function ProfessorTabsLayout() {
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />,
         headerStyle: { backgroundColor: gymColor },
-        tabBarShowLabel: false, // Opcional: para un look más limpio
+       
       }}
     >
       <Tabs.Screen 
         name="my-classes" 
         options={{ 
-          title: 'Mis Clases',
+          title: 'Mis Turnos',
           tabBarIcon: ({ color, size, focused }) => (
            <Ionicons 
               name={focused ? 'list' : 'list-outline'} 

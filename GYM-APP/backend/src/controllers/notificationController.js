@@ -1,7 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import admin from 'firebase-admin';
+import { Resend } from 'resend';
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+
+// Modificamos la función para que también envíe emails
 const sendSingleNotification = async (NotificationModel, UserModel, userId, title, message, type, isImportant, classId = null) => {
     // 1. Crear la notificación en la base de datos (lógica existente)
     const notificacionInApp = await NotificationModel.create({
@@ -14,11 +19,42 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
         isImportant: isImportant || false,
     });
 
-    // 2. Intentar enviar la notificación Push
-    try {
-        const user = await UserModel.findById(userId).select('pushToken');
-        
-        if (user && user.pushToken) {
+    // Buscamos al usuario para obtener su pushToken y su email
+    // <-- 3. MODIFICACIÓN: Añadimos 'email' y 'name' a la consulta
+    const user = await UserModel.findById(userId).select('pushToken email name');
+
+    // Si no encontramos al usuario, no hacemos nada más
+    if (!user) {
+        console.error(`Usuario con ID ${userId} no encontrado.`);
+        return notificacionInApp;
+    }
+
+    // 2. Intentar enviar la notificación por Email con Resend
+    // <-- 4. NUEVO BLOQUE: Lógica para enviar email
+    if (user.email) {
+        try {
+            await resend.emails.send({
+                from: 'Gain <noreply@gain-wellness.com>', 
+                to: user.email,
+                subject: title,
+                html: `
+                    <h1>Hola, ${user.name || 'usuario'}!</h1>
+                    <p>${message}</p>
+                    <br>
+                    <p>Saludos,</p>
+                    <p>El equipo de Tu Gimnasio</p>
+                `,
+            });
+            console.log(`Email enviado exitosamente al usuario ${userId} (${user.email})`);
+        } catch (error) {
+            console.error(`Falló el envío de email para el usuario ${userId}:`, error);
+        }
+    }
+
+
+    // 3. Intentar enviar la notificación Push (lógica existente)
+    if (user.pushToken) {
+        try {
             const payload = {
                 notification: {
                     title: title,
@@ -39,18 +75,14 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
                 }
             };
 
-            // Enviar el mensaje usando el SDK de Firebase Admin
             await admin.messaging().send(payload);
             console.log(`Notificación push enviada exitosamente al usuario ${userId}`);
-        }
-    } catch (error) {
-        console.error(`Falló el envío de notificación push para el usuario ${userId}:`, error);
-        // Si el token es inválido, podríamos limpiarlo de la base de datos
-        if (error.code === 'messaging/registration-token-not-registered') {
-            const userToUpdate = await UserModel.findById(userId);
-            if (userToUpdate) {
-                userToUpdate.pushToken = undefined;
-                await userToUpdate.save();
+        } catch (error) {
+            console.error(`Falló el envío de notificación push para el usuario ${userId}:`, error);
+            if (error.code === 'messaging/registration-token-not-registered') {
+                user.pushToken = undefined;
+                await user.save();
+                console.log(`Push token inválido eliminado para el usuario ${userId}`);
             }
         }
     }
@@ -61,7 +93,8 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
 
 const createNotification = asyncHandler(async (req, res) => {
     const { Notification, User, Clase } = getModels(req.gymDBConnection);
-    const { title, message, type, isImportant, targetType, targetId, targetRole } = req.body;
+    // <-- 5. NUEVO PARÁMETRO: 'sendEmail' para controlar el envío de correo (opcional pero recomendado)
+    const { title, message, type, isImportant, targetType, targetId, targetRole, sendEmail } = req.body;
 
     if (!title || !message || !targetType) {
         res.status(400);
@@ -71,21 +104,22 @@ const createNotification = asyncHandler(async (req, res) => {
     let usuariosDestino = [];
     switch (targetType) {
         case 'all':
-            usuariosDestino = await User.find({}, '_id pushToken');
+            // <-- 6. MODIFICACIÓN: Traemos el email y nombre de todos los usuarios
+            usuariosDestino = await User.find({}, '_id email name pushToken');
             break;
         case 'user':
             if (!targetId) { res.status(400); throw new Error('Se requiere un "targetId" para el tipo de destinatario "user".'); }
-            usuariosDestino = await User.find({ _id: targetId }, '_id pushToken');
+            usuariosDestino = await User.find({ _id: targetId }, '_id email name pushToken');
             break;
         case 'role':
             if (!targetRole) { res.status(400); throw new Error('Se requiere un "targetRole" para el tipo de destinatario "role".'); }
-            usuariosDestino = await User.find({ roles: targetRole }, '_id pushToken');
+            usuariosDestino = await User.find({ roles: targetRole }, '_id email name pushToken');
             break;
         case 'class':
             if (!targetId) { res.status(400); throw new Error('Se requiere un "targetId" para el tipo de destinatario "class".'); }
             const claseEspecifica = await Clase.findById(targetId);
             if (!claseEspecifica) { res.status(404); throw new Error('Clase no encontrada.'); }
-            usuariosDestino = await User.find({ _id: { $in: claseEspecifica.usuariosInscritos } }, '_id pushToken');
+            usuariosDestino = await User.find({ _id: { $in: claseEspecifica.usuariosInscritos } }, '_id email name pushToken');
             break;
         default:
             res.status(400);
@@ -94,6 +128,7 @@ const createNotification = asyncHandler(async (req, res) => {
 
     let notificacionesCreadas = [];
     if (usuariosDestino.length > 0) {
+        // En la llamada a sendSingleNotification no hay que cambiar nada, ya se encarga de todo.
         const promesasDeNotificacion = usuariosDestino.map(user =>
             sendSingleNotification(Notification, User, user._id, title, message, type, isImportant, targetType === 'class' ? targetId : null)
         );
@@ -101,7 +136,7 @@ const createNotification = asyncHandler(async (req, res) => {
     }
 
     res.status(201).json({
-        message: `Notificaciones enviadas con éxito a ${notificacionesCreadas.length} usuarios.`,
+        message: `Notificaciones procesadas para ${notificacionesCreadas.length} usuarios.`,
         notifications: notificacionesCreadas
     });
 });

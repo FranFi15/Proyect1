@@ -1,0 +1,363 @@
+import React, { useState, useCallback } from 'react';
+import {
+    StyleSheet,
+    View,
+    Text,
+    FlatList,
+    TouchableOpacity,
+    Modal,
+    TextInput,
+    Alert,
+    useColorScheme,
+    ActivityIndicator,
+    RefreshControl,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/ThemedText';
+import { useAuth } from '../../contexts/AuthContext'; 
+import apiClient from '../../services/apiClient';
+import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+
+// This is the main screen component for managing class types.
+const ClassTypeManagementScreen = () => {
+    // --- HOOKS ---
+    const { gymColor } = useAuth();
+    const colorScheme = useColorScheme() ?? 'light';
+    const styles = getStyles(colorScheme, gymColor);
+
+    // --- STATE MANAGEMENT ---
+    const [classTypes, setClassTypes] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // State for the Add/Edit Modal
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [editingClassType, setEditingClassType] = useState(null);
+    const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
+
+    // --- DATA FETCHING ---
+
+    // Fetches all class types from the backend.
+    const fetchClassTypes = useCallback(async () => {
+        try {
+            const response = await apiClient.get('/tipos-clase');
+            // Ensure the response data is an array before setting the state.
+            if (response.data && Array.isArray(response.data.tiposClase)) {
+                setClassTypes(response.data.tiposClase);
+            } else {
+                setClassTypes([]);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'No se pudieron obtener los tipos de turno.');
+            setClassTypes([]);
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    }, []);
+
+    // Refreshes data when the screen comes into focus.
+    useFocusEffect(
+        useCallback(() => {
+            setIsLoading(true);
+            fetchClassTypes();
+        }, [fetchClassTypes])
+    );
+
+    // Handles the pull-to-refresh action.
+    const onRefresh = useCallback(() => {
+        setIsRefreshing(true);
+        fetchClassTypes();
+    }, [fetchClassTypes]);
+
+    // --- FORM & MODAL HANDLERS ---
+
+    // Updates the form data state as the user types.
+    const handleFormChange = (name, value) => {
+        setFormData({ ...formData, [name]: value });
+    };
+
+    // Opens the modal to add a new class type.
+    const handleAdd = () => {
+        setEditingClassType(null);
+        setFormData({ nombre: '', descripcion: '' });
+        setIsModalVisible(true);
+    };
+
+    // Opens the modal to edit an existing class type.
+    const handleEdit = (type) => {
+        setEditingClassType(type);
+        setFormData({ nombre: type.nombre, descripcion: type.descripcion || '' });
+        setIsModalVisible(true);
+    };
+
+    // Handles the submission of the add/edit form.
+    const handleFormSubmit = async () => {
+        if (!formData.nombre) {
+            Alert.alert('Campo Requerido', 'El nombre del tipo de turno es obligatorio.');
+            return;
+        }
+
+        const apiCall = editingClassType
+            ? apiClient.put(`/tipos-clase/${editingClassType._id}`, formData)
+            : apiClient.post('/tipos-clase', formData);
+
+        try {
+            await apiCall;
+            Alert.alert('Éxito', `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`);
+            setIsModalVisible(false);
+            fetchClassTypes(); // Refresh the list
+        } catch (error) {
+            Alert.alert('Error', error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`);
+        }
+    };
+
+    // --- DELETE HANDLER ---
+
+    // Handles the deletion of a class type with a confirmation dialog.
+    const handleDelete = (type) => {
+        Alert.alert(
+            'Confirmar Eliminación',
+            `¿Estás seguro de que quieres eliminar "${type.nombre}"? Esta acción podría afectar a turnos existentes.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await apiClient.delete(`/tipos-clase/${type._id}`);
+                            Alert.alert('Éxito', 'Tipo de turno eliminado.');
+                            fetchClassTypes(); // Refresh the list
+                        } catch (error) {
+                            Alert.alert('Error', error.response?.data?.message || 'Error al eliminar.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // --- RENDER FUNCTIONS ---
+
+    // Renders a single class type item in the FlatList.
+    const renderClassType = ({ item }) => (
+        <View style={styles.card}>
+            <View style={styles.cardContent}>
+                <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
+                <ThemedText style={styles.cardDescription}>{item.descripcion || 'Sin descripción'}</ThemedText>
+            </View>
+            <View style={styles.cardActions}>
+                <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
+                    <Ionicons name="pencil-outline" size={22} color={gymColor} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
+                    <Ionicons name="trash-outline" size={22} color={Colors.light.error} />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    // Shows a loading indicator while data is being fetched.
+    if (isLoading) {
+        return (
+            <ThemedView style={styles.centered}>
+                <ActivityIndicator size="large" color={gymColor} />
+            </ThemedView>
+        );
+    }
+
+    return (
+        <ThemedView style={styles.container}>
+            <FlatList
+                data={classTypes}
+                renderItem={renderClassType}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={styles.listContainer}
+                ListEmptyComponent={
+                    <ThemedView style={styles.centered}>
+                        <ThemedText>No hay tipos de turnos registrados.</ThemedText>
+                    </ThemedView>
+                }
+                refreshControl={
+                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />
+                }
+            />
+
+            {/* Floating Action Button to add a new class type */}
+            <TouchableOpacity style={styles.fab} onPress={handleAdd}>
+                <Ionicons name="add" size={30} color="#fff" />
+            </TouchableOpacity>
+
+            {/* Modal for Adding/Editing Class Types */}
+            <Modal
+                visible={isModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setIsModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <ThemedView style={styles.modalContainer}>
+                        <ThemedText style={styles.modalTitle}>
+                            {editingClassType ? 'Editar Tipo de Turnos' : 'Añadir Tipo de Turno'}
+                        </ThemedText>
+                        
+                        <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Ej: Crossfit"
+                            value={formData.nombre}
+                            onChangeText={(text) => handleFormChange('nombre', text)}
+                        />
+                        
+                        <ThemedText style={styles.inputLabel}>Descripción (Opcional)</ThemedText>
+                        <TextInput
+                            style={[styles.input, styles.textArea]}
+                            placeholder="Breve descripción del turno"
+                            value={formData.descripcion}
+                            onChangeText={(text) => handleFormChange('descripcion', text)}
+                            multiline
+                        />
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
+                                <Text style={styles.buttonText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.button, { backgroundColor: '#1a5276' }]} onPress={handleFormSubmit}>
+                                <Text style={styles.buttonText}>{editingClassType ? 'Actualizar' : 'Guardar'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ThemedView>
+                </View>
+            </Modal>
+        </ThemedView>
+    );
+};
+
+// --- STYLES ---
+const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    listContainer: {
+        padding: 10,
+        paddingBottom: 80, // Space for FAB
+    },
+    card: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 2,
+        padding: 15,
+        marginVertical: 8,
+        marginHorizontal: 5,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.5,
+    },
+    cardContent: {
+        flex: 1,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    cardDescription: {
+        fontSize: 14,
+        opacity: 0.7,
+        marginTop: 4,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 15,
+    },
+    actionButton: {
+        padding: 8,
+    },
+    fab: {
+        position: 'absolute',
+        width: 60,
+        height: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+        left: 20,
+        bottom: 20,
+        backgroundColor: '#1a5276',
+        borderRadius: 30,
+        elevation: 8,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContainer: {
+        width: '90%',
+        borderRadius: 2,
+        padding: 25,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    inputLabel: {
+        fontSize: 16,
+        marginBottom: 8,
+        opacity: 0.9,
+    },
+    input: {
+        height: 50,
+        backgroundColor: Colors[colorScheme].background,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 2,
+        paddingHorizontal: 15,
+        marginBottom: 20,
+        color: Colors[colorScheme].text,
+        fontSize: 16,
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
+        paddingTop: 15,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    button: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 5,
+    },
+    cancelButton: {
+        backgroundColor: Colors[colorScheme].icon,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+});
+
+export default ClassTypeManagementScreen;
