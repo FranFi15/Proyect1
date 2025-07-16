@@ -38,11 +38,10 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
                 to: user.email,
                 subject: title,
                 html: `
-                    <h1>Hola, ${user.name || 'usuario'}!</h1>
+                    <h1>${title}</h1>
+                    <p>Hola, ${user.nombre || 'usuario'}!</p>
                     <p>${message}</p>
                     <br>
-                    <p>Saludos,</p>
-                    <p>El equipo de Tu Gimnasio</p>
                 `,
             });
             console.log(`Email enviado exitosamente al usuario ${userId} (${user.email})`);
