@@ -21,7 +21,7 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
 
     // Buscamos al usuario para obtener su pushToken y su email
     // <-- 3. MODIFICACIÓN: Añadimos 'email' y 'name' a la consulta
-    const user = await UserModel.findById(userId).select('pushToken email name');
+    const user = await UserModel.findById(userId).select('pushToken email nombre');
 
     // Si no encontramos al usuario, no hacemos nada más
     if (!user) {
