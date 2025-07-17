@@ -7,18 +7,45 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
+        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64"
+      },
+      "hooks": {
+        "pre-build": {
+          "file": "eas-hooks/pre-build.sh",
+          "cache": {
+            "key": "google-services",
+            "paths": ["android/app/google-services.json"]
+          }
+        }
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
+        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64"
+      },
+      "hooks": {
+        "pre-build": {
+          "file": "eas-hooks/pre-build.sh",
+          "cache": {
+            "key": "google-services",
+            "paths": ["android/app/google-services.json"]
+          }
+        }
       }
     },
     "production": {
       "env": {
-        "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
+        "GOOGLE_SERVICES_JSON_BASE64": "@GOOGLE_SERVICES_JSON_BASE64"
+      },
+      "hooks": {
+        "pre-build": {
+          "file": "eas-hooks/pre-build.sh",
+          "cache": {
+            "key": "google-services",
+            "paths": ["android/app/google-services.json"]
+          }
+        }
       }
     }
   },
