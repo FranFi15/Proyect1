@@ -2,6 +2,7 @@ import apiClient from './apiClient';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform, Alert } from 'react-native';
+import Constants from 'expo-constants';
 
 // Configuración inicial para cómo se deben manejar las notificaciones cuando la app está en primer plano.
 Notifications.setNotificationHandler({
@@ -69,7 +70,7 @@ const notificationService = {
         let token;
         if (!Device.isDevice) {
             Alert.alert('Funcionalidad no disponible', 'Las notificaciones push solo funcionan en dispositivos físicos.');
-            return;
+            return null;
         }
 
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -80,16 +81,22 @@ const notificationService = {
         }
 
         if (finalStatus !== 'granted') {
-            console.log('El usuario no otorgó permiso para recibir notificaciones.');
-            return;
+            alert('No se pudo obtener el permiso para las notificaciones push.');
+            return null;
         }
 
         try {
-            const tokenData = await Notifications.getExpoPushTokenAsync();
-            token = tokenData.data;
-        } catch (e) {
-            console.error("Error obteniendo el push token", e);
-        }
+    // Este es el cambio crucial: obtener el projectId desde la configuración de Expo.
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+        throw new Error('El projectId de Expo no se encontró. Asegúrate de que está en app.json.');
+    }
+    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    console.log('Expo Push Token:', token);
+  } catch (e) {
+    console.error("Error obteniendo el push token:", e);
+    return null;
+  }
 
         if (Platform.OS === 'android') {
             Notifications.setNotificationChannelAsync('default', {
