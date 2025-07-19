@@ -52,9 +52,9 @@ const userSchema = mongoose.Schema({
     },
     sexo: {
         type: String,
-        enum: ['Masculino', 'Femenino', 'Otro'], 
-        default: 'Otro', 
-        required: false 
+        enum: ['Masculino', 'Femenino', 'Otro'],
+        default: 'Otro',
+        required: false
     },
     telefonoEmergencia: {
         type: String,
@@ -65,15 +65,15 @@ const userSchema = mongoose.Schema({
     },
     direccion: {
         type: String,
-        required: false, 
+        required: false,
     },
     numeroTelefono: {
         type: String,
-        required: false, 
+        required: false,
     },
     obraSocial: {
         type: String,
-        required: false, 
+        required: false,
     },
     planesFijos: [{
         tipoClase: { type: mongoose.Schema.Types.ObjectId, ref: 'TipoClase' },
@@ -100,6 +100,15 @@ const userSchema = mongoose.Schema({
         },
     ],
     monthlySubscriptions: [monthlySubscriptionSchema],
+    balance: {
+        type: Number,
+        default: 0,
+        comment: 'Deuda del usuario. Positivo significa que debe dinero.'
+    },
+    lastBalanceNotificationDate: {
+        type: Date,
+        comment: 'Fecha del último envío de notificación de saldo deudor.'
+    }
 }, {
     timestamps: true,
 });
@@ -108,14 +117,10 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.contraseña);
 };
 
-// --- CORRECCIÓN CLAVE AQUÍ ---
 userSchema.pre('save', async function (next) {
-    // Si la contraseña no se ha modificado, salimos de la función.
     if (!this.isModified('contraseña')) {
         return next();
     }
-
-    // Si se modificó, la encriptamos.
     try {
         const salt = await bcrypt.genSalt(10);
         this.contraseña = await bcrypt.hash(this.contraseña, salt);
@@ -135,7 +140,7 @@ userSchema.pre('findOneAndUpdate', async function (next) {
 });
 
 export default (gymDBConnection) => {
-    if(gymDBConnection.models.User) {
+    if (gymDBConnection.models.User) {
         return gymDBConnection.models.User;
     }
     return gymDBConnection.model('User', userSchema);

@@ -20,30 +20,22 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 
-// This is the main screen component for managing class types.
 const ClassTypeManagementScreen = () => {
-    // --- HOOKS ---
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // --- STATE MANAGEMENT ---
     const [classTypes, setClassTypes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     
-    // State for the Add/Edit Modal
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingClassType, setEditingClassType] = useState(null);
-    const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
+    const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0' });
 
-    // --- DATA FETCHING ---
-
-    // Fetches all class types from the backend.
     const fetchClassTypes = useCallback(async () => {
         try {
             const response = await apiClient.get('/tipos-clase');
-            // Ensure the response data is an array before setting the state.
             if (response.data && Array.isArray(response.data.tiposClase)) {
                 setClassTypes(response.data.tiposClase);
             } else {
@@ -58,7 +50,6 @@ const ClassTypeManagementScreen = () => {
         }
     }, []);
 
-    // Refreshes data when the screen comes into focus.
     useFocusEffect(
         useCallback(() => {
             setIsLoading(true);
@@ -66,61 +57,61 @@ const ClassTypeManagementScreen = () => {
         }, [fetchClassTypes])
     );
 
-    // Handles the pull-to-refresh action.
     const onRefresh = useCallback(() => {
         setIsRefreshing(true);
         fetchClassTypes();
     }, [fetchClassTypes]);
 
-    // --- FORM & MODAL HANDLERS ---
-
-    // Updates the form data state as the user types.
     const handleFormChange = (name, value) => {
         setFormData({ ...formData, [name]: value });
     };
 
-    // Opens the modal to add a new class type.
     const handleAdd = () => {
         setEditingClassType(null);
-        setFormData({ nombre: '', descripcion: '' });
+        setFormData({ nombre: '', descripcion: '', price: '0' });
         setIsModalVisible(true);
     };
 
-    // Opens the modal to edit an existing class type.
     const handleEdit = (type) => {
         setEditingClassType(type);
-        setFormData({ nombre: type.nombre, descripcion: type.descripcion || '' });
+        setFormData({ 
+            nombre: type.nombre, 
+            descripcion: type.descripcion || '', 
+            price: type.price?.toString() || '0' 
+        });
         setIsModalVisible(true);
     };
 
-    // Handles the submission of the add/edit form.
     const handleFormSubmit = async () => {
         if (!formData.nombre) {
             Alert.alert('Campo Requerido', 'El nombre del tipo de turno es obligatorio.');
             return;
         }
 
+        const payload = {
+            ...formData,
+            price: Number(formData.price) || 0,
+        };
+
+        // --- CORRECCIÓN AQUÍ: Se usa 'payload' en lugar de 'formData' ---
         const apiCall = editingClassType
-            ? apiClient.put(`/tipos-clase/${editingClassType._id}`, formData)
-            : apiClient.post('/tipos-clase', formData);
+            ? apiClient.put(`/tipos-clase/${editingClassType._id}`, payload)
+            : apiClient.post('/tipos-clase', payload);
 
         try {
             await apiCall;
             Alert.alert('Éxito', `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`);
             setIsModalVisible(false);
-            fetchClassTypes(); // Refresh the list
+            fetchClassTypes();
         } catch (error) {
             Alert.alert('Error', error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`);
         }
     };
 
-    // --- DELETE HANDLER ---
-
-    // Handles the deletion of a class type with a confirmation dialog.
     const handleDelete = (type) => {
         Alert.alert(
             'Confirmar Eliminación',
-            `¿Estás seguro de que quieres eliminar "${type.nombre}"? Esta acción podría afectar a turnos existentes.`,
+            `¿Estás seguro de que quieres eliminar "${type.nombre}"?`,
             [
                 { text: 'Cancelar', style: 'cancel' },
                 {
@@ -130,7 +121,7 @@ const ClassTypeManagementScreen = () => {
                         try {
                             await apiClient.delete(`/tipos-clase/${type._id}`);
                             Alert.alert('Éxito', 'Tipo de turno eliminado.');
-                            fetchClassTypes(); // Refresh the list
+                            fetchClassTypes();
                         } catch (error) {
                             Alert.alert('Error', error.response?.data?.message || 'Error al eliminar.');
                         }
@@ -140,14 +131,14 @@ const ClassTypeManagementScreen = () => {
         );
     };
 
-    // --- RENDER FUNCTIONS ---
-
-    // Renders a single class type item in the FlatList.
     const renderClassType = ({ item }) => (
         <View style={styles.card}>
             <View style={styles.cardContent}>
                 <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
                 <ThemedText style={styles.cardDescription}>{item.descripcion || 'Sin descripción'}</ThemedText>
+                <Text style={styles.priceText}>
+                    Precio: ${item.price?.toFixed(2) || '0.00'}
+                </Text>
             </View>
             <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
@@ -160,7 +151,6 @@ const ClassTypeManagementScreen = () => {
         </View>
     );
 
-    // Shows a loading indicator while data is being fetched.
     if (isLoading) {
         return (
             <ThemedView style={styles.centered}>
@@ -186,12 +176,10 @@ const ClassTypeManagementScreen = () => {
                 }
             />
 
-            {/* Floating Action Button to add a new class type */}
             <TouchableOpacity style={styles.fab} onPress={handleAdd}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* Modal for Adding/Editing Class Types */}
             <Modal
                 visible={isModalVisible}
                 animationType="slide"
@@ -201,7 +189,7 @@ const ClassTypeManagementScreen = () => {
                 <View style={styles.modalOverlay}>
                     <ThemedView style={styles.modalContainer}>
                         <ThemedText style={styles.modalTitle}>
-                            {editingClassType ? 'Editar Tipo de Turnos' : 'Añadir Tipo de Turno'}
+                            {editingClassType ? 'Editar Tipo de Turno' : 'Añadir Tipo de Turno'}
                         </ThemedText>
                         
                         <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
@@ -221,6 +209,15 @@ const ClassTypeManagementScreen = () => {
                             multiline
                         />
 
+                        <ThemedText style={styles.inputLabel}>Precio</ThemedText>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="0.00"
+                            value={formData.price}
+                            onChangeText={(text) => handleFormChange('price', text)}
+                            keyboardType="numeric"
+                        />
+
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
                                 <Text style={styles.buttonText}>Cancelar</Text>
@@ -236,23 +233,13 @@ const ClassTypeManagementScreen = () => {
     );
 };
 
-// --- STYLES ---
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    listContainer: {
-        padding: 10,
-        paddingBottom: 80, // Space for FAB
-    },
+    container: { flex: 1 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    listContainer: { padding: 10, paddingBottom: 80 },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 2,
+        borderRadius: 8,
         padding: 15,
         marginVertical: 8,
         marginHorizontal: 5,
@@ -265,99 +252,49 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 1.5,
     },
-    cardContent: {
-        flex: 1,
+    cardContent: { flex: 1 },
+    cardTitle: { fontSize: 18, fontWeight: 'bold' },
+    cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4 },
+    priceText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: gymColor,
+        marginTop: 8,
     },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    cardDescription: {
-        fontSize: 14,
-        opacity: 0.7,
-        marginTop: 4,
-    },
-    cardActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 15,
-    },
-    actionButton: {
-        padding: 8,
-    },
+    cardActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 15 },
+    actionButton: { padding: 8 },
     fab: {
         position: 'absolute',
         width: 60,
         height: 60,
         alignItems: 'center',
         justifyContent: 'center',
-        left: 20,
+        right: 20,
         bottom: 20,
         backgroundColor: '#1a5276',
         borderRadius: 30,
         elevation: 8,
     },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    modalContainer: {
-        width: '90%',
-        borderRadius: 2,
-        padding: 25,
-        elevation: 5,
-    },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    inputLabel: {
-        fontSize: 16,
-        marginBottom: 8,
-        opacity: 0.9,
-    },
+    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+    modalContainer: { width: '90%', borderRadius: 12, padding: 25, elevation: 5 },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+    inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9 },
     input: {
         height: 50,
         backgroundColor: Colors[colorScheme].background,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 2,
+        borderRadius: 8,
         paddingHorizontal: 15,
         marginBottom: 20,
         color: Colors[colorScheme].text,
         fontSize: 16,
     },
-    textArea: {
-        height: 100,
-        textAlignVertical: 'top',
-        paddingTop: 15,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 10,
-    },
-    button: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginHorizontal: 5,
-    },
-    cancelButton: {
-        backgroundColor: Colors[colorScheme].icon,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    textArea: { height: 100, textAlignVertical: 'top', paddingTop: 15 },
+    modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+    button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
+    cancelButton: { backgroundColor: '#6c757d' },
+    buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default ClassTypeManagementScreen;

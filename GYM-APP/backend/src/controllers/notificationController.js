@@ -1,55 +1,11 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import { Resend } from 'resend';
+import { sendExpoPushNotification } from '../utils/notificationSender.js'; // <-- Importamos la función
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const sendExpoPushNotification = async (pushToken, title, body, data = {}) => {
-    // Expo requiere que el token sea un token de Expo válido.
-    const isExpoToken = typeof pushToken === 'string' && pushToken.startsWith('ExponentPushToken');
-
-    if (!isExpoToken) {
-        console.error(`El token proporcionado no es un token de Expo válido: ${pushToken}`);
-        return;
-    }
-
-    const message = {
-        to: pushToken,
-        sound: 'default',
-        title: title,
-        body: body,
-        data: data, // Puedes enviar datos adicionales aquí
-    };
-
-    try {
-        // Hacemos la petición a los servidores de Expo
-        const response = await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Accept-encoding': 'gzip, deflate',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(message),
-        });
-        
-        // Opcional: puedes revisar la respuesta de Expo para manejar errores
-        const responseData = await response.json();
-        if (responseData.data.status === 'error') {
-            console.error(`Error de Expo al enviar la notificación: ${responseData.data.message}`);
-            console.error('Detalles:', responseData.data.details);
-        } else {
-            console.log(`Notificación push enviada exitosamente al token ${pushToken}`);
-        }
-
-    } catch (error) {
-        console.error(`Falló el envío de notificación push para el token ${pushToken}:`, error);
-    }
-};
-
-
 const sendSingleNotification = async (NotificationModel, UserModel, userId, title, message, type, isImportant, classId = null) => {
-    // 1. Crear la notificación en la base de datos (lógica sin cambios)
     const notificacionInApp = await NotificationModel.create({
         user: userId,
         title,
@@ -67,7 +23,6 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
         return notificacionInApp;
     }
 
-    // 2. Intentar enviar la notificación por Email con Resend (lógica sin cambios)
     if (user.email) {
         try {
             await resend.emails.send({
@@ -82,9 +37,7 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
         }
     }
 
-    // 3. Intentar enviar la notificación Push (LÓGICA ACTUALIZADA)
     if (user.pushToken) {
-        // En lugar de usar 'admin.messaging()', llamamos a nuestra nueva función.
         await sendExpoPushNotification(user.pushToken, title, message, { notificationId: notificacionInApp._id });
     }
 
@@ -94,8 +47,7 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
 
 const createNotification = asyncHandler(async (req, res) => {
     const { Notification, User, Clase } = getModels(req.gymDBConnection);
-    // <-- 5. NUEVO PARÁMETRO: 'sendEmail' para controlar el envío de correo (opcional pero recomendado)
-    const { title, message, type, isImportant, targetType, targetId, targetRole, sendEmail } = req.body;
+    const { title, message, type, isImportant, targetType, targetId, targetRole } = req.body;
 
     if (!title || !message || !targetType) {
         res.status(400);
@@ -105,7 +57,6 @@ const createNotification = asyncHandler(async (req, res) => {
     let usuariosDestino = [];
     switch (targetType) {
         case 'all':
-            // <-- 6. MODIFICACIÓN: Traemos el email y nombre de todos los usuarios
             usuariosDestino = await User.find({}, '_id email name pushToken');
             break;
         case 'user':
@@ -129,7 +80,6 @@ const createNotification = asyncHandler(async (req, res) => {
 
     let notificacionesCreadas = [];
     if (usuariosDestino.length > 0) {
-        // En la llamada a sendSingleNotification no hay que cambiar nada, ya se encarga de todo.
         const promesasDeNotificacion = usuariosDestino.map(user =>
             sendSingleNotification(Notification, User, user._id, title, message, type, isImportant, targetType === 'class' ? targetId : null)
         );

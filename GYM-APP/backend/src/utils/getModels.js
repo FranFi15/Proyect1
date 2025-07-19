@@ -4,6 +4,9 @@ import getTipoClaseModel from '../models/TipoClase.js';
 import getNotificationModel from '../models/Notification.js';
 import getConfiguracionModel from '../models/Configuracion.js';
 import getCreditLogModel from '../models/CreditLog.js';
+import getTransactionsModel from '../controllers/transactionController.js';
+import getTrainingPlanModel from '../models/TrainingPlan.js';
+
 
 /**
  * Initializes and returns all necessary models for a given database connection.
@@ -27,6 +30,8 @@ const getModels = (dbConnection) => {
         Notification: getNotificationModel(dbConnection),
         Configuracion: getConfiguracionModel(dbConnection),
         CreditLog: getCreditLogModel(dbConnection),
+        Transaction: getTransactionsModel(dbConnection),
+        TrainingPlan: getTrainingPlanModel(dbConnection),
     };
 
     return models;

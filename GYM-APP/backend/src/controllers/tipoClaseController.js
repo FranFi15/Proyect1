@@ -1,14 +1,12 @@
-// src/controllers/tipoClaseController.js
-import getModels from '../utils/getModels.js';        // <-- Importa la FUNCIÓN
+import getModels from '../utils/getModels.js';
 import asyncHandler from 'express-async-handler';
-
-// --- MODIFICACIÓN CLAVE: Todas las funciones del controlador necesitan obtener los modelos dinámicamente ---
 
 // Crear un nuevo tipo de clase (solo admin)
 const createTipoClase = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
 
-    const { nombre, descripcion } = req.body;
+    // --- CORRECCIÓN: Se añade 'price' a la desestructuración ---
+    const { nombre, descripcion, price } = req.body;
 
     if (!nombre) {
         res.status(400);
@@ -22,38 +20,37 @@ const createTipoClase = asyncHandler(async (req, res) => {
         throw new Error('Ya existe un tipo de turno con este nombre.');
     }
 
+    // --- CORRECCIÓN: Se añade 'price' al objeto de creación ---
     const tipoClase = await TipoClase.create({
         nombre,
         descripcion,
+        price,
     });
 
     res.status(201).json(tipoClase);
 });
 
-// Obtener todos los tipos de clase con paginación, filtrado y búsqueda
+// Obtener todos los tipos de clase
 const getTiposClase = asyncHandler(async (req, res) => {
     const { TipoClase, User } = getModels(req.gymDBConnection);
-    const tiposClase = await TipoClase.find({}).lean(); // .lean() para objetos JS planos y más rápidos
+    const tiposClase = await TipoClase.find({}).lean();
 
-    // 1. Calcular el total de créditos asignados para cada tipo de clase
     const assignedCreditsAggregation = await User.aggregate([
         { $project: { creditosArray: { $objectToArray: "$creditosPorTipo" } } },
         { $unwind: "$creditosArray" },
         { $group: { _id: "$creditosArray.k", totalAsignado: { $sum: "$creditosArray.v" } } }
     ]);
 
-    // 2. Crear un mapa para una búsqueda eficiente
     const assignedCreditsMap = new Map(
         assignedCreditsAggregation.map(item => [item._id.toString(), item.totalAsignado])
     );
 
-    // 3. Añadir el campo calculado `creditosDisponibles` a cada tipo de clase
     const tiposClaseConDisponibles = tiposClase.map(tipo => {
         const totalAsignado = assignedCreditsMap.get(tipo._id.toString()) || 0;
         const creditosDisponibles = tipo.creditosTotales - totalAsignado;
         return {
             ...tipo,
-            creditosDisponibles: creditosDisponibles >= 0 ? creditosDisponibles : 0 // Asegura que no sea negativo
+            creditosDisponibles: creditosDisponibles >= 0 ? creditosDisponibles : 0
         };
     });
 
@@ -63,7 +60,6 @@ const getTiposClase = asyncHandler(async (req, res) => {
 // Obtener un tipo de clase por ID
 const getTipoClaseById = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
-
     const tipoClase = await TipoClase.findById(req.params.id);
 
     if (tipoClase) {
@@ -78,13 +74,17 @@ const getTipoClaseById = asyncHandler(async (req, res) => {
 const updateTipoClase = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
 
-    const { nombre, descripcion } = req.body;
+    // --- CORRECCIÓN: Se añade 'price' a la desestructuración ---
+    const { nombre, descripcion, price } = req.body;
 
     const tipoClase = await TipoClase.findById(req.params.id);
 
     if (tipoClase) {
         tipoClase.nombre = nombre !== undefined ? nombre : tipoClase.nombre;
         tipoClase.descripcion = descripcion !== undefined ? descripcion : tipoClase.descripcion;
+        // --- CORRECCIÓN: Se añade la lógica para actualizar el precio ---
+        // Usamos '??' para permitir que el precio se actualice a 0 si es necesario.
+        tipoClase.price = price ?? tipoClase.price;
 
         const updatedTipoClase = await tipoClase.save();
         res.status(200).json(updatedTipoClase);
@@ -97,7 +97,6 @@ const updateTipoClase = asyncHandler(async (req, res) => {
 // Eliminar un tipo de clase (solo admin)
 const deleteTipoClase = asyncHandler(async (req, res) => {
     const { Clase, TipoClase, User } = getModels(req.gymDBConnection);
-
     const tipoClaseId = req.params.id;
     const tipoClase = await TipoClase.findById(tipoClaseId);
 
@@ -106,22 +105,19 @@ const deleteTipoClase = asyncHandler(async (req, res) => {
         throw new Error('Tipo de turno no encontrado.');
     }
 
-    // Verificar si el tipo de clase está siendo utilizado por alguna clase
-    // Nota: El campo en tu modelo Class es `tipoClase`, no `tipo`.
     const classesUsingType = await Clase.findOne({ tipoClase: tipoClaseId });
     if (classesUsingType) {
         res.status(400);
-        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque hay turnos asociados a él. Elimina los turno primero.`);
+        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque hay turnos asociados a él.`);
     }
 
-    // Verificar si existen usuarios que tienen créditos de este tipo de clase
     const usersWithCreditsOfType = await User.findOne({
         [`creditosPorTipo.${tipoClaseId}`]: { $exists: true, $ne: 0 }
     });
 
     if (usersWithCreditsOfType) {
         res.status(400);
-        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque algunos usuarios todavía tienen créditos de este tipo. Asigna sus créditos a otro tipo o remuévelos.`);
+        throw new Error(`No se puede eliminar el tipo de turno "${tipoClase.nombre}" porque algunos usuarios todavía tienen créditos de este tipo.`);
     }
 
     await tipoClase.deleteOne();

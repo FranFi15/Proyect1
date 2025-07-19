@@ -22,7 +22,13 @@ const tipoClaseSchema = mongoose.Schema(
             type: Number,
             default: 0,
             comment: 'Créditos que aún no han sido asignados a ningún usuario. Disminuye al dar créditos.',
-        }
+        },
+         price: {
+            type: Number,
+            required: true,
+            default: 0,
+            comment: 'Precio de la suscripción o de un paquete de créditos para este tipo de clase.'
+         },
     },
     {
         timestamps: true,
