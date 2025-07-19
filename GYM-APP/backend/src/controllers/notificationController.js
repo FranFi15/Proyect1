@@ -1,14 +1,55 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
-import admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const sendExpoPushNotification = async (pushToken, title, body, data = {}) => {
+    // Expo requiere que el token sea un token de Expo válido.
+    const isExpoToken = typeof pushToken === 'string' && pushToken.startsWith('ExponentPushToken');
 
-// Modificamos la función para que también envíe emails
+    if (!isExpoToken) {
+        console.error(`El token proporcionado no es un token de Expo válido: ${pushToken}`);
+        return;
+    }
+
+    const message = {
+        to: pushToken,
+        sound: 'default',
+        title: title,
+        body: body,
+        data: data, // Puedes enviar datos adicionales aquí
+    };
+
+    try {
+        // Hacemos la petición a los servidores de Expo
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Accept-encoding': 'gzip, deflate',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(message),
+        });
+        
+        // Opcional: puedes revisar la respuesta de Expo para manejar errores
+        const responseData = await response.json();
+        if (responseData.data.status === 'error') {
+            console.error(`Error de Expo al enviar la notificación: ${responseData.data.message}`);
+            console.error('Detalles:', responseData.data.details);
+        } else {
+            console.log(`Notificación push enviada exitosamente al token ${pushToken}`);
+        }
+
+    } catch (error) {
+        console.error(`Falló el envío de notificación push para el token ${pushToken}:`, error);
+    }
+};
+
+
 const sendSingleNotification = async (NotificationModel, UserModel, userId, title, message, type, isImportant, classId = null) => {
-    // 1. Crear la notificación en la base de datos (lógica existente)
+    // 1. Crear la notificación en la base de datos (lógica sin cambios)
     const notificacionInApp = await NotificationModel.create({
         user: userId,
         title,
@@ -19,30 +60,21 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
         isImportant: isImportant || false,
     });
 
-    // Buscamos al usuario para obtener su pushToken y su email
-    // <-- 3. MODIFICACIÓN: Añadimos 'email' y 'name' a la consulta
     const user = await UserModel.findById(userId).select('pushToken email nombre');
 
-    // Si no encontramos al usuario, no hacemos nada más
     if (!user) {
         console.error(`Usuario con ID ${userId} no encontrado.`);
         return notificacionInApp;
     }
 
-    // 2. Intentar enviar la notificación por Email con Resend
-    // <-- 4. NUEVO BLOQUE: Lógica para enviar email
+    // 2. Intentar enviar la notificación por Email con Resend (lógica sin cambios)
     if (user.email) {
         try {
             await resend.emails.send({
                 from: 'Gain <noreply@gain-wellness.com>', 
                 to: user.email,
                 subject: title,
-                html: `
-                    <h1>${title}</h1>
-                    <p>Hola, ${user.nombre || 'usuario'}!</p>
-                    <p>${message}</p>
-                    <br>
-                `,
+                html: `<h1>${title}</h1><p>Hola, ${user.nombre || 'usuario'}!</p><p>${message}</p><br>`,
             });
             console.log(`Email enviado exitosamente al usuario ${userId} (${user.email})`);
         } catch (error) {
@@ -50,40 +82,10 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
         }
     }
 
-
-    // 3. Intentar enviar la notificación Push (lógica existente)
+    // 3. Intentar enviar la notificación Push (LÓGICA ACTUALIZADA)
     if (user.pushToken) {
-        try {
-            const payload = {
-                notification: {
-                    title: title,
-                    body: message,
-                },
-                token: user.pushToken,
-                android: {
-                    notification: {
-                        sound: 'default'
-                    }
-                },
-                apns: {
-                    payload: {
-                        aps: {
-                            sound: 'default'
-                        }
-                    }
-                }
-            };
-
-            await admin.messaging().send(payload);
-            console.log(`Notificación push enviada exitosamente al usuario ${userId}`);
-        } catch (error) {
-            console.error(`Falló el envío de notificación push para el usuario ${userId}:`, error);
-            if (error.code === 'messaging/registration-token-not-registered') {
-                user.pushToken = undefined;
-                await user.save();
-                console.log(`Push token inválido eliminado para el usuario ${userId}`);
-            }
-        }
+        // En lugar de usar 'admin.messaging()', llamamos a nuestra nueva función.
+        await sendExpoPushNotification(user.pushToken, title, message, { notificationId: notificacionInApp._id });
     }
 
     return notificacionInApp;
