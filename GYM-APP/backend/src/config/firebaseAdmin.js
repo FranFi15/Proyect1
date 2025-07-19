@@ -1,24 +1,33 @@
 import admin from 'firebase-admin';
 
 const initializeFirebaseAdmin = () => {
-    // Lee las credenciales como un string desde la variable de entorno
-    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    const serviceAccountB64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
 
     // Procede solo si la variable existe Y si Firebase no ha sido inicializado antes
-    if (serviceAccountString && !admin.apps.length) {
-        // Convierte el string de vuelta a un objeto JSON
-        const serviceAccount = JSON.parse(serviceAccountString);
+    if (serviceAccountB64 && !admin.apps.length) {
+        try {
+            // Decodifica el string Base64 a un string JSON normal
+            const serviceAccountString = Buffer.from(serviceAccountB64, 'base64').toString('utf8');
+            
+            // Convierte el string JSON de vuelta a un objeto
+            const serviceAccount = JSON.parse(serviceAccountString);
 
-        // Llama a initializeApp DENTRO del bloque if
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log('Firebase Admin inicializado desde variable de entorno.');
-        
+            // Llama a initializeApp DENTRO del bloque if
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+            console.log('Firebase Admin inicializado correctamente desde variable de entorno.');
+
+        } catch (error) {
+            console.error('Error al parsear o inicializar Firebase Admin:', error);
+            console.error('Asegúrate de que la variable FIREBASE_SERVICE_ACCOUNT_BASE64 sea un string Base64 válido del JSON de tu cuenta de servicio.');
+        }
+
     } else if (admin.apps.length) {
         console.log('Firebase Admin ya estaba inicializado.');
     } else {
-        console.error('Variable de entorno FIREBASE_SERVICE_ACCOUNT no encontrada. La app no puede funcionar.');
+        console.error('Variable de entorno FIREBASE_SERVICE_ACCOUNT_BASE64 no encontrada. El backend no puede enviar notificaciones.');
     }
 };
 

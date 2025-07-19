@@ -102,8 +102,8 @@ const LoginPage = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({ 
     container: { flex: 1, justifyContent: 'center', padding: 20 },
     logo: {
-        width: '80%',
-        height: 100,
+        width: 200,
+        height: 200,
         alignSelf: 'center',
         marginBottom: 20,
     },
@@ -119,7 +119,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon,
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 2, 
         marginBottom: 12, 
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background,
@@ -129,7 +129,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     loginButton: {
         backgroundColor: gymColor || '#00177d',
         paddingVertical: 12,
-        borderRadius: 8,
+        borderRadius: 2,
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: 10,

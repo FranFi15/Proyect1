@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, Image, useColorScheme } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -14,6 +14,9 @@ export default function GymIdentifierScreen() {
     const router = useRouter();
     // Renombramos la función para que sea más claro lo que hace
     const { setGymContext } = useAuth();
+
+    const colorScheme = useColorScheme();
+
 
     const handleContinue = async () => {
         if (!identifier) {
@@ -45,10 +48,12 @@ export default function GymIdentifierScreen() {
     return (
         <ThemedView style={styles.container}>
             {/* Imagen local de la app */}
-            <Image
-                // Cambiamos la fuente a un recurso local usando require
-                // Asegúrate de que la ruta sea correcta y la imagen exista en tu proyecto.
-                source={require('../../assets/images/1.png')} 
+           <Image
+                source={
+                    colorScheme === 'dark' 
+                    ? require('../../assets/images/modo-oscuro-logo.png') 
+                    : require('../../assets/images/modo-claro-logo.png')
+                } 
                 style={styles.logo}
             />
             <ThemedText type="title" style={styles.title}>Introduce tu Código</ThemedText>
@@ -69,15 +74,13 @@ export default function GymIdentifierScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+    container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
     logo: {
-        width: 150,
+        width: 300,
         height: 150,
-        marginBottom: 30, // Space between logo and title
-        resizeMode: 'contain', // Asegura que la imagen se escale correctamente
-        borderRadius:2,
+        resizeMode: 'cover',
     },
-    title: { marginBottom: 15, padding:5, },
+    title: { marginBottom: 15, padding:5, fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
     input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 2, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: '#333', backgroundColor: '#fff' },
     button: { width: '100%', height: 50, backgroundColor: '#000000ff', borderRadius: 2, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
