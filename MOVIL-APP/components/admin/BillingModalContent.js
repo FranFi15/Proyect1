@@ -109,7 +109,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                         <TextInput style={styles.input} placeholder="Descripción (Ej: Pago cuota, Cargo inscripción)" value={newTransaction.description} onChangeText={text => setNewTransaction(p => ({...p, description: text}))} />
                         <View style={styles.buttonRow}>
                             <Button title="Registrar Pago" onPress={() => handleCreateTransaction('payment')} color={'#28a745'} />
-                            <Button title="Añadir Cargo" onPress={() => handleCreateTransaction('charge')} color={Colors.light.error} />
+                            <Button title="Añadir Cargo" onPress={() => handleCreateTransaction('charge')} color={'#620000ff'} />
                         </View>
                     </View>
                     
@@ -131,15 +131,15 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { width: '95%', maxHeight: '80%', backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 20, elevation: 5 },
+    modalView: { width: '95%', maxHeight: '80%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 10, right: 10, zIndex: 1},
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
-    summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#676767ff' },
     summaryLabel: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.8 },
     summaryBalance: { fontSize: 28, fontWeight: 'bold' },
-    formContainer: { borderBottomWidth: 1, borderColor: Colors[colorScheme].border, paddingBottom: 20, marginBottom: 15 },
+    formContainer: { borderBottomWidth: 1, borderColor: '#676767ff', paddingBottom: 20, marginBottom: 15 },
     formTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text, marginBottom: 10 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
+    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
     buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5 },
     historyTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: Colors[colorScheme].text },
     transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
@@ -148,7 +148,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     transactionDate: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
     transactionAmount: { fontSize: 16, fontWeight: 'bold' },
     charge: { color: Colors.light.error },
-    payment: { color: '#28a745' },
+    payment: { color: '#c9001eff' },
     emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
 });
 

@@ -387,7 +387,16 @@ const ManageClientsScreen = () => {
                                 <TextInput style={styles.input} value={editingClientData.nombre} onChangeText={(text) => handleEditingClientChange('nombre', text)} />
                                 <ThemedText style={styles.inputLabel}>Apellido</ThemedText>
                                 <TextInput style={styles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
-                                {/* ... otros inputs para DNI, email, etc. ... */}
+                                <ThemedText style={styles.inputLabel}>DNI</ThemedText>
+                                <TextInput style={styles.input} keyboardType="numeric" value={newClientData.dni} onChangeText={(text) => handleNewClientChange('dni', text)} />
+                                <ThemedText style={styles.inputLabel}>Fecha de Nacimiento (YYYY-MM-DD)</ThemedText>
+                                <TextInput style={styles.input} placeholder="YYYY-MM-DD" value={newClientData.fechaNacimiento} onChangeText={(text) => handleNewClientChange('fechaNacimiento', text)} />
+                                <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
+                                <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.telefonoEmergencia} onChangeText={(text) => handleNewClientChange('telefonoEmergencia', text)} />
+                                <ThemedText style={styles.inputLabel}>Teléfono (Opcional)</ThemedText>
+                                <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.numeroTelefono} onChangeText={(text) => handleNewClientChange('numeroTelefono', text)} />
+                                <ThemedText style={styles.inputLabel}>Obra Social (Opcional)</ThemedText>
+                                <TextInput style={styles.input} value={newClientData.obraSocial} onChangeText={(text) => handleNewClientChange('obraSocial', text)} />
 
                                 <ThemedText style={styles.inputLabel}>Rol</ThemedText>
                                 <View style={styles.pickerContainer}>
