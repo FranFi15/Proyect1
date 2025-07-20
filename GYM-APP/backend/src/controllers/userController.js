@@ -167,7 +167,8 @@ const deleteUser = asyncHandler(async (req, res) => {
 
 
 const updateUserPlan = asyncHandler(async (req, res) => {
-    const { User, CreditLog, TipoClase, Notification } = getModels(req.gymDBConnection);
+    // --- CORRECCIÓN: Se añade el modelo 'Transaction' ---
+    const { User, CreditLog, TipoClase, Notification, Transaction } = getModels(req.gymDBConnection);
     const { tipoClaseId, creditsToAdd, isSubscription, autoRenewAmount } = req.body;
     const userId = req.params.id;
     const adminId = req.user._id;
@@ -182,13 +183,24 @@ const updateUserPlan = asyncHandler(async (req, res) => {
     const tipoClase = await TipoClase.findById(tipoClaseId);
     if (!tipoClase) return res.status(404).send('Tipo de turno no encontrado.');
 
+    // --- LÓGICA PARA AÑADIR CRÉDITOS Y GENERAR CARGO ---
     if (creditsToAdd !== undefined && Number(creditsToAdd) !== 0) {
         const creditsToAddNum = Number(creditsToAdd);
         
+        // Lógica de validación de créditos disponibles (sin cambios)
         if (creditsToAddNum > 0) {
-            if (tipoClase.creditosDisponibles < creditsToAddNum) {
+            const assignedCreditsAggregation = await User.aggregate([
+                { $project: { creditosArray: { $objectToArray: "$creditosPorTipo" } } },
+                { $unwind: "$creditosArray" },
+                { $match: { "creditosArray.k": new mongoose.Types.ObjectId(tipoClaseId) } },
+                { $group: { _id: "$creditosArray.k", totalAsignado: { $sum: "$creditosArray.v" } } }
+            ]);
+            const totalAsignado = assignedCreditsAggregation.length > 0 ? assignedCreditsAggregation[0].totalAsignado : 0;
+            const creditosDisponibles = tipoClase.creditosTotales - totalAsignado;
+
+            if (creditosDisponibles < creditsToAddNum) {
                 return res.status(400).json({ 
-                    message: `No hay suficientes créditos disponibles para asignar. Disponibles: ${tipoClase.creditosDisponibles}.` 
+                    message: `No hay suficientes créditos disponibles para asignar. Disponibles: ${creditosDisponibles}.` 
                 });
             }
         }
@@ -197,28 +209,44 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         const newTotal = currentCredits + creditsToAddNum;
 
         if (newTotal < 0) {
-            return res.status(400).json({ message: 'La operación resultaría en un saldo de créditos negativo para el usuario.' });
+            return res.status(400).json({ message: 'La operación resultaría en un saldo de créditos negativo.' });
         }
         
-        tipoClase.creditosDisponibles -= creditsToAddNum;
         user.creditosPorTipo.set(tipoClaseId, newTotal);
         
-        await Promise.all([user.save(), tipoClase.save()]);
+        // --- NUEVA LÓGICA DE CARGO AUTOMÁTICO ---
+        // Si se están AÑADIENDO créditos y el tipo de clase tiene un precio, se genera el cargo.
+        if (creditsToAddNum > 0 && tipoClase.price > 0) {
+            const chargeAmount = tipoClase.price;
+            user.balance += chargeAmount; // Aumenta la deuda del usuario
 
+            await Transaction.create({
+                user: userId,
+                type: 'charge',
+                amount: chargeAmount,
+                description: `Cargo por ${creditsToAddNum} créditos de ${tipoClase.nombre}`,
+                createdBy: adminId,
+            });
+            console.log(`Cargo de $${chargeAmount} generado para ${user.email} por créditos de ${tipoClase.nombre}.`);
+        }
+        // --- FIN DE LA NUEVA LÓGICA ---
+
+        // El resto de la lógica de CreditLog y Notificación se mantiene
         await CreditLog.create({
             user: userId, admin: adminId, amount: creditsToAddNum,
             tipoClase: tipoClaseId, newBalance: newTotal,
-            reason: 'ajuste_manual_admin', details: `Ajuste manual desde el panel de administrador.`
+            reason: 'ajuste_manual_admin', details: `Ajuste manual desde panel de admin.`
         });
 
         const title = "Actualización de Créditos";
         const message = creditsToAddNum > 0 
-            ? `Se te han acreditado ${creditsToAddNum} para turnos de ${tipoClase.nombre}. ¡Ya puedes usarlos!`
-            : `Se han descontado ${Math.abs(creditsToAddNum)} créditos de ${tipoClase.nombre} de tu cuenta.`;
+            ? `Se te han acreditado ${creditsToAddNum} créditos para ${tipoClase.nombre}.`
+            : `Se han descontado ${Math.abs(creditsToAddNum)} créditos de ${tipoClase.nombre}.`;
         
         await sendSingleNotification(Notification, User, userId, title, message, 'credit_update', false);
     }
 
+    // --- LÓGICA PARA SUSCRIPCIONES Y GENERAR CARGO ---
     const subscriptionIndex = user.monthlySubscriptions.findIndex(sub => sub.tipoClase.toString() === tipoClaseId);
     if (isSubscription) {
         const newSubscriptionData = { tipoClase: tipoClaseId, status: 'automatica', autoRenewAmount: autoRenewAmount || 8, lastRenewalDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].lastRenewalDate : null };
@@ -226,7 +254,23 @@ const updateUserPlan = asyncHandler(async (req, res) => {
             user.monthlySubscriptions[subscriptionIndex] = newSubscriptionData;
         } else {
             user.monthlySubscriptions.push(newSubscriptionData);
-            // --- NOTIFICACIÓN DE NUEVA SUSCRIPCIÓN ---
+            
+            // --- NUEVA LÓGICA DE CARGO AUTOMÁTICO POR SUSCRIPCIÓN ---
+            if (tipoClase.price > 0) {
+                const chargeAmount = tipoClase.price;
+                user.balance += chargeAmount; // Aumenta la deuda del usuario
+
+                await Transaction.create({
+                    user: userId,
+                    type: 'charge',
+                    amount: chargeAmount,
+                    description: `Cargo por suscripción a ${tipoClase.nombre}`,
+                    createdBy: adminId,
+                });
+                console.log(`Cargo de $${chargeAmount} generado para ${user.email} por nueva suscripción.`);
+            }
+            // --- FIN DE LA NUEVA LÓGICA ---
+
             const title = "Suscripción Activada";
             const message = `Te has suscrito al plan mensual de ${tipoClase.nombre}. Recibirás ${autoRenewAmount || 8} créditos cada mes.`;
             await sendSingleNotification(Notification, User, userId, title, message, 'subscription_activated', false);

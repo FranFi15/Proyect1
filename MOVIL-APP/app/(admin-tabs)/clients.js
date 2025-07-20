@@ -293,16 +293,16 @@ const ManageClientsScreen = () => {
             </View>
             <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                    <Ionicons name="cash-outline" size={26} color={gymColor} />
+                    <Ionicons name="logo-usd" size={20} color='#0d9800ff' />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
-                    <Ionicons name="card" size={24} color='#1a5276' />
+                    <Ionicons name="card" size={20} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                    <Ionicons name="pencil-outline" size={22} color={Colors[colorScheme].text} />
+                    <Ionicons name="pencil" size={20} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
-                    <Ionicons name="trash-outline" size={24} color={Colors.light.error} />
+                    <Ionicons name="trash" size={20} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -535,7 +535,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
-    actionButton: { marginLeft: 10, padding: 8 },
+    actionButton: { marginLeft: 5, padding: 6 },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, fontSize: 12, fontWeight: 'bold', alignSelf: 'flex-start', overflow: 'hidden', textTransform: 'capitalize' },
