@@ -70,4 +70,13 @@ const getMyBalance = asyncHandler(async (req, res) => {
     }
 });
 
-export  { createTransaction, getUserTransactions, getMyBalance };
+const getMyTransactions = asyncHandler(async (req, res) => {
+    const { Transaction } = getModels(req.gymDBConnection);
+    const transactions = await Transaction.find({ user: req.user._id })
+        .populate('createdBy', 'nombre apellido')
+        .sort({ createdAt: -1 });
+        
+    res.json(transactions);
+});
+
+export  { createTransaction, getUserTransactions, getMyBalance, getMyTransactions };

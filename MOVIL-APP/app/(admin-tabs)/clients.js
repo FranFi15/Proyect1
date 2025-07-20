@@ -24,8 +24,8 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
-import BillingModalContent from '../../components/admin/BillingModalContent'; 
+import { format, parseISO, isValid } from 'date-fns';
+import BillingModalContent from '@/components/admin/BillingModalContent'; 
 
 const ManageClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -51,8 +51,18 @@ const ManageClientsScreen = () => {
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
     const [showMassEnrollDatePicker, setShowMassEnrollDatePicker] = useState(false);
     const [datePickerField, setDatePickerField] = useState(null);
+    
+    // --- ESTADOS PARA FORMULARIO DE NUEVO CLIENTE ---
     const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], });
+    const [newClientDay, setNewClientDay] = useState('');
+    const [newClientMonth, setNewClientMonth] = useState('');
+    const [newClientYear, setNewClientYear] = useState('');
+
+    // --- ESTADOS PARA FORMULARIO DE EDICIÓN DE CLIENTE ---
     const [editingClientData, setEditingClientData] = useState(null);
+    const [editingClientDay, setEditingClientDay] = useState('');
+    const [editingClientMonth, setEditingClientMonth] = useState('');
+    const [editingClientYear, setEditingClientYear] = useState('');
 
     const fetchAllData = useCallback(async () => {
         setLoading(true);
@@ -72,7 +82,27 @@ const ManageClientsScreen = () => {
         }
     }, []);
 
-    useFocusEffect(fetchAllData);
+    useFocusEffect(
+        useCallback(() => {
+            fetchAllData();
+        }, [fetchAllData])
+    );
+
+    // --- EFFECT PARA CONSTRUIR LA FECHA DE NACIMIENTO (NUEVO CLIENTE) ---
+    useEffect(() => {
+        if (newClientDay.length === 2 && newClientMonth.length === 2 && newClientYear.length === 4) {
+            const dateString = `${newClientYear}-${newClientMonth.padStart(2, '0')}-${newClientDay.padStart(2, '0')}`;
+            setNewClientData(prev => ({ ...prev, fechaNacimiento: dateString }));
+        }
+    }, [newClientDay, newClientMonth, newClientYear]);
+
+    // --- EFFECT PARA CONSTRUIR LA FECHA DE NACIMIENTO (CLIENTE EN EDICIÓN) ---
+    useEffect(() => {
+        if (editingClientDay.length === 2 && editingClientMonth.length === 2 && editingClientYear.length === 4) {
+            const dateString = `${editingClientYear}-${editingClientMonth.padStart(2, '0')}-${editingClientDay.padStart(2, '0')}`;
+            setEditingClientData(prev => ({ ...prev, fechaNacimiento: dateString }));
+        }
+    }, [editingClientDay, editingClientMonth, editingClientYear]);
 
     const handleOpenBillingModal = (client) => {
         setSelectedClient(client);
@@ -89,8 +119,28 @@ const ManageClientsScreen = () => {
     };
 
     const handleOpenEditModal = (client) => {
-        setEditingClientData({ ...client, roles: Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente'] });
+        const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente'];
+        setEditingClientData({ ...client, roles: clientRoles });
+
+        if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) {
+            const date = parseISO(client.fechaNacimiento);
+            setEditingClientDay(format(date, 'dd'));
+            setEditingClientMonth(format(date, 'MM'));
+            setEditingClientYear(format(date, 'yyyy'));
+        } else {
+            setEditingClientDay('');
+            setEditingClientMonth('');
+            setEditingClientYear('');
+        }
         setShowEditFormModal(true);
+    };
+
+    const handleOpenAddModal = () => {
+        setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], });
+        setNewClientDay('');
+        setNewClientMonth('');
+        setNewClientYear('');
+        setShowAddFormModal(true);
     };
     
     const handleDeleteClient = (client) => {
@@ -282,31 +332,51 @@ const ManageClientsScreen = () => {
         return classType?.nombre || 'Desconocido';
     };
 
-    const renderUserCard = ({ item }) => (
-        <View style={styles.card}>
-            <View style={styles.userInfo}>
-                <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                <Text style={styles.cardSubtitle}>{item.email}</Text>
-                <Text style={[styles.roleBadge, item.roles.includes('admin') ? styles.adminBadge : (item.roles.includes('profesor') ? styles.profesorBadge : styles.clienteBadge)]}>
-                    {item.roles.join(', ')}
-                </Text>
+   const renderUserCard = ({ item }) => {
+        const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
+
+        return (
+            <View style={styles.card}>
+                <View style={styles.cardTopRow}>
+                    <View style={styles.userInfo}>
+                        <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                        <Text style={styles.cardSubtitle}>{item.email}</Text>
+                        <Text style={[styles.roleBadge, item.roles.includes('admin') ? styles.adminBadge : (item.roles.includes('profesor') ? styles.profesorBadge : styles.clienteBadge)]}>
+                            {item.roles.join(', ')}
+                        </Text>
+                    </View>
+                    <View style={styles.actionsContainer}>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
+                            <Ionicons name="logo-usd" size={26} color='#01b22aff' />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
+                            <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
+                            <Ionicons name="pencil" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
+                            <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {hasCredits && (
+                    <View style={styles.creditsContainer}>
+                        {Object.entries(item.creditosPorTipo || {}).map(([typeId, amount]) => {
+                            if (amount > 0) {
+                                return (
+                                    <View key={typeId} style={styles.creditChip}>
+                                        <Text style={styles.creditText}>{getTypeName(typeId)}: {amount}</Text>
+                                    </View>
+                                );
+                            }
+                            return null;
+                        })}
+                    </View>
+                )}
             </View>
-            <View style={styles.actionsContainer}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                    <Ionicons name="logo-usd" size={20} color='#0d9800ff' />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
-                    <Ionicons name="card" size={20} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                    <Ionicons name="pencil" size={20} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
-                    <Ionicons name="trash" size={20} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
+        );
+    };
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
@@ -347,8 +417,12 @@ const ManageClientsScreen = () => {
                             <TextInput style={styles.input} secureTextEntry value={newClientData.contraseña} onChangeText={(text) => handleNewClientChange('contraseña', text)} />
                             <ThemedText style={styles.inputLabel}>DNI</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={newClientData.dni} onChangeText={(text) => handleNewClientChange('dni', text)} />
-                            <ThemedText style={styles.inputLabel}>Fecha de Nacimiento (YYYY-MM-DD)</ThemedText>
-                            <TextInput style={styles.input} placeholder="YYYY-MM-DD" value={newClientData.fechaNacimiento} onChangeText={(text) => handleNewClientChange('fechaNacimiento', text)} />
+                             <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
+                            <View style={styles.dateInputContainer}>
+                                <TextInput style={styles.dateInput} placeholder="DD" value={newClientDay} onChangeText={setNewClientDay} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="MM" value={newClientMonth} onChangeText={setNewClientMonth} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="AAAA" value={newClientYear} onChangeText={setNewClientYear} keyboardType="number-pad" maxLength={4} />
+                            </View>
                             <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
                             <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.telefonoEmergencia} onChangeText={(text) => handleNewClientChange('telefonoEmergencia', text)} />
                             <ThemedText style={styles.inputLabel}>Teléfono (Opcional)</ThemedText>
@@ -389,8 +463,12 @@ const ManageClientsScreen = () => {
                                 <TextInput style={styles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
                                 <ThemedText style={styles.inputLabel}>DNI</ThemedText>
                                 <TextInput style={styles.input} keyboardType="numeric" value={newClientData.dni} onChangeText={(text) => handleNewClientChange('dni', text)} />
-                                <ThemedText style={styles.inputLabel}>Fecha de Nacimiento (YYYY-MM-DD)</ThemedText>
-                                <TextInput style={styles.input} placeholder="YYYY-MM-DD" value={newClientData.fechaNacimiento} onChangeText={(text) => handleNewClientChange('fechaNacimiento', text)} />
+                                 <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
+                            <View style={styles.dateInputContainer}>
+                                <TextInput style={styles.dateInput} placeholder="DD" value={newClientDay} onChangeText={setNewClientDay} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="MM" value={newClientMonth} onChangeText={setNewClientMonth} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="AAAA" value={newClientYear} onChangeText={setNewClientYear} keyboardType="number-pad" maxLength={4} />
+                            </View>
                                 <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
                                 <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.telefonoEmergencia} onChangeText={(text) => handleNewClientChange('telefonoEmergencia', text)} />
                                 <ThemedText style={styles.inputLabel}>Teléfono (Opcional)</ThemedText>
@@ -435,7 +513,7 @@ const ManageClientsScreen = () => {
                                     <View key={sub._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase)} ({sub.autoRenewAmount} créditos/mes)</Text>
                                         <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}>
-                                            <Ionicons name="trash-bin-outline" size={22} color={Colors.light.error} />
+                                            <Ionicons name="trash" size={22} color={Colors.light.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -443,7 +521,7 @@ const ManageClientsScreen = () => {
                                     <View key={plan._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase)} ({plan.diasDeSemana.join(', ')})</Text>
                                         <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}>
-                                            <Ionicons name="trash-bin-outline" size={22} color={Colors.light.error} />
+                                            <Ionicons name="trash" size={22} color={Colors.light.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -539,27 +617,73 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 2, padding: 15, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+    card: { 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        borderRadius: 2,
+        padding: 15, 
+        marginVertical: 8, 
+        marginHorizontal: 15, 
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
+    },
+    cardTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+    },
     userInfo: { flex: 1, marginRight: 10 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
+    cardSubtitle: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { marginLeft: 5, padding: 6 },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-    roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, fontSize: 12, fontWeight: 'bold', alignSelf: 'flex-start', overflow: 'hidden', textTransform: 'capitalize' },
+    roleBadge: {
+        marginTop: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: 'bold',
+        overflow: 'hidden',
+        textTransform: 'capitalize',
+        alignSelf: 'flex-start',
+    },
     clienteBadge: { backgroundColor: '#e0f3ffff', color: '#0561daff' },
     profesorBadge: { backgroundColor: '#d1e7dd', color: '#0f5132' },
     adminBadge: { backgroundColor: '#eff7d3ff', color: '#b6df00ff' },
+    creditsContainer: { 
+        flexDirection: 'row', 
+        flexWrap: 'wrap',
+        paddingTop: 10,
+        borderTopColor: Colors[colorScheme].border,
+    },
+    creditChip: {
+        backgroundColor: gymColor + '20',
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginRight: 6,
+        marginBottom: 6,
+    },
+    creditText: {
+        color: gymColor,
+        fontSize: 12,
+        fontWeight: '600',
+    },
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { width: '90%', maxHeight: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 20, elevation: 5 },
+    modalView: { width: '90%', maxHeight: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.8 },
-    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
+    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
     pickerContainer: { 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 2, 
         marginBottom: 15,
         justifyContent: 'center'
     },
@@ -567,7 +691,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     balanceText: { fontSize: 14, fontWeight: '600', marginTop: 8 },
     debtText: { color: Colors.light.error },
     okText: { color: '#28a745' },
-    // Estilos del modal de créditos
+    dateInputContainer: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        marginBottom: 15 
+    },
+    dateInput: {
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        padding: 12,
+        borderRadius: 2,
+        fontSize: 16,
+        color: Colors[colorScheme].text,
+        backgroundColor: Colors[colorScheme].background,
+        textAlign: 'center',
+        flex: 1,
+        marginHorizontal: 4,
+    },
     section: { marginBottom: 15, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 15 },
     sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 15, color: Colors[colorScheme].text },
     planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, },
@@ -582,7 +722,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 14, fontWeight: 'bold', color: gymColor },
-    dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
+    dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
     dateInputText: { fontSize: 14, color: Colors[colorScheme].text, }
 });
 

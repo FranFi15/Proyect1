@@ -239,7 +239,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     listContainer: { padding: 10, paddingBottom: 80 },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
+        borderRadius: 2,
         padding: 15,
         marginVertical: 8,
         marginHorizontal: 5,
@@ -276,7 +276,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         elevation: 8,
     },
     modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-    modalContainer: { width: '90%', borderRadius: 12, padding: 25, elevation: 5 },
+    modalContainer: { width: '90%', borderRadius: 2, padding: 25, elevation: 5 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9 },
     input: {
@@ -284,7 +284,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: Colors[colorScheme].background,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 2,
         paddingHorizontal: 15,
         marginBottom: 20,
         color: Colors[colorScheme].text,
@@ -292,7 +292,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     textArea: { height: 100, textAlignVertical: 'top', paddingTop: 15 },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-    button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
+    button: { flex: 1, paddingVertical: 12, borderRadius: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
