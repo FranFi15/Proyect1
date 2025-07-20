@@ -7,7 +7,7 @@ import {
     updatePlan,
     deletePlan,
 } from '../controllers/trainingPlanController.js';
-import { protect, admin, professor } from '../middleware/authMiddleware.js'; // Asumo que tienes un middleware 'profesor' o lo manejas dentro de 'admin'
+import { protect, authorizeRoles } from '../middlewares/authMiddleware.js'
 
 // Middleware para permitir acceso a Admin O Profesor
 const adminOrProfessor = (req, res, next) => {
@@ -24,13 +24,13 @@ router.get('/my-plan', protect, getMyVisiblePlan);
 
 // Rutas para Admins y Profesores
 router.route('/')
-    .post(protect, adminOrProfessor, createPlan);
+    .post(protect, authorizeRoles('admin', 'profesor'), createPlan);
 
 router.route('/user/:userId')
-    .get(protect, adminOrProfessor, getPlansForUser);
+    .get(protect, authorizeRoles('admin', 'profesor'), getPlansForUser);
 
 router.route('/:planId')
-    .put(protect, adminOrProfessor, updatePlan)
-    .delete(protect, adminOrProfessor, deletePlan);
+    .put(protect, authorizeRoles('admin', 'profesor'), updatePlan)
+    .delete(protect, authorizeRoles('admin', 'profesor'), deletePlan);
 
 export default router;
