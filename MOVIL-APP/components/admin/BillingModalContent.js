@@ -12,6 +12,10 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [loading, setLoading] = useState(true);
     const [newTransaction, setNewTransaction] = useState({ type: 'payment', amount: '', description: '' });
     
+    // --- CORRECCIÓN 1: Estado local para el cliente ---
+    // Usamos un estado local para poder actualizar el saldo en tiempo real.
+    const [currentClient, setCurrentClient] = useState(client);
+    
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -38,15 +42,33 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
             return;
         }
         try {
-            await createTransaction({ 
+            // --- CORRECCIÓN 2: Capturamos la respuesta del servidor ---
+            const response = await createTransaction({ 
                 userId: client._id, 
                 amount: newTransaction.amount,
                 description: newTransaction.description,
                 type: type 
             });
+            
+            // --- CORRECCIÓN 3: Actualizamos el estado local ---
+            // Actualizamos el saldo del cliente en el modal con la respuesta del backend.
+            setCurrentClient(prevClient => ({
+                ...prevClient,
+                balance: response.data.newUserBalance 
+            }));
+
+            // Añadimos la nueva transacción a la lista para que aparezca al instante.
+            setTransactions(prevTransactions => [response.data.transaction, ...prevTransactions]);
+            
+            // Limpiamos los inputs
+            setNewTransaction({ type: 'payment', amount: '', description: '' });
+
+            // Llamamos a onRefresh para que la lista de atrás también se actualice.
+            onRefresh();
+            
             Alert.alert('Éxito', 'Transacción registrada correctamente.');
-            onRefresh(); // Llama a la función para refrescar la lista de socios
-            onClose();   // Cierra el modal
+            // Ya no cerramos el modal automáticamente para que el admin pueda ver el cambio.
+            
         } catch (error) {
             Alert.alert('Error', error.response?.data?.message || 'No se pudo crear la transacción.');
         }
@@ -71,13 +93,13 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     <Ionicons name="close-circle" size={30} color="#888" />
                 </TouchableOpacity>
                 <ScrollView>
-                    <Text style={styles.modalTitle}>Balance de {client.nombre}</Text>
+                    <Text style={styles.modalTitle}>Balance de {currentClient.nombre}</Text>
                     
                     <View style={styles.summaryContainer}>
                         <Text style={styles.summaryLabel}>Saldo Actual:</Text>
-                        {/* --- CORRECCIÓN AQUÍ --- */}
-                        <Text style={[styles.summaryBalance, (client.balance ?? 0) > 0 ? styles.charge : styles.payment]}>
-                            ${(client.balance ?? 0).toFixed(2)}
+                        {/* --- CORRECCIÓN 4: Usamos el estado local 'currentClient' --- */}
+                        <Text style={[styles.summaryBalance, (currentClient.balance ?? 0) > 0 ? styles.charge : styles.payment]}>
+                            ${(currentClient.balance ?? 0).toFixed(2)}
                         </Text>
                     </View>
 
@@ -98,7 +120,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                             renderItem={renderTransaction}
                             keyExtractor={(item) => item._id}
                             ListEmptyComponent={<Text style={styles.emptyText}>Este socio no tiene movimientos.</Text>}
-                            scrollEnabled={false} // Para que el scroll principal maneje todo
+                            scrollEnabled={false}
                         />
                     )}
                 </ScrollView>

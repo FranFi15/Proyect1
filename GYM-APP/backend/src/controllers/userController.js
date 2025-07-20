@@ -217,7 +217,7 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         // --- NUEVA LÓGICA DE CARGO AUTOMÁTICO ---
         // Si se están AÑADIENDO créditos y el tipo de clase tiene un precio, se genera el cargo.
         if (creditsToAddNum > 0 && tipoClase.price > 0) {
-            const chargeAmount = tipoClase.price;
+            const chargeAmount = tipoClase.price * creditsToAddNum;
             user.balance += chargeAmount; // Aumenta la deuda del usuario
 
             await Transaction.create({
