@@ -132,7 +132,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 18,
         paddingHorizontal: 15,
-        borderRadius: 8,
+        borderRadius: 2,
         marginBottom: 12,
         elevation: 2,
         shadowColor: '#000',

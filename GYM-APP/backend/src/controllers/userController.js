@@ -57,6 +57,7 @@ const getMe = asyncHandler(async (req, res) => {
             apellido: user.apellido,
             email: user.email,
             roles: user.roles,
+            balance: user.balance,
             creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
             clasesInscritas: user.clasesInscritas,
             telefonoEmergencia: user.telefonoEmergencia,

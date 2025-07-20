@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react'; // <-- Se importa useEffect
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl } from 'react-native';
-// Se elimina useFocusEffect ya que no se usará
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,11 +25,13 @@ const BalanceModal = ({ onClose }) => {
         try {
             const [profileResponse, transactionsResponse] = await Promise.all([
                 apiClient.get('/users/me'),
-                apiClient.get(`/transactions/user/${user._id}`)
+                // --- CORRECCIÓN CLAVE: Se llama a la nueva ruta segura ---
+                apiClient.get('/transactions/my-transactions')
             ]);
             setProfile(profileResponse.data);
             setTransactions(transactionsResponse.data);
         } catch (error) {
+            console.error("Error al cargar datos del modal de saldo:", error.response?.data || error.message);
             Alert.alert('Error', 'No se pudo cargar tu información de saldo.');
         } finally {
             setLoading(false);
@@ -38,9 +39,7 @@ const BalanceModal = ({ onClose }) => {
         }
     }, [user?._id]);
 
-    // --- CORRECCIÓN AQUÍ ---
-    // Se reemplaza useFocusEffect por useEffect.
-    // Esto asegura que los datos se carguen cuando el modal se monta.
+    // Se usa useEffect para que se ejecute cuando el modal se monta
     useEffect(() => {
         fetchData();
     }, [fetchData]);
