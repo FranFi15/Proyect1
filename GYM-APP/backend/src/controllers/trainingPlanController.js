@@ -95,4 +95,4 @@ const deletePlan = asyncHandler(async (req, res) => {
     }
 });
 
-export { createPlan, getPlansForUser, getMyVisiblePlan, updatePlan, deletePlan };
+export  { createPlan, getPlansForUser, getMyVisiblePlan, updatePlan, deletePlan };

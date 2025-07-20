@@ -70,4 +70,4 @@ const getMyBalance = asyncHandler(async (req, res) => {
     }
 });
 
-export { createTransaction, getUserTransactions, getMyBalance };
+export  { createTransaction, getUserTransactions, getMyBalance };

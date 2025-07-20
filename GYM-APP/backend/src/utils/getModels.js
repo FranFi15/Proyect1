@@ -4,7 +4,7 @@ import getTipoClaseModel from '../models/TipoClase.js';
 import getNotificationModel from '../models/Notification.js';
 import getConfiguracionModel from '../models/Configuracion.js';
 import getCreditLogModel from '../models/CreditLog.js';
-import getTransactionsModel from '../controllers/transactionController.js';
+import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 
 
