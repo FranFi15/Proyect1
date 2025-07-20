@@ -1,38 +1,36 @@
-// MOVIL-APP/app/(tabs)/_layout.js
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, View, Text } from 'react-native'; // Import View and Text for custom badge
-import { Ionicons } from '@expo/vector-icons'; // Assuming Ionicons is used for icons
-import { useAuth } from '../../contexts/AuthContext'; // Import useAuth to get user info
+import { Image, View, Text, useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { Colors } from '@/constants/Colors';
 
-// Component to display the gym logo in the header
 function HeaderLogoTitle() {
   const { gymLogo } = useAuth();
-
-  if (!gymLogo) {
-    return null;
-  }
-
-  return (
-    <Image
-      style={{ width: 120, height: 40, resizeMode: 'contain' }}
-      source={{ uri: gymLogo }}
-    />
-  );
+  if (!gymLogo) return null;
+  return <Image style={{ width: 120, height: 70, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
 }
 
 export default function TabsLayout() {
-  const { user, gymColor } = useAuth(); // Get the user info from AuthContext to access unreadNotificationsCount
+  const { user, gymColor } = useAuth();
+  const colorScheme = useColorScheme() ?? 'light';
 
   return (
     <Tabs 
       screenOptions={{
         tabBarActiveTintColor: gymColor, 
+        // --- CAMBIOS AQUÍ ---
+        tabBarInactiveTintColor: Colors[colorScheme].icon,
+        tabBarStyle: {
+          backgroundColor: Colors[colorScheme].cardBackground,
+        },
+        headerStyle: {
+          backgroundColor: gymColor,
+          shadowColor: 'transparent',
+        },
+        // --- FIN DE CAMBIOS ---
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />, 
-        headerStyle: {
-          backgroundColor: gymColor, 
-        },
       }}
     >
       <Tabs.Screen 
@@ -61,6 +59,21 @@ export default function TabsLayout() {
           ),
         }} 
       />
+      
+      <Tabs.Screen 
+        name="my-plan" 
+        options={{ 
+          title: 'Mi Plan',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'document-text' : 'document-text-outline'} 
+              size={size} 
+              color={color} 
+            />
+          ),
+        }} 
+      />
+
       <Tabs.Screen 
         name="profile" 
         options={{ 
@@ -80,48 +93,33 @@ export default function TabsLayout() {
           title: 'Notificaciones',
           tabBarIcon: ({ color, size, focused }) => (
             <View>
-              <Ionicons // Your existing Ionicons icon
+              <Ionicons
                 name={focused ? 'notifications' : 'notifications-outline'} 
                 size={size} 
                 color={color} 
               />
-              {/* Display badge if there are unread notifications */}
               {user?.unreadNotificationsCount > 0 && (
                 <View style={{
-                  position: 'absolute',
-                  right: -6, // Adjust position relative to the icon
-                  top: -3,   // Adjust position relative to the icon
-                  backgroundColor: 'red', // Badge background color
-                  borderRadius: 8, // Half of width/height for a circular badge
-                  width: 16,
-                  height: 16,
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  position: 'absolute', right: -6, top: -3,
+                  backgroundColor: 'red', borderRadius: 8,
+                  width: 16, height: 16,
+                  justifyContent: 'center', alignItems: 'center',
                 }}>
-                  <Text style={{ 
-                    color: 'white', 
-                    fontSize: 10, 
-                    fontWeight: 'bold' 
-                  }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
                     {user.unreadNotificationsCount}
                   </Text>
                 </View>
               )}
             </View>
           ),
-          // Optionally, add a custom tabBarLabel to ensure text aligns well with badge
-          tabBarLabel: ({ color }) => (
-            <Text style={{ color: color, fontSize: 10 }}>Notificaciones</Text>
-          ),
         }} 
       />
       <Tabs.Screen
-    // Esto le dice a Expo Router que ignore esta ruta para la barra de pestañas.
-    name="index"
-    options={{
-        href: null,
-    }}
-/>
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

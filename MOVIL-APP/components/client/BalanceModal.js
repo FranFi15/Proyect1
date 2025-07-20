@@ -104,7 +104,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     transactionDescription: { fontSize: 16, color: Colors[colorScheme].text },
     transactionDate: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
     transactionAmount: { fontSize: 16, fontWeight: 'bold' },
-    debtText: { color: Colors.light.error },
+    debtText: { color: '#a72828ff'  },
     okText: { color: '#28a745' },
     emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
 });

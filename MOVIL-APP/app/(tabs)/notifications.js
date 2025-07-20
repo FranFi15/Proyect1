@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, RefreshControl, useColorScheme } from 'react-native';
+import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, RefreshControl, useColorScheme} from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 const groupNotificationsByDate = (notifs) => {
     const today = new Date();
@@ -31,7 +31,7 @@ const getIconForNotification = (type) => {
     switch (type) {
         case 'spot_available': return { name: 'calendar-check', color: '#2ecc71' };
         case 'waitlist_subscription': return { name: 'bell', color: '#3498db' };
-        case 'class_cancellation_refund': return { name: 'calendar-times', color: '#e74c3c' };
+        case 'class_cancellation_refund': return { name: 'calendar-times', color: '#e74d3c4a' };
         case 'monthly_payment_reminder': return { name: 'credit-card', color: '#f39c12' };
         default: return { name: 'info-circle', color: '#95a5a6' };
     }
@@ -121,14 +121,14 @@ const NotificationsScreen = () => {
         const iconInfo = getIconForNotification(item.type);
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
-                <FontAwesome5 name={iconInfo.name} size={24} color={iconInfo.color} style={styles.icon} />
+                <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon}style={styles.icon} />
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
                     <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
                     <ThemedText style={styles.notificationTime}>{new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                 </View>
                 <TouchableOpacity onPress={() => handleDeleteNotification(item._id)} style={styles.deleteButton}>
-                    <FontAwesome5 name="trash-alt" size={18} color={Colors[colorScheme].icon} />
+                    <Ionicons name="trash" size={24} color={Colors[colorScheme].icon} />
                 </TouchableOpacity>
             </TouchableOpacity>
         );
@@ -140,7 +140,7 @@ const NotificationsScreen = () => {
                 <ThemedText type="title" style={styles.title}>Notificaciones</ThemedText>
                 {notifications.length > 0 && (
                     <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
-                        <FontAwesome5 name="trash" size={16} color={Colors.light.error} />
+                        <Ionicons name="trash" size={16} color={Colors[colorScheme].text}/>
                         <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
                     </TouchableOpacity>
                 )}
@@ -163,27 +163,19 @@ const NotificationsScreen = () => {
 };
 
 const getStyles = (colorScheme) => {
-    
-    const shadowProp = {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.23,
-        shadowRadius: 2.62,
-        elevation: 4,
-    };
 
     return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingTop: 15, paddingBottom: 10 },
     title: { fontSize: 28, fontWeight: 'bold' },
-    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, borderWidth: 1, borderColor: Colors.light.error },
-    deleteAllButtonText: { color: Colors.light.error, fontSize: 13, fontWeight: '600', marginLeft: 8 },
+    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, },
+    deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 8 },
     noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
     listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
     sectionHeader: { fontSize: 16, fontWeight: 'bold', backgroundColor: Colors[colorScheme].background, paddingTop: 20, paddingBottom: 10, color: Colors[colorScheme].text },
-    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', ...shadowProp },
-    unreadNotification: { backgroundColor: Colors[colorScheme].unreadBackground },
+    notificationItem: { backgroundColor: '#5555551a' , padding: 15, borderRadius: 2, marginBottom: 10, flexDirection: 'row', alignItems: 'center',  },
+    unreadNotification: { backgroundColor:  '#5555551a'},
     icon: { marginRight: 15 },
     notificationContent: { flex: 1 },
     notificationTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },

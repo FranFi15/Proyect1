@@ -94,7 +94,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     <View style={styles.summaryContainer}>
                         <Text style={styles.summaryLabel}>Saldo Actual:</Text>
                         {/* --- CORRECCIÓN DE LÓGICA DE COLOR --- */}
-                        <Text style={[styles.summaryBalance, (currentClient.balance ?? 0) > 0 ? styles.charge : styles.payment]}>
+                        <Text style={[styles.summaryBalance, (currentClient.balance ?? 0) < 0 ? styles.charge : styles.payment]}>
                             ${(currentClient.balance ?? 0).toFixed(2)}
                         </Text>
                     </View>
@@ -127,7 +127,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: {  maxHeight: '80%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: {  height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 10, right: 10, zIndex: 1},
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
     summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
@@ -143,7 +143,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     transactionDescription: { fontSize: 16, color: Colors[colorScheme].text },
     transactionDate: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
     transactionAmount: { fontSize: 16, fontWeight: 'bold' },
-    charge: { color: '#a72828ff' },
+    charge: { color: '#a72828ff'  },
     payment: { color: '#28a745' },
     emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
 });

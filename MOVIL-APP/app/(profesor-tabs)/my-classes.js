@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, Alert, ActivityIndicator, SectionList, View, Text, Modal, FlatList, TouchableOpacity, useColorScheme } from 'react-native';
+import { StyleSheet, Alert, ActivityIndicator, SectionList, View, Text, Modal, FlatList, TouchableOpacity, useColorScheme , RefreshControl} from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { format, parseISO, differenceInYears } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,6 +31,7 @@ const ProfessorMyClassesScreen = () => {
     const [loading, setLoading] = useState(true);
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
+     const [isRefreshing, setIsRefreshing] = useState(false); 
     
     // State for the main student list modal
     const [isListModalVisible, setListModalVisible] = useState(false);
@@ -45,26 +46,34 @@ const ProfessorMyClassesScreen = () => {
     const styles = getStyles(colorScheme, gymColor);
 
     // --- DATA FETCHING ---
+   const fetchMyClasses = useCallback(async () => {
+        try {
+            const response = await apiClient.get('/classes/profesor/me');
+            const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            setMyClasses(sorted);
+        } catch (error) {
+            Alert.alert('Error', 'No se pudieron cargar tus turnos asignados.');
+        }
+    }, []);
+
+    // --- 4. Modificar useFocusEffect para manejar la carga inicial ---
     useFocusEffect(
         useCallback(() => {
-            const fetchMyClasses = async () => {
+            const loadData = async () => {
                 setLoading(true);
-                try {
-                    const response = await apiClient.get('/classes/profesor/me');
-                    const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-                    setMyClasses(sorted);
-                } catch (error) {
-                    Alert.alert('Error', 'No se pudieron cargar tus turnos asignados.');
-                } finally {
-                    setLoading(false);
-                }
+                await fetchMyClasses();
+                setLoading(false);
             };
-
-            fetchMyClasses();
-        }, [])
+            loadData();
+        }, [fetchMyClasses])
     );
 
-    // --- MODAL HANDLERS ---
+    // --- 5. Crear la función onRefresh ---
+    const onRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        await fetchMyClasses();
+        setIsRefreshing(false);
+    }, [fetchMyClasses]);
 
     // Opens the list of students for a specific class.
     const handleViewStudents = async (classId, className) => {
@@ -155,6 +164,9 @@ const ProfessorMyClassesScreen = () => {
                     <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
                 )}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes turnos asignados en el futuro.</ThemedText>}
+                refreshControl={
+                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                }
             />
             
             {/* Modal 1: List of Students */}
@@ -176,6 +188,9 @@ const ProfessorMyClassesScreen = () => {
                                 keyExtractor={(item) => item._id}
                                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay alumnos inscritos.</ThemedText>}
                                 style={{width: '100%'}}
+                                refreshControl={
+                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                }
                             />
                         )}
                         <TouchableOpacity

@@ -12,7 +12,8 @@ import {
     Button,
     Modal,
     TextInput,
-    Platform
+    Platform,
+    RefreshControl
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -43,6 +44,7 @@ const ManageClassesScreen = () => {
 
     const [activeTab, setActiveTab] = useState('calendar');
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [classes, setClasses] = useState([]);
     const [teachers, setTeachers] = useState([]);
@@ -87,8 +89,8 @@ const ManageClassesScreen = () => {
     
     const daysOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+    // --- 3. Modificar fetchAllData para no manejar los estados de carga ---
     const fetchAllData = useCallback(async () => {
-        setLoading(true);
         try {
             const [classesRes, groupedRes, teachersRes, typesRes] = await Promise.all([
                 apiClient.get('/classes'),
@@ -102,12 +104,27 @@ const ManageClassesScreen = () => {
             setClassTypes(typesRes.data.tiposClase || []);
         } catch (error) {
             Alert.alert('Error', 'No se pudieron cargar los datos de gestión de turnos.');
-        } finally {
-            setLoading(false);
         }
     }, []);
 
-    useFocusEffect(fetchAllData);
+    // --- 4. Modificar useFocusEffect para manejar la carga inicial ---
+    useFocusEffect(
+        useCallback(() => {
+            const loadInitialData = async () => {
+                setLoading(true);
+                await fetchAllData();
+                setLoading(false);
+            };
+            loadInitialData();
+        }, [fetchAllData])
+    );
+
+    // --- 5. Crear la función onRefresh ---
+    const onRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        await fetchAllData();
+        setIsRefreshing(false);
+    }, [fetchAllData]);
 
     const handleFormChange = (name, value) => {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -469,6 +486,9 @@ const ManageClassesScreen = () => {
                         renderItem={renderClassItem}
                         keyExtractor={(item) => item._id}
                         ListEmptyComponent={<ThemedText style={styles.placeholderText}>No hay turnos para este día.</ThemedText>}
+                        refreshControl={
+                            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                        }
                     />
                 );
             case 'bulk':
@@ -478,6 +498,9 @@ const ManageClassesScreen = () => {
                         renderItem={renderGroupedClassItem}
                         keyExtractor={(item) => item.rrule}
                         ListEmptyComponent={<ThemedText style={styles.placeholderText}>No hay turnos fijos para gestionar.</ThemedText>}
+                        refreshControl={
+                            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                        }
                     />
                 );
             case 'day-management':

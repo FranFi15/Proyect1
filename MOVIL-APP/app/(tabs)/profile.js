@@ -8,6 +8,7 @@ import {
     View,
     ActivityIndicator,
     Alert,
+    Text,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +16,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { format, parseISO, isValid } from 'date-fns';
 
 // Importamos los nuevos componentes para los modales
 import BalanceModal from '@/components/client/BalanceModal';
@@ -34,7 +36,6 @@ const ProfileScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // useFocusEffect ahora solo se asegura de que el perfil base esté disponible
     useFocusEffect(
         useCallback(() => {
             setProfile(user);
@@ -57,31 +58,82 @@ const ProfileScreen = () => {
             <ScrollView>
                 <View style={styles.headerContainer}>
                     <ThemedText style={styles.headerTitle}>{profile.nombre} {profile.apellido}</ThemedText>
-                    <ThemedText style={styles.headerSubtitle}>{profile.email}</ThemedText>
                 </View>
-
+                  <ThemedView style={styles.card}>
+                    <ThemedText style={styles.cardTitle}>Mis Datos</ThemedText>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>DNI</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.dni}</ThemedText>
+                    </View>
+                    {profile.fechaNacimiento && isValid(parseISO(profile.fechaNacimiento)) && (
+                        <View style={styles.infoRow}>
+                            <Ionicons name="calendar" size={20} color={Colors[colorScheme].icon} />
+                            <ThemedText style={styles.infoLabel}>Fecha de Nacimiento</ThemedText>
+                            <ThemedText style={styles.infoValue}>
+                                {format(parseISO(profile.fechaNacimiento), 'dd/MM/yyyy')}
+                            </ThemedText>
+                        </View>
+                        
+                    )}
+                    <View style={styles.infoRow}>
+                        <Ionicons name="phone-portrait" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Telefono</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.numeroTelefono}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="call" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
+                    </View>
+                     <View style={styles.infoRow}>
+                        <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Email</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="home" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Direccion</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.direccion}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="fitness" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Obra Social</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.obraSocial}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="male-female-sharp" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Sexo</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
+                    </View>
+                </ThemedView>
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setBalanceModalVisible(true)}>
-                        <Ionicons name="logo-usd" size={24} color={gymColor} />
+                        <Ionicons name="logo-usd" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Mi Saldo y Movimientos</ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setPlansModalVisible(true)}>
-                        <Ionicons name="card" size={24} color={gymColor} />
-                        <ThemedText style={styles.menuButtonText}>Créditos</ThemedText>
+                        <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setEditModalVisible(true)}>
-                        <Ionicons name="person-outline" size={24} color={gymColor} />
+                        <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
-                    
+                </View>
+
+               
+
+                <View style={styles.logoutButtonContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={handleLogout}>
-                        <Ionicons name="log-out-outline" size={24} color={Colors.light.error} />
-                        <ThemedText style={[styles.menuButtonText, {color: Colors.light.error}]}>Cerrar Sesión</ThemedText>
+                        <Ionicons name="log-out" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={[styles.menuButtonText]}>Cerrar Sesión</ThemedText>
                     </TouchableOpacity>
                 </View>
+
             </ScrollView>
 
             {/* Renderizado de los Modales */}
@@ -106,7 +158,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerContainer: {
         backgroundColor: gymColor,
-        padding: 30,
+        paddingVertical: 30,
+        paddingHorizontal: 20,
         alignItems: 'center',
     },
     headerTitle: {
@@ -122,7 +175,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     menuContainer: {
         marginTop: 20,
-        paddingHorizontal: 10,
+        paddingHorizontal: 15,
     },
     menuButton: {
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -144,6 +197,47 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
     },
+    card: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 2,
+        padding: 20,
+        marginHorizontal: 15,
+        marginVertical: 10,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        color: Colors[colorScheme].text,
+        paddingBottom: 10,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    infoLabel: {
+        fontSize: 16,
+        color: Colors[colorScheme].text,
+        marginLeft: 10,
+        flex: 1,
+    },
+    infoValue: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: Colors[colorScheme].text,
+        opacity: 0.8,
+    },
+    logoutButtonContainer: {
+        paddingHorizontal: 15,
+        marginTop: 10,
+        marginBottom: 30,
+    }
 });
 
 export default ProfileScreen;

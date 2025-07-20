@@ -4,7 +4,8 @@ import mongoose from 'mongoose';
 const classSchema = new mongoose.Schema({
     nombre: {
         type: String,
-        required: true,
+        required: false,
+        default: 'Turno'
     },
     tipoClase: {
         type: mongoose.Schema.Types.ObjectId,

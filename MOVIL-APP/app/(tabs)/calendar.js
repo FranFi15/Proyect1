@@ -12,6 +12,8 @@ import {
     Button, // Make sure Button is imported for the "Notificarme si hay lugar" button
     View, 
     Text, 
+     RefreshControl,
+     Linking,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -97,24 +99,41 @@ const CalendarScreen = () => {
     const [classTypes, setClassTypes] = useState([]); // For picker filter
     const [selectedClassType, setSelectedClassType] = useState('all'); // For picker filter
     const [error, setError] = useState(null)
+    const [isRefreshing, setIsRefreshing] = useState(false); 
     
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
     const calendarTheme = getCalendarTheme(colorScheme);
 
+     const handleWhatsAppPress = () => {
+        // Asumimos que el número del admin del negocio está en user.gym.telefono
+        // Si la propiedad tiene otro nombre, ajústala aquí.
+        const phoneNumber = user?.gym?.numeroTelefono;
+
+        if (phoneNumber) {
+            const message = 'Hola, tengo una consulta sobre los turnos.';
+            // El formato es código de país + número, sin '+' ni espacios.
+            const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            Linking.openURL(url).catch(() => {
+                Alert.alert('Error', 'Asegúrate de tener WhatsApp instalado.');
+            });
+        } else {
+            Alert.alert('Sin Contacto', 'Este negocio no ha configurado un número de contacto.');
+        }
+    };
+
     const fetchData = useCallback(async () => {
         if (!user) {
-            Alert.alert("Error", "Usuario no autenticado. Por favor, reinicia la app.");
-            setIsLoading(false);
+            Alert.alert("Error", "Usuario no autenticado.");
             return;
         }
-        setIsLoading(true);
         try {
             await refreshUser();
-
-            const classesResponse = await apiClient.get('/classes'); // Asegúrate que esta ruta sea la correcta ('/classes' o '/clases')
-            const typesResponse = await apiClient.get('/tipos-clase');
+            const [classesResponse, typesResponse] = await Promise.all([
+                apiClient.get('/classes'),
+                apiClient.get('/tipos-clase')
+            ]);
             
             setAllClasses(classesResponse.data);
             setClassTypes(typesResponse.data.tiposClase || []);
@@ -124,17 +143,8 @@ const CalendarScreen = () => {
                 if (cls.estado !== 'cancelada') {
                     const dateString = cls.fecha.substring(0, 10);
                     if (!markers[dateString]) {
-                        markers[dateString] = {
-                            customStyles: {
-                                container: {
-                                    backgroundColor: colorScheme === 'dark' ? '#333' : '#e9ecef',
-                                    borderRadius: 10,
-                                }
-                            }
-                        };
+                        markers[dateString] = { customStyles: { container: { backgroundColor: colorScheme === 'dark' ? '#333' : '#e9ecef', borderRadius: 10 } } };
                     }
-                    // --- ¡AQUÍ ESTÁ LA CORRECCIÓN FINAL Y DEFINITIVA! ---
-                    // Se añade `|| []` para evitar el error si una clase no tiene inscritos.
                     if (user && (cls.usuariosInscritos || []).includes(user._id)) {
                         markers[dateString].marked = true;
                         markers[dateString].dotColor = gymColor;
@@ -142,16 +152,28 @@ const CalendarScreen = () => {
                 }
             });
             setMarkedDates(markers);
-
         } catch (error) {
             Alert.alert('Error', error.response?.data?.message || 'No se pudieron cargar los datos.');
             console.error('Error fetching data for CalendarScreen:', error);
-        } finally {
-            setIsLoading(false);
         }
     }, [user, colorScheme, gymColor, refreshUser]);
 
-    useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
+    // --- 4. Modificar useFocusEffect para manejar la carga inicial ---
+    useFocusEffect(useCallback(() => {
+        const loadInitialData = async () => {
+            setIsLoading(true);
+            await fetchData();
+            setIsLoading(false);
+        };
+        loadInitialData();
+    }, [fetchData]));
+
+    // --- 5. Crear la función onRefresh ---
+    const onRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        await fetchData();
+        setIsRefreshing(false);
+    }, [fetchData]);
 
     // --- Lógica de filtrado (ya estaba correcta) ---
     const visibleClasses = useMemo(() => {
@@ -414,6 +436,10 @@ const CalendarScreen = () => {
                                 renderItem={renderClassItem}
                                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
                                 contentContainerStyle={{ paddingBottom: 20 }}
+                                refreshControl={
+                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                    }
+                                
                             />
                         ) : ( // If no date selected, use SectionList for upcoming classes grouped by day
                             <SectionList
@@ -425,10 +451,22 @@ const CalendarScreen = () => {
                                 )}
                                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
                                 contentContainerStyle={{ paddingBottom: 20 }}
+                                refreshControl={
+                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                    }
                             />
                         )
                     )}
                 </>
+            )}
+             {/* ✨ 3. BOTÓN FLOTANTE (FAB) PARA WHATSAPP */}
+            {user?.gym?.telefono && (
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={handleWhatsAppPress}
+                >
+                    <FontAwesome5 name="whatsapp" size={30} color="#fff" />
+                </TouchableOpacity>
             )}
         </ThemedView>
     );
@@ -489,7 +527,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 8,
+            borderRadius: 2,
             borderWidth: 0,
             backgroundColor: Colors[colorScheme].cardBackground,
             ...shadowProp,
@@ -525,6 +563,19 @@ const getStyles = (colorScheme, gymColor) => {
         almostEmptyClass: { borderLeftWidth: 15, borderColor: '#FFC107', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 193, 7, 0.2)' : '#fffde7' },
         almostFullClass: { borderLeftWidth: 15, borderColor: '#ff7707', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 119, 7, 0.2)' : '#fff3e0' },
         fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
+        fab: {
+            position: 'absolute',
+            width: 60,
+            height: 60,
+            alignItems: 'center',
+            justifyContent: 'center',
+            right: 20,
+            bottom: 20,
+            backgroundColor: '#25D366', // Color de WhatsApp
+            borderRadius: 30, // La mitad del ancho/alto para hacerlo circular
+            ...shadowProp, // Reutilizamos la sombra para que destaque
+            elevation: 8, // Mayor elevación para que flote por encima de todo
+        },
     });
 };
 export default CalendarScreen;

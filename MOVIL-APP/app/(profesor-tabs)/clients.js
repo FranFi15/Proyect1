@@ -32,7 +32,11 @@ const ProfessorClientsScreen = () => {
         }
     }, []);
 
-    useFocusEffect(fetchData);
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
 
     const handleOpenPlanModal = (client) => {
         setSelectedClient(client);
@@ -80,8 +84,8 @@ const ProfessorClientsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 12, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 2, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
 });

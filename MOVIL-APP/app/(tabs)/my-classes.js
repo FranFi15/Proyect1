@@ -9,6 +9,7 @@ import {
     SectionList,
     View, 
     Text, 
+    RefreshControl,
 } from 'react-native';
 import apiClient from '../../services/apiClient';
 import { useFocusEffect } from 'expo-router';
@@ -32,6 +33,7 @@ const MyClassesScreen = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('upcoming'); 
     const { user, refreshUser, gymColor } = useAuth();
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
@@ -48,9 +50,8 @@ const MyClassesScreen = () => {
         </TouchableOpacity>
     );
 
-    const fetchMyClasses = async () => {
+     const fetchMyClasses = useCallback(async () => {
         try {
-            setLoading(true);
             const userResponse = await apiClient.get('/users/me');
             const enrolledIds = new Set(userResponse.data.clasesInscritas || []);
 
@@ -67,12 +68,27 @@ const MyClassesScreen = () => {
             setEnrolledClasses(sortedClasses);
         } catch (error) {
             Alert.alert('Error', 'No se pudieron cargar tus turnos.');
-        } finally {
-            setLoading(false);
         }
-    };
+    }, []);
 
-    useFocusEffect(useCallback(() => { fetchMyClasses(); }, []));
+    // --- 4. Modificar useFocusEffect para manejar el estado de carga inicial ---
+    useFocusEffect(useCallback(() => {
+        const loadData = async () => {
+            setLoading(true);
+            await fetchMyClasses();
+            setLoading(false);
+        };
+        loadData();
+    }, [fetchMyClasses]));
+
+    // --- 5. Crear la función onRefresh ---
+    const onRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        await fetchMyClasses();
+        setIsRefreshing(false);
+    }, [fetchMyClasses]);
+
+    
 
     const handleUnenroll = (classId) => {
         const performUnenroll = async () => {
@@ -185,6 +201,13 @@ const MyClassesScreen = () => {
                 )}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en esta sección.</ThemedText>}
                 contentContainerStyle={{ paddingBottom: 20 }}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={isRefreshing} 
+                        onRefresh={onRefresh} 
+                        tintColor={gymColor} // Color del spinner de carga
+                    />
+                }
             />
         </ThemedView>
     );
@@ -224,7 +247,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 8,
+            borderRadius: 2,
             ...shadowProp
         },
         className: {

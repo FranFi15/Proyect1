@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 function HeaderLogoTitle() {
   const { gymLogo } = useAuth();
   if (!gymLogo) return null;
-  return <Image style={{ width: 120, height: 40, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
+  return <Image style={{ width: 120, height: 70, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
 }
 
 export default function ProfessorTabsLayout() {
@@ -19,7 +19,10 @@ export default function ProfessorTabsLayout() {
         tabBarActiveTintColor: gymColor,
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />,
-        headerStyle: { backgroundColor: gymColor },
+        headerStyle: { 
+          backgroundColor: gymColor,
+          shadowColor: 'transparent',
+         },
       }}
     >
       <Tabs.Screen 

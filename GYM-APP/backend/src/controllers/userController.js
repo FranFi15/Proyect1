@@ -51,6 +51,10 @@ const getMe = asyncHandler(async (req, res) => {
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
     
     if (user) {
+
+        const admin = await User.findOne({ roles: 'admin' });
+        const adminPhoneNumber = admin ? admin.numeroTelefono : null;
+
         const userProfile = {
             _id: user._id,
             nombre: user.nombre,
@@ -75,15 +79,12 @@ const getMe = asyncHandler(async (req, res) => {
                 status: sub.status,
                 autoRenewAmount: sub.autoRenewAmount,
                 lastRenewalDate: sub.lastRenewalDate,
-                // Ensure startDate exists in schema if needed
-                // startDate: sub.startDate, 
             })),
             pushToken: user.pushToken, // Ensure pushToken is also returned for mobile app's AuthContext if needed
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            // --- CRITICAL FIX: Include requestedSpotNotifications in the response ---
-            requestedSpotNotifications: user.requestedSpotNotifications || [], // Add this field
-            // --- END CRITICAL FIX ---
+            requestedSpotNotifications: user.requestedSpotNotifications || [], 
+            adminPhoneNumber: adminPhoneNumber,
         };
         res.json(userProfile);
     } else {

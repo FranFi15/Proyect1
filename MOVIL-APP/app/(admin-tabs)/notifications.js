@@ -60,7 +60,11 @@ const NotificationAdminScreen = () => {
         }
     }, []);
 
-    useFocusEffect(fetchInitialData);
+    useFocusEffect(
+        useCallback(() => {
+            fetchInitialData();
+        }, [fetchInitialData])
+    );
 
     const filteredUsers = useMemo(() => {
         if (!userSearchTerm) return allUsers;

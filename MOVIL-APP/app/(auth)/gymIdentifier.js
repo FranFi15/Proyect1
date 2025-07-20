@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, Image, useColorScheme } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ActivityIndicator, Image, useColorScheme, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
 
 const SUPER_ADMIN_API_URL = process.env.EXPO_PUBLIC_SUPER_ADMIN_URL;
 
@@ -69,6 +71,14 @@ export default function GymIdentifierScreen() {
             <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
             </TouchableOpacity>
+             <TouchableOpacity onPress={() => Linking.openURL('mailto:ffdigitallab@hotmail.com')}>
+                <ThemedText style={styles.contactText}>
+                    Simplifica la gestión de turnos.
+                </ThemedText>
+                <Text style={styles.contactLink}>
+                    Obtén tu app aquí.
+                    </Text>
+            </TouchableOpacity>
         </ThemedView>
     );
 }
@@ -84,4 +94,17 @@ const styles = StyleSheet.create({
     input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 2, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: '#333', backgroundColor: '#fff' },
     button: { width: '100%', height: 50, backgroundColor: '#000000ff', borderRadius: 2, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+     contactText: {
+        marginTop: 20,
+        textAlign: 'center',
+        fontSize: 14,
+        
+    },
+    // Estilo solo para el correo electrónico
+    contactLink: {
+        textAlign: 'center',
+        color: '#4da1faff', // Color azul para simular un enlace
+        fontSize: 14, // Aseguramos que el tamaño de fuente sea el mismo
+        marginTop: 10,
+    },
 });

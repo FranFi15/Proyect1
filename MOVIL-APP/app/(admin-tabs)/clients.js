@@ -678,7 +678,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: '600',
     },
     modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: {
         position: 'absolute',
         top: 15,

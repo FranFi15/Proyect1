@@ -120,6 +120,8 @@ const EditProfileModal = ({ userProfile, onClose }) => {
                     <Text style={styles.inputLabel}>Teléfono</Text>
                     <TextInput style={styles.input} value={editableProfile.numeroTelefono} onChangeText={text => setEditableProfile(p => ({ ...p, numeroTelefono: text }))} keyboardType="phone-pad" />
 
+                     <Text style={styles.inputLabel}>Dirección</Text>
+                    <TextInput style={styles.input} value={editableProfile.direccion} onChangeText={text => setEditableProfile(p => ({ ...p, direccion: text }))} />   
                     <Text style={styles.inputLabel}>Obra Social</Text>
                     <TextInput style={styles.input} value={editableProfile.obraSocial} onChangeText={text => setEditableProfile(p => ({ ...p, obraSocial: text }))} />
                     
