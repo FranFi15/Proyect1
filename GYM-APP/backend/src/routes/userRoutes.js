@@ -25,7 +25,7 @@ const router = express.Router();
 router.get('/metrics', protect, authorizeRoles('admin'), getUserMetrics); 
 
 router.route('/')
-    .get(protect, authorizeRoles('admin'), getAllUsers); 
+    .get(protect, authorizeRoles('admin', 'profesor'), getAllUsers); 
 
 router.route('/me')
     .get(protect, getMe);

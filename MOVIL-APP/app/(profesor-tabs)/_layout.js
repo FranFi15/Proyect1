@@ -20,7 +20,6 @@ export default function ProfessorTabsLayout() {
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />,
         headerStyle: { backgroundColor: gymColor },
-       
       }}
     >
       <Tabs.Screen 
@@ -36,25 +35,40 @@ export default function ProfessorTabsLayout() {
           ),
         }} 
       />
+      
+      {/* --- NUEVA PESTAÑA --- */}
+      <Tabs.Screen 
+        name="clients" 
+        options={{ 
+          title: 'Socios',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'people' : 'people-outline'} 
+              size={size} 
+              color={color} 
+            />
+          ),
+        }} 
+      />
+
       <Tabs.Screen 
         name="notifications" 
         options={{ 
           title: 'Notificaciones',
           tabBarIcon: ({ color, size, focused }) => (
             <View>
-              <Ionicons // Your existing Ionicons icon
+              <Ionicons
                 name={focused ? 'notifications' : 'notifications-outline'} 
                 size={size} 
                 color={color} 
               />
-              {/* Display badge if there are unread notifications */}
               {user?.unreadNotificationsCount > 0 && (
                 <View style={{
                   position: 'absolute',
-                  right: -6, // Adjust position relative to the icon
-                  top: -3,   // Adjust position relative to the icon
-                  backgroundColor: 'red', // Badge background color
-                  borderRadius: 8, // Half of width/height for a circular badge
+                  right: -6,
+                  top: -3,
+                  backgroundColor: 'red',
+                  borderRadius: 8,
                   width: 16,
                   height: 16,
                   justifyContent: 'center',
@@ -87,12 +101,11 @@ export default function ProfessorTabsLayout() {
         }} 
       />
       <Tabs.Screen
-    // Esto le dice a Expo Router que ignore esta ruta para la barra de pestañas.
-    name="index"
-    options={{
-        href: null,
-    }}
-/>
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

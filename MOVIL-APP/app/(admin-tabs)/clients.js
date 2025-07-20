@@ -88,7 +88,6 @@ const ManageClientsScreen = () => {
         }, [fetchAllData])
     );
 
-    // --- EFFECT PARA CONSTRUIR LA FECHA DE NACIMIENTO (NUEVO CLIENTE) ---
     useEffect(() => {
         if (newClientDay.length === 2 && newClientMonth.length === 2 && newClientYear.length === 4) {
             const dateString = `${newClientYear}-${newClientMonth.padStart(2, '0')}-${newClientDay.padStart(2, '0')}`;
@@ -96,7 +95,6 @@ const ManageClientsScreen = () => {
         }
     }, [newClientDay, newClientMonth, newClientYear]);
 
-    // --- EFFECT PARA CONSTRUIR LA FECHA DE NACIMIENTO (CLIENTE EN EDICIÓN) ---
     useEffect(() => {
         if (editingClientDay.length === 2 && editingClientMonth.length === 2 && editingClientYear.length === 4) {
             const dateString = `${editingClientYear}-${editingClientMonth.padStart(2, '0')}-${editingClientDay.padStart(2, '0')}`;
@@ -332,7 +330,7 @@ const ManageClientsScreen = () => {
         return classType?.nombre || 'Desconocido';
     };
 
-   const renderUserCard = ({ item }) => {
+    const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
 
         return (
@@ -347,13 +345,13 @@ const ManageClientsScreen = () => {
                     </View>
                     <View style={styles.actionsContainer}>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                            <Ionicons name="logo-usd" size={26} color='#01b22aff' />
+                            <Ionicons name="logo-usd" size={24} color='#01ca0fff' />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                            <Ionicons name="pencil" size={22} color={Colors[colorScheme].text} />
+                            <Ionicons name="pencil" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
                             <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
@@ -398,13 +396,16 @@ const ManageClientsScreen = () => {
                 contentContainerStyle={{ paddingBottom: 80 }}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No se encontraron usuarios.</ThemedText>}
             />
-            <TouchableOpacity style={styles.fab} onPress={() => setShowAddFormModal(true)}>
+            <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
             <Modal animationType="slide" transparent={true} visible={showAddFormModal} onRequestClose={() => setShowAddFormModal(false)}>
                 <View style={styles.modalContainer}>
                     <ThemedView style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setShowAddFormModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                        </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Registrar Nuevo Socio</ThemedText>
                             <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
@@ -443,7 +444,6 @@ const ManageClientsScreen = () => {
                             </View>
 
                             <View style={styles.modalActions}>
-                                <Button title="Cancelar" onPress={() => setShowAddFormModal(false)} color="#888" />
                                 <Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} />
                             </View>
                         </ScrollView>
@@ -455,6 +455,9 @@ const ManageClientsScreen = () => {
                 <View style={styles.modalContainer}>
                     {editingClientData && (
                         <ThemedView style={styles.modalView}>
+                            <TouchableOpacity onPress={() => setShowEditFormModal(false)} style={styles.closeButton}>
+                                <Ionicons name="close-circle" size={30} color="#ccc" />
+                            </TouchableOpacity>
                             <ScrollView>
                                 <ThemedText style={styles.modalTitle}>Editar Socio</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
@@ -489,7 +492,6 @@ const ManageClientsScreen = () => {
                                 </View>
 
                                 <View style={styles.modalActions}>
-                                    <Button title="Cancelar" onPress={() => setShowEditFormModal(false)} color="#888" />
                                     <Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} />
                                 </View>
                             </ScrollView>
@@ -505,6 +507,9 @@ const ManageClientsScreen = () => {
             <Modal animationType="slide" transparent={true} visible={creditsModalVisible} onRequestClose={() => setCreditsModalVisible(false)}>
                  <View style={styles.modalContainer}>
                     <ThemedView style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setCreditsModalVisible(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                        </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
                             <View style={styles.section}>
@@ -602,9 +607,6 @@ const ManageClientsScreen = () => {
                                     </View>
                                 )}
                             </View>
-                            <View style={styles.modalActions}>
-                                <Button title="Cerrar" onPress={() => setCreditsModalVisible(false)} color="#888" />
-                            </View>
                         </ScrollView>
                     </ThemedView>
                 </View>
@@ -639,7 +641,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
-    actionButton: { marginLeft: 5, padding: 6 },
+    actionButton: { marginLeft: 8, padding: 1 },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     roleBadge: {
@@ -660,11 +662,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row', 
         flexWrap: 'wrap',
         paddingTop: 10,
-        borderTopColor: Colors[colorScheme].border,
+        
     },
     creditChip: {
         backgroundColor: gymColor + '20',
-        borderRadius: 8,
+        borderRadius: 12,
         paddingHorizontal: 8,
         paddingVertical: 4,
         marginRight: 6,
@@ -675,9 +677,15 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
     },
-    modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { width: '90%', maxHeight: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
+    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    closeButton: {
+        position: 'absolute',
+        top: 15,
+        right: 15,
+        zIndex: 10,
+    },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text, paddingTop: 10 },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.8 },
     input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
     pickerContainer: { 
@@ -687,7 +695,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 15,
         justifyContent: 'center'
     },
-    modalActions: { marginTop: 20, flexDirection: 'row', justifyContent: 'space-around' },
+    modalActions: { marginTop: 20, flexDirection: 'row', justifyContent: 'center' },
     balanceText: { fontSize: 14, fontWeight: '600', marginTop: 8 },
     debtText: { color: Colors.light.error },
     okText: { color: '#28a745' },
@@ -714,14 +722,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     planText: { fontSize: 14, color: Colors[colorScheme].text, flex: 1 },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: gymColor, margin: 4 },
-    dayChipSelected: { backgroundColor: gymColor },
-    dayChipText: { color: gymColor, fontSize: 12 },
-    dayChipTextSelected: { color: '#FFFFFF', fontSize: 12 },
+    dayChip: { paddingVertical: 6, paddingHorizontal: 5, borderRadius: 6, borderWidth: 1, borderColor: '#1a5276', margin: 4 },
+    dayChipSelected: { backgroundColor: '#1a5276'},
+    dayChipText: { fontSize: 16 },
+    dayChipTextSelected: { color: '#FFFFFF', fontSize: 16 },
     slotItem: { padding: 12, marginVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border },
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
-    slotTextSelected: { textAlign: 'center', fontSize: 14, fontWeight: 'bold', color: gymColor },
+    slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
     dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
     dateInputText: { fontSize: 14, color: Colors[colorScheme].text, }
 });

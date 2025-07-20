@@ -142,10 +142,10 @@ const ClassTypeManagementScreen = () => {
             </View>
             <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
-                    <Ionicons name="pencil-outline" size={22} color={gymColor} />
+                    <Ionicons name="pencil" size={24} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
-                    <Ionicons name="trash-outline" size={22} color={Colors.light.error} />
+                    <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -262,7 +262,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginTop: 8,
     },
     cardActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 15 },
-    actionButton: { padding: 8 },
+    actionButton: { marginLeft: 8, padding: 1 },
     fab: {
         position: 'absolute',
         width: 60,

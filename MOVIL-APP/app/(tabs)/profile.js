@@ -69,7 +69,7 @@ const ProfileScreen = () => {
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setPlansModalVisible(true)}>
                         <Ionicons name="card" size={24} color={gymColor} />
-                        <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
+                        <ThemedText style={styles.menuButtonText}>Créditos</ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setEditModalVisible(true)}>

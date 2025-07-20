@@ -139,7 +139,7 @@ const ManageClassesScreen = () => {
                 Alert.alert('Éxito', 'Turno actualizado correctamente.');
             } else {
                 await apiClient.post('/classes', payload);
-                Alert.alert('Éxito', 'Turnose/s creado/s correctamente.');
+                Alert.alert('Éxito', 'Turno/s creado/s correctamente.');
             }
             setShowAddModal(false);
             setEditingClass(null);
@@ -266,19 +266,19 @@ const ManageClassesScreen = () => {
                     <>
                         <Text style={styles.cancelledText}>CANCELADA</Text>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
-                            <Ionicons name="checkmark-circle" size={24} color={Colors.light.success} />
+                            <Ionicons name="checkmark-circle" size={24} color={Colors[colorScheme].text}  />
                         </TouchableOpacity>
                     </>
                 ) : (
                     <>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
-                            <Ionicons name="people" size={22} color={gymColor} />
+                            <Ionicons name="people" size={24} color={Colors[colorScheme].text}  />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
-                            <Ionicons name="close-circle" size={24} color={Colors.light.error} />
+                            <Ionicons name="close-circle" size={24} color={Colors[colorScheme].text}  />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
-                            <Ionicons name="pencil" size={20} color={gymColor} />
+                            <Ionicons name="pencil" size={24} color={Colors[colorScheme].text}  />
                         </TouchableOpacity>
                     </>
                 )}
@@ -388,7 +388,7 @@ const ManageClassesScreen = () => {
                 { text: "Confirmar", style: 'destructive', onPress: async () => {
                     try {
                         await apiClient.post('/classes/cancel-day', { date, refundCredits: refund });
-                        Alert.alert("Éxito", `Todas los turnoss del día han sido cancelados.`);
+                        Alert.alert("Éxito", `Todos los turnos del día han sido cancelados.`);
                         fetchAllData();
                     } catch (error) {
                         Alert.alert("Error", error.response?.data?.message || "No se pudo completar la operación.");
@@ -428,13 +428,13 @@ const ManageClassesScreen = () => {
             <ThemedText style={styles.cardInfo}>Próximas Clases: {item.cantidadDeInstancias}</ThemedText>
             <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
-                    <Ionicons name="pencil" size={20} color={gymColor} />
+                    <Ionicons name="pencil" size={24} color={Colors[colorScheme].text}  />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
-                    <Ionicons name="add-circle-outline" size={24} color={Colors.light.success} />
+                    <Ionicons name="add-circle" size={24} color={Colors[colorScheme].text}  />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
-                    <Ionicons name="trash-outline" size={22} color={Colors.light.error} />
+                    <Ionicons name="trash" size={24} color={Colors[colorScheme].text}  />
                 </TouchableOpacity>
             </View>
         </View>
@@ -532,23 +532,26 @@ const ManageClassesScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* Modal para Añadir/Editar Clase */}
+            {/* --- MODAL PARA AÑADIR/EDITAR CLASE (ACTUALIZADO) --- */}
             <Modal visible={showAddModal} transparent={true} animationType="slide" onRequestClose={() => setShowAddModal(false)}>
-                <View style={styles.centeredView}>
+                <View style={styles.modalContainer}>
                     <ThemedView style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                        </TouchableOpacity>
                         <ScrollView contentContainerStyle={styles.modalContent}>
                              <ThemedText style={styles.modalTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</ThemedText>
                             
-                            <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
-                            <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} />
-                            
-                            <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
-                            <View style={styles.pickerContainer}>
-                                <Picker selectedValue={formData.tipoClase} onValueChange={itemValue => handleFormChange('tipoClase', itemValue)}>
-                                    <Picker.Item label="-- Seleccionar --" value="" />
-                                    {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                </Picker>
-                            </View>
+                             <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
+                             <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} />
+                             
+                             <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
+                             <View style={styles.pickerContainer}>
+                                 <Picker selectedValue={formData.tipoClase} onValueChange={itemValue => handleFormChange('tipoClase', itemValue)}>
+                                     <Picker.Item label="-- Seleccionar --" value="" />
+                                     {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
+                                 </Picker>
+                             </View>
                             
                             <ThemedText style={styles.inputLabel}>Profesor (Opcional)</ThemedText>
                             <View style={styles.pickerContainer}>
@@ -614,57 +617,61 @@ const ManageClassesScreen = () => {
                             )}
                             
                             <View style={styles.modalActions}>
-                                <Button title="Cancelar" onPress={() => setShowAddModal(false)} color="#888" />
-                                <Button title="Guardar" onPress={handleFormSubmit} color='#1a5276' />
-                            </View>
+                                 <Button title={editingClass ? 'Actualizar' : 'Guardar'} onPress={handleFormSubmit} color='#1a5276' />
+                             </View>
                         </ScrollView>
                     </ThemedView>
                 </View>
             </Modal>
 
-            {/* Modal para Lista de Inscriptos */}
+            {/* --- MODAL PARA LISTA DE INSCRIPTOS (ACTUALIZADO) --- */}
             <Modal visible={showRosterModal} transparent={true} animationType="slide" onRequestClose={() => setShowRosterModal(false)}>
-                <View style={styles.centeredView}>
-                     <ThemedView style={styles.modalView}>
-                        <ThemedText style={styles.modalTitle}>Inscriptos en {viewingClassRoster?.nombre}</ThemedText>
-                        <FlatList
-                            data={viewingClassRoster?.usuariosInscritos || []}
-                            keyExtractor={item => item._id}
-                            renderItem={({item}) => (
-                                <View style={styles.rosterItem}>
-                                    <Text style={styles.rosterText}>{item.nombre} {item.apellido}</Text>
-                                    <Text style={styles.rosterSubtext}>DNI: {item.dni}</Text>
-                                </View>
-                            )}
-                            ListEmptyComponent={<Text style={styles.placeholderText}>No hay nadie inscripto.</Text>}
-                            style={{width: '100%'}}
-                        />
-                         <View style={styles.modalActions}>
-                            <Button title="Cerrar" onPress={() => setShowRosterModal(false)} color="#888" />
-                         </View>
-                    </ThemedView>
+                <View style={styles.modalContainer}>
+                       <ThemedView style={styles.modalView}>
+                            <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.closeButton}>
+                                <Ionicons name="close-circle" size={30} color="#ccc" />
+                            </TouchableOpacity>
+                            <ThemedText style={styles.modalTitle}>Inscriptos en {viewingClassRoster?.nombre}</ThemedText>
+                            <FlatList
+                                data={viewingClassRoster?.usuariosInscritos || []}
+                                keyExtractor={item => item._id}
+                                renderItem={({item}) => (
+                                    <View style={styles.rosterItem}>
+                                        <Text style={styles.rosterText}>{item.nombre} {item.apellido}</Text>
+                                        <Text style={styles.rosterSubtext}>DNI: {item.dni}</Text>
+                                    </View>
+                                )}
+                                ListEmptyComponent={<Text style={styles.placeholderText}>No hay nadie inscripto.</Text>}
+                                style={{width: '100%'}}
+                            />
+                       </ThemedView>
                 </View>
             </Modal>
 
-            {/* Modal de Confirmación para Cancelar */}
+            {/* --- MODAL DE CONFIRMACIÓN PARA CANCELAR (ACTUALIZADO) --- */}
             <Modal visible={showCancelModal} transparent={true} animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.confirmationModal}>
+                <View style={styles.modalContainer}>
+                    <View style={[styles.modalView, styles.confirmationModal]}>
+                        <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                        </TouchableOpacity>
                         <ThemedText style={styles.modalTitle}>Confirmar Cancelación</ThemedText>
                         <ThemedText>¿Deseas devolver los créditos a los usuarios inscritos?</ThemedText>
                         <View style={styles.modalActions}>
                             <Button title="Sí, con reembolso" onPress={() => confirmCancelClass(true)} color='#1a5276' />
                             <Button title="No, sin reembolso" onPress={() => confirmCancelClass(false)} color='#500000ff' />
                         </View>
-                         <Button title="Volver" onPress={() => setShowCancelModal(false)} color="#888" />
                     </View>
                 </View>
             </Modal>
 
-            {/* Modal para Editar Grupo */}
+            {/* --- MODAL PARA EDITAR GRUPO (ACTUALIZADO) --- */}
             <Modal visible={showBulkEditModal} transparent={true} animationType="slide" onRequestClose={() => setShowBulkEditModal(false)}>
-                 <View style={styles.centeredView}>
+                 <View style={styles.modalContainer}>
                     <ThemedView style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                        </TouchableOpacity>
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <ThemedText style={styles.modalTitle}>Editar Grupo: {editingGroup?.nombre}</ThemedText>
                             
@@ -691,8 +698,7 @@ const ManageClassesScreen = () => {
                                 ))}
                             </View>
 
-                            <View style={styles.modalActions}>
-                                <Button title="Cancelar" onPress={() => setShowBulkEditModal(false)} color="#888" />
+                             <View style={styles.modalActions}>
                                 <Button title="Guardar Cambios" onPress={handleBulkUpdate} color='#1a5276' />
                             </View>
                         </ScrollView>
@@ -700,29 +706,29 @@ const ManageClassesScreen = () => {
                  </View>
             </Modal>
 
-            {/* Modal para Extender Clases */}
+            {/* --- MODAL PARA EXTENDER CLASES (ACTUALIZADO) --- */}
             <Modal visible={showExtendModal} transparent={true} animationType="slide" onRequestClose={() => setShowExtendModal(false)}>
-                 <View style={styles.centeredView}>
-                     <ThemedView style={styles.modalView}>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
-                            <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
-                            <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
-                                <View style={styles.dateInputTouchable}>
-                                    <Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text>
-                                </View>
+                 <View style={styles.modalContainer}>
+                       <ThemedView style={styles.modalView}>
+                            <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.closeButton}>
+                                <Ionicons name="close-circle" size={30} color="#ccc" />
                             </TouchableOpacity>
-
-                            <View style={styles.modalActions}>
-                                <Button title="Cancelar" onPress={() => setShowExtendModal(false)} color="#888" />
-                                <Button title="Confirmar Extensión" onPress={handleExtendSubmit} color='#1a5276' />
-                            </View>
-                        </ScrollView>
-                    </ThemedView>
+                            <ScrollView contentContainerStyle={styles.modalContent}>
+                                <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
+                                <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
+                                <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
+                                    <View style={styles.dateInputTouchable}>
+                                        <Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                                <View style={styles.modalActions}>
+                                    <Button title="Confirmar Extensión" onPress={handleExtendSubmit} color='#1a5276' />
+                                </View>
+                            </ScrollView>
+                       </ThemedView>
                  </View>
             </Modal>
 
-            {/* Common DateTimePicker for all modals */}
             {showDatePicker && (
                 <DateTimePicker
                     value={
@@ -746,10 +752,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'space-around',
         backgroundColor: Colors[colorScheme].cardBackground,
         elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
     },
     tab: {
         paddingVertical: 15,
@@ -783,10 +785,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginVertical: 8,
         marginHorizontal: 15,
         elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.5,
     },
     cancelledCard: {
         backgroundColor: '#f0f0f0',
@@ -805,7 +803,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors.light.error,
         fontSize: 16,
         fontWeight: 'bold',
-        marginRight: 'auto', // Pushes the text to the left
+        marginRight: 'auto',
     },
     cardTitle: {
         fontSize: 18,
@@ -838,59 +836,52 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: '#1a5276',
         borderRadius: 30,
         elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
     },
-    // --- STYLES FOR MODALS (NEW/IMPROVED) ---
-    centeredView: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "rgba(0,0,0,0.5)",
+    modalContainer: { 
+        flex: 1, 
+        justifyContent: 'flex-end', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,0,0,0.5)' 
     },
-    modalView: {
-        width: '90%',
-        height: '90%',
-        backgroundColor: Colors[colorScheme].background,
-        borderRadius: 2,
-        paddingVertical: 20,
-        paddingHorizontal: 25,
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+    modalView: { 
+        height: '90%', 
+        width: '100%', 
+        backgroundColor: Colors[colorScheme].background, 
+        borderRadius: 2,  
+        padding: 20, 
+        elevation: 5 
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 15,
+        right: 15,
+        zIndex: 10,
     },
     modalContent: {
-        paddingBottom: 40, // Space for the last button
+        paddingBottom: 40,
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
         marginBottom: 25,
         textAlign: 'center',
-        color: '#000',
+        paddingTop: 10,
+        color: Colors[colorScheme].text,
     },
     modalActions: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'center',
         marginTop: 30,
-        paddingBottom: 10,
-        gap:10
+        gap: 15
     },
     confirmationModal: {
         width: '85%',
-        margin: 20,
         backgroundColor: Colors[colorScheme].background,
-        borderRadius: 2,
+        borderRadius: 12,
         padding: 25,
         alignItems: "center",
         elevation: 5,
-        gap: 15, // Adds space between child elements
     },
-    // --- STYLES FOR FORMS ---
     inputLabel: {
         fontSize: 16,
         marginBottom: 8,
@@ -938,25 +929,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 15,
     },
     dayChip: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingVertical: 6,
+        paddingHorizontal: 5,
         borderRadius: 2,
         borderWidth: 1.5,
-        borderColor: gymColor,
+        borderColor: '#1a5276',
         margin: 4,
     },
     dayChipSelected: {
-        backgroundColor: gymColor,
+        backgroundColor: '#1a5276',
     },
     dayChipText: {
-        color: gymColor,
         fontWeight: '600',
     },
     dayChipTextSelected: {
         color: '#FFFFFF',
         fontWeight: '600',
     },
-    // --- STYLES FOR ROSTER ---
     rosterItem: {
         padding: 15,
         borderBottomWidth: 1,
@@ -970,7 +959,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 12,
         color: Colors[colorScheme].icon,
     },
-    // --- STYLES FOR DAY MANAGEMENT ---
     dayManagementContainer: {
         flex: 1,
         alignItems: 'center',
@@ -984,7 +972,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dayActions: {
         marginTop: 20,
         width: '90%',
-        gap: 15, // Replaces the empty View for spacing
+        gap: 15,
     }
 });
 
