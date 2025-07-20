@@ -6,7 +6,8 @@ import {
     TouchableOpacity,
     useColorScheme,
     View,
-    ActivityIndicator
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -62,21 +63,18 @@ const ProfileScreen = () => {
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setBalanceModalVisible(true)}>
-                        <Ionicons name="cash-outline" size={24} color={gymColor} />
+                        <Ionicons name="logo-usd" size={24} color={gymColor} />
                         <ThemedText style={styles.menuButtonText}>Mi Saldo y Movimientos</ThemedText>
-                        <Ionicons name="chevron-forward" size={22} color={Colors[colorScheme].icon} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setPlansModalVisible(true)}>
-                        <Ionicons name="document-text-outline" size={24} color={gymColor} />
+                        <Ionicons name="card" size={24} color={gymColor} />
                         <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
-                        <Ionicons name="chevron-forward" size={22} color={Colors[colorScheme].icon} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setEditModalVisible(true)}>
                         <Ionicons name="person-outline" size={24} color={gymColor} />
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
-                        <Ionicons name="chevron-forward" size={22} color={Colors[colorScheme].icon} />
                     </TouchableOpacity>
                     
                     <TouchableOpacity style={styles.menuButton} onPress={handleLogout}>

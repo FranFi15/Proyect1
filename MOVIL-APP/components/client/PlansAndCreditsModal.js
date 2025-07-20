@@ -107,17 +107,29 @@ const PlansAndCreditsModal = ({ onClose }) => {
 };
 
 // ... (Estilos para este componente)
-const getStyles = (colorScheme) => StyleSheet.create({
+const getStyles = (colorScheme) => {
+    const shadowProp = {
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.23,
+        shadowRadius: 2.62,
+        elevation: 4,
+    };
+    
+    return StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 20, marginBottom: 15 },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 2, padding: 20, marginBottom: 15, ...shadowProp },
     cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: Colors[colorScheme].text },
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
     infoLabel: { fontSize: 16, color: Colors[colorScheme].text },
     infoLabelBold: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
     infoValue: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.8 },
-});
+});}
 
 export default PlansAndCreditsModal;

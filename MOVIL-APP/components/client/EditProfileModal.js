@@ -142,20 +142,20 @@ const EditProfileModal = ({ userProfile, onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, elevation: 5 },
+    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     inputLabel: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 8, marginLeft: 5 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
+    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-    dateInput: { flex: 1, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text, marginHorizontal: 4, fontSize: 16 },
+    dateInput: { flex: 1, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text, marginHorizontal: 4, fontSize: 16 },
     genderSelector: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
     genderButton: { 
         paddingVertical: 10, 
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].icon, 
-        borderRadius: 20 
+        borderRadius: 2 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 

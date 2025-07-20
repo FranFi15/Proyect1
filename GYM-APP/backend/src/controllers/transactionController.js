@@ -8,10 +8,9 @@ const createTransaction = asyncHandler(async (req, res) => {
     const { Transaction, User } = getModels(req.gymDBConnection);
     const { userId, type, amount, description } = req.body;
 
-    // Validación básica
     if (!userId || !type || !amount || !description) {
         res.status(400);
-        throw new Error('Faltan campos obligatorios: userId, type, amount, description.');
+        throw new Error('Faltan campos obligatorios.');
     }
 
     const user = await User.findById(userId);
@@ -20,27 +19,34 @@ const createTransaction = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado.');
     }
 
-    // Crear la transacción
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+        res.status(400);
+        throw new Error('El monto debe ser un número positivo.');
+    }
+
+    // --- LÓGICA DE SALDO CORREGIDA ---
+    // Un 'charge' (cargo) es negativo para el balance (aumenta la deuda).
+    // Un 'payment' (pago) es positivo para el balance (reduce la deuda).
+    const amountToUpdate = type === 'charge' ? -numericAmount : numericAmount;
+    user.balance += amountToUpdate;
+
     const transaction = await Transaction.create({
         user: userId,
         type,
-        amount: Math.abs(amount), // Nos aseguramos de que sea positivo
+        amount: numericAmount,
         description,
-        createdBy: req.user._id, // El admin logueado
+        createdBy: req.user._id,
     });
-
-    // Actualizar el balance del usuario
-    const amountToUpdate = type === 'charge' ? Math.abs(amount) : -Math.abs(amount);
-    user.balance += amountToUpdate;
+    
     await user.save();
 
     res.status(201).json({
         message: 'Transacción creada exitosamente.',
         transaction,
-        newUserBalance: user.balance,
+        newUserBalance: user.balance, // Se envía el nuevo saldo actualizado
     });
 });
-
 // @desc    Obtener el historial de transacciones de un usuario
 // @route   GET /api/transactions/user/:userId
 // @access  Private/Admin
