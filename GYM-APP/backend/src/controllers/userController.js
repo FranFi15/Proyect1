@@ -648,7 +648,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     // 💡 URL de tu frontend para la página de reseteo
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}reset-password/${resetToken}`;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
