@@ -2,18 +2,15 @@
 import connectToGymDB from '../config/mongoConnectionManager.js'; 
 
 const PUBLIC_PATHS = [
-    '/api/users/forgot-password',
-    '/api/users/reset-password', 
-    '/api/users/handle-reset-link' 
+    '/forgot-password',
+    '/reset-password', 
+    '/handle-reset-link' 
 ];
 
 const gymTenantMiddleware = async (req, res, next) => {
-      console.log('====================================');
-    console.log('Ruta recibida por el middleware:', req.path);
-    console.log('Método HTTP:', req.method);
+      
 const isPublicPath = PUBLIC_PATHS.some(path => req.path.startsWith(path));
-console.log('¿La ruta es considerada pública?:', isPublicPath);
-    console.log('====================================');
+;
     if (isPublicPath) {
         return next();
     }
