@@ -19,7 +19,7 @@ export default function ProfessorTabsLayout() {
     <Tabs 
       screenOptions={{
         tabBarActiveTintColor: gymColor,
-        // --- CAMBIOS AQUÍ ---
+        
         tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].cardBackground,

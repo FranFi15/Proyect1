@@ -86,8 +86,8 @@ export default function GymIdentifierScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
     logo: {
-        width: 300,
-        height: 150,
+        width: 450,
+        height: 200,
         resizeMode: 'cover',
     },
     title: { marginBottom: 15, padding:5, fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
