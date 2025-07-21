@@ -30,16 +30,21 @@ const ForgotPasswordScreen = () => {
                 'Solicitud Enviada',
                 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
             );
-            // Opcional: navegar de vuelta al login
-            // router.back();
+            
 
         } catch (error) {
-            // Incluso si hay un error, mostramos un mensaje genérico por seguridad
-            Alert.alert(
-                'Solicitud Enviada',
-                'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
-            );
-            console.error('Error al solicitar reseteo:', error);
+            // Ahora podemos manejar errores específicos del backend.
+            if (error.response && error.response.data && error.response.data.message) {
+                // Si el backend envió un mensaje de error (como el 503), lo mostramos.
+                Alert.alert('Error', error.response.data.message);
+            } else {
+                // Si el error es de red o algo inesperado, mostramos el mensaje genérico por seguridad.
+                Alert.alert(
+                    'Solicitud Procesada',
+                    'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
+                );
+                console.error('Error al solicitar reseteo:', error.toJSON ? error.toJSON() : error);
+            }
         } finally {
             setIsLoading(false);
         }
