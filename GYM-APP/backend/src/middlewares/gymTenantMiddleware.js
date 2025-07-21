@@ -8,7 +8,12 @@ const PUBLIC_PATHS = [
 ];
 
 const gymTenantMiddleware = async (req, res, next) => {
+      console.log('====================================');
+    console.log('Ruta recibida por el middleware:', req.path);
+    console.log('Método HTTP:', req.method);
 const isPublicPath = PUBLIC_PATHS.some(path => req.path.startsWith(path));
+console.log('¿La ruta es considerada pública?:', isPublicPath);
+    console.log('====================================');
     if (isPublicPath) {
         return next();
     }
