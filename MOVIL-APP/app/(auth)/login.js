@@ -43,6 +43,11 @@ const LoginPage = () => {
         router.push('/(auth)/register');
     };
     
+const goToForgotPassword = () => {
+        // Esta ruta debe coincidir con el nombre del archivo que crearás en el siguiente paso.
+        router.push('/(auth)/forgot-password');
+    };
+
     // --- ESTILOS DINÁMICOS BASADOS EN EL TEMA ---
     const styles = getStyles(colorScheme , gymColor);
 
@@ -75,7 +80,9 @@ const LoginPage = () => {
                 onChangeText={setPassword} 
                 secureTextEntry
             />
-
+             <TouchableOpacity onPress={goToForgotPassword}>
+                <Text style={styles.forgotPasswordLink}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
             <TouchableOpacity 
                 style={styles.loginButton} 
                 onPress={handleLogin} 
@@ -139,6 +146,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    forgotPasswordLink: {
+        color: gymColor || '#00177d',
+        textAlign: 'right',
+        fontWeight: 'bold',
+        marginBottom: 20, // Espacio antes del botón de login
+        fontSize: 14,
     },
     registerContainer: { marginTop: 40, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
     registerText: { fontSize: 16 },

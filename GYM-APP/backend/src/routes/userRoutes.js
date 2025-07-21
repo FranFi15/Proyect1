@@ -17,10 +17,15 @@ import {
     updateUserProfile,
     changeUserPassword,
     updateUserPushToken,
+    forgotPassword,
+    resetPassword,
 } from '../controllers/userController.js'; 
 import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';  
 
 const router = express.Router();
+
+router.post('/forgot-password', forgotPassword);
+router.put('/reset-password/:token', resetPassword);
 
 router.get('/metrics', protect, authorizeRoles('admin'), getUserMetrics); 
 

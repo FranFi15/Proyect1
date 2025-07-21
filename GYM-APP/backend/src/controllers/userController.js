@@ -633,6 +633,78 @@ const updateUserPushToken = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado');
     }
 });
+const forgotPassword = asyncHandler(async (req, res, next) => {
+    const { User } = getModels(req.gymDBConnection);
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+        // No revelamos si el usuario existe, pero la operación termina aquí.
+        return res.status(200).json({ message: 'Si el correo está registrado, recibirás un enlace.' });
+    }
+
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // 💡 URL de tu frontend para la página de reseteo
+    const resetUrl = `https://tu-frontend.com/reset-password/${resetToken}`;
+
+    const message = `
+        <h1>Has solicitado un reseteo de contraseña</h1>
+        <p>Haz clic en el siguiente enlace para establecer una nueva contraseña (válido por 10 minutos):</p>
+        <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
+    `;
+
+    try {
+        // 💡 Usamos la nueva función dedicada
+        await sendPasswordResetEmail({
+            to: user.email,
+            subject: 'Instrucciones para Resetear tu Contraseña',
+            html: message,
+        });
+
+        res.status(200).json({ success: true, data: 'Email enviado' });
+
+    } catch (err) {
+        console.error(err);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        return next(new Error('El email no pudo ser enviado.'));
+    }
+});
+const resetPassword = asyncHandler(async (req, res, next) => {
+    const { User } = getModels(req.gymDBConnection);
+
+    // 1. Hashea el token que viene de la URL para poder compararlo con el de la BD
+    const resetPasswordToken = crypto
+        .createHash('sha256')
+        .update(req.params.token)
+        .digest('hex');
+
+    // 2. Busca al usuario que tenga ese token y que no haya expirado
+    const user = await User.findOne({
+        resetPasswordToken,
+        resetPasswordExpire: { $gt: Date.now() }, // $gt -> "greater than" (mayor que)
+    });
+
+    if (!user) {
+        res.status(400);
+        throw new Error('El token es inválido o ha expirado.');
+    }
+
+    // 3. Establece la nueva contraseña y limpia los campos de reseteo
+    user.contraseña = req.body.password; // La contraseña se hashea automáticamente por el hook 'pre-save' del modelo
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Contraseña actualizada con éxito.',
+    });
+});
 
 export {
     getAllUsers,
@@ -651,4 +723,6 @@ export {
     updateUserProfile,
     changeUserPassword,
     updateUserPushToken,
+    forgotPassword,
+    resetPassword,
 };

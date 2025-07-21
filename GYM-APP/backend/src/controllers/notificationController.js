@@ -1,9 +1,8 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
-import { Resend } from 'resend';
 import { sendExpoPushNotification } from '../utils/notificationSender.js'; // <-- Importamos la función
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 const sendSingleNotification = async (NotificationModel, UserModel, userId, title, message, type, isImportant, classId = null) => {
     const notificacionInApp = await NotificationModel.create({
@@ -21,20 +20,6 @@ const sendSingleNotification = async (NotificationModel, UserModel, userId, titl
     if (!user) {
         console.error(`Usuario con ID ${userId} no encontrado.`);
         return notificacionInApp;
-    }
-
-    if (user.email) {
-        try {
-            await resend.emails.send({
-                from: 'Gain <noreply@gain-wellness.com>', 
-                to: user.email,
-                subject: title,
-                html: `<h1>${title}</h1><p>Hola, ${user.nombre || 'usuario'}!</p><p>${message}</p><br>`,
-            });
-            console.log(`Email enviado exitosamente al usuario ${userId} (${user.email})`);
-        } catch (error) {
-            console.error(`Falló el envío de email para el usuario ${userId}:`, error);
-        }
     }
 
     if (user.pushToken) {

@@ -275,8 +275,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 30,
         elevation: 8,
     },
-    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-    modalContainer: { width: '90%', borderRadius: 2, padding: 25, elevation: 5 },
+    modalOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+    modalContainer: { width: '100%', height: '85%', borderRadius: 2, padding: 25, elevation: 5 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9 },
     input: {

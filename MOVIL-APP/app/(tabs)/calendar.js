@@ -1,5 +1,5 @@
 // MOVIL-APP/app/(tabs)/calendar.js
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
     StyleSheet, 
     Alert, 
@@ -100,28 +100,31 @@ const CalendarScreen = () => {
     const [selectedClassType, setSelectedClassType] = useState('all'); // For picker filter
     const [error, setError] = useState(null)
     const [isRefreshing, setIsRefreshing] = useState(false); 
-    
+    const [adminPhoneNumber, setAdminPhoneNumber] = useState(null);
+
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
     const calendarTheme = getCalendarTheme(colorScheme);
 
-     const handleWhatsAppPress = () => {
-        // Asumimos que el número del admin del negocio está en user.gym.telefono
-        // Si la propiedad tiene otro nombre, ajústala aquí.
-        const phoneNumber = user?.gym?.numeroTelefono;
+    useEffect(() => {
+    // Esta función se ejecuta cada vez que el objeto 'user' cambia.
+    if (user && user.adminPhoneNumber) {
+        console.log("Número de admin encontrado en el contexto:", user.adminPhoneNumber);
+        setAdminPhoneNumber(user.adminPhoneNumber);
+    }
+}, [user]);
 
-        if (phoneNumber) {
-            const message = 'Hola, tengo una consulta sobre los turnos.';
-            // El formato es código de país + número, sin '+' ni espacios.
-            const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-            Linking.openURL(url).catch(() => {
-                Alert.alert('Error', 'Asegúrate de tener WhatsApp instalado.');
-            });
-        } else {
-            Alert.alert('Sin Contacto', 'Este negocio no ha configurado un número de contacto.');
-        }
-    };
+     const handleWhatsAppPress = (phoneNumber) => {
+    // Ya no necesita buscar en 'user', recibe el número directamente
+    if (phoneNumber) {
+        const message = 'Hola, tengo una consulta sobre los turnos.';
+        const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+        Linking.openURL(url).catch(() => {
+            Alert.alert('Error', 'Asegúrate de tener WhatsApp instalado.');
+        });
+    }
+};
 
     const fetchData = useCallback(async () => {
         if (!user) {
@@ -388,6 +391,7 @@ const CalendarScreen = () => {
     }
 
     return (
+        <View style={{ flex: 1 }}>
         <ThemedView style={styles.container}>
             <View style={styles.tabContainer}>
                 <TouchableOpacity onPress={() => { setActiveView('calendar'); setSelectedDate(null); }} style={[styles.tab, activeView === 'calendar' && styles.activeTab]}>
@@ -459,17 +463,18 @@ const CalendarScreen = () => {
                     )}
                 </>
             )}
-             {/* ✨ 3. BOTÓN FLOTANTE (FAB) PARA WHATSAPP */}
-            {user?.gym?.telefono && (
+        </ThemedView>
+        {adminPhoneNumber && (
                 <TouchableOpacity
                     style={styles.fab}
-                    onPress={handleWhatsAppPress}
+                    onPress={() => handleWhatsAppPress(adminPhoneNumber)}
                 >
                     <FontAwesome5 name="whatsapp" size={30} color="#fff" />
                 </TouchableOpacity>
             )}
-        </ThemedView>
+            </View>
     );
+
 };
 
 const getStyles = (colorScheme, gymColor) => {
@@ -565,16 +570,20 @@ const getStyles = (colorScheme, gymColor) => {
         fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
         fab: {
             position: 'absolute',
-            width: 60,
-            height: 60,
+            width: 50,
+            height: 50,
             alignItems: 'center',
             justifyContent: 'center',
             right: 20,
             bottom: 20,
-            backgroundColor: '#25D366', // Color de WhatsApp
-            borderRadius: 30, // La mitad del ancho/alto para hacerlo circular
-            ...shadowProp, // Reutilizamos la sombra para que destaque
-            elevation: 8, // Mayor elevación para que flote por encima de todo
+            backgroundColor: '#25D366',
+            borderRadius: 30,
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.23,
+            shadowRadius: 2.62,
+            zIndex: 999,
         },
     });
 };

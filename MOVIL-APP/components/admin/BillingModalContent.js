@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, TextInput, Button, useColorScheme, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, TextInput, Button, useColorScheme, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { getUserTransactions, createTransaction } from '../../services/managementApi';
 import apiClient from '../../services/apiClient'; // Importamos apiClient
 import { Colors } from '@/constants/Colors';
@@ -127,7 +127,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: {  height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: {  width: '100%',height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 10, right: 10, zIndex: 1},
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
     summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },

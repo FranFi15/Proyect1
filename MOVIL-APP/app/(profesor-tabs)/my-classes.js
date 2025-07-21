@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { StyleSheet, Alert, ActivityIndicator, SectionList, View, Text, Modal, FlatList, TouchableOpacity, useColorScheme , RefreshControl} from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { format, parseISO, differenceInYears } from 'date-fns';
+import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
@@ -98,15 +98,28 @@ const ProfessorMyClassesScreen = () => {
     };
 
     // --- DATA STRUCTURING ---
-    const sectionedClasses = useMemo(() => {
-        const grouped = myClasses.reduce((acc, clase) => {
-            const dateKey = capitalize(format(parseISO(clase.fecha), "EEEE, d 'de' MMMM", { locale: es }));
-            if (!acc[dateKey]) acc[dateKey] = [];
-            acc[dateKey].push(clase);
-            return acc;
-        }, {});
-        return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
-    }, [myClasses]);
+const sectionedClasses = useMemo(() => {
+    
+    const today = startOfDay(new Date());
+
+    
+    const futureClasses = myClasses.filter(clase => {
+        const classDate = parseISO(clase.fecha);
+        // La condición !isBefore(classDate, today) es verdadera si la clase es
+        // de hoy o de una fecha futura.
+        return !isBefore(classDate, today);
+    });
+
+    
+    const grouped = futureClasses.reduce((acc, clase) => {
+        const dateKey = capitalize(format(parseISO(clase.fecha), "EEEE, d 'de' MMMM", { locale: es }));
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(clase);
+        return acc;
+    }, {});
+
+    return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
+}, [myClasses]); 
 
     // --- RENDER FUNCTIONS ---
 
@@ -128,7 +141,7 @@ const ProfessorMyClassesScreen = () => {
         <TouchableOpacity onPress={() => handleViewStudentDetails(item)}>
             <View style={styles.studentListItem}>
                 <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
-                <FontAwesome5 name="chevron-right" size={16} color={Colors[colorScheme].icon} />
+                <FontAwesome5 name="info" size={18} color={Colors[colorScheme].icon} />
             </View>
         </TouchableOpacity>
     );
