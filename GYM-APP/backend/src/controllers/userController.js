@@ -648,7 +648,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     // 💡 URL de tu frontend para la página de reseteo
-    const resetUrl = `${process.env.FRONTEND_URL}reset-password/${resetToken}`;
+    const resetUrl = `${process.env.RESET_URL}${resetToken}`;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
@@ -707,6 +707,13 @@ const resetPassword = asyncHandler(async (req, res, next) => {
         message: 'Contraseña actualizada con éxito.',
     });
 });
+const handleResetLink = asyncHandler(async (req, res) => {
+    const { token } = req.params;
+    const deepLink = `${process.env.FRONTEND_URL}reset-password/${token}`;
+
+    // Redirige al usuario al deep link de la aplicación
+    res.redirect(302, deepLink);
+});
 
 export {
     getAllUsers,
@@ -727,4 +734,5 @@ export {
     updateUserPushToken,
     forgotPassword,
     resetPassword,
+    handleResetLink,
 };

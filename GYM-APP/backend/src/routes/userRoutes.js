@@ -19,13 +19,15 @@ import {
     updateUserPushToken,
     forgotPassword,
     resetPassword,
+    handleResetLink
 } from '../controllers/userController.js'; 
-import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';  
+
 
 const router = express.Router();
 
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
+router.get('/handle-reset-link/:token', handleResetLink);
 
 router.get('/metrics', protect, authorizeRoles('admin'), getUserMetrics); 
 
