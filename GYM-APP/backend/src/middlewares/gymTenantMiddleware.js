@@ -1,7 +1,18 @@
 // gym-app-backend/src/middlewares/gymTenantMiddleware.js
 import connectToGymDB from '../config/mongoConnectionManager.js'; 
 
+const PUBLIC_PATHS = [
+    '/api/users/forgot-password',
+    '/api/users/reset-password', 
+    '/api/users/handle-reset-link' 
+];
+
 const gymTenantMiddleware = async (req, res, next) => {
+const isPublicPath = PUBLIC_PATHS.some(path => req.path.startsWith(path));
+    if (isPublicPath) {
+        return next();
+    }
+
     const clientId = req.headers['x-client-id'];
 
     if (!clientId) {
