@@ -647,8 +647,8 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
-    // 💡 URL de tu frontend para la página de reseteo
-    const resetUrl = `${process.env.RESET_URL}${resetToken}`;
+    const clientId = req.gymId;
+    const resetUrl = `${process.env.RESET_URL}/api/users/handle-reset-link/${resetToken}?clientId=${clientId}`;;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
