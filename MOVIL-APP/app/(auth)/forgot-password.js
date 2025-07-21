@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from 'react-native';
+import apiClient from '../../services/apiClient';
 
 const ForgotPasswordScreen = () => {
     const [email, setEmail] = useState('');
@@ -17,24 +18,28 @@ const ForgotPasswordScreen = () => {
 
     const handleResetPassword = async () => {
         if (!email) {
-            Alert.alert('Error', 'Por favor, ingresa tu correo electrónico.');
+            Alert.alert('Campo vacío', 'Por favor, ingresa tu correo electrónico.');
             return;
         }
         setIsLoading(true);
         try {
-            // Aquí iría la lógica para llamar a tu API
-            // Por ejemplo: await apiClient.post('/auth/forgot-password', { email });
+            // --- 💡 LLAMADA A LA API ---
+            await apiClient.post('/users/forgot-password', { email });
 
             Alert.alert(
-                'Solicitud Enviada', 
+                'Solicitud Enviada',
                 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
             );
+            // Opcional: navegar de vuelta al login
+            // router.back();
+
         } catch (error) {
-            // Manejar el error sin revelar si el email existe o no
-             Alert.alert(
-                'Solicitud Enviada', 
+            // Incluso si hay un error, mostramos un mensaje genérico por seguridad
+            Alert.alert(
+                'Solicitud Enviada',
                 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.'
             );
+            console.error('Error al solicitar reseteo:', error);
         } finally {
             setIsLoading(false);
         }

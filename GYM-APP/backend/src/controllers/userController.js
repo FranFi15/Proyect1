@@ -4,6 +4,8 @@ import asyncHandler from 'express-async-handler';
 import { calculateAge } from '../utils/ageUtils.js'; 
 import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js';
+import crypto from 'crypto';
+import { sendPasswordResetEmail } from '../services/emailService.js';
 
 const getAllUsers = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
@@ -646,7 +648,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     // 💡 URL de tu frontend para la página de reseteo
-    const resetUrl = `https://tu-frontend.com/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
