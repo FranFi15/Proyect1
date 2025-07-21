@@ -672,7 +672,10 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
         user.resetPasswordExpire = undefined;
         await user.save({ validateBeforeSave: false });
 
-        return next(new Error('El email no pudo ser enviado.'));
+        res.status(503).json({
+            success: false,
+            message: 'El servicio de correo no está disponible en este momento. Por favor, inténtalo de nuevo más tarde.'
+        });
     }
 });
 const resetPassword = asyncHandler(async (req, res, next) => {
@@ -711,7 +714,6 @@ const handleResetLink = asyncHandler(async (req, res) => {
     const { token } = req.params;
     const deepLink = `${process.env.FRONTEND_URL}reset-password/${token}`;
 
-    // Redirige al usuario al deep link de la aplicación
     res.redirect(302, deepLink);
 });
 
