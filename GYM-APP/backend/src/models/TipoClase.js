@@ -12,7 +12,6 @@ const tipoClaseSchema = mongoose.Schema(
             type: String,
             default: '',
         },
-        // --- CAMPOS PARA GESTIÓN DE INVENTARIO DE CRÉDITOS ---
         creditosTotales: {
             type: Number,
             default: 0,
@@ -29,6 +28,10 @@ const tipoClaseSchema = mongoose.Schema(
             default: 0,
             comment: 'Precio de la suscripción o de un paquete de créditos para este tipo de clase.'
          },
+         resetMensual: {
+            type: Boolean,
+            default: true,
+        },
     },
     {
         timestamps: true,

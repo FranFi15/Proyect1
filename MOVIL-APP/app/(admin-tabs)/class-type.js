@@ -306,16 +306,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 16,
     },
     textArea: { height: 100, textAlignVertical: 'top', paddingTop: 15 },
-    modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-    button: { flex: 1, paddingVertical: 12, borderRadius: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
-    cancelButton: { backgroundColor: '#6c757d' },
-    buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20, 
 },
+    modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+    button: { flex: 1, paddingVertical: 12, borderRadius: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
+    cancelButton: { backgroundColor: '#6c757d' },
+    buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    
 });
 
 export default ClassTypeManagementScreen;
