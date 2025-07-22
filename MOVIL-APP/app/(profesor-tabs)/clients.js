@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, FlatList, View, TextInput, ActivityIndicator, Alert, TouchableOpacity, Modal, useColorScheme, Text } from 'react-native';
+import { StyleSheet, FlatList, View, TextInput, ActivityIndicator, Alert, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,10 +22,12 @@ const ProfessorClientsScreen = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/users');
-            // Los profesores solo ven a los clientes
-            setUsers(response.data.filter(u => u.roles.includes('cliente')));
+            // --- CORRECCIÓN: Se pide al backend que filtre los usuarios por rol ---
+            // Esto es más eficiente que traer todos los usuarios y filtrar en la app.
+            const response = await apiClient.get('/users?role=cliente');
+            setUsers(response.data);
         } catch (error) {
+            console.error("Error fetching clients:", error.response?.data || error.message);
             Alert.alert('Error', 'No se pudieron cargar los socios.');
         } finally {
             setLoading(false);
@@ -41,6 +43,11 @@ const ProfessorClientsScreen = () => {
     const handleOpenPlanModal = (client) => {
         setSelectedClient(client);
         setPlanModalVisible(true);
+    };
+
+    const handleCloseModal = () => {
+        setPlanModalVisible(false);
+        setSelectedClient(null); // Limpiamos el cliente seleccionado al cerrar
     };
 
     const filteredData = useMemo(() => {
@@ -70,14 +77,14 @@ const ProfessorClientsScreen = () => {
                     keyExtractor={(item) => item._id}
                 />
             )}
-            <Modal visible={planModalVisible} transparent={true} animationType="slide">
-                {selectedClient && (
-                    <TrainingPlanModal
-                        client={selectedClient}
-                        onClose={() => setPlanModalVisible(false)}
-                    />
-                )}
-            </Modal>
+            
+            {selectedClient && (
+                 <TrainingPlanModal
+                    visible={planModalVisible}
+                    client={selectedClient}
+                    onClose={handleCloseModal}
+                />
+            )}
         </ThemedView>
     );
 };

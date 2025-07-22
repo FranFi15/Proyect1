@@ -6,6 +6,7 @@ import getConfiguracionModel from '../models/Configuracion.js';
 import getCreditLogModel from '../models/CreditLog.js';
 import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
+import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 
 
 /**
@@ -32,6 +33,7 @@ const getModels = (dbConnection) => {
         CreditLog: getCreditLogModel(dbConnection),
         Transaction: getTransactionsModel(dbConnection),
         TrainingPlan: getTrainingPlanModel(dbConnection),
+        TrainingTemplate: getTrainingTemplateModel(dbConnection),
     };
 
     return models;

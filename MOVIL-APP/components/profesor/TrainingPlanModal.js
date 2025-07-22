@@ -23,14 +23,23 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
         if (!client) return;
         setLoading(true);
         try {
-            const [plansRes, templatesRes] = await Promise.all([
-                apiClient.get(`/plans/user/${client._id}`),
-                apiClient.get('/plans/templates')
-            ]);
+            // --- CORRECCIÓN: Se separan las llamadas para un mejor debugging ---
+            // 1. Cargar los planes del cliente seleccionado.
+            const plansRes = await apiClient.get(`/plans/user/${client._id}`);
             setPlans(plansRes.data);
+
+            // 2. Cargar las plantillas del profesor.
+            const templatesRes = await apiClient.get('/plans/templates');
             setTemplates(templatesRes.data);
+
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar los datos.');
+            // --- CORRECCIÓN: Se muestra un mensaje de error detallado ---
+            const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
+            console.error("Error fetching modal data:", error.response || error);
+            Alert.alert(
+                'Error al Cargar Datos',
+                `No se pudo completar la operación. Razón: ${errorMessage}`
+            );
         } finally {
             setLoading(false);
         }
@@ -71,7 +80,7 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
     };
 
     const renderContent = () => {
-        if (loading) return <ActivityIndicator color={gymColor} size="large" />;
+        if (loading) return <ActivityIndicator color={gymColor} size="large" style={{flex: 1}} />;
         switch (view) {
             case 'editPlan':
             case 'newPlan':
@@ -131,8 +140,6 @@ const PlanEditor = ({ plan: initialPlan, onSave, onCancel }) => {
     );
 };
 
-// El resto de los sub-componentes (PlanList, TemplateSelector) y los estilos permanecen sin cambios significativos
-// ... (Se omite el código repetido de PlanList, TemplateSelector y getStyles por brevedad, ya que su lógica no cambia)
 const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => {
     const { gymColor } = useAuth();
     const styles = getStyles('light', gymColor);

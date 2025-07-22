@@ -1,8 +1,9 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, View, Text } from 'react-native';
+import { Image, View, Text, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { Colors } from '@/constants/Colors';
 
 function HeaderLogoTitle() {
   const { gymLogo } = useAuth();
@@ -12,11 +13,15 @@ function HeaderLogoTitle() {
 
 export default function ProfessorTabsLayout() {
   const { user, gymColor } = useAuth();
+  const colorScheme = useColorScheme() ?? 'light';
 
   return (
     <Tabs 
       screenOptions={{
         tabBarActiveTintColor: gymColor,
+        tabBarStyle: {
+                  backgroundColor: Colors[colorScheme].cardBackground,
+                },
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />,
         headerStyle: { 
