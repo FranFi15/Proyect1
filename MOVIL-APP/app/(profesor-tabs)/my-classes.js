@@ -8,7 +8,7 @@ import apiClient from '../../services/apiClient';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 
 const capitalize = (str) => {
     if (!str) return '';
@@ -137,11 +137,20 @@ const sectionedClasses = useMemo(() => {
     );
 
     // Renders a student's name in the first modal list.
-    const renderStudentListItem = ({ item }) => (
+     const renderStudentListItem = ({ item }) => (
         <TouchableOpacity onPress={() => handleViewStudentDetails(item)}>
             <View style={styles.studentListItem}>
                 <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
-                <FontAwesome5 name="info" size={18} color={Colors[colorScheme].icon} />
+                 <View style={styles.studentListActions}>
+                    {item.ordenMedicaRequerida && (
+                        <Ionicons
+                            name={item.ordenMedicaEntregada ? "document-text" : "document-text"}
+                            size={22} 
+                            color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}
+                        />
+                    )}
+                    <FontAwesome5 name="info-circle" size={22} color={Colors[colorScheme].icon} />
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -269,7 +278,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 18,
         color: Colors[colorScheme].text,
     },
-    // Styles for the second modal (student details)
+    studentListActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 15, // Espacio entre los íconos
+    },
     studentDetailContainer: {
         width: '100%',
         marginBottom: 20,

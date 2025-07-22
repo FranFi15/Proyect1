@@ -36,14 +36,14 @@ const ManageClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // --- ESTADOS DE LOS MODALES ---
+
     const [selectedClient, setSelectedClient] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
 
-    // --- ESTADOS PARA FORMULARIOS Y LÓGICA INTERNA ---
+   
     const [planData, setPlanData] = useState({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' });
     const [massEnrollFilters, setMassEnrollFilters] = useState({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -52,13 +52,13 @@ const ManageClientsScreen = () => {
     const [showMassEnrollDatePicker, setShowMassEnrollDatePicker] = useState(false);
     const [datePickerField, setDatePickerField] = useState(null);
     
-    // --- ESTADOS PARA FORMULARIO DE NUEVO CLIENTE ---
+   
     const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], });
     const [newClientDay, setNewClientDay] = useState('');
     const [newClientMonth, setNewClientMonth] = useState('');
     const [newClientYear, setNewClientYear] = useState('');
 
-    // --- ESTADOS PARA FORMULARIO DE EDICIÓN DE CLIENTE ---
+    
     const [editingClientData, setEditingClientData] = useState(null);
     const [editingClientDay, setEditingClientDay] = useState('');
     const [editingClientMonth, setEditingClientMonth] = useState('');
@@ -118,7 +118,12 @@ const ManageClientsScreen = () => {
 
     const handleOpenEditModal = (client) => {
         const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente'];
-        setEditingClientData({ ...client, roles: clientRoles });
+        setEditingClientData({ 
+            ...client, 
+            roles: clientRoles, 
+            ordenMedicaRequerida: client.ordenMedicaRequerida || false, 
+            ordenMedicaEntregada: client.ordenMedicaEntregada || false 
+        });
 
         if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) {
             const date = parseISO(client.fechaNacimiento);
@@ -356,6 +361,11 @@ const ManageClientsScreen = () => {
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
                             <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
+                        {item.ordenMedicaRequerida && (
+                            <TouchableOpacity style={styles.actionButton}>
+                            <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}/>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
                 {hasCredits && (
@@ -490,6 +500,26 @@ const ManageClientsScreen = () => {
                                         <Picker.Item label="Admin" value="admin" />
                                     </Picker>
                                 </View>
+                                <View style={styles.switchRow}>
+                                    <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
+                                    <Switch
+                                        value={editingClientData.ordenMedicaRequerida}
+                                        onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)}
+                                        trackColor={{ false: "#767577", true: gymColor }}
+                                        thumbColor={"#f4f3f4"}
+                                    />
+                                </View>
+                                {editingClientData.ordenMedicaRequerida && (
+                                    <View style={styles.switchRow}>
+                                        <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
+                                        <Switch
+                                            value={editingClientData.ordenMedicaEntregada}
+                                            onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)}
+                                            trackColor={{ false: "#767577", true: gymColor }}
+                                            thumbColor={"#f4f3f4"}
+                                        />
+                                    </View>
+                                )}
 
                                 <View style={styles.modalActions}>
                                     <Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} />
@@ -641,7 +671,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
-    actionButton: { marginLeft: 8, padding: 1 },
+    actionButton: { marginLeft: 8, },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     roleBadge: {
@@ -731,7 +761,16 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
     dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
-    dateInputText: { fontSize: 14, color: Colors[colorScheme].text, }
+    dateInputText: { fontSize: 14, color: Colors[colorScheme].text, },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+    },
 });
 
 export default ManageClientsScreen;

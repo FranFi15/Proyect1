@@ -84,11 +84,13 @@ const getMe = asyncHandler(async (req, res) => {
                 autoRenewAmount: sub.autoRenewAmount,
                 lastRenewalDate: sub.lastRenewalDate,
             })),
-            pushToken: user.pushToken, // Ensure pushToken is also returned for mobile app's AuthContext if needed
+            pushToken: user.pushToken, 
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
             requestedSpotNotifications: user.requestedSpotNotifications || [], 
             adminPhoneNumber: adminPhoneNumber,
+            ordenMedicaRequerida:user.ordenMedicaRequerida,
+            ordenMedicaEntregada:user.ordenMedicaEntregada
         };
         res.json(userProfile);
     } else {
