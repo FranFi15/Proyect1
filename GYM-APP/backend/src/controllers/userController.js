@@ -89,8 +89,6 @@ const getMe = asyncHandler(async (req, res) => {
             updatedAt: user.updatedAt,
             requestedSpotNotifications: user.requestedSpotNotifications || [], 
             adminPhoneNumber: adminPhoneNumber,
-            ordenMedicaRequerida:user.ordenMedicaRequerida,
-            ordenMedicaEntregada:user.ordenMedicaEntregada
         };
         res.json(userProfile);
     } else {
