@@ -1,3 +1,6 @@
+import asyncHandler from 'express-async-handler'; 
+import getModels from '../utils/getModels.js';
+
 const createTemplate = asyncHandler(async (req, res) => {
     const { TrainingTemplate } = getModels(req.gymDBConnection);
     const { name, description, content } = req.body;
