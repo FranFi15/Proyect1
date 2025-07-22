@@ -137,12 +137,11 @@ const ClassTypeManagementScreen = () => {
         <View style={styles.card}>
             <View style={styles.cardContent}>
                 <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
-                <ThemedText style={styles.cardDescription}>{item.descripcion || 'Sin descripción'}</ThemedText>
                 <Text style={styles.priceText}>
                     Precio: ${item.price?.toFixed(2) || '0.00'}
                 </Text>
                 <ThemedText style={[styles.cardDescription, { marginTop: 8, fontStyle: 'italic' }]}>
-                    Reinicio de Créditos: {item.resetMensual ? 'Mensual' : 'Permanente'}
+                    Créditos: {item.resetMensual ? 'Vencimiento Mensual' : 'Sin Vencimiento'}
                 </ThemedText>
             </View>
             <View style={styles.cardActions}>
@@ -203,15 +202,6 @@ const ClassTypeManagementScreen = () => {
                             placeholder="Ej: Crossfit"
                             value={formData.nombre}
                             onChangeText={(text) => handleFormChange('nombre', text)}
-                        />
-                        
-                        <ThemedText style={styles.inputLabel}>Descripción (Opcional)</ThemedText>
-                        <TextInput
-                            style={[styles.input, styles.textArea]}
-                            placeholder="Breve descripción del turno"
-                            value={formData.descripcion}
-                            onChangeText={(text) => handleFormChange('descripcion', text)}
-                            multiline
                         />
 
                         <ThemedText style={styles.inputLabel}>Precio</ThemedText>

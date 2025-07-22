@@ -86,7 +86,7 @@ const getClassById = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(req.params.id)
         .populate('tipoClase', 'nombre')
         .populate('profesor', 'nombre apellido')
-        .populate('usuariosInscritos', 'nombre apellido fechaNacimiento sexo telefonoEmergencia obraSocial');
+        .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial');
 
     if (classItem) {
         const classWithAge = classItem.toObject();

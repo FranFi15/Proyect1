@@ -130,6 +130,16 @@ const ManageClassesScreen = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleTimeInputChange = (text, name, setStateFunction) => {
+        // Elimina cualquier caracter que no sea un número
+        const cleanedText = text.replace(/[^0-9]/g, '');
+        let formattedText = cleanedText;
+        if (cleanedText.length > 2) {
+            formattedText = `${cleanedText.slice(0, 2)}:${cleanedText.slice(2, 4)}`;
+        }
+        setStateFunction(prev => ({ ...prev, [name]: formattedText }));
+    };
+
     const handleDaySelection = (day) => {
         const currentDays = formData.diaDeSemana;
         const newDays = currentDays.includes(day)
@@ -604,15 +614,45 @@ const ManageClassesScreen = () => {
                                         </View>
                                     </TouchableOpacity>
                                     <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleFormChange('horaInicio', text)} />
+                                    <TextInput 
+                                        style={styles.input} 
+                                        placeholder="HH:MM" 
+                                        value={formData.horaInicio} 
+                                        onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)}
+                                        keyboardType="numeric"
+                                        maxLength={5}
+                                    />
                                     <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleFormChange('horaFin', text)} />
+                                    <TextInput 
+                                        style={styles.input} 
+                                        placeholder="HH:MM" 
+                                        value={formData.horaFin} 
+                                        onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)}
+                                        keyboardType="numeric"
+                                        maxLength={5}
+                                    />
+                                    {/* --- FIN: CAMBIO EN INPUT DE HORA --- */}
                                 </>
                             ) : (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Horario Fijo</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleFormChange('horaInicio', text)} />
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleFormChange('horaFin', text)} />
+                                    {/* --- INICIO: CAMBIO EN INPUT DE HORA --- */}
+                                    <TextInput 
+                                        style={styles.input} 
+                                        placeholder="HH:MM" 
+                                        value={formData.horaInicio} 
+                                        onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)}
+                                        keyboardType="numeric"
+                                        maxLength={5}
+                                    />
+                                    <TextInput 
+                                        style={styles.input} 
+                                        placeholder="HH:MM" 
+                                        value={formData.horaFin} 
+                                        onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)}
+                                        keyboardType="numeric"
+                                        maxLength={5}
+                                    />
                                     
                                     <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
                                     <TouchableOpacity onPress={() => showDatePickerForField('fechaInicio')}>
@@ -698,11 +738,22 @@ const ManageClassesScreen = () => {
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <ThemedText style={styles.modalTitle}>Editar Grupo: {editingGroup?.nombre}</ThemedText>
                             
-                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Inicio:</ThemedText>
-                            <TextInput style={styles.input} value={bulkUpdates.horaInicio} onChangeText={text => setBulkUpdates(p => ({...p, horaInicio: text}))} />
+                            <TextInput 
+                                style={styles.input} 
+                                value={bulkUpdates.horaInicio} 
+                                onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)}
+                                keyboardType="numeric"
+                                maxLength={5}
+                            />
                             
                             <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin: </ThemedText>
-                            <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => setBulkUpdates(p => ({...p, horaFin: text}))} />
+                            <TextInput 
+                                style={styles.input} 
+                                value={bulkUpdates.horaFin} 
+                                onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)}
+                                keyboardType="numeric"
+                                maxLength={5}
+                            />
                             <ThemedText style={styles.inputLabel}>Capacidad: </ThemedText>
                             <TextInput style={styles.input} value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
                             <ThemedText style={styles.inputLabel}>Nuevo Profesor:</ThemedText>
