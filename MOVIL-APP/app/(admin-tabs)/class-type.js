@@ -11,6 +11,7 @@ import {
     useColorScheme,
     ActivityIndicator,
     RefreshControl,
+    Switch
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -31,7 +32,7 @@ const ClassTypeManagementScreen = () => {
     
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingClassType, setEditingClassType] = useState(null);
-    const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0' });
+    const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
 
     const fetchClassTypes = useCallback(async () => {
         try {
@@ -68,7 +69,7 @@ const ClassTypeManagementScreen = () => {
 
     const handleAdd = () => {
         setEditingClassType(null);
-        setFormData({ nombre: '', descripcion: '', price: '0' });
+        setFormData({ nombre: '', descripcion: '', price: '0', resetMensual: true });
         setIsModalVisible(true);
     };
 
@@ -77,7 +78,8 @@ const ClassTypeManagementScreen = () => {
         setFormData({ 
             nombre: type.nombre, 
             descripcion: type.descripcion || '', 
-            price: type.price?.toString() || '0' 
+            price: type.price?.toString() || '0',
+            resetMensual: type.resetMensual ?? true, 
         });
         setIsModalVisible(true);
     };
@@ -139,6 +141,9 @@ const ClassTypeManagementScreen = () => {
                 <Text style={styles.priceText}>
                     Precio: ${item.price?.toFixed(2) || '0.00'}
                 </Text>
+                <ThemedText style={[styles.cardDescription, { marginTop: 8, fontStyle: 'italic' }]}>
+                    Reinicio de Créditos: {item.resetMensual ? 'Mensual' : 'Permanente'}
+                </ThemedText>
             </View>
             <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
@@ -217,6 +222,16 @@ const ClassTypeManagementScreen = () => {
                             onChangeText={(text) => handleFormChange('price', text)}
                             keyboardType="numeric"
                         />
+                        <View style={styles.switchContainer}>
+                            <ThemedText style={styles.inputLabel}>¿Reiniciar créditos mensualmente?</ThemedText>
+                            <Switch
+                                trackColor={{ false: "#767577", true: gymColor || '#81b0ff' }}
+                                thumbColor={formData.resetMensual ? '#f4f3f4' : '#f4f3f4'}
+                                ios_backgroundColor="#3e3e3e"
+                                onValueChange={(value) => handleFormChange('resetMensual', value)}
+                                value={formData.resetMensual}
+                            />
+                        </View>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
@@ -295,6 +310,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     button: { flex: 1, paddingVertical: 12, borderRadius: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20, 
+},
 });
 
 export default ClassTypeManagementScreen;

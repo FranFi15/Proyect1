@@ -195,7 +195,8 @@ const NotificationAdminScreen = () => {
                         {filteredClasses.length > 0 ? (
                             filteredClasses.map(item => (
                                 <TouchableOpacity key={item._id} style={[styles.listItem, selectedClassId === item._id && styles.listItemSelected]} onPress={() => setSelectedClassId(item._id)}>
-                                    <Text style={styles.listItemText}>{item.nombre}</Text>
+                                    <Text style={styles.listItemText}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre}</Text>
+                                    <Text style={styles.listItemSubtext}>{item.profesor?.nombre} {item.profesor?.apellido}</Text>
                                     <Text style={styles.listItemSubtext}>{new Date(item.fecha).toLocaleDateString()} - {item.horaInicio}</Text>
                                 </TouchableOpacity>
                             ))

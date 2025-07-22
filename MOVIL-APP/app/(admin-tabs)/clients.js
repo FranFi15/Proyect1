@@ -322,6 +322,41 @@ const ManageClientsScreen = () => {
         }
     };
 
+    const handleToggleMedicalOrder = (user) => {
+        const newStatus = !user.ordenMedicaEntregada;
+        const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE";
+        const userName = `${user.nombre} ${user.apellido}`;
+
+        Alert.alert(
+            `Confirmar Orden Médica`,
+            `¿Estás seguro de que quieres ${actionText} la orden médica de ${userName}?`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Confirmar",
+                    onPress: async () => {
+                        try {
+                            await apiClient.put(`/users/${user._id}`, {
+                                ordenMedicaEntregada: newStatus
+                            });
+                            // Actualiza el estado local para un feedback instantáneo
+                            setUsers(currentUsers =>
+                                currentUsers.map(u =>
+                                    u._id === user._id
+                                        ? { ...u, ordenMedicaEntregada: newStatus }
+                                        : u
+                                )
+                            );
+                            Alert.alert('Éxito', 'El estado de la orden médica ha sido actualizado.');
+                        } catch (error) {
+                            Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar el estado.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const filteredData = useMemo(() => {
         if (!searchTerm) return users;
         return users.filter(user =>
@@ -350,7 +385,7 @@ const ManageClientsScreen = () => {
                     </View>
                     <View style={styles.actionsContainer}>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                            <Ionicons name="logo-usd" size={24} color='#01ca0fff' />
+                            <Ionicons name="logo-usd" size={24} color='#28a745' />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
@@ -362,7 +397,7 @@ const ManageClientsScreen = () => {
                             <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                         {item.ordenMedicaRequerida && (
-                            <TouchableOpacity style={styles.actionButton}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
                             <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}/>
                             </TouchableOpacity>
                         )}

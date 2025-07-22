@@ -105,7 +105,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                         <TextInput style={styles.input} placeholder="Descripción (Ej: Pago cuota, Cargo inscripción)" value={newTransaction.description} onChangeText={text => setNewTransaction(p => ({...p, description: text}))} />
                         <View style={styles.buttonRow}>
                             <Button title="Registrar Pago" onPress={() => handleCreateTransaction('payment')} color={'#28a745'} />
-                            <Button title="Añadir Cargo" onPress={() => handleCreateTransaction('charge')} color={Colors.light.error} />
+                            <Button title="Añadir Cargo" onPress={() => handleCreateTransaction('charge')} color={'#a72828ff'} />
                         </View>
                     </View>
                     

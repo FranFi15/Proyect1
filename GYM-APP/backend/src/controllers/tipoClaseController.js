@@ -5,8 +5,7 @@ import asyncHandler from 'express-async-handler';
 const createTipoClase = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
 
-    // --- CORRECCIÓN: Se añade 'price' a la desestructuración ---
-    const { nombre, descripcion, price } = req.body;
+    const { nombre, descripcion, price, resetMensual, } = req.body;
 
     if (!nombre) {
         res.status(400);
@@ -25,6 +24,7 @@ const createTipoClase = asyncHandler(async (req, res) => {
         nombre,
         descripcion,
         price,
+        resetMensual,
     });
 
     res.status(201).json(tipoClase);
@@ -75,16 +75,15 @@ const updateTipoClase = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
 
     // --- CORRECCIÓN: Se añade 'price' a la desestructuración ---
-    const { nombre, descripcion, price } = req.body;
+    const { nombre, descripcion, price, resetMensual } = req.body;
 
     const tipoClase = await TipoClase.findById(req.params.id);
 
     if (tipoClase) {
         tipoClase.nombre = nombre !== undefined ? nombre : tipoClase.nombre;
         tipoClase.descripcion = descripcion !== undefined ? descripcion : tipoClase.descripcion;
-        // --- CORRECCIÓN: Se añade la lógica para actualizar el precio ---
-        // Usamos '??' para permitir que el precio se actualice a 0 si es necesario.
         tipoClase.price = price ?? tipoClase.price;
+        tipoClase.resetMensual = resetMensual ?? tipoClase.resetMensual;
 
         const updatedTipoClase = await tipoClase.save();
         res.status(200).json(updatedTipoClase);

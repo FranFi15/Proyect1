@@ -306,7 +306,7 @@ const CalendarScreen = () => {
             <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
                 {/* ... ThemedTexts para nombre, horario, etc. (sin cambios) ... */}
                 <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>
-                    {item.nombre} - {item.tipoClase?.nombre || ''}
+                    {item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}
                 </ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de : {item.profesor?.nombre || 'A confirmar'} {item.profesor?.apellido || ''}</ThemedText>

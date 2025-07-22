@@ -126,12 +126,12 @@ const sectionedClasses = useMemo(() => {
     // Renders a single class item in the main screen list.
     const renderClassItem = ({ item }) => (
         <ThemedView style={styles.classItem}>
-            <ThemedText style={styles.className}>{item.nombre} - {item.tipoClase?.nombre || 'General'}</ThemedText>
+            <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || 'General'}</ThemedText>
             <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
             <ThemedText style={styles.classInfoText}>Inscritos: {item.usuariosInscritos.length}/{item.capacidad}</ThemedText>
             <TouchableOpacity style={styles.viewStudentsButton} onPress={() => handleViewStudents(item._id, item.nombre)}>
                 <FontAwesome5 name="users" size={16} color="#fff" />
-                <Text style={styles.viewStudentsButtonText}>Ver Alumnos</Text>
+                <Text style={styles.viewStudentsButtonText}>Ver Clientes</Text>
             </TouchableOpacity>
         </ThemedView>
     );
@@ -200,7 +200,7 @@ const sectionedClasses = useMemo(() => {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
-                        <ThemedText style={styles.modalTitle}>Alumnos en {selectedClassName}</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Clientes</ThemedText>
                         {loadingStudents ? (
                             <ActivityIndicator size="large" color={gymColor} />
                         ) : (
@@ -208,7 +208,7 @@ const sectionedClasses = useMemo(() => {
                                 data={selectedClassStudents}
                                 renderItem={renderStudentListItem}
                                 keyExtractor={(item) => item._id}
-                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay alumnos inscritos.</ThemedText>}
+                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clientes inscritos.</ThemedText>}
                                 style={{width: '100%'}}
                                 refreshControl={
                     <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
@@ -234,7 +234,7 @@ const sectionedClasses = useMemo(() => {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
-                        <ThemedText style={styles.modalTitle}>Detalles del Alumno</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Detalles del Cliente</ThemedText>
                         {renderStudentDetail()}
                         <TouchableOpacity
                             style={[styles.buttonClose, {backgroundColor: '#1a5276'}]}

@@ -149,7 +149,7 @@ const MyClassesScreen = () => {
 
         return (
             <ThemedView style={styles.classItem}>
-                <ThemedText style={styles.className}>{item.nombre} - {item.tipoClase?.nombre || ''}</ThemedText>
+                <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
                 {item.profesor ? (
                     <ThemedText style={styles.classInfoText}>A cargo de : {item.profesor.nombre} {item.profesor.apellido}</ThemedText>
                 ) : (

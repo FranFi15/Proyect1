@@ -703,7 +703,8 @@ const ManageClassesScreen = () => {
                             
                             <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin: </ThemedText>
                             <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => setBulkUpdates(p => ({...p, horaFin: text}))} />
-
+                            <ThemedText style={styles.inputLabel}>Capacidad: </ThemedText>
+                            <TextInput style={styles.input} value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
                             <ThemedText style={styles.inputLabel}>Nuevo Profesor:</ThemedText>
                             <View style={styles.pickerContainer}>
                                 <Picker selectedValue={bulkUpdates.profesor} onValueChange={itemValue => setBulkUpdates(p => ({...p, profesor: itemValue}))}>
@@ -898,7 +899,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         gap: 15
     },
     confirmationModal: {
-        width: '85%',
+        width: '100%',
         backgroundColor: Colors[colorScheme].background,
         borderRadius: 12,
         padding: 25,
@@ -994,7 +995,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     dayActions: {
         marginTop: 20,
-        width: '90%',
+        width: '100%',
         gap: 15,
     }
 });
