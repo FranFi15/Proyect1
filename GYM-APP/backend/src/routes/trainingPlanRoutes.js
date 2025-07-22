@@ -1,34 +1,43 @@
+// src/routes/trainingPlanRoutes.js
 import express from 'express';
 const router = express.Router();
 import {
-    createPlan,
+    createTemplate,
+    getMyTemplates,
+    updateTemplate,
+    deleteTemplate,
+    createPlanForUser,
     getPlansForUser,
-    getMyVisiblePlan,
+    getMyVisiblePlans,
     updatePlan,
     deletePlan,
 } from '../controllers/trainingPlanController.js';
-import { protect, authorizeRoles } from '../middlewares/authMiddleware.js'
+import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
-// Middleware para permitir acceso a Admin O Profesor
-const adminOrProfessor = (req, res, next) => {
-    if (req.user && (req.user.roles.includes('admin') || req.user.roles.includes('profesor'))) {
-        next();
-    } else {
-        res.status(403);
-        throw new Error('No autorizado, se requiere rol de Admin o Profesor.');
-    }
-};
+// --- Rutas de Plantillas (Solo para Admins y Profesores) ---
+router.route('/templates')
+    .post(protect, authorizeRoles('admin', 'profesor'), createTemplate)
+    .get(protect, authorizeRoles('admin', 'profesor'), getMyTemplates);
 
-// Ruta para que el cliente vea su plan
-router.get('/my-plan', protect, getMyVisiblePlan);
+router.route('/templates/:templateId')
+    .put(protect, authorizeRoles('admin', 'profesor'), updateTemplate)
+    .delete(protect, authorizeRoles('admin', 'profesor'), deleteTemplate);
 
-// Rutas para Admins y Profesores
+
+// --- Rutas de Planes Asignados ---
+
+// Ruta para que el cliente vea sus planes visibles
+router.get('/my-plans', protect, getMyVisiblePlans);
+
+// Crear un plan para un usuario
 router.route('/')
-    .post(protect, authorizeRoles('admin', 'profesor'), createPlan);
+    .post(protect, authorizeRoles('admin', 'profesor'), createPlanForUser);
 
+// Obtener todos los planes de un usuario específico
 router.route('/user/:userId')
     .get(protect, authorizeRoles('admin', 'profesor'), getPlansForUser);
 
+// Modificar o eliminar un plan específico
 router.route('/:planId')
     .put(protect, authorizeRoles('admin', 'profesor'), updatePlan)
     .delete(protect, authorizeRoles('admin', 'profesor'), deletePlan);
