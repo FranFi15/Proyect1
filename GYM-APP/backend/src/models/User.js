@@ -112,6 +112,14 @@ const userSchema = mongoose.Schema({
     },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    ordenMedicaRequerida: {
+        type: Boolean,
+        default: false,
+    },
+    ordenMedicaEntregada: {
+        type: Boolean,
+        default: false,
+    },
 }, {
     timestamps: true,
 });

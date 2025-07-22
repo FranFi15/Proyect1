@@ -63,7 +63,6 @@ const ProfessorClientsScreen = () => {
                 <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
                 <Text style={styles.cardSubtitle}>{item.email}</Text>
             </View>
-            <Ionicons name="create-outline" size={24} color={gymColor} />
         </TouchableOpacity>
     );
 

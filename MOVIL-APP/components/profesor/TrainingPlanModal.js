@@ -159,7 +159,6 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => 
         <View style={{flex: 1}}>
             <FlatList data={plans} renderItem={renderItem} keyExtractor={(item) => item._id} ListEmptyComponent={<Text style={styles.emptyText}>Este cliente no tiene planes.</Text>} />
             <View style={styles.footerButtons}>
-                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onNewFromTemplate}><Text style={styles.buttonTextSecondary}>Nuevo desde Plantilla</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.button} onPress={onNewPlan}><Text style={styles.buttonText}>Crear Plan Nuevo</Text></TouchableOpacity>
             </View>
         </View>
@@ -177,23 +176,56 @@ const TemplateSelector = ({ templates, onSelect, onCancel }) => {
 };
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 15 },
+    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius:2, padding: 15 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text },
-    planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, marginVertical: 5 },
+    // --- ESTILOS CORREGIDOS ---
+    planCard: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        padding: 20, 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        borderRadius: 2, 
+        marginVertical: 8,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 1.41,
+    },
     planTitle: { fontSize: 16, fontWeight: '600' },
     planDate: { fontSize: 12, opacity: 0.6, marginTop: 4 },
     planActions: { flexDirection: 'row', gap: 15 },
     footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 10 },
-    button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', backgroundColor: gymColor },
+    button: { 
+        flex: 1, 
+        padding: 15, 
+        borderRadius: 2, 
+        alignItems: 'center', 
+        backgroundColor: gymColor 
+    },
     buttonText: { color: '#fff', fontWeight: 'bold' },
     buttonSecondary: { backgroundColor: Colors[colorScheme].border },
     buttonTextSecondary: { color: Colors[colorScheme].text, fontWeight: 'bold' },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7 },
     label: { fontSize: 16, fontWeight: '600', marginBottom: 5, marginTop: 15 },
-    input: { borderWidth: 1, borderColor: Colors[colorScheme].border, borderRadius: 8, paddingHorizontal: 10, backgroundColor: '#fff', paddingVertical: 10, fontSize: 16 },
-    textArea: { textAlignVertical: 'top', paddingTop: 10 },
+    input: { 
+        borderWidth: 1, 
+        borderColor: Colors[colorScheme].border, 
+        borderRadius: 2, 
+        paddingHorizontal: 15, 
+        backgroundColor: '#fff', 
+        fontSize: 16,
+        height: 50
+    },
+    textArea: { 
+        textAlignVertical: 'top', 
+        paddingTop: 15,
+        height: 'auto' // Altura automática para el área de texto
+    },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }
 });
 
 export default TrainingPlanModal;
+

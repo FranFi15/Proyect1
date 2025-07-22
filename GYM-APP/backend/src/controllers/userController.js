@@ -37,6 +37,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         obraSocial: user.obraSocial,
         planesFijos: user.planesFijos || [],
         monthlySubscriptions: user.monthlySubscriptions || [],
+        ordenMedicaRequerida: user.ordenMedicaRequerida,
+        ordenMedicaEntregada: user.ordenMedicaEntregada,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
     }));
@@ -126,6 +128,13 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         user.direccion = req.body.direccion !== undefined ? req.body.direccion : user.direccion;
         user.numeroTelefono = req.body.numeroTelefono !== undefined ? req.body.numeroTelefono : user.numeroTelefono;
         user.obraSocial = req.body.obraSocial !== undefined ? req.body.obraSocial : user.obraSocial;
+
+        if (req.body.ordenMedicaRequerida !== undefined) {
+            user.ordenMedicaRequerida = req.body.ordenMedicaRequerida;
+        }
+        if (req.body.ordenMedicaEntregada !== undefined) {
+            user.ordenMedicaEntregada = req.body.ordenMedicaEntregada;
+        }
 
         if (req.body.planesFijos && typeof req.body.planesFijos === 'object' && !Array.isArray(req.body.planesFijos)) {
             user.planesFijos = new Map(Object.entries(req.body.planesFijos));
