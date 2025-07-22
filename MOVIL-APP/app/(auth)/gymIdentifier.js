@@ -49,7 +49,6 @@ export default function GymIdentifierScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            {/* Imagen local de la app */}
            <Image
                 source={
                     colorScheme === 'dark' 
@@ -62,11 +61,11 @@ export default function GymIdentifierScreen() {
             
             <TextInput
                 style={styles.input}
-                placeholder="Código"
+                placeholder="xxxx-xxxx-xxxx"
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
-                placeholderTextColor="#888"
+                placeholderTextColor="#8888"
             />
             <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}

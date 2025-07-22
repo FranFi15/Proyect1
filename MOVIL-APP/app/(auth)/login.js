@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 // --- COMPONENTES TEMÁTICOS ---
 import { ThemedView } from '@/components/ThemedView'; 
@@ -22,7 +23,7 @@ const LoginPage = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { login, gymName, gymLogo, gymColor } = useAuth(); 
+    const { login, logout, gymName, gymLogo, gymColor } = useAuth(); 
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light'; // Detecta el tema
 
@@ -46,6 +47,11 @@ const LoginPage = () => {
 const goToForgotPassword = () => {
         // Esta ruta debe coincidir con el nombre del archivo que crearás en el siguiente paso.
         router.push('/(auth)/forgot-password');
+    };
+
+     const handleGoBackToIdentifier = () => {
+        logout();
+        router.replace('/'); 
     };
 
     // --- ESTILOS DINÁMICOS BASADOS EN EL TEMA ---
@@ -96,11 +102,15 @@ const goToForgotPassword = () => {
             </TouchableOpacity>
 
             <View style={styles.registerContainer}>
-                <ThemedText style={styles.registerText}>¿No tienes una cuenta? </ThemedText>
+                <ThemedText style={styles.registerText}>¿No tenés una cuenta? </ThemedText>
                 <TouchableOpacity onPress={goToRegister}>
                     <Text style={styles.registerLink}>Regístrate</Text>
                 </TouchableOpacity>
             </View>
+            <TouchableOpacity style={styles.changeGymButton} onPress={handleGoBackToIdentifier}>
+                <Ionicons name="swap-horizontal-outline" size={16} color={styles.changeGymText.color} />
+                <Text style={styles.changeGymText}>{" "} Cambiar de Institución</Text>
+            </TouchableOpacity>
         </ThemedView>
     );
 };
@@ -151,12 +161,24 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: gymColor || '#00177d',
         textAlign: 'right',
         fontWeight: 'bold',
-        marginBottom: 20, // Espacio antes del botón de login
+        marginBottom: 20, 
         fontSize: 14,
     },
-    registerContainer: { marginTop: 40, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    registerContainer: { marginTop: 25, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
     registerText: { fontSize: 16 },
-    registerLink: { fontSize: 16, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 }, // Un color de link estándar
+    registerLink: { fontSize: 16, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 }, 
+     changeGymButton: {
+        marginTop: 30, // Más espacio para separarlo
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 0.8, // Un poco más sutil
+    },
+    changeGymText: {
+        color: Colors[colorScheme].text, // Un color menos prominente
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
 });
 
 export default LoginPage;

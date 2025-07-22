@@ -118,9 +118,9 @@ const RegisterPage = () => {
                         ))}
                     </View>
 
-                    <TextInput style={styles.input} placeholder="Dirección (Opcional)" placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
-                    <TextInput style={styles.input} placeholder="Teléfono (Opcional)" placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
-                    <TextInput style={styles.input} placeholder="Obra Social (Opcional)" placeholderTextColor={Colors[colorScheme].text} value={obraSocial} onChangeText={setObraSocial} />
+                    <TextInput style={styles.input} placeholder="Dirección " placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
+                    <TextInput style={styles.input} placeholder="Teléfono " placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
+                    <TextInput style={styles.input} placeholder="Obra Social " placeholderTextColor={Colors[colorScheme].text} value={obraSocial} onChangeText={setObraSocial} />
 
                     <TouchableOpacity 
                         style={styles.registerButtonContainer} 
@@ -159,7 +159,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon, // Un color de borde sutil
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 2, 
         marginBottom: 12, 
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background, // Fondo del tema
@@ -171,7 +171,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon, 
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 2, 
         paddingHorizontal: 8, 
         textAlign: 'center', 
         flex: 1, 
@@ -186,7 +186,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].icon, 
-        borderRadius: 20 
+        borderRadius: 2 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 

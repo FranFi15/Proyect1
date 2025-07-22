@@ -1,3 +1,4 @@
+// src/models/TrainingPlan.js
 import mongoose from 'mongoose';
 
 const trainingPlanSchema = new mongoose.Schema({
@@ -9,24 +10,30 @@ const trainingPlanSchema = new mongoose.Schema({
     createdBy: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User', 
-        required: true // El profe/admin que lo creó
-    }, 
-    title: { 
+        required: true
+    },
+    template: { // Opcional: para saber si se basó en una plantilla
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'TrainingTemplate'
+    },
+    name: { 
         type: String, 
         required: true, 
-        default: 'Plan de Entrenamiento' 
+        default: 'Nuevo Plan' 
+    },
+    description: {
+        type: String,
     },
     content: { 
         type: String, 
-        required: true // El contenido del plan (ejercicios, series, etc.)
-    }, 
+        required: true,
+    },
     isVisibleToUser: { 
         type: Boolean, 
-        default: false, // Por defecto, el plan no es visible para el cliente
+        default: false,
         required: true 
     }, 
 }, { timestamps: true });
-
 
 export default (gymDBConnection) => {
     if (gymDBConnection.models.TrainingPlan) {

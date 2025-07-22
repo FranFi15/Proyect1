@@ -1,158 +1,192 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, TextInput, Button, useColorScheme, ScrollView, Switch } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, TextInput, Switch, ScrollView } from 'react-native';
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
+import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { getTrainingPlansForUser, createTrainingPlan, updateTrainingPlan, deleteTrainingPlan } from '../../services/managementApi';
 
-const TrainingPlanModal = ({ client, onClose }) => {
-    const [plan, setPlan] = useState(null);
-    const [content, setContent] = useState('');
-    const [isVisible, setIsVisible] = useState(false);
-    
+// --- Componente Principal del Modal ---
+const TrainingPlanModal = ({ client, visible, onClose }) => {
     const { gymColor } = useAuth();
-    const colorScheme = useColorScheme() ?? 'light';
+    const colorScheme = 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    useEffect(() => {
-        const fetchPlan = async () => {
-            try {
-                const response = await getTrainingPlansForUser(client._id);
-                if (response.data && response.data.length > 0) {
-                    const latestPlan = response.data[0];
-                    setPlan(latestPlan);
-                    setContent(latestPlan.content);
-                    setIsVisible(latestPlan.isVisibleToUser);
-                }
-            } catch (error) {
-                // No mostramos alerta si no hay plan, es normal
-            }
-        };
-        fetchPlan();
+    const [plans, setPlans] = useState([]);
+    const [templates, setTemplates] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [view, setView] = useState('list');
+    const [currentPlan, setCurrentPlan] = useState(null);
+
+    const fetchData = useCallback(async () => {
+        if (!client) return;
+        setLoading(true);
+        try {
+            const [plansRes, templatesRes] = await Promise.all([
+                apiClient.get(`/plans/user/${client._id}`),
+                apiClient.get('/plans/templates')
+            ]);
+            setPlans(plansRes.data);
+            setTemplates(templatesRes.data);
+        } catch (error) {
+            Alert.alert('Error', 'No se pudieron cargar los datos.');
+        } finally {
+            setLoading(false);
+        }
     }, [client]);
 
-    const handleSavePlan = async () => {
-        if (!content) { 
-            Alert.alert('Error', 'El contenido del plan no puede estar vacío.'); 
-            return; 
+    useEffect(() => {
+        if (visible) {
+            fetchData();
         }
+    }, [visible, fetchData]);
+
+    const handleSaveChanges = async (planToSave) => {
         try {
-            if (plan) {
-                await updateTrainingPlan(plan._id, { content, isVisibleToUser: isVisible });
+            const payload = { ...planToSave, userId: client._id };
+            if (planToSave._id) {
+                await apiClient.put(`/plans/${planToSave._id}`, payload);
             } else {
-                await createTrainingPlan({ userId: client._id, content, isVisibleToUser: isVisible });
+                await apiClient.post('/plans', payload);
             }
             Alert.alert('Éxito', 'Plan guardado correctamente.');
-            onClose();
+            fetchData();
+            setView('list');
         } catch (error) {
             Alert.alert('Error', 'No se pudo guardar el plan.');
         }
     };
 
-    // --- NUEVA FUNCIÓN PARA ELIMINAR EL PLAN ---
-    const handleDeletePlan = () => {
-        if (!plan) return; // No se puede eliminar si no existe
+    const handleDeletePlan = (planId) => {
+        Alert.alert("Confirmar", "¿Eliminar este plan?", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Eliminar", style: "destructive", onPress: async () => {
+                try {
+                    await apiClient.delete(`/plans/${planId}`);
+                    fetchData();
+                } catch (error) { Alert.alert('Error', 'No se pudo eliminar.'); }
+            }},
+        ]);
+    };
 
-        Alert.alert(
-            "Confirmar Eliminación",
-            "¿Estás seguro de que quieres eliminar este plan de entrenamiento? Esta acción no se puede deshacer.",
-            [
-                { text: "Cancelar", style: "cancel" },
-                { 
-                    text: "Eliminar", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        try {
-                            await deleteTrainingPlan(plan._id);
-                            Alert.alert('Éxito', 'El plan ha sido eliminado.');
-                            onClose();
-                        } catch (error) {
-                            Alert.alert('Error', 'No se pudo eliminar el plan.');
-                        }
-                    }
-                }
-            ]
-        );
+    const renderContent = () => {
+        if (loading) return <ActivityIndicator color={gymColor} size="large" />;
+        switch (view) {
+            case 'editPlan':
+            case 'newPlan':
+                return <PlanEditor plan={currentPlan} onSave={handleSaveChanges} onCancel={() => setView('list')} />;
+            case 'selectTemplate':
+                return <TemplateSelector templates={templates} onSelect={(template) => {
+                    setCurrentPlan({ name: template.name, description: template.description, content: template.content, isVisibleToUser: false });
+                    setView('newPlan');
+                }} onCancel={() => setView('list')} />;
+            default:
+                return <PlanList plans={plans} onEdit={(plan) => { setCurrentPlan(plan); setView('editPlan'); }} onDelete={handleDeletePlan} onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} onNewFromTemplate={() => setView('selectTemplate')} />;
+        }
     };
 
     return (
-        <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color="#ccc" />
-                </TouchableOpacity>
-                <ScrollView>
-                    <Text style={styles.modalTitle}>Plan para {client.nombre}</Text>
-                    <Text style={styles.inputLabel}>Diagnóstico / Plan de Entrenamiento</Text>
-                    <TextInput 
-                        style={styles.textArea} 
-                        multiline 
-                        value={content} 
-                        onChangeText={setContent}
-                        placeholder="Escribe aquí los ejercicios, series, repeticiones..."
-                        placeholderTextColor={Colors[colorScheme].icon}
-                    />
-                    <View style={styles.switchContainer}>
-                        <Text style={styles.inputLabel}>Visible para el socio</Text>
-                        <Switch 
-                            trackColor={{ false: "#767577", true: '#28a745'}} 
-                            thumbColor={isVisible ? '#1a5276' : "#f4f3f4"} 
-                            onValueChange={setIsVisible} 
-                            value={isVisible} 
-                            
-                        />
+        <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <ThemedView style={styles.modalContainer}>
+                    <View style={styles.header}>
+                        <ThemedText style={styles.headerTitle}>Planes de {client.nombre}</ThemedText>
+                        <TouchableOpacity onPress={() => onClose(false)}><Ionicons name="close-circle" size={30} color={Colors[colorScheme].text} /></TouchableOpacity>
                     </View>
-                    <View style={styles.buttonContainer}>
-                        {/* --- NUEVO BOTÓN DE ELIMINAR (SOLO SI EL PLAN YA EXISTE) --- */}
-                        <View style={{flex: 1}}>
-                           <Button title="Guardar Plan" onPress={handleSavePlan} color='#1a5276' />
-                        </View>
-                        {plan && (
-                            
-                            <TouchableOpacity onPress={handleDeletePlan} style={styles.deleteButton}>
-                                <Ionicons name="trash" size={24} color={Colors[colorScheme].icon} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </ScrollView>
+                    {renderContent()}
+                </ThemedView>
+            </View>
+        </Modal>
+    );
+};
+
+// --- Editor de Planes (Simplificado) ---
+const PlanEditor = ({ plan: initialPlan, onSave, onCancel }) => {
+    const [plan, setPlan] = useState(initialPlan);
+    const { gymColor } = useAuth();
+    const styles = getStyles('light', gymColor);
+
+    return (
+        <ScrollView style={{flex: 1}}>
+            <Text style={styles.label}>Título del Plan</Text>
+            <TextInput style={styles.input} value={plan.name} onChangeText={text => setPlan(p => ({ ...p, name: text }))} />
+            
+            <Text style={styles.label}>Descripción (Opcional)</Text>
+            <TextInput style={[styles.input, styles.textArea]} multiline value={plan.description} onChangeText={text => setPlan(p => ({ ...p, description: text }))} />
+
+            <Text style={styles.label}>Contenido del Plan</Text>
+            <TextInput style={[styles.input, styles.textArea, {height: 250}]} multiline value={plan.content} onChangeText={text => setPlan(p => ({ ...p, content: text }))} />
+
+            <View style={styles.switchContainer}>
+                <Text style={styles.label}>Visible para el Cliente</Text>
+                <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={value => setPlan(p => ({ ...p, isVisibleToUser: value }))} value={plan.isVisibleToUser} />
+            </View>
+
+            <View style={styles.footerButtons}>
+                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}><Text style={styles.buttonTextSecondary}>Cancelar</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}><Text style={styles.buttonText}>Guardar</Text></TouchableOpacity>
+            </View>
+        </ScrollView>
+    );
+};
+
+// El resto de los sub-componentes (PlanList, TemplateSelector) y los estilos permanecen sin cambios significativos
+// ... (Se omite el código repetido de PlanList, TemplateSelector y getStyles por brevedad, ya que su lógica no cambia)
+const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => {
+    const { gymColor } = useAuth();
+    const styles = getStyles('light', gymColor);
+    const renderItem = ({ item }) => (
+        <View style={styles.planCard}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.planTitle}>{item.name}</Text>
+                <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
+            </View>
+            <View style={styles.planActions}>
+                <TouchableOpacity onPress={() => onEdit(item)}><Ionicons name="create-outline" size={24} color={gymColor} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(item._id)}><Ionicons name="trash-outline" size={24} color={Colors.light.error} /></TouchableOpacity>
+            </View>
+        </View>
+    );
+    return (
+        <View style={{flex: 1}}>
+            <FlatList data={plans} renderItem={renderItem} keyExtractor={(item) => item._id} ListEmptyComponent={<Text style={styles.emptyText}>Este cliente no tiene planes.</Text>} />
+            <View style={styles.footerButtons}>
+                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onNewFromTemplate}><Text style={styles.buttonTextSecondary}>Nuevo desde Plantilla</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={onNewPlan}><Text style={styles.buttonText}>Crear Plan Nuevo</Text></TouchableOpacity>
             </View>
         </View>
     );
 };
-
+const TemplateSelector = ({ templates, onSelect, onCancel }) => {
+    const { gymColor } = useAuth();
+    const styles = getStyles('light', gymColor);
+    return (
+        <View style={{flex: 1}}>
+            <FlatList data={templates} keyExtractor={item => item._id} renderItem={({item}) => (<TouchableOpacity style={styles.planCard} onPress={() => onSelect(item)}><Text style={styles.planTitle}>{item.name}</Text></TouchableOpacity>)} ListEmptyComponent={<Text style={styles.emptyText}>No has creado plantillas.</Text>} />
+            <TouchableOpacity style={[styles.button, styles.buttonSecondary, {marginTop: 10}]} onPress={onCancel}><Text style={styles.buttonTextSecondary}>Cancelar</Text></TouchableOpacity>
+        </View>
+    );
+};
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
-    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    inputLabel: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 10, fontWeight: '500' },
-    textArea: { 
-        height: 300, 
-        borderColor: Colors[colorScheme].border, 
-        borderWidth: 1, 
-        borderRadius: 2, 
-        padding: 15, 
-        fontSize: 16, 
-        textAlignVertical: 'top', 
-        color: Colors[colorScheme].text 
-    },
-    switchContainer: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingVertical: 15, 
-        marginVertical: 15,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10, // Espacio entre los botones
-    },
-    deleteButton: {
-        padding: 10,
-        borderColor: Colors.light.error,
-        borderRadius: 2,
-    }
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 15 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text },
+    planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, marginVertical: 5 },
+    planTitle: { fontSize: 16, fontWeight: '600' },
+    planDate: { fontSize: 12, opacity: 0.6, marginTop: 4 },
+    planActions: { flexDirection: 'row', gap: 15 },
+    footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 10 },
+    button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', backgroundColor: gymColor },
+    buttonText: { color: '#fff', fontWeight: 'bold' },
+    buttonSecondary: { backgroundColor: Colors[colorScheme].border },
+    buttonTextSecondary: { color: Colors[colorScheme].text, fontWeight: 'bold' },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7 },
+    label: { fontSize: 16, fontWeight: '600', marginBottom: 5, marginTop: 15 },
+    input: { borderWidth: 1, borderColor: Colors[colorScheme].border, borderRadius: 8, paddingHorizontal: 10, backgroundColor: '#fff', paddingVertical: 10, fontSize: 16 },
+    textArea: { textAlignVertical: 'top', paddingTop: 10 },
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }
 });
 
 export default TrainingPlanModal;
