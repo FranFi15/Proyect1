@@ -22,7 +22,8 @@ import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 // Importación de CRON Jobs
 import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
-import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; // <-- RUTA CORRECTA
+import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; 
+import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 
 
 dotenv.config();
@@ -66,6 +67,7 @@ app.get('/', (req, res) => {
 scheduleMonthlyClassGeneration();
 scheduleMonthlyCreditReset();
 scheduleDebtorNotifications(); 
+scheduleMonthlyCleanup();
 
 // Middlewares de manejo de errores
 app.use(notFound);
