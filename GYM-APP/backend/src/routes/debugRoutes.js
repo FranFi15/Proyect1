@@ -2,10 +2,57 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { generateFutureFixedClasses } from '../controllers/classController.js';
-import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js'; // Import the specific function
-import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js'; // Needed for req.gymDBConnection, req.gymId
+import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js'; 
+import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js'; 
+import { masterCronJob } from '../cron/monthlyReport.js'; 
+import { runCreditResetJob } from '../cron/CreditResetJob.js'; 
 
 const router = express.Router();
+
+
+// Middleware para proteger las rutas de depuración
+// Usa la misma clave interna que tus cron jobs para mayor seguridad
+const protectDebugRoute = (req, res, next) => {
+    const internalApiKey = req.headers['x-internal-api-key'];
+    // IMPORTANTE: Asegúrate de que process.env.INTERNAL_ADMIN_API_KEY esté disponible en Render
+    if (internalApiKey && internalApiKey === process.env.INTERNAL_ADMIN_API_KEY) {
+        next();
+    } else {
+        res.status(403).json({ message: 'Acceso no autorizado a rutas de depuración. Se requiere una clave interna válida.' });
+    }
+};
+
+// Ruta para disparar el cron de limpieza y reporte mensual
+router.get('/run-monthly-cleanup', protectDebugRoute, async (req, res) => {
+    try {
+        console.log('DEBUG: Disparando cron de limpieza y reporte mensual...');
+        await masterCronJob();
+        res.status(200).json({ message: 'Cron de limpieza y reporte mensual disparado. Revisa los logs de Render para el progreso y los resultados.' });
+    } catch (error) {
+        console.error('DEBUG: Error al disparar cron de limpieza y reporte mensual:', error);
+        res.status(500).json({ message: 'Error al disparar cron de limpieza y reporte mensual.', error: error.message });
+    }
+});
+
+// Ruta para disparar el cron de reinicio de créditos mensual
+router.get('/run-credit-reset', protectDebugRoute, async (req, res) => {
+    try {
+        console.log('DEBUG: Disparando cron de reinicio de créditos mensual...');
+        await runCreditResetJob();
+        res.status(200).json({ message: 'Cron de reinicio de créditos mensual disparado. Revisa los logs de Render para el progreso y los resultados.' });
+    } catch (error) {
+        console.error('DEBUG: Error al disparar cron de reinicio de créditos mensual:', error);
+        res.status(500).json({ message: 'Error al disparar cron de reinicio de créditos mensual.', error: error.message });
+    }
+});
+
+
+
+
+
+
+
+
 
 // Debug route to force generation of fixed classes for the current gym
 router.get('/generate-classes', gymTenantMiddleware, asyncHandler(async (req, res) => {

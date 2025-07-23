@@ -71,41 +71,57 @@ export const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
     }
 };
 
-// --- La función scheduleMonthlyCreditReset permanece igual ---
-export const scheduleMonthlyCreditReset = () => {
-    cron.schedule('0 0 1 * *', async () => {
-        if (!SUPER_ADMIN_API_URL || !INTERNAL_ADMIN_API_KEY) {
-            console.error('[Cron Job: Monthly Credit Reset] Error: Variables de entorno no configuradas. El cron job no se ejecutará.');
+
+
+
+
+
+
+
+export const runCreditResetJob = async () => {
+    if (!SUPER_ADMIN_API_URL || !INTERNAL_ADMIN_API_KEY) {
+        console.error('[Cron Job: Monthly Credit Reset] Error: Variables de entorno no configuradas. El cron job no se ejecutará.');
+        return;
+    }
+    try {
+        const response = await fetch(`${SUPER_ADMIN_API_URL}/clients/internal/all-clients`, {
+            headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
+        });
+        const clients = await response.json();
+        if (!response.ok) {
+            throw new Error(clients.message || 'Error al obtener clientes.');
+        }
+        if (!Array.isArray(clients) || clients.length === 0) {
+            console.log('[Cron Job: Monthly Credit Reset] No se encontraron clientes para procesar.');
             return;
         }
-        try {
-            const response = await fetch(`${SUPER_ADMIN_API_URL}/clients/internal/all-clients`, {
-                headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
-            });
-            const clients = await response.json();
-            if (!response.ok) {
-                throw new Error(clients.message || 'Error al obtener clientes.');
-            }
-            if (!Array.isArray(clients) || clients.length === 0) return;
 
-            for (const client of clients) {
-                if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
-                    let gymDBConnection;
-                    try {
-                        gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
-                        // Corregido para llamar a la función correcta
-                        await resetCreditsForCurrentGym(gymDBConnection, client.clientId);
-                    } catch (gymError) {
-                        console.error(`[Cron Job] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
-                    }
-                } else {
-                    console.log(`[Cron Job] Saltando gimnasio ${client.nombre} por estado: ${client.estadoSuscripcion}`);
+        console.log(`[Cron Job: Monthly Credit Reset] Iniciando para ${clients.length} gimnasio(s).`);
+
+        for (const client of clients) {
+            if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
+                let gymDBConnection;
+                try {
+                    gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
+                    await resetCreditsForCurrentGym(gymDBConnection, client.clientId);
+                    console.log(`[Cron Job] Créditos procesados para el gimnasio ${client.nombre} (ID: ${client.clientId}).`);
+                } catch (gymError) {
+                    console.error(`[Cron Job] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
+            } else {
+                console.log(`[Cron Job] Saltando gimnasio ${client.nombre} por estado: ${client.estadoSuscripcion}`);
             }
-        } catch (error) {
-            console.error('[Cron Job] Error general en la tarea de reinicio de créditos:', error);
         }
-    }, {
+        console.log('[Cron Job] Tarea de reinicio de créditos mensual completada.');
+    } catch (error) {
+        console.error('[Cron Job] Error general en la tarea de reinicio de créditos:', error);
+    }
+};
+
+// --- La función scheduleMonthlyCreditReset ahora llama a la nueva función exportable ---
+export const scheduleMonthlyCreditReset = () => {
+    cron.schedule('0 0 1 * *', runCreditResetJob, { // Ahora llama a la función runCreditResetJob
         timezone: "America/Argentina/Buenos_Aires"
     });
+    console.log('Tarea de reinicio de créditos mensual programada para ejecutarse el 1ro de cada mes a las 0 AM.');
 };
