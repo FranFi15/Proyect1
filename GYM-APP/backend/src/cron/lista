@@ -1,0 +1,38 @@
+// --- La función scheduleMonthlyCreditReset permanece igual ---
+export const scheduleMonthlyCreditReset = () => {
+    cron.schedule('0 0 1 * *', async () => {
+        if (!SUPER_ADMIN_API_URL || !INTERNAL_ADMIN_API_KEY) {
+            console.error('[Cron Job: Monthly Credit Reset] Error: Variables de entorno no configuradas. El cron job no se ejecutará.');
+            return;
+        }
+        try {
+            const response = await fetch(`${SUPER_ADMIN_API_URL}/clients/internal/all-clients`, {
+                headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
+            });
+            const clients = await response.json();
+            if (!response.ok) {
+                throw new Error(clients.message || 'Error al obtener clientes.');
+            }
+            if (!Array.isArray(clients) || clients.length === 0) return;
+
+            for (const client of clients) {
+                if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
+                    let gymDBConnection;
+                    try {
+                        gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
+                        // Corregido para llamar a la función correcta
+                        await resetCreditsForCurrentGym(gymDBConnection, client.clientId);
+                    } catch (gymError) {
+                        console.error(`[Cron Job] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
+                    }
+                } else {
+                    console.log(`[Cron Job] Saltando gimnasio ${client.nombre} por estado: ${client.estadoSuscripcion}`);
+                }
+            }
+        } catch (error) {
+            console.error('[Cron Job] Error general en la tarea de reinicio de créditos:', error);
+        }
+    }, {
+        timezone: "America/Argentina/Buenos_Aires"
+    });
+};
