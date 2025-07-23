@@ -4,8 +4,7 @@ import axios from 'axios';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { sendEmailWithAttachment } from '../services/emailService.js';
 import connectToGymDB from '../config/mongoConnectionManager.js';
-import ClassModelFactory from '../models/Class.js';
-import UserModelFactory from '../models/User.js';
+import getModels from '../utils/getModels.js';
 
 /**
  * Obtiene la lista de todos los IDs de clientes activos desde tu panel de administración.
@@ -21,7 +20,6 @@ const getAllActiveClientIds = async () => {
             throw new Error('La clave INTERNAL_ADMIN_API_KEY no está configurada en el .env');
         }
 
-        // Asumimos que tu admin panel tiene una ruta para devolver los IDs de los clientes activos
         const response = await axios.get(`${adminApiUrl}/api/clients/internal-active-ids`, {
             headers: { 'internal-admin-api-key': internalApiKey }
         });
@@ -30,10 +28,10 @@ const getAllActiveClientIds = async () => {
             throw new Error('La respuesta del admin panel no es un array de clientes válido.');
         }
 
-        return response.data; // Se espera que sea un array de objetos, ej: [{ clientId: '...' }]
+        return response.data;
     } catch (error) {
         console.error("Error crítico al obtener la lista de clientes activos:", error.response?.data || error.message);
-        return []; // Devuelve un array vacío para no detener el proceso
+        return [];
     }
 };
 
@@ -44,8 +42,8 @@ const getAllActiveClientIds = async () => {
 const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     console.log(`[${clientId}] Iniciando tarea mensual de reporte y limpieza de clases...`);
 
-    const Class = ClassModelFactory(gymDB);
-    const User = UserModelFactory(gymDB);
+    // USAR getModels para obtener los modelos
+    const { Clase, User } = getModels(gymDB); // Asegúrate de usar 'Clase' si ese es el nombre del modelo en getModels
 
     const now = new Date();
     const previousMonth = subMonths(now, 1);
@@ -53,7 +51,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     const endDate = endOfMonth(previousMonth);
 
     try {
-        const classesToArchive = await Class.find({
+        const classesToArchive = await Clase.find({ // Usar 'Clase' aquí
             fecha: { $gte: startDate, $lte: endDate },
         }).populate('profesor tipoClase usuariosInscritos');
 
@@ -137,7 +135,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         console.log(`[${clientId}] Correo con el reporte enviado exitosamente a ${adminUser.email}.`);
 
         const classIdsToDelete = classesToArchive.map(c => c._id);
-        await Class.deleteMany({ _id: { $in: classIdsToDelete } });
+        await Clase.deleteMany({ _id: { $in: classIdsToDelete } }); // Usar 'Clase' aquí
 
         console.log(`[${clientId}] ${classIdsToDelete.length} clases antiguas han sido eliminadas.`);
         console.log(`[${clientId}] Tarea mensual de reporte y limpieza completada.`);
