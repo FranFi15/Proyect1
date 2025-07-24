@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, Text, ActivityIndicator, Image } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,7 +11,7 @@ import CustomAlert from '@/components/CustomAlert'; // 1. Importar CustomAlert
 const ForgotPasswordScreen = () => {
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { gymColor } = useAuth();
+    const { gymColor ,gymLogo, gymName } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
@@ -70,6 +70,11 @@ const ForgotPasswordScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+             {gymLogo ? (
+                <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
+            ) : (
+                <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
+            )}
             <ThemedText type="title" style={styles.title}>Recuperar Contraseña</ThemedText>
             <ThemedText style={styles.subtitle}>
                 Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
@@ -111,6 +116,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         padding: 20,
+    },
+    logo: {
+        width: 200,
+        height: 200,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     title: {
         fontSize: 24,

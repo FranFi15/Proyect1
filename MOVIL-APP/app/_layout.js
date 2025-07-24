@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Slot, useRouter, useSegments, Stack } from 'expo-router';
+// ---> CORRECCIÓN: Se elimina 'Stack' y se mantiene 'Slot'
+import { Slot, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -10,7 +11,6 @@ import notificationService from '../services/notificationService';
 import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
 
-// ... (El resto de tus funciones como registerForPushNotificationsAsync y findMostRecentImportantUnread se mantienen igual)
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({
@@ -194,38 +194,36 @@ function AppContent() {
         };
     }, [user, loading, updatePushTokenBackend, handleModalClose, router, refreshUser]);
 
- useEffect(() => {
-    let intervalId;
-    if (user && !loading) {
-      const checkImportantNotificationsPolling = async () => { 
-        try {
-          const notifications = await notificationService.getNotifications();
-          const mostRecentImportantUnread = findMostRecentImportantUnread(notifications);
-          if (mostRecentImportantUnread) {
-            setCurrentImportantNotification(mostRecentImportantUnread);
-            setModalVisible(true);
-          }
-        } catch (error) {
-          console.error("Error checking for important notifications (polling):", error);
-        }
-      };
+   useEffect(() => {
+        let intervalId;
+        if (user && !loading) {
+          const checkImportantNotificationsPolling = async () => { 
+            try {
+              const notifications = await notificationService.getNotifications();
+              const mostRecentImportantUnread = findMostRecentImportantUnread(notifications);
+              if (mostRecentImportantUnread) {
+                setCurrentImportantNotification(mostRecentImportantUnread);
+                setModalVisible(true);
+              }
+            } catch (error) {
+              console.error("Error checking for important notifications (polling):", error);
+            }
+          };
 
-      checkImportantNotificationsPolling();
-      intervalId = setInterval(checkImportantNotificationsPolling, 5 * 60 * 1000);
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [user, loading, refreshUser]); 
+          checkImportantNotificationsPolling();
+          intervalId = setInterval(checkImportantNotificationsPolling, 5 * 60 * 1000);
+        }
+        return () => {
+          if (intervalId) clearInterval(intervalId);
+        };
+   }, [user, loading, refreshUser]); 
 
     return (
         <>
-            <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="(admin-tabs)" />
-                <Stack.Screen name="(profesor-tabs)" />
-            </Stack>
+            {/* ---> CORRECCIÓN: Se reemplaza el <Stack> por <Slot />.
+                 Slot renderizará el layout hijo correcto ((auth), (tabs), etc.)
+                 basado en la URL, que es manejada por la lógica de redirección de arriba. */}
+            <Slot />
             
             <ImportantNotificationModal
                 visible={modalVisible}

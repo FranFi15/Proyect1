@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Image, View, Text, useColorScheme } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 
@@ -52,6 +52,19 @@ export default function ProfessorTabsLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'people' : 'people-outline'} 
+              size={size} 
+              color={color} 
+            />
+          ),
+        }} 
+      />
+       <Tabs.Screen 
+        name="notificar" 
+        options={{ 
+          title: 'Notificar',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} 
               size={size} 
               color={color} 
             />

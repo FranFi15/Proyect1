@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, Text, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -12,7 +12,7 @@ import CustomAlert from '@/components/CustomAlert';
 const ResetPasswordScreen = () => {
     const { token } = useLocalSearchParams();
     const router = useRouter();
-    const { gymColor } = useAuth();
+    const { gymColor , gymLogo, gymName } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     
     const [password, setPassword] = useState('');
@@ -54,6 +54,11 @@ const ResetPasswordScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            {gymLogo ? (
+                <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
+            ) : (
+                <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
+            )}
             <ThemedText type="title" style={styles.title}>Establecer Nueva Contraseña</ThemedText>
             
             <TextInput
@@ -91,6 +96,12 @@ const ResetPasswordScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, justifyContent: 'center', padding: 20 },
+    logo: {
+        width: 200,
+        height: 200,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
     title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 30 },
     input: { height: 45, borderColor: Colors[colorScheme].icon, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, fontSize: 16, marginBottom: 20 },
     button: { backgroundColor: gymColor || '#00177d', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', height: 50 },
