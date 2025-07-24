@@ -7,7 +7,8 @@ import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 
 /**
- * Obtiene la lista de todos los IDs de clientes activos desde tu panel de administración.
+ * Obtiene la lista de todos los clientes (gimnasios) activos desde el panel de administración.
+ * @returns {Promise<Array<{clientId: string}>>} Una lista de objetos de cliente.
  */
 const getAllActiveClients = async () => {
     try {
@@ -25,25 +26,24 @@ const getAllActiveClients = async () => {
         });
 
         if (!response.data || !Array.isArray(response.data)) {
-            throw new Error('La respuesta del admin panel no es un array de clientes válido.');
+            throw new Error('La respuesta del panel de administración no es un array de clientes válido.');
         }
 
         return response.data.filter(client => client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba');
     } catch (error) {
         console.error("Error crítico al obtener la lista de clientes activos:", error.response?.data || error.message);
-        // Devolvemos el error para que el master job sepa que falló.
         throw new Error('No se pudo obtener la lista de clientes del panel de administración.');
     }
 };
 
-
 /**
  * Genera un reporte de Excel y elimina las clases del mes anterior para un gimnasio específico.
+ * @param {mongoose.Connection} gymDB - La conexión a la base de datos del gimnasio.
+ * @param {string} clientId - El ID del cliente (gimnasio) que se está procesando.
  */
 const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     console.log(`[${clientId}] Iniciando tarea mensual de reporte y limpieza de clases...`);
 
-    // --- CORRECCIÓN: Usar el nombre de modelo 'Clase' como se define en getModels.js ---
     const { Clase, User } = getModels(gymDB);
 
     const now = new Date();
@@ -52,13 +52,13 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     const endDate = endOfMonth(previousMonth);
 
     try {
-        const classesToArchive = await Clase.find({ // <-- CORREGIDO
+        const classesToArchive = await Clase.find({
             fecha: { $gte: startDate, $lte: endDate },
         }).populate('profesor tipoClase usuariosInscritos');
 
         if (classesToArchive.length === 0) {
             console.log(`[${clientId}] No hay clases para archivar del mes anterior. Tarea finalizada.`);
-            return { success: true, message: "No hay clases para archivar." };
+            return;
         }
 
         console.log(`[${clientId}] Se encontraron ${classesToArchive.length} clases para archivar.`);
@@ -85,16 +85,20 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F4F4F' } };
 
         for (const clase of classesToArchive) {
+            const baseRowData = {
+                fecha: format(new Date(clase.fecha), 'dd/MM/yyyy'),
+                nombre: clase.nombre,
+                tipo: clase.tipoClase?.nombre || 'N/A',
+                horario: `${clase.horaInicio} - ${clase.horaFin}`,
+                profesor: clase.profesor ? `${clase.profesor.nombre} ${clase.profesor.apellido}` : 'No asignado',
+                inscriptos: clase.usuariosInscritos.length,
+                capacidad: clase.capacidad,
+            };
+
             if (clase.usuariosInscritos && clase.usuariosInscritos.length > 0) {
                 clase.usuariosInscritos.forEach(user => {
                     sheet.addRow({
-                        fecha: format(new Date(clase.fecha), 'dd/MM/yyyy'),
-                        nombre: clase.nombre,
-                        tipo: clase.tipoClase?.nombre || 'N/A',
-                        horario: `${clase.horaInicio} - ${clase.horaFin}`,
-                        profesor: clase.profesor ? `${clase.profesor.nombre} ${clase.profesor.apellido}` : 'No asignado',
-                        inscriptos: clase.usuariosInscritos.length,
-                        capacidad: clase.capacidad,
+                        ...baseRowData,
                         clienteNombre: user ? `${user.nombre} ${user.apellido}` : 'Usuario eliminado',
                         clienteEmail: user ? user.email : 'N/A',
                         clienteDNI: user ? user.dni : 'N/A',
@@ -102,13 +106,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
                 });
             } else {
                  sheet.addRow({
-                    fecha: format(new Date(clase.fecha), 'dd/MM/yyyy'),
-                    nombre: clase.nombre,
-                    tipo: clase.tipoClase?.nombre || 'N/A',
-                    horario: `${clase.horaInicio} - ${clase.horaFin}`,
-                    profesor: clase.profesor ? `${clase.profesor.nombre} ${clase.profesor.apellido}` : 'No asignado',
-                    inscriptos: 0,
-                    capacidad: clase.capacidad,
+                    ...baseRowData,
                     clienteNombre: 'Sin inscriptos',
                 });
             }
@@ -136,7 +134,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         console.log(`[${clientId}] Correo con el reporte enviado exitosamente a ${adminUser.email}.`);
 
         const classIdsToDelete = classesToArchive.map(c => c._id);
-        await Clase.deleteMany({ _id: { $in: classIdsToDelete } }); // <-- CORREGIDO
+        await Clase.deleteMany({ _id: { $in: classIdsToDelete } });
 
         console.log(`[${clientId}] ${classIdsToDelete.length} clases antiguas han sido eliminadas.`);
         console.log(`[${clientId}] Tarea mensual de reporte y limpieza completada.`);
@@ -146,15 +144,27 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     }
 };
 
+/**
+ * Tarea maestra que se ejecuta mensualmente. Obtiene todos los clientes activos
+ * y ejecuta el proceso de limpieza y reporte para cada uno.
+ */
 const masterCronJob = async () => {
+    console.log('Iniciando CRON maestro de limpieza y reporte mensual...');
+    
     // --- AJUSTE PARA PRUEBAS ---
-    // Temporalmente, usamos el DEFAULT_CLIENT_ID para probar sin depender del admin panel.
-    // Cuando soluciones el problema de la API Key, puedes volver a usar getAllActiveClients().
+    // Para probar con un solo cliente, usa esta línea y asegúrate de que DEFAULT_CLIENT_ID esté en tu .env
     const allClients = [{ clientId: process.env.DEFAULT_CLIENT_ID }]; 
     
-    // const allClients = await getAllActiveClients(); // Descomenta esta línea cuando la API del admin funcione.
+    // --- CÓDIGO DE PRODUCCIÓN ---
+    // Cuando estés listo para producción, comenta la línea de arriba y descomenta la siguiente.
+    // const allClients = await getAllActiveClients(); 
 
-    console.log(`Iniciando CRON maestro para ${allClients.length} gimnasio(s).`);
+    if (!allClients || allClients.length === 0) {
+        console.log('CRON maestro: No se encontraron clientes activos para procesar.');
+        return;
+    }
+    
+    console.log(`CRON maestro: Se procesarán ${allClients.length} gimnasio(s).`);
     
     for (const client of allClients) {
         if (!client.clientId) {
@@ -168,8 +178,12 @@ const masterCronJob = async () => {
             console.error(`Error procesando el gimnasio ${client.clientId}:`, error);
         }
     }
+    console.log('CRON maestro de limpieza y reporte mensual finalizado.');
 };
 
+/**
+ * Programa la tarea para que se ejecute a la 1 AM del primer día de cada mes.
+ */
 const scheduleMonthlyCleanup = () => {
     cron.schedule('0 1 1 * *', masterCronJob, {
         scheduled: true,

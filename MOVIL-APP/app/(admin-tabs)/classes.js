@@ -1195,14 +1195,16 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 5,
         borderRadius: 8,
         borderWidth: 1.5,
-        borderColor: '#1a5276',
+        borderColor: gymColor || '#1a5276',
         margin: 4,
+        color :Colors[colorScheme].text
     },
     dayChipSelected: {
-        backgroundColor: '#1a5276',
+        backgroundColor: gymColor || '#1a5276',
     },
     dayChipText: {
         fontWeight: '600',
+        color :Colors[colorScheme].text
     },
     dayChipTextSelected: {
         color: '#FFFFFF',
