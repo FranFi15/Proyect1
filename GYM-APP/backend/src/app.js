@@ -55,8 +55,10 @@ app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
 app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
-
 app.use('/api/auth', gymTenantMiddleware, authRoutes);
+
+app.use('/api/public/users', publicUserRoutes);
+
 app.use('/api/debug', debugRoutes); 
 
 app.get('/', (req, res) => {

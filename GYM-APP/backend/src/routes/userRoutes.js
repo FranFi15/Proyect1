@@ -27,7 +27,7 @@ const router = express.Router();
 
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
-router.get('/handle-reset-link/:resettoken', handleResetLink);
+
 
 router.get('/metrics', protect, authorizeRoles('admin'), getUserMetrics); 
 

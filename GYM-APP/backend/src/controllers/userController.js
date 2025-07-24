@@ -662,7 +662,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     // 1. La variable de entorno ahora debe ser la URL base de tu backend.
     //    Ej: BACKEND_URL=https://api.tu-gym.com
     // 2. Construimos un enlace web (https) que apunta a nuestro propio backend.
-    const webResetUrl = `${process.env.BACKEND_URL}/api/users/handle-reset-link/${resetToken}?clientId=${clientId}`;
+    const webResetUrl = `${process.env.BACKEND_URL}/api/public/users/handle-reset-link/${resetToken}?clientId=${clientId}`;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
