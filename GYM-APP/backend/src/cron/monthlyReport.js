@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import ExcelJS from 'exceljs';
 import axios from 'axios';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, format, differenceInYears } from 'date-fns';
 import { es } from 'date-fns/locale'; 
 import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import { sendEmailWithAttachment } from '../services/emailService.js';
