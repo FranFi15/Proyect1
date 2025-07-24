@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/ThemedText';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from 'react-native/Libraries/NewAppScreen';
+import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert'; // 1. Importar CustomAlert
 
 const SUPER_ADMIN_API_URL = process.env.EXPO_PUBLIC_SUPER_ADMIN_URL;
@@ -97,7 +97,6 @@ export default function GymIdentifierScreen() {
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
-                placeholderTextColor="#8888"
             />
             <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}

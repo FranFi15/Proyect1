@@ -36,7 +36,7 @@ const ClientSchema = new mongoose.Schema({
     },
     estadoSuscripcion: {
         type: String,
-        enum: ['activo', 'inactivo', 'periodo_prueba', 'vencido'], 
+        enum: ['activo', 'inactivo', 'periodo_prueba'], 
         default: 'periodo_prueba' 
     },
     logoUrl: { 
