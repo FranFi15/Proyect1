@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import ExcelJS from 'exceljs';
 import axios from 'axios';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { es } from 'date-fns/locale'; // 1. Importar el locale en español
 import { sendEmailWithAttachment } from '../services/emailService.js';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
@@ -66,7 +67,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'GymApp Admin';
         workbook.created = new Date();
-        const sheet = workbook.addWorksheet(`Reporte Clases ${format(previousMonth, 'MMMM-yyyy')}`);
+        const sheet = workbook.addWorksheet(`Reporte Clases ${format(previousMonth, 'MMMM-yyyy', { locale: es })}`);
 
         sheet.columns = [
             { header: 'Fecha', key: 'fecha', width: 15 },
@@ -121,10 +122,13 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
             return;
         }
 
+        // 2. Usar el locale en español para el formato del mes
+        const monthNameInSpanish = format(previousMonth, 'MMMM yyyy', { locale: es });
+
         await sendEmailWithAttachment({
             to: adminUser.email,
-            subject: `Reporte Mensual de Clases - ${format(previousMonth, 'MMMM yyyy')}`,
-            html: `<p>Adjunto se encuentra el reporte de todas las clases y sus asistentes para el mes de <strong>${format(previousMonth, 'MMMM yyyy')}</strong>. Estas clases serán eliminadas de la base de datos.</p>`,
+            subject: `Reporte Mensual de Clases - ${monthNameInSpanish}`,
+            html: `<p>Adjunto se encuentra el reporte de todas las clases y sus asistentes para el mes de <strong>${monthNameInSpanish}</strong>. Estas clases serán eliminadas de la base de datos.</p>`,
             attachments: [{
                 filename: `reporte-clases-${format(previousMonth, 'yyyy-MM')}.xlsx`,
                 content: buffer,
