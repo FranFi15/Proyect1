@@ -649,7 +649,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     const user = await User.findOne({ email: req.body.email });
 
     if (!user) {
-        // No revelamos si el usuario existe, pero la operación termina aquí.
+        // No revelamos si el usuario existe por seguridad.
         return res.status(200).json({ message: 'Si el correo está registrado, recibirás un enlace.' });
     }
 
@@ -657,16 +657,26 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     const clientId = req.gymId;
-    const resetUrl = `${process.env.RESET_URL}/${resetToken}?clientId=${clientId}`;
+
+    // --- CAMBIO CLAVE ---
+    // 1. La variable de entorno ahora debe ser la URL base de tu backend.
+    //    Ej: BACKEND_URL=https://api.tu-gym.com
+    // 2. Construimos un enlace web (https) que apunta a nuestro propio backend.
+    const webResetUrl = `${process.env.BACKEND_URL}/api/users/handle-reset-link/${resetToken}?clientId=${clientId}`;
 
     const message = `
         <h1>Has solicitado un reseteo de contraseña</h1>
         <p>Haz clic en el siguiente enlace para establecer una nueva contraseña (válido por 10 minutos):</p>
-        <a href="${resetUrl}" clicktracking="off">${resetUrl}</a>
+        <p>
+            <a href="${webResetUrl}" clicktracking="off" style="color: #ffffff; background-color: #007bff; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                Resetear Contraseña
+            </a>
+        </p>
+        <p style="font-size: 12px;">Si el botón no funciona, copia y pega la siguiente URL en tu navegador:</p>
+        <p style="font-size: 12px; word-break: break-all;">${webResetUrl}</p>
     `;
 
     try {
-        // 💡 Usamos la nueva función dedicada
         await sendPasswordResetEmail({
             to: user.email,
             subject: 'Instrucciones para Resetear tu Contraseña',
@@ -719,10 +729,23 @@ const resetPassword = asyncHandler(async (req, res, next) => {
         message: 'Contraseña actualizada con éxito.',
     });
 });
-const handleResetLink = asyncHandler(async (req, res) => {
-    const { token } = req.params;
-    const deepLink = `${process.env.FRONTEND_URL}reset-password/${token}`;
+const handleResetLink = asyncHandler(async (req, res, next) => {
+    const { resettoken } = req.params;
+    const { clientId } = req.query;
 
+    // 1. La variable de entorno ahora debe ser el schema y la ruta de tu app.
+    //    Ej: MOBILE_APP_SCHEMA=movil-app://reset-password
+    if (!process.env.MOBILE_APP_SCHEMA) {
+        console.error('La variable de entorno MOBILE_APP_SCHEMA no está definida.');
+        // Puedes redirigir a una página de error web si lo deseas.
+        return res.status(500).send('Error de configuración del servidor.');
+    }
+    
+    // 2. Construimos el deep link final al que queremos que el usuario llegue.
+    const deepLink = `${process.env.MOBILE_APP_SCHEMA}/${resettoken}?clientId=${clientId}`;
+
+    // 3. Enviamos una redirección HTTP 302.
+    //    El navegador del usuario recibirá esto e intentará abrir el deep link.
     res.redirect(302, deepLink);
 });
 
