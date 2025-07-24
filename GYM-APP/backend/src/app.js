@@ -14,7 +14,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import creditLogRoutes from './routes/creditLogRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 import trainingPlanRoutes from './routes/trainingPlanRoutes.js';
-import publicUserRoutes from './routes/publicUserRoutes.js';
+import publicUserRoutes from './routes/publicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 
 // Importación de Middlewares
