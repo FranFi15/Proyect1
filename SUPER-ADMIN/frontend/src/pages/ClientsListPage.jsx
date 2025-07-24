@@ -93,7 +93,7 @@ function ClientsListPage() {
                     <option value="todos">Todos los estados</option>
                     <option value="activo">Activo</option>
                     <option value="inactivo">Inactivo</option>
-                    <option value="pendiente">Pendiente</option>
+                    <option value="periodo_prueba">Periodo de Prueba</option>
                 </select>
             </div>
 
