@@ -32,7 +32,7 @@ router.route('/mark-all-read')
 
 
 router.route('/')
-    .post(protect, authorizeRoles('admin'), createNotification);
+    .post(protect, authorizeRoles('admin , profesor'), createNotification);
 
 router.route('/:id')
     .delete(protect, authorizeRoles('admin'), deleteNotification);
