@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -10,6 +10,7 @@ import notificationService from '../services/notificationService';
 import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
 
+// ... (El resto de tus funciones como registerForPushNotificationsAsync y findMostRecentImportantUnread se mantienen igual)
 SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({
@@ -44,7 +45,6 @@ async function registerForPushNotificationsAsync(userId, updatePushTokenBackend)
         return;
     }
     
-    // --- CORRECCIÓN: Validar que el projectId exista antes de usarlo ---
     try {
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         if (!projectId) {
@@ -77,8 +77,8 @@ async function registerForPushNotificationsAsync(userId, updatePushTokenBackend)
     return token;
 }
 
+
 export default function RootLayout() {
-    // No es necesario pasar colorScheme aquí, ya que no se usa directamente en AppContent
     return (
         <AuthProvider>
             <AppContent />
@@ -125,30 +125,26 @@ function AppContent() {
         const inAuthGroup = segments[0] === '(auth)';
         
         if (!user) {
-            // Lógica para usuario no autenticado (sin cambios)
             if (!clientId) {
                 router.replace('/(auth)/gymIdentifier');
             } else if (!inAuthGroup) {
                 router.replace('/(auth)/login');
             }
         } else {
-            // --- LÓGICA DE ROLES ACTUALIZADA ---
-            // Se verifica en orden de prioridad: admin > profesor > cliente
             const isAdmin = user.roles && user.roles.includes('admin');
             const isProfessor = user.roles && user.roles.includes('profesor');
 
             if (isAdmin) {
                 const inAdminTabs = segments[0] === '(admin-tabs)';
                 if (!inAdminTabs) {
-                    router.replace('/(admin-tabs)'); // Redirigir a la interfaz de admin
+                    router.replace('/(admin-tabs)');
                 }
             } else if (isProfessor) {
                 const inProfessorTabs = segments[0] === '(profesor-tabs)';
                 if (!inProfessorTabs) {
-                    router.replace('/(profesor-tabs)'); // Redirigir a la interfaz de profesor
+                    router.replace('/(profesor-tabs)');
                 }
             } else {
-                // Si no es ni admin ni profesor, es cliente
                 const inClientTabs = segments[0] === '(tabs)';
                 if (!inClientTabs) {
                     router.replace('/(tabs)');
@@ -157,16 +153,14 @@ function AppContent() {
         }
     }, [loading, user, clientId, segments, router]); 
 
-    // --- EFECTO CORREGIDO PARA LISTENERS DE NOTIFICACIONES ---
     useEffect(() => {
         if (user && !loading) {
             registerForPushNotificationsAsync(user._id, updatePushTokenBackend);
         }
 
-        // Se activa cuando llega una notificación y la app está en primer plano
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             console.log('Notificación recibida en primer plano:', notification);
-            refreshUser(); // Actualiza contadores de notificaciones, etc.
+            refreshUser();
             
             const { data } = notification.request.content;
             if (data && data.isImportant) { 
@@ -175,7 +169,6 @@ function AppContent() {
             }
         });
 
-        // Se activa cuando el usuario toca una notificación
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
             console.log('El usuario ha interactuado con una notificación:', response);
             const data = response.notification.request.content.data;
@@ -184,7 +177,6 @@ function AppContent() {
                 handleModalClose();
             }
 
-            // Lógica de navegación (Deep Linking)
             if (data?.classId) {
                 router.push('/(tabs)/calendar');
             } else {
@@ -192,7 +184,6 @@ function AppContent() {
             }
         });
 
-        // --- CORRECCIÓN: Usar el método .remove() para la limpieza ---
         return () => {
             if (notificationListener.current) {
                 notificationListener.current.remove();
@@ -203,9 +194,7 @@ function AppContent() {
         };
     }, [user, loading, updatePushTokenBackend, handleModalClose, router, refreshUser]);
 
-  // Effect for checking and displaying important notifications (polling)
-  // This polling runs independently for in-app modal, but can be influenced by push.
-  useEffect(() => {
+ useEffect(() => {
     let intervalId;
     if (user && !loading) {
       const checkImportantNotificationsPolling = async () => { 
@@ -222,24 +211,27 @@ function AppContent() {
       };
 
       checkImportantNotificationsPolling();
-      intervalId = setInterval(checkImportantNotificationsPolling, 5 * 60 * 1000); // Poll every 5 minutes
+      intervalId = setInterval(checkImportantNotificationsPolling, 5 * 60 * 1000);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [user, loading, refreshUser]); // Dependencies for polling
+  }, [user, loading, refreshUser]); 
 
-  
-
-  return (
-    <>
-      <Slot />
-      {/* Important Notification Modal, rendered globally */}
-      <ImportantNotificationModal
-        visible={modalVisible}
-        notification={currentImportantNotification}
-        onClose={handleModalClose}
-      />
-    </>
-  );
+    return (
+        <>
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(admin-tabs)" />
+                <Stack.Screen name="(profesor-tabs)" />
+            </Stack>
+            
+            <ImportantNotificationModal
+                visible={modalVisible}
+                notification={currentImportantNotification}
+                onClose={handleModalClose}
+            />
+        </>
+    );
 }
