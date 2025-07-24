@@ -20,7 +20,6 @@ const getAllActiveClients = async () => {
             throw new Error('La clave INTERNAL_ADMIN_API_KEY no está configurada en el .env');
         }
 
-        // Usamos la misma ruta que ya tienes en tu debugRoutes para consistencia
         const response = await axios.get(`${adminApiUrl}/api/clients/internal/all-clients`, {
             headers: { 'x-internal-api-key': internalApiKey }
         });
@@ -29,11 +28,11 @@ const getAllActiveClients = async () => {
             throw new Error('La respuesta del admin panel no es un array de clientes válido.');
         }
 
-        // Filtramos solo los clientes activos o en período de prueba
         return response.data.filter(client => client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba');
     } catch (error) {
         console.error("Error crítico al obtener la lista de clientes activos:", error.response?.data || error.message);
-        return []; // Devuelve un array vacío para no detener el proceso
+        // Devolvemos el error para que el master job sepa que falló.
+        throw new Error('No se pudo obtener la lista de clientes del panel de administración.');
     }
 };
 
@@ -58,7 +57,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
 
         if (classesToArchive.length === 0) {
             console.log(`[${clientId}] No hay clases para archivar del mes anterior. Tarea finalizada.`);
-            return;
+            return { success: true, message: "No hay clases para archivar." };
         }
 
         console.log(`[${clientId}] Se encontraron ${classesToArchive.length} clases para archivar.`);
@@ -147,11 +146,20 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
 };
 
 const masterCronJob = async () => {
-    const allClients = await getAllActiveClients(); 
+    // --- AJUSTE PARA PRUEBAS ---
+    // Temporalmente, usamos el DEFAULT_CLIENT_ID para probar sin depender del admin panel.
+    // Cuando soluciones el problema de la API Key, puedes volver a usar getAllActiveClients().
+    const allClients = [{ clientId: process.env.DEFAULT_CLIENT_ID }]; 
+    
+    // const allClients = await getAllActiveClients(); // Descomenta esta línea cuando la API del admin funcione.
 
     console.log(`Iniciando CRON maestro para ${allClients.length} gimnasio(s).`);
     
     for (const client of allClients) {
+        if (!client.clientId) {
+            console.error("Cliente inválido en la lista, saltando:", client);
+            continue;
+        }
         try {
             const gymDB = await connectToGymDB(client.clientId);
             await generateMonthlyReportAndCleanup(gymDB, client.clientId);
@@ -169,4 +177,4 @@ const scheduleMonthlyCleanup = () => {
     console.log('Tarea de limpieza y reporte mensual programada para ejecutarse el 1ro de cada mes a la 1 AM.');
 };
 
-export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob }; // Exportamos masterCronJob para el debug
+export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob };
