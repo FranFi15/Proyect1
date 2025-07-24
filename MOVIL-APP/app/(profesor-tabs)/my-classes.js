@@ -1,14 +1,15 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, Alert, ActivityIndicator, SectionList, View, Text, Modal, FlatList, TouchableOpacity, useColorScheme , RefreshControl} from 'react-native';
+import { StyleSheet, FlatList, View, ActivityIndicator, TouchableOpacity, useColorScheme, Text, Modal, RefreshControl, SectionList } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { useAuth } from '../../contexts/AuthContext';
-import apiClient from '../../services/apiClient';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { useAuth } from '../../contexts/AuthContext';
+import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const capitalize = (str) => {
     if (!str) return '';
@@ -31,7 +32,7 @@ const ProfessorMyClassesScreen = () => {
     const [loading, setLoading] = useState(true);
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
-     const [isRefreshing, setIsRefreshing] = useState(false); 
+    const [isRefreshing, setIsRefreshing] = useState(false); 
     
     // State for the main student list modal
     const [isListModalVisible, setListModalVisible] = useState(false);
@@ -43,6 +44,14 @@ const ProfessorMyClassesScreen = () => {
     const [isDetailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const styles = getStyles(colorScheme, gymColor);
 
     // --- DATA FETCHING ---
@@ -52,11 +61,15 @@ const ProfessorMyClassesScreen = () => {
             const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
             setMyClasses(sorted);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar tus turnos asignados.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar tus turnos asignados.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         }
     }, []);
 
-    // --- 4. Modificar useFocusEffect para manejar la carga inicial ---
     useFocusEffect(
         useCallback(() => {
             const loadData = async () => {
@@ -68,7 +81,6 @@ const ProfessorMyClassesScreen = () => {
         }, [fetchMyClasses])
     );
 
-    // --- 5. Crear la función onRefresh ---
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
         await fetchMyClasses();
@@ -84,8 +96,13 @@ const ProfessorMyClassesScreen = () => {
             const response = await apiClient.get(`/classes/${classId}/students`);
             setSelectedClassStudents(response.data);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar los alumnos del turno.');
             setListModalVisible(false);
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar los alumnos del turno.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoadingStudents(false);
         }
@@ -98,28 +115,20 @@ const ProfessorMyClassesScreen = () => {
     };
 
     // --- DATA STRUCTURING ---
-const sectionedClasses = useMemo(() => {
-    
-    const today = startOfDay(new Date());
-
-    
-    const futureClasses = myClasses.filter(clase => {
-        const classDate = parseISO(clase.fecha);
-        // La condición !isBefore(classDate, today) es verdadera si la clase es
-        // de hoy o de una fecha futura.
-        return !isBefore(classDate, today);
-    });
-
-    
-    const grouped = futureClasses.reduce((acc, clase) => {
-        const dateKey = capitalize(format(parseISO(clase.fecha), "EEEE, d 'de' MMMM", { locale: es }));
-        if (!acc[dateKey]) acc[dateKey] = [];
-        acc[dateKey].push(clase);
-        return acc;
-    }, {});
-
-    return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
-}, [myClasses]); 
+    const sectionedClasses = useMemo(() => {
+        const today = startOfDay(new Date());
+        const futureClasses = myClasses.filter(clase => {
+            const classDate = parseISO(clase.fecha);
+            return !isBefore(classDate, today);
+        });
+        const grouped = futureClasses.reduce((acc, clase) => {
+            const dateKey = capitalize(format(parseISO(clase.fecha), "EEEE, d 'de' MMMM", { locale: es }));
+            if (!acc[dateKey]) acc[dateKey] = [];
+            acc[dateKey].push(clase);
+            return acc;
+        }, {});
+        return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
+    }, [myClasses]); 
 
     // --- RENDER FUNCTIONS ---
 
@@ -211,8 +220,8 @@ const sectionedClasses = useMemo(() => {
                                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clientes inscritos.</ThemedText>}
                                 style={{width: '100%'}}
                                 refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
-                }
+                                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                                }
                             />
                         )}
                         <TouchableOpacity
@@ -245,6 +254,15 @@ const sectionedClasses = useMemo(() => {
                     </View>
                 </View>
             </Modal>
+
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
@@ -253,24 +271,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, borderBottomWidth: 0, borderBottomColor: Colors[colorScheme].border },
-    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 2, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
+    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
-    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor:'#1a5276', paddingVertical: 10, borderRadius: 2, marginTop: 12 },
+    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor:'#1a5276', paddingVertical: 10, borderRadius: 8, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 25, alignItems: 'center', elevation: 5, width: '90%', maxHeight: '80%' },
+    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5, width: '90%', maxHeight: '80%' },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
-    buttonClose: { borderRadius: 2, paddingVertical: 12, paddingHorizontal: 20, elevation: 2, marginTop: 15, width: '100%' },
+    buttonClose: { borderRadius: 8, paddingVertical: 12, paddingHorizontal: 20, elevation: 2, marginTop: 15, width: '100%' },
     textStyle: { color: 'white', fontWeight: 'bold', textAlign: 'center' },
-    // Styles for the first modal (student list)
     studentListItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingVertical: 18,
-        borderBottomWidth: 0,
+        borderBottomWidth: 1,
         borderBottomColor: Colors[colorScheme].border,
         width: '100%'
     },

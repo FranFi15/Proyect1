@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, TextInput, Button, useColorScheme, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Button, useColorScheme, ScrollView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
 import apiClient from '../../services/apiClient';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const EditProfileModal = ({ userProfile, onClose }) => {
     const { refreshUser, gymColor } = useAuth();
@@ -17,6 +18,14 @@ const EditProfileModal = ({ userProfile, onClose }) => {
     const [editYear, setEditYear] = useState('');
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
+
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     useEffect(() => {
         if (userProfile) {
@@ -53,7 +62,7 @@ const EditProfileModal = ({ userProfile, onClose }) => {
     const handleUpdateProfile = async () => {
         try {
             if (!editableProfile.fechaNacimiento || !isValid(editableProfile.fechaNacimiento)) {
-                Alert.alert('Error', 'Introduce una fecha de nacimiento válida.');
+                setAlertInfo({ visible: true, title: 'Error', message: 'Introduce una fecha de nacimiento válida.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                 return;
             }
             await apiClient.put(`/users/profile`, {
@@ -62,20 +71,19 @@ const EditProfileModal = ({ userProfile, onClose }) => {
             });
             if (newPassword) {
                 if (newPassword !== confirmPassword) {
-                    Alert.alert('Error', 'Las nuevas contraseñas no coinciden.');
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Las nuevas contraseñas no coinciden.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                     return;
                 }
                 if (!currentPassword) {
-                    Alert.alert('Error', 'Debes ingresar tu contraseña actual para cambiarla.');
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Debes ingresar tu contraseña actual para cambiarla.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                     return;
                 }
                 await apiClient.put('/users/profile/change-password', { currentPassword, newPassword });
             }
             await refreshUser();
-            Alert.alert('Éxito', 'Tu perfil ha sido actualizado.');
-            onClose();
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Tu perfil ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => { setAlertInfo({ visible: false }); onClose(); } }] });
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar el perfil.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el perfil.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -133,31 +141,39 @@ const EditProfileModal = ({ userProfile, onClose }) => {
                     <TextInput style={styles.input} placeholder="Nueva Contraseña" secureTextEntry onChangeText={setNewPassword} placeholderTextColor={Colors[colorScheme].icon}/>
                     <TextInput style={styles.input} placeholder="Confirmar Nueva Contraseña" secureTextEntry onChangeText={setConfirmPassword} placeholderTextColor={Colors[colorScheme].icon}/>
 
-                    <View style={{ marginTop: 20 }}>
+                    <View style={styles.buttonWrapper}>
                         <Button title="Guardar Cambios" onPress={handleUpdateProfile} color={gymColor} />
                     </View>
                 </ScrollView>
             </View>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </View>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     inputLabel: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 8, marginLeft: 5 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
+    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-    dateInput: { flex: 1, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text, marginHorizontal: 4, fontSize: 16 },
+    dateInput: { flex: 1, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text, marginHorizontal: 4, fontSize: 16 },
     genderSelector: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
     genderButton: { 
         paddingVertical: 10, 
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].icon, 
-        borderRadius: 2 
+        borderRadius: 8 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 
@@ -171,6 +187,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold'
     },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', borderTopWidth: 1, paddingTop: 15, marginTop: 15, marginBottom: 10, borderColor: Colors[colorScheme].border, textAlign: 'center', width: '100%', color: Colors[colorScheme].text },
+    buttonWrapper: {
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginTop: 20,
+    }
 });
 
 export default EditProfileModal;

@@ -9,7 +9,7 @@ import getModels from '../utils/getModels.js';
 /**
  * Obtiene la lista de todos los IDs de clientes activos desde tu panel de administración.
  */
-const getAllActiveClientIds = async () => {
+const getAllActiveClients = async () => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
         if (!adminApiUrl) {
@@ -20,18 +20,20 @@ const getAllActiveClientIds = async () => {
             throw new Error('La clave INTERNAL_ADMIN_API_KEY no está configurada en el .env');
         }
 
-        const response = await axios.get(`${adminApiUrl}/api/clients/internal-active-ids`, {
-            headers: { 'internal-admin-api-key': internalApiKey }
+        // Usamos la misma ruta que ya tienes en tu debugRoutes para consistencia
+        const response = await axios.get(`${adminApiUrl}/api/clients/internal/all-clients`, {
+            headers: { 'x-internal-api-key': internalApiKey }
         });
 
         if (!response.data || !Array.isArray(response.data)) {
             throw new Error('La respuesta del admin panel no es un array de clientes válido.');
         }
 
-        return response.data;
+        // Filtramos solo los clientes activos o en período de prueba
+        return response.data.filter(client => client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba');
     } catch (error) {
         console.error("Error crítico al obtener la lista de clientes activos:", error.response?.data || error.message);
-        return [];
+        return []; // Devuelve un array vacío para no detener el proceso
     }
 };
 
@@ -42,8 +44,7 @@ const getAllActiveClientIds = async () => {
 const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     console.log(`[${clientId}] Iniciando tarea mensual de reporte y limpieza de clases...`);
 
-    // USAR getModels para obtener los modelos
-    const { Clase, User } = getModels(gymDB); // Asegúrate de usar 'Clase' si ese es el nombre del modelo en getModels
+    const { Class, User } = getModels(gymDB);
 
     const now = new Date();
     const previousMonth = subMonths(now, 1);
@@ -51,7 +52,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     const endDate = endOfMonth(previousMonth);
 
     try {
-        const classesToArchive = await Clase.find({ // Usar 'Clase' aquí
+        const classesToArchive = await Class.find({
             fecha: { $gte: startDate, $lte: endDate },
         }).populate('profesor tipoClase usuariosInscritos');
 
@@ -135,7 +136,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         console.log(`[${clientId}] Correo con el reporte enviado exitosamente a ${adminUser.email}.`);
 
         const classIdsToDelete = classesToArchive.map(c => c._id);
-        await Clase.deleteMany({ _id: { $in: classIdsToDelete } }); // Usar 'Clase' aquí
+        await Class.deleteMany({ _id: { $in: classIdsToDelete } });
 
         console.log(`[${clientId}] ${classIdsToDelete.length} clases antiguas han sido eliminadas.`);
         console.log(`[${clientId}] Tarea mensual de reporte y limpieza completada.`);
@@ -146,7 +147,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
 };
 
 const masterCronJob = async () => {
-    const allClients = await getAllActiveClientIds(); 
+    const allClients = await getAllActiveClients(); 
 
     console.log(`Iniciando CRON maestro para ${allClients.length} gimnasio(s).`);
     
@@ -168,4 +169,4 @@ const scheduleMonthlyCleanup = () => {
     console.log('Tarea de limpieza y reporte mensual programada para ejecutarse el 1ro de cada mes a la 1 AM.');
 };
 
-export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup };
+export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob }; // Exportamos masterCronJob para el debug

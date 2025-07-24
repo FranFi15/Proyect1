@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, TextInput, Button, useColorScheme, ActivityIndicator, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, useColorScheme, ActivityIndicator, ScrollView } from 'react-native';
 import { getUserTransactions, createTransaction } from '../../services/managementApi';
-import apiClient from '../../services/apiClient'; // Importamos apiClient
+import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [transactions, setTransactions] = useState([]);
@@ -18,19 +19,26 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchData = async () => {
         if (!client?._id) return;
         setLoading(true);
         try {
-            // Hacemos ambas llamadas en paralelo para obtener siempre los datos más frescos
             const [transactionsResponse, userResponse] = await Promise.all([
                 getUserTransactions(client._id),
-                apiClient.get(`/users/${client._id}`) // Obtenemos el perfil actualizado del usuario
+                apiClient.get(`/users/${client._id}`)
             ]);
             setTransactions(transactionsResponse.data);
-            setCurrentClient(userResponse.data); // Actualizamos el estado local con el cliente más reciente
+            setCurrentClient(userResponse.data);
         } catch (error) {
-            Alert.alert('Error', 'No se pudo cargar la información del cliente.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo cargar la información del cliente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } finally {
             setLoading(false);
         }
@@ -42,7 +50,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     
     const handleCreateTransaction = async (type) => {
         if (!newTransaction.amount || !newTransaction.description) {
-            Alert.alert('Error', 'Por favor, completa el monto y la descripción.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, completa el monto y la descripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         try {
@@ -53,7 +61,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                 type: type 
             });
             
-            // Actualizamos el estado local con la respuesta del backend
             setCurrentClient(prevClient => ({
                 ...prevClient,
                 balance: response.data.newUserBalance 
@@ -62,10 +69,10 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
             setNewTransaction({ type: 'payment', amount: '', description: '' });
             
             onRefresh();
-            Alert.alert('Éxito', 'Transacción registrada correctamente.');
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Transacción registrada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudo crear la transacción.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo crear la transacción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -75,7 +82,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                 <Text style={styles.transactionDescription}>{item.description}</Text>
                 <Text style={styles.transactionDate}>{format(new Date(item.createdAt), "d MMM yyyy, HH:mm", { locale: es })}</Text>
             </View>
-            {/* --- CORRECCIÓN DE LÓGICA DE SIGNOS --- */}
             <Text style={[styles.transactionAmount, item.type === 'charge' ? styles.charge : styles.payment]}>
                 {item.type === 'charge' ? '-' : '+'} ${parseFloat(item.amount).toFixed(2)}
             </Text>
@@ -93,7 +99,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     
                     <View style={styles.summaryContainer}>
                         <Text style={styles.summaryLabel}>Saldo Actual:</Text>
-                        {/* --- CORRECCIÓN DE LÓGICA DE COLOR --- */}
                         <Text style={[styles.summaryBalance, (currentClient.balance ?? 0) < 0 ? styles.charge : styles.payment]}>
                             ${(currentClient.balance ?? 0).toFixed(2)}
                         </Text>
@@ -104,8 +109,12 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                         <TextInput style={styles.input} placeholder="Monto" keyboardType="numeric" value={newTransaction.amount} onChangeText={text => setNewTransaction(p => ({...p, amount: text}))} />
                         <TextInput style={styles.input} placeholder="Descripción (Ej: Pago cuota, Cargo inscripción)" value={newTransaction.description} onChangeText={text => setNewTransaction(p => ({...p, description: text}))} />
                         <View style={styles.buttonRow}>
-                            <Button title="Registrar Pago" onPress={() => handleCreateTransaction('payment')} color={'#28a745'} />
-                            <Button title="Añadir Cargo" onPress={() => handleCreateTransaction('charge')} color={'#a72828ff'} />
+                            <TouchableOpacity style={[styles.styledButton, styles.paymentButton]} onPress={() => handleCreateTransaction('payment')}>
+                                <Text style={styles.styledButtonText}>Registrar Pago</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.styledButton, styles.chargeButton]} onPress={() => handleCreateTransaction('charge')}>
+                                <Text style={styles.styledButtonText}>Añadir Cargo</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                     
@@ -121,6 +130,14 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     )}
                 </ScrollView>
             </View>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </View>
     );
 };
@@ -135,8 +152,26 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     summaryBalance: { fontSize: 28, fontWeight: 'bold' },
     formContainer: { borderBottomWidth: 1, borderColor: Colors[colorScheme].border, paddingBottom: 20, marginBottom: 15 },
     formTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text, marginBottom: 10 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
-    buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5 },
+    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
+    buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5, gap: 10 },
+    styledButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8, // Borde redondeado
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    paymentButton: {
+        backgroundColor: '#28a745',
+    },
+    chargeButton: {
+        backgroundColor: '#a72828ff',
+    },
+    styledButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
     historyTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: Colors[colorScheme].text },
     transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     transactionInfo: { flex: 1, marginRight: 10, fontWeight: 'bold' },

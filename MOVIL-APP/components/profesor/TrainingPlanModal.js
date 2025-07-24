@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, TextInput, Switch, ScrollView } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Switch, ScrollView } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 // --- Componente Principal del Modal ---
 const TrainingPlanModal = ({ client, visible, onClose }) => {
@@ -19,27 +20,33 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
     const [view, setView] = useState('list');
     const [currentPlan, setCurrentPlan] = useState(null);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchData = useCallback(async () => {
         if (!client) return;
         setLoading(true);
         try {
-            // --- CORRECCIÓN: Se separan las llamadas para un mejor debugging ---
-            // 1. Cargar los planes del cliente seleccionado.
-            const plansRes = await apiClient.get(`/plans/user/${client._id}`);
+            const [plansRes, templatesRes] = await Promise.all([
+                apiClient.get(`/plans/user/${client._id}`),
+                apiClient.get('/plans/templates')
+            ]);
             setPlans(plansRes.data);
-
-            // 2. Cargar las plantillas del profesor.
-            const templatesRes = await apiClient.get('/plans/templates');
             setTemplates(templatesRes.data);
-
         } catch (error) {
-            // --- CORRECCIÓN: Se muestra un mensaje de error detallado ---
             const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
             console.error("Error fetching modal data:", error.response || error);
-            Alert.alert(
-                'Error al Cargar Datos',
-                `No se pudo completar la operación. Razón: ${errorMessage}`
-            );
+            setAlertInfo({
+                visible: true,
+                title: 'Error al Cargar Datos',
+                message: `No se pudo completar la operación. Razón: ${errorMessage}`,
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -59,24 +66,47 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
             } else {
                 await apiClient.post('/plans', payload);
             }
-            Alert.alert('Éxito', 'Plan guardado correctamente.');
+            setAlertInfo({
+                visible: true,
+                title: 'Éxito',
+                message: 'Plan guardado correctamente.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             fetchData();
             setView('list');
         } catch (error) {
-            Alert.alert('Error', 'No se pudo guardar el plan.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo guardar el plan.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         }
     };
 
     const handleDeletePlan = (planId) => {
-        Alert.alert("Confirmar", "¿Eliminar este plan?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Eliminar", style: "destructive", onPress: async () => {
-                try {
-                    await apiClient.delete(`/plans/${planId}`);
-                    fetchData();
-                } catch (error) { Alert.alert('Error', 'No se pudo eliminar.'); }
-            }},
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar",
+            message: "¿Eliminar este plan?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Eliminar", style: "destructive", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.delete(`/plans/${planId}`);
+                        fetchData();
+                    } catch (error) { 
+                        setAlertInfo({
+                            visible: true,
+                            title: 'Error',
+                            message: 'No se pudo eliminar.',
+                            buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                        });
+                    }
+                }},
+            ]
+        });
     };
 
     const renderContent = () => {
@@ -105,6 +135,14 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
                     </View>
                     {renderContent()}
                 </ThemedView>
+                <CustomAlert
+                    visible={alertInfo.visible}
+                    title={alertInfo.title}
+                    message={alertInfo.message}
+                    buttons={alertInfo.buttons}
+                    onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                    gymColor={gymColor} 
+                />
             </View>
         </Modal>
     );
@@ -120,9 +158,6 @@ const PlanEditor = ({ plan: initialPlan, onSave, onCancel }) => {
         <ScrollView style={{flex: 1}}>
             <Text style={styles.label}>Título del Plan</Text>
             <TextInput style={styles.input} value={plan.name} onChangeText={text => setPlan(p => ({ ...p, name: text }))} />
-            
-            <Text style={styles.label}>Descripción (Opcional)</Text>
-            <TextInput style={[styles.input, styles.textArea]} multiline value={plan.description} onChangeText={text => setPlan(p => ({ ...p, description: text }))} />
 
             <Text style={styles.label}>Contenido del Plan</Text>
             <TextInput style={[styles.input, styles.textArea, {height: 250}]} multiline value={plan.content} onChangeText={text => setPlan(p => ({ ...p, content: text }))} />
@@ -150,8 +185,8 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => 
                 <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
             </View>
             <View style={styles.planActions}>
-                <TouchableOpacity onPress={() => onEdit(item)}><Ionicons name="create-outline" size={24} color={gymColor} /></TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(item._id)}><Ionicons name="trash-outline" size={24} color={Colors.light.error} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors.light.error} /></TouchableOpacity>
             </View>
         </View>
     );
@@ -176,17 +211,16 @@ const TemplateSelector = ({ templates, onSelect, onCancel }) => {
 };
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius:2, padding: 15 },
+    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 15 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text },
-    // --- ESTILOS CORREGIDOS ---
     planCard: { 
         flexDirection: 'row', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
         padding: 20, 
         backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         marginVertical: 8,
         elevation: 2,
         shadowColor: '#000',
@@ -201,7 +235,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     button: { 
         flex: 1, 
         padding: 15, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         alignItems: 'center', 
         backgroundColor: gymColor 
     },
@@ -213,7 +247,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     input: { 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         paddingHorizontal: 15, 
         backgroundColor: '#fff', 
         fontSize: 16,
@@ -222,10 +256,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     textArea: { 
         textAlignVertical: 'top', 
         paddingTop: 15,
-        height: 'auto' // Altura automática para el área de texto
+        height: 'auto'
     },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }
 });
 
 export default TrainingPlanModal;
-

@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, useColorScheme, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import { format, parseISO, isValid } from 'date-fns';
+import es from 'date-fns/locale/es';
 
 const PlansAndCreditsModal = ({ onClose }) => {
     const { user, gymColor } = useAuth();
@@ -15,6 +18,14 @@ const PlansAndCreditsModal = ({ onClose }) => {
     const [loading, setLoading] = useState(true);
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme);
+
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     useFocusEffect(
         useCallback(() => {
@@ -28,7 +39,12 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     setProfile(profileResponse.data);
                     setClassTypes(typesResponse.data.tiposClase || []);
                 } catch (error) {
-                    Alert.alert('Error', 'No se pudo cargar tu información.');
+                    setAlertInfo({
+                        visible: true,
+                        title: 'Error',
+                        message: 'No se pudo cargar tu información.',
+                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                    });
                 } finally {
                     setLoading(false);
                 }
@@ -102,11 +118,18 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     )}
                 </ScrollView>
             </View>
+             <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </View>
     );
 };
 
-// ... (Estilos para este componente)
 const getStyles = (colorScheme) => {
     const shadowProp = {
         shadowColor: '#000',
@@ -121,10 +144,10 @@ const getStyles = (colorScheme) => {
     
     return StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 2, padding: 20, marginBottom: 15, ...shadowProp },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 20, marginBottom: 15, ...shadowProp },
     cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: Colors[colorScheme].text },
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
     infoLabel: { fontSize: 16, color: Colors[colorScheme].text },

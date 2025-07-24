@@ -159,7 +159,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon, // Un color de borde sutil
         borderWidth: 1, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         marginBottom: 12, 
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background, // Fondo del tema
@@ -171,7 +171,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon, 
         borderWidth: 1, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         paddingHorizontal: 8, 
         textAlign: 'center', 
         flex: 1, 
@@ -186,7 +186,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].icon, 
-        borderRadius: 2 
+        borderRadius: 8 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 

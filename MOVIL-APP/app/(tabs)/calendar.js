@@ -1,19 +1,17 @@
-// MOVIL-APP/app/(tabs)/calendar.js
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
     StyleSheet, 
-    Alert, 
     ActivityIndicator, 
     TouchableOpacity, 
     Platform,
     useColorScheme, 
     SectionList,
     FlatList,
-    Button, // Make sure Button is imported for the "Notificarme si hay lugar" button
+    Button,
     View, 
     Text, 
-     RefreshControl,
-     Linking,
+    RefreshControl,
+    Linking,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -21,17 +19,17 @@ import { Picker } from '@react-native-picker/picker';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
-import { es, tr } from 'date-fns/locale';
+import { es } from 'date-fns/locale';
 
 // --- COMPONENTES Y CONSTANTES TEMÁTICAS ---
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome5 } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 // --- IMPORT NEW SERVICES ---
 import classService from '../../services/classService'; 
-import userService from '../../services/userService';   
 // --- END IMPORT NEW SERVICES ---
 
 
@@ -73,9 +71,6 @@ const getCalendarTheme = (colorScheme, gymColor) => ({
     textDayHeaderFontSize: 14,
 });
 
-
-
-
 const CalendarScreen = () => {
 
     const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
@@ -88,19 +83,26 @@ const CalendarScreen = () => {
     </TouchableOpacity>
 );
 
-
     // --- ESTADOS ---
     const [activeView, setActiveView] = useState('calendar');
-    const [allClasses, setAllClasses] = useState([]); // All classes fetched from API
-    const [selectedDate, setSelectedDate] = useState(null); // For calendar selected date
-    const [markedDates, setMarkedDates] = useState({}); // For calendar dots/styles
+    const [allClasses, setAllClasses] = useState([]);
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [markedDates, setMarkedDates] = useState({});
     const [isLoading, setIsLoading] = useState(true);
-    const { user, refreshUser , gymColor } = useAuth(); // User data from AuthContext
-    const [classTypes, setClassTypes] = useState([]); // For picker filter
-    const [selectedClassType, setSelectedClassType] = useState('all'); // For picker filter
+    const { user, refreshUser , gymColor } = useAuth();
+    const [classTypes, setClassTypes] = useState([]);
+    const [selectedClassType, setSelectedClassType] = useState('all');
     const [error, setError] = useState(null)
     const [isRefreshing, setIsRefreshing] = useState(false); 
     const [adminPhoneNumber, setAdminPhoneNumber] = useState(null);
+
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
@@ -108,27 +110,24 @@ const CalendarScreen = () => {
     const calendarTheme = getCalendarTheme(colorScheme);
 
     useEffect(() => {
-    // Esta función se ejecuta cada vez que el objeto 'user' cambia.
-    if (user && user.adminPhoneNumber) {
-        console.log("Número de admin encontrado en el contexto:", user.adminPhoneNumber);
-        setAdminPhoneNumber(user.adminPhoneNumber);
-    }
-}, [user]);
+        if (user && user.adminPhoneNumber) {
+            setAdminPhoneNumber(user.adminPhoneNumber);
+        }
+    }, [user]);
 
      const handleWhatsAppPress = (phoneNumber) => {
-    // Ya no necesita buscar en 'user', recibe el número directamente
-    if (phoneNumber) {
-        const message = 'Hola, tengo una consulta sobre los turnos.';
-        const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-        Linking.openURL(url).catch(() => {
-            Alert.alert('Error', 'Asegúrate de tener WhatsApp instalado.');
-        });
-    }
-};
+        if (phoneNumber) {
+            const message = 'Hola, tengo una consulta sobre los turnos.';
+            const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            Linking.openURL(url).catch(() => {
+                setAlertInfo({ visible: true, title: 'Error', message: 'Asegúrate de tener WhatsApp instalado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            });
+        }
+    };
 
     const fetchData = useCallback(async () => {
         if (!user) {
-            Alert.alert("Error", "Usuario no autenticado.");
+            setAlertInfo({ visible: true, title: 'Error', message: 'Usuario no autenticado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         try {
@@ -156,12 +155,11 @@ const CalendarScreen = () => {
             });
             setMarkedDates(markers);
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudieron cargar los datos.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudieron cargar los datos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             console.error('Error fetching data for CalendarScreen:', error);
         }
     }, [user, colorScheme, gymColor, refreshUser]);
 
-    // --- 4. Modificar useFocusEffect para manejar la carga inicial ---
     useFocusEffect(useCallback(() => {
         const loadInitialData = async () => {
             setIsLoading(true);
@@ -171,14 +169,12 @@ const CalendarScreen = () => {
         loadInitialData();
     }, [fetchData]));
 
-    // --- 5. Crear la función onRefresh ---
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
         await fetchData();
         setIsRefreshing(false);
     }, [fetchData]);
 
-    // --- Lógica de filtrado (ya estaba correcta) ---
     const visibleClasses = useMemo(() => {
         const now = new Date();
         const nowTime = now.getTime();
@@ -204,62 +200,66 @@ const CalendarScreen = () => {
             .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
     }, [allClasses, selectedDate, selectedClassType, activeView, user]);
 
-    // --- LÓGICA DE MANEJO DE ACCIONES ---
     const handleEnroll = async (classId) => {
         try {
             await apiClient.post(`/classes/${classId}/enroll`);
-            Alert.alert('¡Éxito!', 'Te has inscrito en el turno.');
-            await refreshUser(); // Update user's enrolled classes in AuthContext
-            fetchData(); // Refresh all data to update class capacities and user's enrollment status
+            setAlertInfo({ visible: true, title: '¡Éxito!', message: 'Te has inscrito en el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            await refreshUser();
+            fetchData();
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudo procesar la inscripción.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
     const handleUnenroll = useCallback(async (classId) => {
-        Alert.alert("Confirmar Anulación", "¿Estás seguro de que quieres anular tu inscripción?", [
-            { text: "Cancelar", style: "cancel" },
-            {
-                text: "Sí, Anular",
-                onPress: async () => {
-                    try {
-                        const response = await apiClient.post(`/classes/${classId}/unenroll`);
-                        Alert.alert('Anulación Procesada', response.data.message);
-                        await refreshUser(); // Update user's enrolled classes and credits
-                        fetchData(); // Refresh all data
-                    } catch (error) {
-                        Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');
-                    }
-                },
-                style: 'destructive'
+        const performUnenroll = async () => {
+            try {
+                const response = await apiClient.post(`/classes/${classId}/unenroll`);
+                setAlertInfo({ visible: true, title: 'Anulación Procesada', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                await refreshUser();
+                fetchData();
+            } catch (error) {
+                setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo anular la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             }
-        ]);
+        };
+
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Anulación",
+            message: "¿Estás seguro de que quieres anular tu inscripción?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Sí, Anular", style: 'destructive', onPress: () => {
+                    setAlertInfo({ visible: false });
+                    performUnenroll();
+                }}
+            ]
+        });
     }, [refreshUser, fetchData]);
 
     const handleSubscribe = useCallback(async (classId) => {
         try {
             const response = await classService.subscribeToWaitlist(classId);
-            Alert.alert('¡Listo!', response.data.message);
-            fetchData(); // Recargamos datos para que el botón cambie de estado
+            setAlertInfo({ visible: true, title: '¡Listo!', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            fetchData();
         } catch (err) {
-            Alert.alert('Error', err.response?.data?.message || 'No se pudo procesar la solicitud.');
+            setAlertInfo({ visible: true, title: 'Error', message: err.response?.data?.message || 'No se pudo procesar la solicitud.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     }, [fetchData]);
 
     const handleUnsubscribe = useCallback(async (classId) => {
         try {
             const response = await classService.unsubscribeFromWaitlist(classId);
-            Alert.alert('Hecho', response.data.message);
-            fetchData(); // Recargamos datos
+            setAlertInfo({ visible: true, title: 'Hecho', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            fetchData();
         } catch (err) {
-            Alert.alert('Error', err.response?.data?.message || 'No se pudo procesar la solicitud.');
+            setAlertInfo({ visible: true, title: 'Error', message: err.response?.data?.message || 'No se pudo procesar la solicitud.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     }, [fetchData]);
 
-    // --- MANEJO DE CALENDARIO ---
     const handleDayPress = (day) => {
-        setSelectedDate(day.dateString); // 'YYYY-MM-DD'
-        setActiveView('list'); // Switch to list view for the selected day
+        setSelectedDate(day.dateString);
+        setActiveView('list');
     };
 
     const formattedDateTitle = useMemo(() => {
@@ -275,11 +275,10 @@ const CalendarScreen = () => {
     }, [selectedDate, activeView]);
 
     const sectionedClasses = useMemo(() => {
-        // If a specific date is selected in list view, FlatList is used, so SectionList is not needed.
         if (activeView === 'list' && selectedDate) return []; 
 
         const grouped = visibleClasses.reduce((acc, clase) => {
-            const dateKey = clase.fecha.substring(0, 10); // Group by YYYY-MM-DD
+            const dateKey = clase.fecha.substring(0, 10);
             if (!acc[dateKey]) {
                 acc[dateKey] = [];
             }
@@ -287,77 +286,68 @@ const CalendarScreen = () => {
             return acc;
         }, {});
 
-        // Convert grouped object to SectionList format, sort by date
         return Object.keys(grouped)
-            .sort((a, b) => new Date(a) - new Date(b)) // Sort sections chronologically
+            .sort((a, b) => new Date(a) - new Date(b))
             .map(dateKey => ({
                 title: capitalize(format(parseISO(dateKey), "EEEE, d 'de' MMMM", { locale: es })),
                 data: grouped[dateKey]
             }));
-    }, [visibleClasses, activeView, selectedDate]); // Depend on visibleClasses and activeView
+    }, [visibleClasses, activeView, selectedDate]);
 
-    // --- RENDERIZADO DE ITEM DE CLASE ---
     const renderClassItem = ({ item }) => {
-        // Ahora usamos las propiedades seguras que calculamos en `visibleClasses`
         const { isEnrolled, isFull, isWaiting, isCancelled, isFinished } = item;
         const dynamicStyle = getClassStyle(item);
 
         return (
             <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
-                {/* ... ThemedTexts para nombre, horario, etc. (sin cambios) ... */}
                 <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>
                     {item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}
                 </ThemedText>
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de : {item.profesor?.nombre || 'A confirmar'} {item.profesor?.apellido || ''}</ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
 
                 <View style={styles.buttonContainer}>
-    {isCancelled ? (
-        <Text style={styles.badgeCancelled}>CANCELADO</Text>
-    ) : isFinished ? (
-        <Text style={styles.badgeFinished}>TERMINADO</Text>
-    ) : isEnrolled ? (
-        // Botón para anular
-        <ActionButton
-            title="Anular Inscripción"
-            onPress={() => handleUnenroll(item._id)}
-            iconName="calendar-times"
-            color="#e74c3c" // Rojo
-        />
-    ) : isFull ? (
-        isWaiting ? (
-            // Botón para salir de la lista de espera
-            <ActionButton
-                title="En lista de espera"
-                onPress={() => handleUnsubscribe(item._id)}
-                iconName="check-circle"
-                color="#f0ad4e" 
-            />
-        ) : (
-            // Botón para unirse a la lista de espera
-            <ActionButton
-                title="Notificarme Disponibilidad"
-                onPress={() => handleSubscribe(item._id)}
-                iconName="bell"
-                color="#1a5276" 
-            />
-        )
-    ) : (
-        // Botón para inscribirse
-        <ActionButton
-            title="Inscribirme"
-            onPress={() => handleEnroll(item._id)}
-            iconName="calendar-check"
-            color="#2ecc71" 
-        />
-    )}
-</View>
+                    {isCancelled ? (
+                        <Text style={styles.badgeCancelled}>CANCELADO</Text>
+                    ) : isFinished ? (
+                        <Text style={styles.badgeFinished}>TERMINADO</Text>
+                    ) : isEnrolled ? (
+                        <ActionButton
+                            title="Anular Inscripción"
+                            onPress={() => handleUnenroll(item._id)}
+                            iconName="calendar-times"
+                            color="#e74c3c"
+                        />
+                    ) : isFull ? (
+                        isWaiting ? (
+                            <ActionButton
+                                title="En lista de espera"
+                                onPress={() => handleUnsubscribe(item._id)}
+                                iconName="check-circle"
+                                color="#f0ad4e" 
+                            />
+                        ) : (
+                            <ActionButton
+                                title="Notificarme Disponibilidad"
+                                onPress={() => handleSubscribe(item._id)}
+                                iconName="bell"
+                                color="#1a5276" 
+                            />
+                        )
+                    ) : (
+                        <ActionButton
+                            title="Inscribirme"
+                            onPress={() => handleEnroll(item._id)}
+                            iconName="calendar-check"
+                            color="#2ecc71" 
+                        />
+                    )}
+                </View>
             </ThemedView>
         );
     };
 
-    // Helper to determine class visual style based on fullness
     const getClassStyle = (clase) => {
         if (clase.estado === 'cancelada') {
             return styles.cancelledClass;
@@ -392,79 +382,78 @@ const CalendarScreen = () => {
 
     return (
         <View style={{ flex: 1 }}>
-        <ThemedView style={styles.container}>
-            <View style={styles.tabContainer}>
-                <TouchableOpacity onPress={() => { setActiveView('calendar'); setSelectedDate(null); }} style={[styles.tab, activeView === 'calendar' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Calendario</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveView('list')} style={[styles.tab, activeView === 'list' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Turnos</Text>
-                </TouchableOpacity>
-            </View>
+            <ThemedView style={styles.container}>
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity onPress={() => { setActiveView('calendar'); setSelectedDate(null); }} style={[styles.tab, activeView === 'calendar' && styles.activeTab]}>
+                        <Text style={styles.tabText}>Calendario</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setActiveView('list')} style={[styles.tab, activeView === 'list' && styles.activeTab]}>
+                        <Text style={styles.tabText}>Turnos</Text>
+                    </TouchableOpacity>
+                </View>
 
-            {activeView === 'calendar' && (
-                <Calendar 
-                    onDayPress={handleDayPress} 
-                    markedDates={markedDates} 
-                    markingType={'custom'} 
-                    theme={calendarTheme} 
-                    hideArrows={true}
-                />
-            )}
+                {activeView === 'calendar' && (
+                    <Calendar 
+                        onDayPress={handleDayPress} 
+                        markedDates={markedDates} 
+                        markingType={'custom'} 
+                        theme={calendarTheme} 
+                        hideArrows={true}
+                    />
+                )}
 
-            {activeView === 'list' && (
-                <>
-                    <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
-                    
-                    <View style={styles.pickerContainer}>
-                        <Picker 
-                            selectedValue={selectedClassType} 
-                            onValueChange={itemValue => setSelectedClassType(itemValue)}
-                            style={{ color: Colors[colorScheme].text }}
-                            dropdownIconColor={Colors[colorScheme].text}
-                        >
-                            <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
-                            {classTypes.map(type => (
-                                <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
-                            ))}
-                        </Picker>
-                    </View>
+                {activeView === 'list' && (
+                    <>
+                        <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
+                        
+                        <View style={styles.pickerContainer}>
+                            <Picker 
+                                selectedValue={selectedClassType} 
+                                onValueChange={itemValue => setSelectedClassType(itemValue)}
+                                style={{ color: Colors[colorScheme].text }}
+                                dropdownIconColor={Colors[colorScheme].text}
+                            >
+                                <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
+                                {classTypes.map(type => (
+                                    <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
+                                ))}
+                            </Picker>
+                        </View>
 
-                    {visibleClasses.length === 0 && !isLoading ? ( // Show empty text only if not loading and no classes
-                         <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
-                    ) : (
-                        selectedDate ? ( // If specific date selected, use FlatList
-                            <FlatList
-                                data={visibleClasses}
-                                keyExtractor={item => item._id}
-                                renderItem={renderClassItem}
-                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                                refreshControl={
-                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
-                    }
-                                
-                            />
-                        ) : ( // If no date selected, use SectionList for upcoming classes grouped by day
-                            <SectionList
-                                sections={sectionedClasses}
-                                keyExtractor={(item, index) => item._id + index}
-                                renderItem={renderClassItem}
-                                renderSectionHeader={({ section: { title } }) => (
-                                    <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
-                                )}
-                                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                                refreshControl={
-                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
-                    }
-                            />
-                        )
-                    )}
-                </>
-            )}
-        </ThemedView>
-        {adminPhoneNumber && (
+                        {visibleClasses.length === 0 && !isLoading ? (
+                             <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
+                        ) : (
+                            selectedDate ? (
+                                <FlatList
+                                    data={visibleClasses}
+                                    keyExtractor={item => item._id}
+                                    renderItem={renderClassItem}
+                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    refreshControl={
+                                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                                    }
+                                />
+                            ) : (
+                                <SectionList
+                                    sections={sectionedClasses}
+                                    keyExtractor={(item, index) => item._id + index}
+                                    renderItem={renderClassItem}
+                                    renderSectionHeader={({ section: { title } }) => (
+                                        <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
+                                    )}
+                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    refreshControl={
+                                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                                    }
+                                />
+                            )
+                        )}
+                    </>
+                )}
+            </ThemedView>
+            {adminPhoneNumber && (
                 <TouchableOpacity
                     style={styles.fab}
                     onPress={() => handleWhatsAppPress(adminPhoneNumber)}
@@ -472,9 +461,16 @@ const CalendarScreen = () => {
                     <FontAwesome5 name="whatsapp" size={30} color="#fff" />
                 </TouchableOpacity>
             )}
-            </View>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
+        </View>
     );
-
 };
 
 const getStyles = (colorScheme, gymColor) => {
@@ -489,24 +485,22 @@ const getStyles = (colorScheme, gymColor) => {
         elevation: 4,
     };
 
-    
-
     return StyleSheet.create({
         actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        ...shadowProp, // Reutilizamos la sombra que ya tienes
-    },
-    actionButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        marginLeft: 10,
-        fontSize: 14,
-    },
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 10,
+            paddingHorizontal: 15,
+            borderRadius: 8,
+            ...shadowProp,
+        },
+        actionButtonText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            marginLeft: 10,
+            fontSize: 14,
+        },
         container: { flex: 1 },
         tabContainer: {
             flexDirection: 'row',
@@ -521,9 +515,9 @@ const getStyles = (colorScheme, gymColor) => {
             marginHorizontal: 15,
             marginVertical: 10,
             borderRadius: 8,
-            borderWidth: 0,
-            borderColor: Colors[colorScheme].icon,
-            backgroundColor: Colors[colorScheme].background,
+            borderWidth: 1,
+            borderColor: Colors[colorScheme].border,
+            backgroundColor: Colors[colorScheme].cardBackground,
             justifyContent: 'center',
         },
         listHeader: { textAlign: 'center', fontSize: 22, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text },
@@ -532,7 +526,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 2,
+            borderRadius: 8,
             borderWidth: 0,
             backgroundColor: Colors[colorScheme].cardBackground,
             ...shadowProp,
@@ -544,14 +538,14 @@ const getStyles = (colorScheme, gymColor) => {
         cancelledClass: { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5', borderColor: colorScheme === 'dark' ? '#555' : '#e0e0e0', borderLeftWidth: 0, borderWidth: 1 },
         finishedClass: { opacity: 0.6 },
         disabledText: { color: Colors[colorScheme].icon },
-        badgeCancelled: { color: Colors[colorScheme].error, fontStyle: 'italic', fontWeight: 'bold' },
+        badgeCancelled: { color: Colors.light.error, fontStyle: 'italic', fontWeight: 'bold' },
         badgeFinished: { color: Colors[colorScheme].icon, fontStyle: 'italic', fontWeight: 'bold' },
         requestedBadge: {
             backgroundColor: '#f0ad4e',
             color: 'white',
             paddingVertical: 5,
             paddingHorizontal: 10,
-            borderRadius: 5,
+            borderRadius: 8,
             fontWeight: 'bold',
             fontSize: 12
         },
@@ -560,7 +554,7 @@ const getStyles = (colorScheme, gymColor) => {
             color: 'white',
             paddingVertical: 5,
             paddingHorizontal: 10,
-            borderRadius: 5,
+            borderRadius: 8,
             fontWeight: 'bold',
             fontSize: 12
         },
@@ -585,6 +579,33 @@ const getStyles = (colorScheme, gymColor) => {
             shadowRadius: 2.62,
             zIndex: 999,
         },
+        centered: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center'
+        },
+        loadingText: {
+            marginTop: 10,
+            fontSize: 16,
+            color: Colors[colorScheme].text
+        },
+        errorText: {
+            color: Colors.light.error,
+            fontSize: 16,
+            textAlign: 'center'
+        },
+        retryButton: {
+            marginTop: 20,
+            backgroundColor: gymColor,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            borderRadius: 8
+        },
+        retryButtonText: {
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: 'bold'
+        }
     });
 };
-export default CalendarScreen;
+export default CalendarScreen

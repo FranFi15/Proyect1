@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, RefreshControl, useColorScheme} from 'react-native';
+import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, RefreshControl, useColorScheme, Text } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const groupNotificationsByDate = (notifs) => {
     const today = new Date();
@@ -27,25 +28,23 @@ const groupNotificationsByDate = (notifs) => {
     return Array.from(sectionsMap, ([title, data]) => ({ title, data }));
 };
 
-const getIconForNotification = (type) => {
-    switch (type) {
-        case 'spot_available': return { name: 'calendar-check', color: '#2ecc71' };
-        case 'waitlist_subscription': return { name: 'bell', color: '#3498db' };
-        case 'class_cancellation_refund': return { name: 'calendar-times', color: '#e74d3c4a' };
-        case 'monthly_payment_reminder': return { name: 'credit-card', color: '#f39c12' };
-        default: return { name: 'info-circle', color: '#95a5a6' };
-    }
-};
-
 const NotificationsScreen = () => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState(null);
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, gymColor } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme);
+
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     const fetchNotifications = useCallback(async () => {
         if (!user) {
@@ -66,7 +65,7 @@ const NotificationsScreen = () => {
         }
     }, [user, isRefreshing]);
 
-    useFocusEffect(useCallback(() => { fetchNotifications(); }, []));
+    useFocusEffect(useCallback(() => { fetchNotifications(); }, [fetchNotifications]));
     
     const onRefresh = useCallback(() => {
         setIsRefreshing(true);
@@ -85,50 +84,59 @@ const NotificationsScreen = () => {
     };
 
     const handleDeleteNotification = (notificationId) => {
-        Alert.alert("Eliminar Notificación", "¿Estás seguro?", [
-            { text: "Cancelar", style: "cancel" },
-            {
-                text: "Eliminar", style: 'destructive',
-                onPress: async () => {
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Notificación",
+            message: "¿Estás seguro?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Eliminar", style: 'destructive', onPress: async () => {
+                    setAlertInfo({ visible: false });
                     try {
                         await notificationService.deleteNotification(notificationId);
                         setNotifications(prev => prev.map(s => ({ ...s, data: s.data.filter(n => n._id !== notificationId) })).filter(s => s.data.length > 0));
-                    } catch (err) { Alert.alert('Error', err.message || 'No se pudo eliminar.'); }
-                },
-            },
-        ]);
+                    } catch (err) { 
+                        setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudo eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }},
+            ]
+        });
     };
 
     const handleDeleteAll = () => {
-        Alert.alert("Eliminar Todas", "¿Seguro que quieres eliminar TODAS tus notificaciones?", [
-            { text: "Cancelar", style: "cancel" },
-            {
-                text: "Confirmar", style: 'destructive',
-                onPress: async () => {
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Todas",
+            message: "¿Seguro que quieres eliminar TODAS tus notificaciones?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Confirmar", style: 'destructive', onPress: async () => {
+                    setAlertInfo({ visible: false });
                     try {
                         await notificationService.deleteAllNotifications();
                         setNotifications([]);
-                    } catch (err) { Alert.alert('Error', err.message || 'No se pudieron eliminar.'); }
-                },
-            },
-        ]);
+                    } catch (err) { 
+                        setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudieron eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }},
+            ]
+        });
     };
 
     if (loading) return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={Colors[colorScheme].tint} /></ThemedView>;
     if (error) return <ThemedView style={styles.centered}><ThemedText style={styles.errorText}>{error}</ThemedText></ThemedView>;
 
     const renderItem = ({ item }) => {
-        const iconInfo = getIconForNotification(item.type);
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
-                <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon}style={styles.icon} />
+                <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon} style={styles.icon} />
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
                     <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
                     <ThemedText style={styles.notificationTime}>{new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                 </View>
                 <TouchableOpacity onPress={() => handleDeleteNotification(item._id)} style={styles.deleteButton}>
-                    <Ionicons name="trash" size={24} color={Colors[colorScheme].icon} />
+                    <Octicons name="trash" size={24} color={Colors[colorScheme].icon} />
                 </TouchableOpacity>
             </TouchableOpacity>
         );
@@ -140,7 +148,7 @@ const NotificationsScreen = () => {
                 <ThemedText type="title" style={styles.title}>Notificaciones</ThemedText>
                 {notifications.length > 0 && (
                     <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
-                        <Ionicons name="trash" size={16} color={Colors[colorScheme].text}/>
+                        <Octicons name="trash" size={16} color={Colors[colorScheme].text}/>
                         <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
                     </TouchableOpacity>
                 )}
@@ -158,23 +166,34 @@ const NotificationsScreen = () => {
                     refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={Colors[colorScheme].tint} />}
                 />
             )}
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
 
 const getStyles = (colorScheme) => {
-
     return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingTop: 15, paddingBottom: 10 },
     title: { fontSize: 28, fontWeight: 'bold' },
-    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, },
+    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
     deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 8 },
     noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
     listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
     sectionHeader: { fontSize: 16, fontWeight: 'bold', backgroundColor: Colors[colorScheme].background, paddingTop: 20, paddingBottom: 10, color: Colors[colorScheme].text },
-    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 2, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2},
+    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 8, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2},
+    unreadNotification: {
+        borderLeftWidth: 4,
+        borderColor: '#1a5276', // Un color para destacar las no leídas
+    },
     icon: { marginRight: 15 },
     notificationContent: { flex: 1 },
     notificationTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },

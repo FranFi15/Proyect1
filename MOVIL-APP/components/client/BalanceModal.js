@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import apiClient from '../../services/apiClient';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const BalanceModal = ({ onClose }) => {
     const { user, gymColor } = useAuth();
@@ -16,6 +17,14 @@ const BalanceModal = ({ onClose }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchData = useCallback(async () => {
         if (!user?._id) {
             setLoading(false);
@@ -25,21 +34,24 @@ const BalanceModal = ({ onClose }) => {
         try {
             const [profileResponse, transactionsResponse] = await Promise.all([
                 apiClient.get('/users/me'),
-                // --- CORRECCIÓN CLAVE: Se llama a la nueva ruta segura ---
                 apiClient.get('/transactions/my-transactions')
             ]);
             setProfile(profileResponse.data);
             setTransactions(transactionsResponse.data);
         } catch (error) {
             console.error("Error al cargar datos del modal de saldo:", error.response?.data || error.message);
-            Alert.alert('Error', 'No se pudo cargar tu información de saldo.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo cargar tu información de saldo.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     }, [user?._id]);
 
-    // Se usa useEffect para que se ejecute cuando el modal se monta
     useEffect(() => {
         fetchData();
     }, [fetchData]);
@@ -87,13 +99,21 @@ const BalanceModal = ({ onClose }) => {
                     </>
                 )}
             </View>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </View>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },

@@ -2,16 +2,15 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
     StyleSheet,
     View,
-    TextInput,
     Text,
     ScrollView,
-    Switch,
-    Button,
-    Alert,
     ActivityIndicator,
     TouchableOpacity,
     FlatList,
-    useColorScheme
+    useColorScheme,
+    Button,
+    TextInput,
+    Switch
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -20,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Picker } from '@react-native-picker/picker';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const NotificationAdminScreen = () => {
     const { gymColor } = useAuth();
@@ -44,6 +44,14 @@ const NotificationAdminScreen = () => {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
@@ -51,10 +59,15 @@ const NotificationAdminScreen = () => {
                 apiClient.get('/users'),
                 apiClient.get('/classes')
             ]);
-            setAllUsers(usersRes.data);
-            setAllClasses(classesRes.data);
+            setAllUsers(usersRes.data || []);
+            setAllClasses(classesRes.data || []);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar los datos necesarios.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar los datos necesarios.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -83,7 +96,12 @@ const NotificationAdminScreen = () => {
 
     const handleSendNotification = () => {
         if (!title || !message) {
-            Alert.alert('Campos incompletos', 'Por favor, ingresa un título y un mensaje.');
+            setAlertInfo({
+                visible: true,
+                title: 'Campos incompletos',
+                message: 'Por favor, ingresa un título y un mensaje.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             return;
         }
 
@@ -92,18 +110,27 @@ const NotificationAdminScreen = () => {
 
         switch (targetType) {
             case 'user':
-                if (!selectedUserId) { Alert.alert('Error', 'Selecciona un usuario.'); return; }
+                if (!selectedUserId) { 
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un usuario.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); 
+                    return; 
+                }
                 payload.targetId = selectedUserId;
                 const user = allUsers.find(u => u._id === selectedUserId);
                 confirmationMessage = `¿Enviar a ${user?.nombre} ${user?.apellido}?`;
                 break;
             case 'role':
-                if (!selectedRoleId) { Alert.alert('Error', 'Selecciona un rol.'); return; }
+                if (!selectedRoleId) { 
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un rol.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); 
+                    return; 
+                }
                 payload.targetRole = selectedRoleId;
                 confirmationMessage = `¿Enviar a todos los usuarios con el rol "${selectedRoleId}"?`;
                 break;
             case 'class':
-                if (!selectedClassId) { Alert.alert('Error', 'Selecciona una clase.'); return; }
+                if (!selectedClassId) { 
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona una clase.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); 
+                    return; 
+                }
                 payload.targetId = selectedClassId;
                 const cls = allClasses.find(c => c._id === selectedClassId);
                 confirmationMessage = `¿Enviar a todos los inscritos en "${cls?.nombre}"?`;
@@ -114,23 +141,29 @@ const NotificationAdminScreen = () => {
             default: return;
         }
 
-        Alert.alert("Confirmar Envío", confirmationMessage, [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Enviar', onPress: async () => {
-                setSending(true);
-                try {
-                    await apiClient.post('/notifications', payload);
-                    Alert.alert('Éxito', 'Notificación enviada correctamente.');
-                    setTitle('');
-                    setMessage('');
-                    setIsImportant(false);
-                } catch (error) {
-                    Alert.alert('Error', error.response?.data?.message || 'No se pudo enviar la notificación.');
-                } finally {
-                    setSending(false);
-                }
-            }}
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Envío",
+            message: confirmationMessage,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                { text: 'Enviar', style: 'primary', onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    setSending(true);
+                    try {
+                        await apiClient.post('/notifications', payload);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        setTitle('');
+                        setMessage('');
+                        setIsImportant(false);
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    } finally {
+                        setSending(false);
+                    }
+                }}
+            ]
+        });
     };
 
     if (loading) {
@@ -206,8 +239,19 @@ const NotificationAdminScreen = () => {
                     </ScrollView>
                 </View>
             )}
-
-            <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
+            
+            <View style={styles.buttonWrapper}>
+                <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
+            </View>
+            
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ScrollView>
     );
 };
@@ -223,7 +267,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: Colors[colorScheme].cardBackground,
         color: Colors[colorScheme].text,
         padding: 15,
-        borderRadius: 2,
+        borderRadius: 8,
         fontSize: 16,
         marginBottom: 15,
         borderWidth: 1,
@@ -246,14 +290,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     pickerContainer: {
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 2,
+        borderRadius: 8,
         marginBottom: 20,
     },
     listContainer: {
         maxHeight: 250, // Altura máxima para que la lista sea scrollable
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
-        borderRadius: 2,
+        borderRadius: 8,
         marginBottom: 20,
     },
     listItem: {
@@ -278,6 +322,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         padding: 15,
         textAlign: 'center',
         color: Colors[colorScheme].icon,
+    },
+    buttonWrapper: {
+        borderRadius: 8,
+        overflow: 'hidden', // Necesario para que el borderRadius se aplique al Button en Android
+        marginTop: 10,
     }
 });
 

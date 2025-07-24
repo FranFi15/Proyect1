@@ -1,32 +1,40 @@
 import React, { useState, useCallback } from 'react';
-import { 
-    StyleSheet, 
-    ScrollView, 
-    Modal, 
+import {
+    StyleSheet,
+    View,
+    Text,
+    ScrollView,
+    ActivityIndicator,
     TouchableOpacity,
     useColorScheme,
-    View,
-    ActivityIndicator,
-    Alert,
-    Text,
+    Modal,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
+import es from 'date-fns/locale/es';
 
-// Importamos los nuevos componentes para los modales
+// Importamos los componentes para los modales
 import BalanceModal from '@/components/client/BalanceModal';
 import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
     const [profile, setProfile] = useState(user);
-    const [loading, setLoading] = useState(false);
+    
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     // Estados para controlar la visibilidad de cada modal
     const [isBalanceModalVisible, setBalanceModalVisible] = useState(false);
@@ -43,10 +51,18 @@ const ProfileScreen = () => {
     );
 
     const handleLogout = () => {
-        Alert.alert("Cerrar Sesión", "¿Estás seguro de que quieres salir?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Salir", style: "destructive", onPress: logout }
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Cerrar Sesión",
+            message: "¿Estás seguro de que quieres salir?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Salir", style: "destructive", onPress: () => {
+                    setAlertInfo({ visible: false });
+                    logout();
+                }}
+            ]
+        });
     };
 
     if (authLoading || !profile) {
@@ -60,53 +76,53 @@ const ProfileScreen = () => {
                     <ThemedText style={styles.headerTitle}>{profile.nombre} {profile.apellido}</ThemedText>
                 </View>
                   <ThemedView style={styles.card}>
-                    <ThemedText style={styles.cardTitle}>Mis Datos</ThemedText>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>DNI</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.dni}</ThemedText>
-                    </View>
-                    {profile.fechaNacimiento && isValid(parseISO(profile.fechaNacimiento)) && (
-                        <View style={styles.infoRow}>
-                            <Ionicons name="calendar" size={20} color={Colors[colorScheme].icon} />
-                            <ThemedText style={styles.infoLabel}>Fecha de Nacimiento</ThemedText>
-                            <ThemedText style={styles.infoValue}>
-                                {format(parseISO(profile.fechaNacimiento), 'dd/MM/yyyy')}
-                            </ThemedText>
-                        </View>
-                        
-                    )}
-                    <View style={styles.infoRow}>
-                        <Ionicons name="phone-portrait" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Telefono</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.numeroTelefono}</ThemedText>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="call" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
-                    </View>
-                     <View style={styles.infoRow}>
-                        <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Email</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="home" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Direccion</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.direccion}</ThemedText>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="fitness" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Obra Social</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.obraSocial}</ThemedText>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="male-female-sharp" size={20} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.infoLabel}>Sexo</ThemedText>
-                        <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
-                    </View>
-                </ThemedView>
+                      <ThemedText style={styles.cardTitle}>Mis Datos</ThemedText>
+                      <View style={styles.infoRow}>
+                          <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>DNI</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.dni}</ThemedText>
+                      </View>
+                      {profile.fechaNacimiento && isValid(parseISO(profile.fechaNacimiento)) && (
+                          <View style={styles.infoRow}>
+                              <Ionicons name="calendar" size={20} color={Colors[colorScheme].icon} />
+                              <ThemedText style={styles.infoLabel}>Fecha de Nacimiento</ThemedText>
+                              <ThemedText style={styles.infoValue}>
+                                  {format(parseISO(profile.fechaNacimiento), 'dd/MM/yyyy')}
+                              </ThemedText>
+                          </View>
+                          
+                      )}
+                      <View style={styles.infoRow}>
+                          <Ionicons name="phone-portrait" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Telefono</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.numeroTelefono}</ThemedText>
+                      </View>
+                      <View style={styles.infoRow}>
+                          <Ionicons name="call" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
+                      </View>
+                       <View style={styles.infoRow}>
+                          <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Email</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
+                      </View>
+                      <View style={styles.infoRow}>
+                          <Ionicons name="home" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Direccion</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.direccion}</ThemedText>
+                      </View>
+                      <View style={styles.infoRow}>
+                          <Ionicons name="fitness" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Obra Social</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.obraSocial}</ThemedText>
+                      </View>
+                      <View style={styles.infoRow}>
+                          <Ionicons name="male-female-sharp" size={20} color={Colors[colorScheme].icon} />
+                          <ThemedText style={styles.infoLabel}>Sexo</ThemedText>
+                          <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
+                      </View>
+                  </ThemedView>
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setBalanceModalVisible(true)}>
@@ -149,6 +165,14 @@ const ProfileScreen = () => {
                 <EditProfileModal userProfile={profile} onClose={() => setEditModalVisible(false)} />
             </Modal>
 
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
@@ -183,7 +207,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 18,
         paddingHorizontal: 15,
-        borderRadius: 2,
+        borderRadius: 8, // Borde redondeado
         marginBottom: 12,
         elevation: 2,
         shadowColor: '#000',
@@ -199,7 +223,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 2,
+        borderRadius: 8, // Borde redondeado
         padding: 20,
         marginHorizontal: 15,
         marginVertical: 10,

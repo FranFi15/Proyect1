@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, FlatList, View, TextInput, ActivityIndicator, Alert, TouchableOpacity, useColorScheme, Text } from 'react-native';
+import { StyleSheet, FlatList, View, TextInput, ActivityIndicator, TouchableOpacity, useColorScheme, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
 import TrainingPlanModal from '../../components/profesor/TrainingPlanModal';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const ProfessorClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -19,16 +19,27 @@ const ProfessorClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // --- CORRECCIÓN: Se pide al backend que filtre los usuarios por rol ---
-            // Esto es más eficiente que traer todos los usuarios y filtrar en la app.
             const response = await apiClient.get('/users?role=cliente');
             setUsers(response.data);
         } catch (error) {
             console.error("Error fetching clients:", error.response?.data || error.message);
-            Alert.alert('Error', 'No se pudieron cargar los socios.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar los socios.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -47,7 +58,7 @@ const ProfessorClientsScreen = () => {
 
     const handleCloseModal = () => {
         setPlanModalVisible(false);
-        setSelectedClient(null); // Limpiamos el cliente seleccionado al cerrar
+        setSelectedClient(null);
     };
 
     const filteredData = useMemo(() => {
@@ -84,14 +95,22 @@ const ProfessorClientsScreen = () => {
                     onClose={handleCloseModal}
                 />
             )}
+             <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 2, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
 });

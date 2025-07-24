@@ -5,7 +5,6 @@ import {
     View, 
     TextInput, 
     ActivityIndicator, 
-    Alert,
     TouchableOpacity,
     useColorScheme,
     Modal,
@@ -21,11 +20,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome, Octicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO, isValid } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent'; 
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const ManageClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -36,6 +36,13 @@ const ManageClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
@@ -43,7 +50,7 @@ const ManageClientsScreen = () => {
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
 
-   
+    
     const [planData, setPlanData] = useState({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' });
     const [massEnrollFilters, setMassEnrollFilters] = useState({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -52,8 +59,8 @@ const ManageClientsScreen = () => {
     const [showMassEnrollDatePicker, setShowMassEnrollDatePicker] = useState(false);
     const [datePickerField, setDatePickerField] = useState(null);
     
-   
-    const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], });
+    
+    const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
     const [newClientDay, setNewClientDay] = useState('');
     const [newClientMonth, setNewClientMonth] = useState('');
     const [newClientYear, setNewClientYear] = useState('');
@@ -72,11 +79,17 @@ const ManageClientsScreen = () => {
                 apiClient.get('/tipos-clase')
             ]);
             
-            const filteredUsers = usersResponse.data.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
+            const validUsers = usersResponse.data.filter(user => user !== null);
+            const filteredUsers = validUsers.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
             setUsers(filteredUsers);
             setClassTypes(classTypesResponse.data.tiposClase || []);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar los datos.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar los datos.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -139,7 +152,7 @@ const ManageClientsScreen = () => {
     };
 
     const handleOpenAddModal = () => {
-        setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], });
+        setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
         setNewClientDay('');
         setNewClientMonth('');
         setNewClientYear('');
@@ -147,22 +160,29 @@ const ManageClientsScreen = () => {
     };
     
     const handleDeleteClient = (client) => {
-        Alert.alert( "Eliminar Socio", `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`,
-            [ { text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive", onPress: async () => {
-                try {
-                    await apiClient.delete(`/users/${client._id}`);
-                    Alert.alert('Éxito', 'Socio eliminado correctamente.');
-                    fetchAllData();
-                } catch (error) {
-                    Alert.alert('Error', error.response?.data?.message || 'No se pudo eliminar al socio.');
-                }
-            }}]
-        );
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Socio",
+            message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Eliminar", style: "destructive", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.delete(`/users/${client._id}`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        fetchAllData();
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }}
+            ]
+        });
     };
 
     const handlePlanSubmit = async () => {
         if (!selectedClient || !planData.tipoClaseId) {
-            Alert.alert('Error', 'Por favor, selecciona un tipo de clase.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, selecciona un tipo de clase.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         const payload = {
@@ -173,52 +193,64 @@ const ManageClientsScreen = () => {
         };
         try {
             await apiClient.put(`/users/${selectedClient._id}/plan`, payload);
-            Alert.alert('Éxito', 'El plan del socio ha sido actualizado.');
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'El plan del socio ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             setCreditsModalVisible(false);
             fetchAllData();
         } catch (error) {
-             Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar el plan.');
+             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
     const handleRemoveSubscription = (tipoClaseId) => {
         if (!selectedClient || !tipoClaseId) return;
-        Alert.alert("Quitar Suscripción", "¿Seguro que quieres eliminar la suscripción automática para esta clase?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Quitar", style: "destructive", onPress: async () => {
-                try {
-                    await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
-                    Alert.alert('Éxito', 'Suscripción eliminada.');
-                    fetchAllData();
-                    setCreditsModalVisible(false);
-                } catch (error) {
-                    Alert.alert('Error', error.response?.data?.message || 'No se pudo eliminar la suscripción.');
-                }
-            }}
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Quitar Suscripción",
+            message: "¿Seguro que quieres eliminar la suscripción automática para esta clase?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Quitar", style: "destructive", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Suscripción eliminada.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        fetchAllData();
+                        setCreditsModalVisible(false);
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la suscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }}
+            ]
+        });
     };
 
     const handleRemoveFixedPlan = (planId) => {
         if (!selectedClient) return;
-        Alert.alert("Quitar Plan Fijo", "¿Seguro que quieres quitar este plan de horario fijo?", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Quitar", style: "destructive", onPress: async () => {
-                try {
-                    await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
-                    Alert.alert('Éxito', 'Plan de horario fijo eliminado.');
-                    fetchAllData();
-                    setCreditsModalVisible(false);
-                } catch (error) {
-                    Alert.alert('Error', error.response?.data?.message || 'No se pudo quitar el plan.');
-                }
-            }}
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Quitar Plan Fijo",
+            message: "¿Seguro que quieres quitar este plan de horario fijo?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Quitar", style: "destructive", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Plan de horario fijo eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        fetchAllData();
+                        setCreditsModalVisible(false);
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo quitar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }}
+            ]
+        });
     };
 
     const findAvailableSlots = async () => {
         const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters;
         if (!tipoClaseId || diasDeSemana.length === 0 || !fechaInicio || !fechaFin) {
-            Alert.alert('Error', 'Completa todos los filtros para buscar horarios.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'Completa todos los filtros para buscar horarios.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         setIsLoadingSlots(true);
@@ -228,10 +260,10 @@ const ManageClientsScreen = () => {
             });
             setAvailableSlots(response.data);
             if (response.data.length === 0) {
-                Alert.alert('Sin resultados', 'No se encontraron horarios disponibles para esa combinación.');
+                setAlertInfo({ visible: true, title: 'Sin resultados', message: 'No se encontraron horarios disponibles para esa combinación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             }
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron buscar los horarios.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron buscar los horarios.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } finally {
             setIsLoadingSlots(false);
         }
@@ -239,27 +271,33 @@ const ManageClientsScreen = () => {
     
     const handleMassEnrollSubmit = async () => {
         if (!selectedClient || !selectedSlot) {
-            Alert.alert('Error', 'Selecciona un horario para inscribir.');
+            setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un horario para inscribir.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters;
         const { horaInicio, horaFin } = selectedSlot;
 
-        Alert.alert("Confirmar Inscripción Masiva", `¿Inscribir a ${selectedClient.nombre} en este plan?`, [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Inscribir", onPress: async () => {
-                try {
-                    await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, {
-                        tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin,
-                    });
-                    Alert.alert('Éxito', 'El socio ha sido inscrito en el plan.');
-                    setCreditsModalVisible(false);
-                    fetchAllData();
-                } catch (error) {
-                    Alert.alert('Error', error.response?.data?.message || 'No se pudo procesar la inscripción.');
-                }
-            }}
-        ]);
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Inscripción Masiva",
+            message: `¿Inscribir a ${selectedClient.nombre} en este plan?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Inscribir", style: "primary", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, {
+                            tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin,
+                        });
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        setCreditsModalVisible(false);
+                        fetchAllData();
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    }
+                }}
+            ]
+        });
     };
 
     const handleDaySelection = (day) => {
@@ -291,17 +329,17 @@ const ManageClientsScreen = () => {
         for (const key in newClientData) {
             const optionalFields = ['numeroTelefono', 'obraSocial', 'roles'];
             if (newClientData[key] === '' && !optionalFields.includes(key)) {
-                Alert.alert('Error', `Por favor, completa el campo: ${key}`);
+                setAlertInfo({ visible: true, title: 'Error', message: `Por favor, completa el campo: ${key}`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                 return;
             }
         }
         try {
             await apiClient.post('/auth/register', newClientData);
-            Alert.alert('Éxito', 'Socio registrado correctamente.');
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             setShowAddFormModal(false);
             fetchAllData();
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudo registrar al socio.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo registrar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -314,11 +352,11 @@ const ManageClientsScreen = () => {
         try {
             const { contraseña, ...updatePayload } = editingClientData;
             await apiClient.put(`/users/${editingClientData._id}`, updatePayload);
-            Alert.alert('Éxito', 'Socio actualizado correctamente.');
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             setShowEditFormModal(false);
             fetchAllData();
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar al socio.');
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -327,34 +365,32 @@ const ManageClientsScreen = () => {
         const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE";
         const userName = `${user.nombre} ${user.apellido}`;
 
-        Alert.alert(
-            `Confirmar Orden Médica`,
-            `¿Estás seguro de que quieres ${actionText} la orden médica de ${userName}?`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Confirmar",
-                    onPress: async () => {
-                        try {
-                            await apiClient.put(`/users/${user._id}`, {
-                                ordenMedicaEntregada: newStatus
-                            });
-                            // Actualiza el estado local para un feedback instantáneo
-                            setUsers(currentUsers =>
-                                currentUsers.map(u =>
-                                    u._id === user._id
-                                        ? { ...u, ordenMedicaEntregada: newStatus }
-                                        : u
-                                )
-                            );
-                            Alert.alert('Éxito', 'El estado de la orden médica ha sido actualizado.');
-                        } catch (error) {
-                            Alert.alert('Error', error.response?.data?.message || 'No se pudo actualizar el estado.');
-                        }
+        setAlertInfo({
+            visible: true,
+            title: `Confirmar Orden Médica`,
+            message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${userName}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Confirmar", style: "primary", onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    try {
+                        await apiClient.put(`/users/${user._id}`, {
+                            ordenMedicaEntregada: newStatus
+                        });
+                        setUsers(currentUsers =>
+                            currentUsers.map(u =>
+                                u._id === user._id
+                                    ? { ...u, ordenMedicaEntregada: newStatus }
+                                    : u
+                            )
+                        );
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                     }
-                }
+                }}
             ]
-        );
+        });
     };
 
     const filteredData = useMemo(() => {
@@ -390,17 +426,17 @@ const ManageClientsScreen = () => {
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                            <Ionicons name="pencil" size={24} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
-                            <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        {item.ordenMedicaRequerida && (
+                        {item?.ordenMedicaRequerida && (
                             <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
                             <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}/>
                             </TouchableOpacity>
                         )}
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
+                            <FontAwesome name="user" size={24} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClient(item)}>
+                            <Octicons name="trash" size={23} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
                     </View>
                 </View>
                 {hasCredits && (
@@ -442,7 +478,7 @@ const ManageClientsScreen = () => {
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No se encontraron usuarios.</ThemedText>}
             />
             <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
-                <Ionicons name="add" size={30} color="#fff" />
+                <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
 
             <Modal animationType="slide" transparent={true} visible={showAddFormModal} onRequestClose={() => setShowAddFormModal(false)}>
@@ -471,9 +507,9 @@ const ManageClientsScreen = () => {
                             </View>
                             <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
                             <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.telefonoEmergencia} onChangeText={(text) => handleNewClientChange('telefonoEmergencia', text)} />
-                            <ThemedText style={styles.inputLabel}>Teléfono (Opcional)</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Teléfono</ThemedText>
                             <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.numeroTelefono} onChangeText={(text) => handleNewClientChange('numeroTelefono', text)} />
-                            <ThemedText style={styles.inputLabel}>Obra Social (Opcional)</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Obra Social</ThemedText>
                             <TextInput style={styles.input} value={newClientData.obraSocial} onChangeText={(text) => handleNewClientChange('obraSocial', text)} />
                             
                             <ThemedText style={styles.inputLabel}>Rol</ThemedText>
@@ -487,9 +523,31 @@ const ManageClientsScreen = () => {
                                     <Picker.Item label="Admin" value="admin" />
                                 </Picker>
                             </View>
+                            <View style={styles.switchRow}>
+                                 <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
+                                 <Switch
+                                     value={newClientData.ordenMedicaRequerida}
+                                     onValueChange={(value) => handleNewClientChange('ordenMedicaRequerida', value)}
+                                     trackColor={{ false: "#767577", true: gymColor }}
+                                     thumbColor={"#f4f3f4"}
+                                 />
+                             </View>
+                             {newClientData.ordenMedicaRequerida && (
+                                 <View style={styles.switchRow}>
+                                     <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
+                                     <Switch
+                                         value={newClientData.ordenMedicaEntregada}
+                                         onValueChange={(value) => handleNewClientChange('ordenMedicaEntregada', value)}
+                                         trackColor={{ false: "#767577", true: gymColor }}
+                                         thumbColor={"#f4f3f4"}
+                                     />
+                                 </View>
+                             )}
 
                             <View style={styles.modalActions}>
-                                <Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} />
+                                <View style={styles.buttonWrapper}>
+                                    <Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} />
+                                </View>
                             </View>
                         </ScrollView>
                     </ThemedView>
@@ -510,19 +568,19 @@ const ManageClientsScreen = () => {
                                 <ThemedText style={styles.inputLabel}>Apellido</ThemedText>
                                 <TextInput style={styles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
                                 <ThemedText style={styles.inputLabel}>DNI</ThemedText>
-                                <TextInput style={styles.input} keyboardType="numeric" value={newClientData.dni} onChangeText={(text) => handleNewClientChange('dni', text)} />
+                                <TextInput style={styles.input} keyboardType="numeric" value={editingClientData.dni} onChangeText={(text) => handleEditingClientChange('dni', text)} />
                                  <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
                             <View style={styles.dateInputContainer}>
-                                <TextInput style={styles.dateInput} placeholder="DD" value={newClientDay} onChangeText={setNewClientDay} keyboardType="number-pad" maxLength={2} />
-                                <TextInput style={styles.dateInput} placeholder="MM" value={newClientMonth} onChangeText={setNewClientMonth} keyboardType="number-pad" maxLength={2} />
-                                <TextInput style={styles.dateInput} placeholder="AAAA" value={newClientYear} onChangeText={setNewClientYear} keyboardType="number-pad" maxLength={4} />
+                                <TextInput style={styles.dateInput} placeholder="DD" value={editingClientDay} onChangeText={setEditingClientDay} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="MM" value={editingClientMonth} onChangeText={setEditingClientMonth} keyboardType="number-pad" maxLength={2} />
+                                <TextInput style={styles.dateInput} placeholder="AAAA" value={editingClientYear} onChangeText={setEditingClientYear} keyboardType="number-pad" maxLength={4} />
                             </View>
                                 <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
-                                <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.telefonoEmergencia} onChangeText={(text) => handleNewClientChange('telefonoEmergencia', text)} />
-                                <ThemedText style={styles.inputLabel}>Teléfono (Opcional)</ThemedText>
-                                <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.numeroTelefono} onChangeText={(text) => handleNewClientChange('numeroTelefono', text)} />
-                                <ThemedText style={styles.inputLabel}>Obra Social (Opcional)</ThemedText>
-                                <TextInput style={styles.input} value={newClientData.obraSocial} onChangeText={(text) => handleNewClientChange('obraSocial', text)} />
+                                <TextInput style={styles.input} keyboardType="phone-pad" value={editingClientData.telefonoEmergencia} onChangeText={(text) => handleEditingClientChange('telefonoEmergencia', text)} />
+                                <ThemedText style={styles.inputLabel}>Teléfono</ThemedText>
+                                <TextInput style={styles.input} keyboardType="phone-pad" value={editingClientData.numeroTelefono} onChangeText={(text) => handleEditingClientChange('numeroTelefono', text)} />
+                                <ThemedText style={styles.inputLabel}>Obra Social</ThemedText>
+                                <TextInput style={styles.input} value={editingClientData.obraSocial} onChangeText={(text) => handleEditingClientChange('obraSocial', text)} />
 
                                 <ThemedText style={styles.inputLabel}>Rol</ThemedText>
                                 <View style={styles.pickerContainer}>
@@ -557,7 +615,9 @@ const ManageClientsScreen = () => {
                                 )}
 
                                 <View style={styles.modalActions}>
-                                    <Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} />
+                                    <View style={styles.buttonWrapper}>
+                                        <Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} />
+                                    </View>
                                 </View>
                             </ScrollView>
                         </ThemedView>
@@ -583,7 +643,7 @@ const ManageClientsScreen = () => {
                                     <View key={sub._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase)} ({sub.autoRenewAmount} créditos/mes)</Text>
                                         <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}>
-                                            <Ionicons name="trash" size={22} color={Colors.light.error} />
+                                            <Octicons name="trash" size={22} color={Colors.light.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -591,7 +651,7 @@ const ManageClientsScreen = () => {
                                     <View key={plan._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase)} ({plan.diasDeSemana.join(', ')})</Text>
                                         <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}>
-                                            <Ionicons name="trash" size={22} color={Colors.light.error} />
+                                            <Octicons name="trash" size={22} color={Colors.light.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -621,7 +681,9 @@ const ManageClientsScreen = () => {
                                         <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({...prev, autoRenewAmount: text}))}/>
                                     </>
                                 )}
-                                <Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color='#1a5276' />
+                                <View style={styles.buttonWrapper}>
+                                    <Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color='#1a5276' />
+                                </View>
                             </View>
 
                             <View style={styles.section}>
@@ -657,7 +719,9 @@ const ManageClientsScreen = () => {
                                 {showMassEnrollDatePicker && (
                                     <DateTimePicker value={new Date()} mode="date" display="default" onChange={handleDateChangeForMassEnroll} />
                                 )}
-                                <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color='#1a5276' />
+                                <View style={styles.buttonWrapper}>
+                                    <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color='#1a5276' />
+                                </View>
                                 {availableSlots.length > 0 && (
                                     <View style={{marginTop: 20}}>
                                         <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
@@ -666,7 +730,7 @@ const ManageClientsScreen = () => {
                                                 <Text style={selectedSlot?.horaInicio === slot.horaInicio ? styles.slotTextSelected : styles.slotText}>{slot.horaInicio} - {slot.horaFin}</Text>
                                             </TouchableOpacity>
                                         ))}
-                                        <View style={{marginTop: 15}}>
+                                        <View style={styles.buttonWrapper}>
                                             <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
                                         </View>
                                     </View>
@@ -676,6 +740,14 @@ const ManageClientsScreen = () => {
                     </ThemedView>
                 </View>
             </Modal>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 }
@@ -683,10 +755,10 @@ const ManageClientsScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
+    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
     card: { 
         backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 2,
+        borderRadius: 8,
         padding: 15, 
         marginVertical: 8, 
         marginHorizontal: 15, 
@@ -706,7 +778,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
-    actionButton: { marginLeft: 8, },
+    actionButton: { marginLeft: 10, },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
     roleBadge: {
@@ -743,7 +815,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: '600',
     },
     modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: {
         position: 'absolute',
         top: 15,
@@ -752,11 +824,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text, paddingTop: 10 },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.8 },
-    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
+    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
     pickerContainer: { 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         marginBottom: 15,
         justifyContent: 'center'
     },
@@ -773,7 +845,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
         padding: 12,
-        borderRadius: 2,
+        borderRadius: 8,
         fontSize: 16,
         color: Colors[colorScheme].text,
         backgroundColor: Colors[colorScheme].background,
@@ -787,7 +859,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     planText: { fontSize: 14, color: Colors[colorScheme].text, flex: 1 },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 6, paddingHorizontal: 5, borderRadius: 6, borderWidth: 1, borderColor: '#1a5276', margin: 4 },
+    dayChip: { paddingVertical: 6, paddingHorizontal: 5, borderRadius: 8, borderWidth: 1, borderColor: '#1a5276', margin: 4 },
     dayChipSelected: { backgroundColor: '#1a5276'},
     dayChipText: { fontSize: 16 },
     dayChipTextSelected: { color: '#FFFFFF', fontSize: 16 },
@@ -795,7 +867,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
-    dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 2, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
+    dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
     dateInputText: { fontSize: 14, color: Colors[colorScheme].text, },
     switchRow: {
         flexDirection: 'row',
@@ -803,9 +875,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
         paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
     },
+    buttonWrapper: {
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginTop: 10,
+    }
 });
 
 export default ManageClientsScreen;

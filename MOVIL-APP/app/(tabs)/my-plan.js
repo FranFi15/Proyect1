@@ -1,4 +1,3 @@
-// screens/client/MyPlanScreen.js
 import React, { useState, useCallback } from 'react';
 import { ScrollView, StyleSheet, ActivityIndicator, RefreshControl, useColorScheme, View, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -7,6 +6,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const MyPlanScreen = () => {
     const [plans, setPlans] = useState([]);
@@ -17,6 +17,14 @@ const MyPlanScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchPlans = useCallback(async () => {
         setLoading(true);
         try {
@@ -24,6 +32,12 @@ const MyPlanScreen = () => {
             setPlans(response.data);
         } catch (error) {
             console.log("Error al cargar los planes visibles.");
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo cargar tu plan de entrenamiento.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -41,26 +55,35 @@ const MyPlanScreen = () => {
     }
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={styles.contentContainer}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-        >
-            {plans.length > 0 ? (
-                plans.map(plan => (
-                    <ThemedView key={plan._id} style={styles.card}>
-                        <ThemedText style={styles.title}>{plan.name}</ThemedText>
-                        {plan.description && <ThemedText style={styles.description}>{plan.description}</ThemedText>}
-                        <ThemedText style={styles.content}>{plan.content}</ThemedText>
+        <ThemedView style={styles.container}>
+            <ScrollView
+                contentContainerStyle={styles.contentContainer}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+            >
+                {plans.length > 0 ? (
+                    plans.map(plan => (
+                        <ThemedView key={plan._id} style={styles.card}>
+                            <ThemedText style={styles.title}>{plan.name}</ThemedText>
+                            {plan.description && <ThemedText style={styles.description}>{plan.description}</ThemedText>}
+                            <ThemedText style={styles.content}>{plan.content}</ThemedText>
+                        </ThemedView>
+                    ))
+                ) : (
+                    <ThemedView style={styles.centered}>
+                        <ThemedText style={styles.noPlanText}>Tu profesional aún no ha cargado un plan visible.</ThemedText>
+                        <ThemedText style={styles.noPlanSubText}>Arrastra hacia abajo para refrescar.</ThemedText>
                     </ThemedView>
-                ))
-            ) : (
-                <ThemedView style={styles.centered}>
-                    <ThemedText style={styles.noPlanText}>Tu profesional aún no ha cargado un plan visible.</ThemedText>
-                    <ThemedText style={styles.noPlanSubText}>Arrastra hacia abajo para refrescar.</ThemedText>
-                </ThemedView>
-            )}
-        </ScrollView>
+                )}
+            </ScrollView>
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
+        </ThemedView>
     );
 };
 

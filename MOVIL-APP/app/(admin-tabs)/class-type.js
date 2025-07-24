@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     Modal,
     TextInput,
-    Alert,
     useColorScheme,
     ActivityIndicator,
     RefreshControl,
@@ -19,7 +18,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext'; 
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const ClassTypeManagementScreen = () => {
     const { gymColor } = useAuth();
@@ -34,6 +34,14 @@ const ClassTypeManagementScreen = () => {
     const [editingClassType, setEditingClassType] = useState(null);
     const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
 
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
     const fetchClassTypes = useCallback(async () => {
         try {
             const response = await apiClient.get('/tipos-clase');
@@ -43,7 +51,12 @@ const ClassTypeManagementScreen = () => {
                 setClassTypes([]);
             }
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron obtener los tipos de turno.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron obtener los tipos de turno.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             setClassTypes([]);
         } finally {
             setIsLoading(false);
@@ -86,7 +99,12 @@ const ClassTypeManagementScreen = () => {
 
     const handleFormSubmit = async () => {
         if (!formData.nombre) {
-            Alert.alert('Campo Requerido', 'El nombre del tipo de turno es obligatorio.');
+            setAlertInfo({
+                visible: true,
+                title: 'Campo Requerido',
+                message: 'El nombre del tipo de turno es obligatorio.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             return;
         }
 
@@ -95,42 +113,63 @@ const ClassTypeManagementScreen = () => {
             price: Number(formData.price) || 0,
         };
 
-        // --- CORRECCIÓN AQUÍ: Se usa 'payload' en lugar de 'formData' ---
         const apiCall = editingClassType
             ? apiClient.put(`/tipos-clase/${editingClassType._id}`, payload)
             : apiClient.post('/tipos-clase', payload);
 
         try {
             await apiCall;
-            Alert.alert('Éxito', `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`);
+            setAlertInfo({
+                visible: true,
+                title: 'Éxito',
+                message: `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`,
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             setIsModalVisible(false);
             fetchClassTypes();
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`);
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`,
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         }
     };
 
     const handleDelete = (type) => {
-        Alert.alert(
-            'Confirmar Eliminación',
-            `¿Estás seguro de que quieres eliminar "${type.nombre}"?`,
-            [
-                { text: 'Cancelar', style: 'cancel' },
+        setAlertInfo({
+            visible: true,
+            title: 'Confirmar Eliminación',
+            message: `¿Estás seguro de que quieres eliminar "${type.nombre}"?`,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
                 {
                     text: 'Eliminar',
                     style: 'destructive',
                     onPress: async () => {
+                        setAlertInfo({ visible: false }); // Cierra la alerta de confirmación
                         try {
                             await apiClient.delete(`/tipos-clase/${type._id}`);
-                            Alert.alert('Éxito', 'Tipo de turno eliminado.');
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Éxito',
+                                message: 'Tipo de turno eliminado.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                            });
                             fetchClassTypes();
                         } catch (error) {
-                            Alert.alert('Error', error.response?.data?.message || 'Error al eliminar.');
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Error',
+                                message: error.response?.data?.message || 'Error al eliminar.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                            });
                         }
                     },
                 },
             ]
-        );
+        });
     };
 
     const renderClassType = ({ item }) => (
@@ -146,10 +185,10 @@ const ClassTypeManagementScreen = () => {
             </View>
             <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
-                    <Ionicons name="pencil" size={24} color={Colors[colorScheme].text} />
+                    <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
-                    <Ionicons name="trash" size={24} color={Colors[colorScheme].text} />
+                    <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -234,6 +273,15 @@ const ClassTypeManagementScreen = () => {
                     </ThemedView>
                 </View>
             </Modal>
+
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
@@ -244,7 +292,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     listContainer: { padding: 10, paddingBottom: 80 },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 2,
+        borderRadius: 8,
         padding: 15,
         marginVertical: 8,
         marginHorizontal: 5,
@@ -289,7 +337,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: Colors[colorScheme].background,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 2,
+        borderRadius: 8,
         paddingHorizontal: 15,
         marginBottom: 20,
         color: Colors[colorScheme].text,
@@ -303,7 +351,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     marginBottom: 20, 
 },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-    button: { flex: 1, paddingVertical: 12, borderRadius: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
+    button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     

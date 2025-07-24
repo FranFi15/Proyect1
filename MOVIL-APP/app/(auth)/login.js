@@ -136,7 +136,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].icon,
         borderWidth: 1, 
-        borderRadius: 2, 
+        borderRadius: 8, 
         marginBottom: 12, 
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background,
@@ -146,7 +146,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     loginButton: {
         backgroundColor: gymColor || '#00177d',
         paddingVertical: 12,
-        borderRadius: 2,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: 10,

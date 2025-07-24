@@ -93,7 +93,6 @@ const notificationService = {
         throw new Error('El projectId de Expo no se encontró. Asegúrate de que está en app.json.');
     }
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log('Expo Push Token:', token);
   } catch (e) {
     console.error("Error obteniendo el push token:", e);
     return null;

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     },
     title: { marginBottom: 15, padding:5, fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
     input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 2, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: '#333', backgroundColor: '#fff' },
-    button: { width: '100%', height: 50, backgroundColor: '#000000ff', borderRadius: 2, alignItems: 'center', justifyContent: 'center' },
+    button: { width: '100%', height: 50, backgroundColor: '#000000ff', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
      contactText: {
         marginTop: 20,

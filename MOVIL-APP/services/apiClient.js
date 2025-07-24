@@ -19,8 +19,6 @@ apiClient.interceptors.request.use(
                 config.headers.Authorization = `Bearer ${user.token}`;
             }
         }
-        // La cabecera 'x-client-id' es manejada por AuthContext.
-        // No la tocamos aquí.
         return config;
     },
     (error) => {

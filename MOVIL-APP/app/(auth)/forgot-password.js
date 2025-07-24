@@ -111,7 +111,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45,
         borderColor: Colors[colorScheme].icon,
         borderWidth: 1,
-        borderRadius: 2,
+        borderRadius: 8,
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background,
         color: Colors[colorScheme].text,
@@ -121,7 +121,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     button: {
         backgroundColor: gymColor || '#00177d',
         paddingVertical: 12,
-        borderRadius: 2,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
         height: 50,

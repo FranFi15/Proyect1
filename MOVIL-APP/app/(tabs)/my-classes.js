@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { 
     StyleSheet, 
-    Alert, 
     ActivityIndicator, 
     TouchableOpacity, 
     Platform,
@@ -10,16 +9,20 @@ import {
     View, 
     Text, 
     RefreshControl,
+    Modal
 } from 'react-native';
-import apiClient from '../../services/apiClient';
 import { useFocusEffect } from 'expo-router';
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { useAuth } from '../../contexts/AuthContext';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import notificationService from '../../services/notificationService';
+import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5 } from '@expo/vector-icons'; // 1. Importar los íconos
+import { useRouter } from 'expo-router';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import apiClient from '../../services/apiClient';
+import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 
 const capitalize = (str) => {
     if (typeof str !== 'string' || str.length === 0) return '';
@@ -27,19 +30,36 @@ const capitalize = (str) => {
     return formattedStr.replace(' De ', ' de ');
 };
 
+const calculateAge = (birthDateString) => {
+    if (!birthDateString) return 'N/A';
+    try {
+        return differenceInYears(new Date(), parseISO(birthDateString));
+    } catch (error) {
+        return 'N/A';
+    }
+};
+
 const MyClassesScreen = () => {
-    // --- ESTADOS (SIN CAMBIOS) ---
+    // --- STATE MANAGEMENT ---
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('upcoming'); 
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const router = useRouter();
+
+    // Estado para manejar la alerta personalizada
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // 2. Definir el componente del botón con ícono DENTRO de MyClassesScreen
     const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
         <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: color }]}
@@ -67,11 +87,15 @@ const MyClassesScreen = () => {
 
             setEnrolledClasses(sortedClasses);
         } catch (error) {
-            Alert.alert('Error', 'No se pudieron cargar tus turnos.');
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudieron cargar tus turnos.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         }
     }, []);
 
-    // --- 4. Modificar useFocusEffect para manejar el estado de carga inicial ---
     useFocusEffect(useCallback(() => {
         const loadData = async () => {
             setLoading(true);
@@ -81,37 +105,46 @@ const MyClassesScreen = () => {
         loadData();
     }, [fetchMyClasses]));
 
-    // --- 5. Crear la función onRefresh ---
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
         await fetchMyClasses();
         setIsRefreshing(false);
     }, [fetchMyClasses]);
 
-    
-
     const handleUnenroll = (classId) => {
         const performUnenroll = async () => {
             try {
                 const response = await apiClient.post(`/classes/${classId}/unenroll`);
-                Alert.alert('Anulación Procesada', response.data.message);
+                setAlertInfo({
+                    visible: true,
+                    title: 'Anulación Procesada',
+                    message: response.data.message,
+                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                });
                 await refreshUser();
                 fetchMyClasses();
             } catch (error) {
-                Alert.alert('Error', error.response?.data?.message || 'No se pudo anular la inscripción.');
+                setAlertInfo({
+                    visible: true,
+                    title: 'Error',
+                    message: error.response?.data?.message || 'No se pudo anular la inscripción.',
+                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                });
             }
         };
 
-        if (Platform.OS === 'web') {
-            if (window.confirm("¿Estás seguro de que quieres anular tu inscripción?")) {
-                performUnenroll();
-            }
-        } else {
-            Alert.alert("Confirmar Anulación", "¿Estás seguro de que quieres anular tu inscripción?", [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Sí, Anular", onPress: performUnenroll, style: 'destructive' }
-            ]);
-        }
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Anulación",
+            message: "¿Estás seguro de que quieres anular tu inscripción?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Sí, Anular", onPress: () => {
+                    setAlertInfo({ visible: false });
+                    performUnenroll();
+                }, style: 'destructive' }
+            ]
+        });
     };
     
     const sectionedClasses = useMemo(() => {
@@ -155,9 +188,8 @@ const MyClassesScreen = () => {
                 ) : (
                     <ThemedText style={styles.classInfoText}>A cargo de : A confirmar</ThemedText>
                 )}
-                <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
+                <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                 
-                {/* 3. Usar el nuevo ActionButton */}
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
                     : activeTab === 'upcoming' && canUnenroll && (
@@ -188,7 +220,7 @@ const MyClassesScreen = () => {
                     <Text style={styles.tabText}>Próximas</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setActiveTab('past')} style={[styles.tab, activeTab === 'past' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Historial</Text>
+                    <Text style={styles.tabText}>Historial del Mes</Text>
                 </TouchableOpacity>
             </View>
             
@@ -208,6 +240,14 @@ const MyClassesScreen = () => {
                         tintColor={gymColor} // Color del spinner de carga
                     />
                 }
+            />
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor} 
             />
         </ThemedView>
     );
@@ -247,7 +287,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 2,
+            borderRadius: 8,
             ...shadowProp
         },
         className: {
@@ -274,11 +314,10 @@ const getStyles = (colorScheme, gymColor) => {
             color: Colors[colorScheme].text,
         },
         badgeCancelled: {
-            color: Colors[colorScheme].error,
+            color: Colors.light.error,
             fontWeight: 'bold',
             fontStyle: 'italic',
         },
-        // 4. Añadir los estilos para el nuevo botón
         actionButton: {
             flexDirection: 'row',
             alignItems: 'center',
