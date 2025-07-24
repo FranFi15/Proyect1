@@ -178,7 +178,6 @@ function ClientCreateEditPage() {
                             <option value="periodo_prueba">Periodo de Prueba</option>
                             <option value="activo">Activo</option>
                             <option value="inactivo">Inactivo</option>
-                            <option value="vencido">Vencido</option> {/* Corregido de "cancelado" a "vencido" para coincidir con el modelo */}
                         </select>
                     </div>
                 )}
