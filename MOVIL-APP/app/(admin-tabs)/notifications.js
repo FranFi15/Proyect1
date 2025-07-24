@@ -174,8 +174,8 @@ const NotificationAdminScreen = () => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación</ThemedText>
             
-            <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].icon} />
-            <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].icon} />
+            <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
+            <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
             
             <View style={styles.switchContainer}>
                 <ThemedText>Marcar como Importante (modal)</ThemedText>
@@ -213,7 +213,7 @@ const NotificationAdminScreen = () => {
             {targetType === 'role' && (
                 <View style={styles.pickerContainer}>
                     <Picker selectedValue={selectedRoleId} onValueChange={(itemValue) => setSelectedRoleId(itemValue)}>
-                        <Picker.Item label="-- Selecciona un rol --" value="" />
+                        <Picker.Item label="Selecciona un rol" value="" />
                         <Picker.Item label="Clientes" value="cliente" />
                         <Picker.Item label="Profesores" value="profesor" />
                         <Picker.Item label="Admins" value="admin" />
@@ -257,7 +257,7 @@ const NotificationAdminScreen = () => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1 , backgroundColor: Colors[colorScheme].cardBackground,},
     content: { padding: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     pageTitle: {
@@ -292,6 +292,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 1,
         borderRadius: 8,
         marginBottom: 20,
+        color: Colors[colorScheme].text,
     },
     listContainer: {
         maxHeight: 250, // Altura máxima para que la lista sea scrollable

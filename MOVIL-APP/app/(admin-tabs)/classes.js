@@ -611,28 +611,6 @@ const ManageClassesScreen = () => {
                                         arrowColor: gymColor,
                                     }}
                                 />
-                                {selectedDate && (
-                                    <View style={styles.filtersContainer}>
-                                        <View style={styles.pickerContainer}>
-                                            <Picker
-                                                selectedValue={selectedClassTypeFilter}
-                                                onValueChange={(itemValue) => setSelectedClassTypeFilter(itemValue)}
-                                            >
-                                                <Picker.Item label="Todos los Tipos" value="all" />
-                                                {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                            </Picker>
-                                        </View>
-                                        <View style={styles.pickerContainer}>
-                                            <Picker
-                                                selectedValue={selectedProfessorFilter}
-                                                onValueChange={(itemValue) => setSelectedProfessorFilter(itemValue)}
-                                            >
-                                                <Picker.Item label="Todos los Profesores" value="all" />
-                                                {teachers.map(t => <Picker.Item key={t._id} label={`${t.nombre} ${t.apellido}`} value={t._id} />)}
-                                            </Picker>
-                                        </View>
-                                    </View>
-                                )}
                             </>
                         }
                         data={filteredClassesForSelectedDate}
@@ -1166,7 +1144,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
-        marginBottom: 20,
+        margin: 15,
         justifyContent: 'center',
         backgroundColor: Colors[colorScheme].cardBackground,
     },
