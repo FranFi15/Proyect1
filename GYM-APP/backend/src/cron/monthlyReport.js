@@ -43,7 +43,8 @@ const getAllActiveClients = async () => {
 const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     console.log(`[${clientId}] Iniciando tarea mensual de reporte y limpieza de clases...`);
 
-    const { Class, User } = getModels(gymDB);
+    // --- CORRECCIÓN: Usar el nombre de modelo 'Clase' como se define en getModels.js ---
+    const { Clase, User } = getModels(gymDB);
 
     const now = new Date();
     const previousMonth = subMonths(now, 1);
@@ -51,7 +52,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     const endDate = endOfMonth(previousMonth);
 
     try {
-        const classesToArchive = await Class.find({
+        const classesToArchive = await Clase.find({ // <-- CORREGIDO
             fecha: { $gte: startDate, $lte: endDate },
         }).populate('profesor tipoClase usuariosInscritos');
 
@@ -135,7 +136,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         console.log(`[${clientId}] Correo con el reporte enviado exitosamente a ${adminUser.email}.`);
 
         const classIdsToDelete = classesToArchive.map(c => c._id);
-        await Class.deleteMany({ _id: { $in: classIdsToDelete } });
+        await Clase.deleteMany({ _id: { $in: classIdsToDelete } }); // <-- CORREGIDO
 
         console.log(`[${clientId}] ${classIdsToDelete.length} clases antiguas han sido eliminadas.`);
         console.log(`[${clientId}] Tarea mensual de reporte y limpieza completada.`);
