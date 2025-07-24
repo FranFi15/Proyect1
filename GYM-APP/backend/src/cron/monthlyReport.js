@@ -2,15 +2,13 @@ import cron from 'node-cron';
 import ExcelJS from 'exceljs';
 import axios from 'axios';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
-import { es } from 'date-fns/locale'; // 1. Importar el locale en español
+import { es } from 'date-fns/locale'; 
+import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import { sendEmailWithAttachment } from '../services/emailService.js';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 
-/**
- * Obtiene la lista de todos los clientes (gimnasios) activos desde el panel de administración.
- * @returns {Promise<Array<{clientId: string}>>} Una lista de objetos de cliente.
- */
+
 const getAllActiveClients = async () => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
@@ -37,14 +35,8 @@ const getAllActiveClients = async () => {
     }
 };
 
-/**
- * Genera un reporte de Excel y elimina las clases del mes anterior para un gimnasio específico.
- * @param {mongoose.Connection} gymDB - La conexión a la base de datos del gimnasio.
- * @param {string} clientId - El ID del cliente (gimnasio) que se está procesando.
- */
-const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
-    console.log(`[${clientId}] Iniciando tarea mensual de reporte y limpieza de clases...`);
 
+const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
     const { Clase, User } = getModels(gymDB);
 
     const now = new Date();
@@ -57,19 +49,98 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
             fecha: { $gte: startDate, $lte: endDate },
         }).populate('profesor tipoClase usuariosInscritos');
 
-        if (classesToArchive.length === 0) {
-            console.log(`[${clientId}] No hay clases para archivar del mes anterior. Tarea finalizada.`);
+        // ---> 2. Obtenemos TODOS los usuarios para las estadísticas de edad y género
+        const allUsers = await User.find({});
+
+        // Modificamos la condición para que no se detenga si solo hay usuarios pero no clases
+        if (classesToArchive.length === 0 && allUsers.length === 0) {
+            console.log(`[${clientId}] No hay clases ni usuarios para generar reporte.`);
             return;
         }
-
-        console.log(`[${clientId}] Se encontraron ${classesToArchive.length} clases para archivar.`);
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'GymApp Admin';
         workbook.created = new Date();
-        const sheet = workbook.addWorksheet(`Reporte Clases ${format(previousMonth, 'MMMM-yyyy', { locale: es })}`);
 
-        sheet.columns = [
+        // ---> 3. Creamos la PRIMERA HOJA para el Dashboard con los gráficos
+        const dashboardSheet = workbook.addWorksheet('Dashboard');
+        dashboardSheet.addRow(['Reporte Mensual General - ' + format(previousMonth, 'MMMM yyyy', { locale: es })]).font = { size: 16, bold: true };
+        dashboardSheet.mergeCells('A1:L1');
+        dashboardSheet.getRow(1).alignment = { horizontal: 'center' };
+        dashboardSheet.addRow([]); // Fila vacía para espaciar
+
+        // ---> 4. Bloque completo para CALCULAR TODAS LAS ESTADÍSTICAS
+        // 4.1. Género
+        const genderStats = allUsers.reduce((acc, user) => {
+            acc[user.sexo || 'No especificado'] = (acc[user.sexo || 'No especificado'] || 0) + 1;
+            return acc;
+        }, {});
+
+        // 4.2. Edad
+        const ageStats = allUsers.reduce((acc, user) => {
+            if (user.fechaNacimiento) {
+                const age = differenceInYears(now, new Date(user.fechaNacimiento));
+                if (age < 20) acc['< 20']++; else if (age <= 29) acc['20-29']++;
+                else if (age <= 39) acc['30-39']++; else if (age <= 49) acc['40-49']++;
+                else acc['50+']++;
+            }
+            return acc;
+        }, { '< 20': 0, '20-29': 0, '30-39': 0, '40-49': 0, '50+': 0 });
+
+        // 4.3. Clases por Profesor
+        const teacherStats = classesToArchive.reduce((acc, c) => {
+            const teacherName = c.profesor ? `${c.profesor.nombre} ${c.profesor.apellido}` : 'No asignado';
+            acc[teacherName] = (acc[teacherName] || 0) + 1;
+            return acc;
+        }, {});
+
+        // 4.4. Clases por Tipo
+        const classTypeStats = classesToArchive.reduce((acc, c) => {
+            const typeName = c.tipoClase?.nombre || 'Sin Tipo';
+            acc[typeName] = (acc[typeName] || 0) + 1;
+            return acc;
+        }, {});
+        
+        // 4.5. Ocupación por Tipo de Clase
+        const occupancyByType = classesToArchive.reduce((acc, c) => {
+            const typeName = c.tipoClase?.nombre || 'Sin Tipo';
+            if (!acc[typeName]) {
+                acc[typeName] = { attendees: 0, capacity: 0 };
+            }
+            acc[typeName].attendees += c.usuariosInscritos.length;
+            acc[typeName].capacity += c.capacidad;
+            return acc;
+        }, {});
+
+        const occupancyPercentages = Object.entries(occupancyByType).map(([name, data]) => ({
+            name,
+            percentage: data.capacity > 0 ? (data.attendees / data.capacity) * 100 : 0
+        }));
+
+        // ---> 5. Bloque completo para GENERAR LAS IMÁGENES de los gráficos
+        const chartJSNodeCanvas = new ChartJSNodeCanvas({ width: 600, height: 400, backgroundColour: '#ffffff' });
+        const generateChart = async (config) => {
+            const buffer = await chartJSNodeCanvas.renderToBuffer(config);
+            return workbook.addImage({ buffer, extension: 'png' });
+        };
+
+        const genderChartId = await generateChart({ type: 'pie', data: { labels: Object.keys(genderStats), datasets: [{ data: Object.values(genderStats), backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56'] }] }, options: { plugins: { title: { display: true, text: 'Distribución por Género' } } } });
+        const ageChartId = await generateChart({ type: 'bar', data: { labels: Object.keys(ageStats), datasets: [{ label: 'Cantidad de Usuarios', data: Object.values(ageStats), backgroundColor: '#4BC0C0' }] }, options: { plugins: { title: { display: true, text: 'Distribución por Edad' } } } });
+        const teacherChartId = await generateChart({ type: 'bar', data: { labels: Object.keys(teacherStats), datasets: [{ label: 'Clases Dictadas', data: Object.values(teacherStats), backgroundColor: '#FF9F40' }] }, options: { plugins: { title: { display: true, text: 'Clases por Profesor' } } } });
+        const classTypeChartId = await generateChart({ type: 'bar', data: { labels: Object.keys(classTypeStats), datasets: [{ label: 'Cantidad de Clases', data: Object.values(classTypeStats), backgroundColor: '#9966FF' }] }, options: { plugins: { title: { display: true, text: 'Cantidad de Clases por Tipo' } } } });
+        const occupancyChartId = await generateChart({ type: 'bar', data: { labels: occupancyPercentages.map(i => i.name), datasets: [{ label: '% Ocupación', data: occupancyPercentages.map(i => i.percentage), backgroundColor: '#C9CBCF' }] }, options: { plugins: { title: { display: true, text: 'Ocupación por Tipo de Clase' } }, scales: { y: { ticks: { callback: (value) => value + '%' } } } } });
+
+        // ---> 6. Bloque para POSICIONAR los gráficos en la hoja 'Dashboard'
+        dashboardSheet.addImage(genderChartId, 'A3:F18');
+        dashboardSheet.addImage(ageChartId, 'G3:L18');
+        dashboardSheet.addImage(teacherChartId, 'A20:F35');
+        dashboardSheet.addImage(classTypeChartId, 'G20:L35');
+        dashboardSheet.addImage(occupancyChartId, 'A37:F52');
+
+        // ---> 7. Creamos la SEGUNDA HOJA para el detalle, usando tu código original
+        const detailSheet = workbook.addWorksheet(`Detalle Clases ${format(previousMonth, 'MMMM-yyyy', { locale: es })}`);
+
+        detailSheet.columns = [
             { header: 'Fecha', key: 'fecha', width: 15 },
             { header: 'Nombre del Turno', key: 'nombre', width: 30 },
             { header: 'Tipo de Clase', key: 'tipo', width: 25 },
@@ -82,8 +153,8 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
             { header: 'Cliente DNI', key: 'clienteDNI', width: 15 },
         ];
         
-        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F4F4F' } };
+        detailSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        detailSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F4F4F' } };
 
         for (const clase of classesToArchive) {
             const baseRowData = {
@@ -98,7 +169,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
 
             if (clase.usuariosInscritos && clase.usuariosInscritos.length > 0) {
                 clase.usuariosInscritos.forEach(user => {
-                    sheet.addRow({
+                    detailSheet.addRow({
                         ...baseRowData,
                         clienteNombre: user ? `${user.nombre} ${user.apellido}` : 'Usuario eliminado',
                         clienteEmail: user ? user.email : 'N/A',
@@ -106,15 +177,15 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
                     });
                 });
             } else {
-                 sheet.addRow({
+                 detailSheet.addRow({
                     ...baseRowData,
                     clienteNombre: 'Sin inscriptos',
                 });
             }
         }
 
+        // ---> 8. El resto de tu código para generar el buffer y enviar el email se mantiene igual
         const buffer = await workbook.xlsx.writeBuffer();
-        console.log(`[${clientId}] Reporte de Excel generado.`);
 
         const adminUser = await User.findOne({ roles: 'admin' });
         if (!adminUser) {
@@ -122,7 +193,6 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
             return;
         }
 
-        // 2. Usar el locale en español para el formato del mes
         const monthNameInSpanish = format(previousMonth, 'MMMM yyyy', { locale: es });
 
         await sendEmailWithAttachment({
@@ -135,25 +205,18 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
             }]
         });
 
-        console.log(`[${clientId}] Correo con el reporte enviado exitosamente a ${adminUser.email}.`);
-
         const classIdsToDelete = classesToArchive.map(c => c._id);
-        await Clase.deleteMany({ _id: { $in: classIdsToDelete } });
-
-        console.log(`[${clientId}] ${classIdsToDelete.length} clases antiguas han sido eliminadas.`);
-        console.log(`[${clientId}] Tarea mensual de reporte y limpieza completada.`);
+        if (classIdsToDelete.length > 0) {
+            await Clase.deleteMany({ _id: { $in: classIdsToDelete } });
+        }
 
     } catch (error) {
         console.error(`[${clientId}] Error durante la tarea de reporte y limpieza mensual:`, error);
     }
 };
 
-/**
- * Tarea maestra que se ejecuta mensualmente. Obtiene todos los clientes activos
- * y ejecuta el proceso de limpieza y reporte para cada uno.
- */
+
 const masterCronJob = async () => {
-    console.log('Iniciando CRON maestro de limpieza y reporte mensual...');
     
     // --- AJUSTE PARA PRUEBAS ---
     // Para probar con un solo cliente, usa esta línea y asegúrate de que DEFAULT_CLIENT_ID esté en tu .env
@@ -164,15 +227,11 @@ const masterCronJob = async () => {
     // const allClients = await getAllActiveClients(); 
 
     if (!allClients || allClients.length === 0) {
-        console.log('CRON maestro: No se encontraron clientes activos para procesar.');
         return;
     }
     
-    console.log(`CRON maestro: Se procesarán ${allClients.length} gimnasio(s).`);
-    
     for (const client of allClients) {
         if (!client.clientId) {
-            console.error("Cliente inválido en la lista, saltando:", client);
             continue;
         }
         try {
@@ -182,7 +241,6 @@ const masterCronJob = async () => {
             console.error(`Error procesando el gimnasio ${client.clientId}:`, error);
         }
     }
-    console.log('CRON maestro de limpieza y reporte mensual finalizado.');
 };
 
 /**
@@ -193,7 +251,6 @@ const scheduleMonthlyCleanup = () => {
         scheduled: true,
         timezone: "America/Argentina/Buenos_Aires"
     });
-    console.log('Tarea de limpieza y reporte mensual programada para ejecutarse el 1ro de cada mes a la 1 AM.');
 };
 
 export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob };

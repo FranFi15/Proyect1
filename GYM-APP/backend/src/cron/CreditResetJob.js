@@ -50,9 +50,7 @@ export const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
             for (const sub of user.monthlySubscriptions) {
                 if (sub.status === 'automatica' && sub.autoRenewAmount > 0) {
                     const tipoClaseId = sub.tipoClase.toString();
-                    
-                    // Asegurarse de que el crédito renovado no se elimine si su tipo de clase no se reinicia.
-                    // La lógica actual ya funciona bien: primero se eliminan los viejos, luego se añaden los nuevos.
+                 
                     const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
                     user.creditosPorTipo.set(tipoClaseId, currentCredits + sub.autoRenewAmount);
                     
@@ -92,11 +90,8 @@ export const runCreditResetJob = async () => {
             throw new Error(clients.message || 'Error al obtener clientes.');
         }
         if (!Array.isArray(clients) || clients.length === 0) {
-            console.log('[Cron Job: Monthly Credit Reset] No se encontraron clientes para procesar.');
             return;
         }
-
-        console.log(`[Cron Job: Monthly Credit Reset] Iniciando para ${clients.length} gimnasio(s).`);
 
         for (const client of clients) {
             if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
@@ -104,15 +99,12 @@ export const runCreditResetJob = async () => {
                 try {
                     gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
                     await resetCreditsForCurrentGym(gymDBConnection, client.clientId);
-                    console.log(`[Cron Job] Créditos procesados para el gimnasio ${client.nombre} (ID: ${client.clientId}).`);
+                    
                 } catch (gymError) {
                     console.error(`[Cron Job] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
-            } else {
-                console.log(`[Cron Job] Saltando gimnasio ${client.nombre} por estado: ${client.estadoSuscripcion}`);
-            }
+            } 
         }
-        console.log('[Cron Job] Tarea de reinicio de créditos mensual completada.');
     } catch (error) {
         console.error('[Cron Job] Error general en la tarea de reinicio de créditos:', error);
     }
@@ -123,5 +115,4 @@ export const scheduleMonthlyCreditReset = () => {
     cron.schedule('0 0 1 * *', runCreditResetJob, { // Ahora llama a la función runCreditResetJob
         timezone: "America/Argentina/Buenos_Aires"
     });
-    console.log('Tarea de reinicio de créditos mensual programada para ejecutarse el 1ro de cada mes a las 0 AM.');
 };

@@ -36,18 +36,16 @@ const getAllActiveClientIds = async () => {
 const scheduleDebtorNotifications = () => {
     // Se ejecuta todos los días a las 10:00 AM.
     cron.schedule('0 10 * * *', async () => {
-        console.log('CRON JOB: Iniciando revisión de saldos deudores para todos los gimnasios...');
         
         const clientIds = await getAllActiveClientIds();
 
         if (clientIds.length === 0) {
-            console.log('CRON JOB: No se encontraron gimnasios activos para procesar.');
             return;
         }
 
         // Iteramos sobre cada ID de gimnasio.
         for (const clientId of clientIds) {
-            console.log(`CRON JOB: Procesando gimnasio con clientId: ${clientId}...`);
+           
             try {
                 // Usamos tu gestor de conexiones para obtener la DB correcta.
                 const tenantConnection = await connectToGymDB(clientId);
@@ -65,7 +63,7 @@ const scheduleDebtorNotifications = () => {
                 });
 
                 if (debtorsToNotify.length > 0) {
-                    console.log(`CRON JOB: [${clientId}] Encontrados ${debtorsToNotify.length} deudores.`);
+                    
                     for (const user of debtorsToNotify) {
                         const title = 'Recordatorio de Saldo Pendiente';
                         const message = `Hola ${user.nombre}, te recordamos que tienes un saldo pendiente de $${user.balance.toFixed(2)}.`;
@@ -80,7 +78,6 @@ const scheduleDebtorNotifications = () => {
             }
             // No cerramos la conexión aquí, dejamos que tu connectionManager la reutilice.
         }
-        console.log('CRON JOB: Revisión de saldos deudores completada.');
     }, {
         scheduled: true,
         timezone: "America/Argentina/Buenos_Aires"
