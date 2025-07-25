@@ -32,7 +32,7 @@ const registerClient = asyncHandler(async (req, res) => {
         throw new Error('La configuración del host de la base de datos no está definida en el servidor.');
     }
     const uniqueDbSuffix = client.clientId.substring(0, 8);
-    const tenantDbName = `gym_${urlIdentifier.replace(/-/g, '_')}_${uniqueDbSuffix}`;
+    const tenantDbName = `${urlIdentifier.replace(/-/g, '_')}_${uniqueDbSuffix}`;
     client.connectionStringDB = `${mongoHost}/${tenantDbName}?retryWrites=true&w=majority`;
 
 

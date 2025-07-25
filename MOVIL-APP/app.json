@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Gain",
-    "slug": "MOVIL-APP",
+    "name": "Gain Wellness",
+    "slug": "Gain Wellness",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/android.png",
-    "scheme": "movil-app",
+    "scheme": "gain-wellness",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
