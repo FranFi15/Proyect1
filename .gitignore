@@ -10,7 +10,7 @@
 
 # # # Archivos de Producción / Build # # #
 # Ignora las carpetas de build del frontend y potencialmente del backend
-**/dist
+
 **/build
 **/dist-ssr
 
