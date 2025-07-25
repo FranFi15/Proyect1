@@ -102,7 +102,8 @@ const RegisterPage = () => {
                         <TextInput style={styles.dateInput} placeholder="MM" placeholderTextColor={Colors[colorScheme].text} value={month} onChangeText={setMonth} keyboardType="number-pad" maxLength={2} />
                         <TextInput style={styles.dateInput} placeholder="AAAA" placeholderTextColor={Colors[colorScheme].text} value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} />
                     </View>
-
+                    <TextInput style={styles.input} placeholder="Dirección " placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
+                    <TextInput style={styles.input} placeholder="Teléfono " placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
                     <TextInput style={styles.input} placeholder="Teléfono de Emergencia (*)" placeholderTextColor={Colors[colorScheme].text} value={telefonoEmergencia} onChangeText={setTelefonoEmergencia} keyboardType="phone-pad" />
                     
                     <ThemedText style={styles.label}>Sexo</ThemedText>
@@ -117,9 +118,6 @@ const RegisterPage = () => {
                             </TouchableOpacity>
                         ))}
                     </View>
-
-                    <TextInput style={styles.input} placeholder="Dirección " placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
-                    <TextInput style={styles.input} placeholder="Teléfono " placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
                     <TextInput style={styles.input} placeholder="Obra Social " placeholderTextColor={Colors[colorScheme].text} value={obraSocial} onChangeText={setObraSocial} />
 
                     <TouchableOpacity 
