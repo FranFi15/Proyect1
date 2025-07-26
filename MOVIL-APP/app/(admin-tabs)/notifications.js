@@ -261,7 +261,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     content: { padding: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     pageTitle: {
-        marginBottom: 25,
+        marginBottom: 20,
+        fontSize: 24,
     },
     input: {
         backgroundColor: Colors[colorScheme].cardBackground,
