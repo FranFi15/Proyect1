@@ -9,20 +9,21 @@ import {
     View, 
     Text, 
     RefreshControl,
-    Modal
+    useWindowDimensions // <-- AÑADIDO
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useRouter } from 'expo-router';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import apiClient from '../../services/apiClient';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
+import { FontAwesome5 } from '@expo/vector-icons';
+
+// --- AÑADIDO: Importaciones para TabView ---
+import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 
 const capitalize = (str) => {
     if (typeof str !== 'string' || str.length === 0) return '';
@@ -30,25 +31,21 @@ const capitalize = (str) => {
     return formattedStr.replace(' De ', ' de ');
 };
 
-const calculateAge = (birthDateString) => {
-    if (!birthDateString) return 'N/A';
-    try {
-        return differenceInYears(new Date(), parseISO(birthDateString));
-    } catch (error) {
-        return 'N/A';
-    }
-};
-
 const MyClassesScreen = () => {
     // --- STATE MANAGEMENT ---
+    const layout = useWindowDimensions();
+    const [index, setIndex] = useState(0); // <-- NUEVO ESTADO PARA TABVIEW
+    const [routes] = useState([        // <-- NUEVO ESTADO PARA TABVIEW
+        { key: 'upcoming', title: 'Próximas' },
+        { key: 'past', title: 'Historial' },
+    ]);
+    
+    // const [activeTab, setActiveTab] = useState('upcoming'); // <-- ELIMINADO
+
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('upcoming'); 
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const router = useRouter();
-
-    // Estado para manejar la alerta personalizada
     const [alertInfo, setAlertInfo] = useState({ 
         visible: false, 
         title: '', 
@@ -70,21 +67,17 @@ const MyClassesScreen = () => {
         </TouchableOpacity>
     );
 
-     const fetchMyClasses = useCallback(async () => {
+    const fetchMyClasses = useCallback(async () => {
         try {
             const userResponse = await apiClient.get('/users/me');
             const enrolledIds = new Set(userResponse.data.clasesInscritas || []);
-
             const classesResponse = await apiClient.get('/classes');
-            
             const myClasses = classesResponse.data.filter(cls => enrolledIds.has(cls._id));
-            
             const sortedClasses = myClasses.sort((a, b) => {
                 const dateComparison = new Date(a.fecha) - new Date(b.fecha);
                 if (dateComparison !== 0) return dateComparison;
                 return a.horaInicio.localeCompare(b.horaInicio);
             });
-
             setEnrolledClasses(sortedClasses);
         } catch (error) {
             setAlertInfo({
@@ -115,14 +108,14 @@ const MyClassesScreen = () => {
         const performUnenroll = async () => {
             try {
                 const response = await apiClient.post(`/classes/${classId}/unenroll`);
+                await refreshUser();
+                await fetchMyClasses();
                 setAlertInfo({
                     visible: true,
                     title: 'Anulación Procesada',
                     message: response.data.message,
                     buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
                 });
-                await refreshUser();
-                fetchMyClasses();
             } catch (error) {
                 setAlertInfo({
                     visible: true,
@@ -147,33 +140,47 @@ const MyClassesScreen = () => {
         });
     };
     
-    const sectionedClasses = useMemo(() => {
+    const upcomingClasses = useMemo(() => {
         const now = new Date();
-        const sortedAndFilteredClasses = enrolledClasses
-            .map(cls => ({
-                ...cls,
-                dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`)
-            }))
-            .filter(cls => activeTab === 'upcoming' ? cls.dateTime >= now : cls.dateTime < now)
-            .sort((a, b) => activeTab === 'upcoming' ? a.dateTime - b.dateTime : b.dateTime - a.dateTime);
+        const filtered = enrolledClasses
+            .map(cls => ({ ...cls, dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
+            .filter(cls => cls.dateTime >= now)
+            .sort((a, b) => a.dateTime - b.dateTime);
 
-        if (sortedAndFilteredClasses.length === 0) return [];
+        if (filtered.length === 0) return [];
 
-        const grouped = sortedAndFilteredClasses.reduce((acc, clase) => {
-            const dateKey = format(clase.dateTime, "EEEE, d 'de' MMMM", { locale: es });
-            const capitalizedDateKey = capitalize(dateKey);
-            if (!acc[capitalizedDateKey]) {
-                acc[capitalizedDateKey] = [];
+        const grouped = filtered.reduce((acc, clase) => {
+            const dateKey = capitalize(format(clase.dateTime, "EEEE, d 'de' MMMM", { locale: es }));
+            if (!acc[dateKey]) {
+                acc[dateKey] = [];
             }
-            acc[capitalizedDateKey].push(clase);
+            acc[dateKey].push(clase);
             return acc;
         }, {});
 
-        return Object.keys(grouped).map(dateKey => ({
-            title: dateKey,
-            data: grouped[dateKey]
-        }));
-    }, [activeTab, enrolledClasses]);
+        return Object.keys(grouped).map(dateKey => ({ title: dateKey, data: grouped[dateKey] }));
+    }, [enrolledClasses]);
+
+    const pastClasses = useMemo(() => {
+        const now = new Date();
+        const filtered = enrolledClasses
+            .map(cls => ({ ...cls, dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
+            .filter(cls => cls.dateTime < now)
+            .sort((a, b) => b.dateTime - a.dateTime);
+
+        if (filtered.length === 0) return [];
+        
+        const grouped = filtered.reduce((acc, clase) => {
+            const dateKey = capitalize(format(clase.dateTime, "EEEE, d 'de' MMMM", { locale: es }));
+            if (!acc[dateKey]) {
+                acc[dateKey] = [];
+            }
+            acc[dateKey].push(clase);
+            return acc;
+        }, {});
+
+        return Object.keys(grouped).map(dateKey => ({ title: dateKey, data: grouped[dateKey] }));
+    }, [enrolledClasses]);
 
     const renderClassItem = ({ item }) => {
         const now = new Date();
@@ -192,7 +199,7 @@ const MyClassesScreen = () => {
                 
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
-                    : activeTab === 'upcoming' && canUnenroll && (
+                    : index === 0 && canUnenroll && ( // <-- LÓGICA ACTUALIZADA
                         <ActionButton 
                             title="Anular Inscripción" 
                             color="#e74c3c" 
@@ -205,6 +212,35 @@ const MyClassesScreen = () => {
         );
     };
 
+  const UpcomingScene = () => (
+        <SectionList
+            sections={upcomingClasses}
+            keyExtractor={(item, index) => item._id + index}
+            renderItem={renderClassItem}
+            renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+            ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes próximos turnos.</ThemedText>}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+        />
+    );
+
+    const PastScene = () => (
+        <SectionList
+            sections={pastClasses}
+            keyExtractor={(item, index) => item._id + index}
+            renderItem={renderClassItem}
+            renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+            ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en el historial.</ThemedText>}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+        />
+    );
+
+    const renderScene = SceneMap({
+      upcoming: UpcomingScene,
+      past: PastScene,
+    });
+
     if (loading) {
         return (
             <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -215,33 +251,21 @@ const MyClassesScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.tabContainer}>
-                <TouchableOpacity onPress={() => setActiveTab('upcoming')} style={[styles.tab, activeTab === 'upcoming' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Próximas</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('past')} style={[styles.tab, activeTab === 'past' && styles.activeTab]}>
-                    <Text style={styles.tabText}>Historial del Mes</Text>
-                </TouchableOpacity>
-            </View>
-            
-            <SectionList
-                sections={sectionedClasses}
-                keyExtractor={(item, index) => item._id + index}
-                renderItem={renderClassItem}
-                renderSectionHeader={({ section: { title } }) => (
-                    <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
-                )}
-                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en esta sección.</ThemedText>}
-                contentContainerStyle={{ paddingBottom: 20 }}
-                refreshControl={
-                    <RefreshControl 
-                        refreshing={isRefreshing} 
-                        onRefresh={onRefresh} 
-                        tintColor={gymColor} // Color del spinner de carga
+            <TabView
+                navigationState={{ index, routes }}
+                renderScene={renderScene}
+                onIndexChange={setIndex}
+                initialLayout={{ width: layout.width }}
+                renderTabBar={props => (
+                    <TabBar
+                        {...props}
+                        style={{ backgroundColor: gymColor, paddingTop: 10 }}
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
+                        labelStyle={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}
                     />
-                }
+                )}
             />
-            <CustomAlert
+             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
@@ -254,13 +278,6 @@ const MyClassesScreen = () => {
 };
 
 const getStyles = (colorScheme, gymColor) => {
-    const shadowProp = {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.23,
-        shadowRadius: 2.62,
-        elevation: 4,
-    };
 
     return StyleSheet.create({
         container: { flex: 1 },
@@ -288,7 +305,7 @@ const getStyles = (colorScheme, gymColor) => {
             marginHorizontal: 16,
             marginVertical: 8,
             borderRadius: 8,
-            ...shadowProp
+            elevation: 3,
         },
         className: {
             fontSize: 18,
@@ -325,7 +342,7 @@ const getStyles = (colorScheme, gymColor) => {
             paddingVertical: 10,
             paddingHorizontal: 15,
             borderRadius: 8,
-            ...shadowProp,
+            elevation: 2,
         },
         actionButtonText: {
             color: '#fff',

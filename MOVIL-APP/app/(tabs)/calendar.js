@@ -1,17 +1,17 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { 
-    StyleSheet, 
-    ActivityIndicator, 
-    TouchableOpacity, 
+import {
+    StyleSheet,
+    ActivityIndicator,
+    TouchableOpacity,
     Platform,
-    useColorScheme, 
+    useColorScheme,
     SectionList,
     FlatList,
-    Button,
-    View, 
-    Text, 
+    View,
+    Text,
     RefreshControl,
     Linking,
+    useWindowDimensions, // <-- AÑADIDO
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -21,17 +21,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// --- AÑADIDO: Importaciones para TabView ---
+import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
+
 // --- COMPONENTES Y CONSTANTES TEMÁTICAS ---
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome5 } from '@expo/vector-icons';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
-
-// --- IMPORT NEW SERVICES ---
-import classService from '../../services/classService'; 
-// --- END IMPORT NEW SERVICES ---
-
+import CustomAlert from '@/components/CustomAlert';
+import classService from '../../services/classService';
 
 // --- CONFIGURACIÓN DE IDIOMA (SIN CAMBIOS) ---
 LocaleConfig.locales['es'] = {
@@ -49,18 +48,17 @@ const capitalize = (str) => {
     return formattedStr.replace(' De ', ' de ');
 };
 
-// --- TEMA DEL CALENDARIO AHORA ES UNA FUNCIÓN DINÁMICA ---
 const getCalendarTheme = (colorScheme, gymColor) => ({
     calendarBackground: Colors[colorScheme].background,
     textSectionTitleColor: Colors[colorScheme].text,
-    selectedDayBackgroundColor: Colors.light.tint, 
+    selectedDayBackgroundColor: gymColor || Colors.light.tint,
     selectedDayTextColor: '#ffffff',
-    todayTextColor: Colors.light.tint,
+    todayTextColor: gymColor || Colors.light.tint,
     dayTextColor: Colors[colorScheme].text,
     textDisabledColor: Colors[colorScheme].icon,
-    dotColor: Colors.light.tint,
+    dotColor: gymColor || Colors.light.tint,
     selectedDotColor: '#ffffff',
-    arrowColor: Colors.light.tint,
+    arrowColor: gymColor || Colors.light.tint,
     disabledArrowColor: Colors[colorScheme].icon,
     monthTextColor: Colors[colorScheme].text,
     textDayFontWeight: '400',
@@ -81,10 +79,17 @@ const CalendarScreen = () => {
         <FontAwesome5 name={iconName} size={16} color={iconColor} />
         <Text style={styles.actionButtonText}>{title}</Text>
     </TouchableOpacity>
-);
+    );
 
     // --- ESTADOS ---
-    const [activeView, setActiveView] = useState('calendar');
+    // EL ESTADO 'activeView' SE REEMPLAZA POR EL SISTEMA DE 'react-native-tab-view'
+    const layout = useWindowDimensions();
+    const [index, setIndex] = useState(0);
+    const [routes] = useState([
+        { key: 'calendar', title: 'Calendario' },
+        { key: 'list', title: 'Turnos' },
+    ]);
+
     const [allClasses, setAllClasses] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
     const [markedDates, setMarkedDates] = useState({});
@@ -95,8 +100,6 @@ const CalendarScreen = () => {
     const [error, setError] = useState(null)
     const [isRefreshing, setIsRefreshing] = useState(false); 
     const [adminPhoneNumber, setAdminPhoneNumber] = useState(null);
-
-    // Estado para manejar la alerta personalizada
     const [alertInfo, setAlertInfo] = useState({ 
         visible: false, 
         title: '', 
@@ -107,7 +110,9 @@ const CalendarScreen = () => {
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
-    const calendarTheme = getCalendarTheme(colorScheme);
+    const calendarTheme = getCalendarTheme(colorScheme, gymColor);
+    
+    // --- LÓGICA DE FUNCIONES (la mayoría sin cambios) ---
 
     useEffect(() => {
         if (user && user.adminPhoneNumber) {
@@ -126,10 +131,7 @@ const CalendarScreen = () => {
     };
 
     const fetchData = useCallback(async () => {
-        if (!user) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'Usuario no autenticado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-            return;
-        }
+        if (!user) return;
         try {
             await refreshUser();
             const [classesResponse, typesResponse] = await Promise.all([
@@ -156,7 +158,6 @@ const CalendarScreen = () => {
             setMarkedDates(markers);
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudieron cargar los datos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-            console.error('Error fetching data for CalendarScreen:', error);
         }
     }, [user, colorScheme, gymColor, refreshUser]);
 
@@ -181,9 +182,11 @@ const CalendarScreen = () => {
 
         return allClasses
             .filter(cls => {
-                if (activeView === 'list' && selectedDate) {
+                // Si estamos en la vista de lista y hay una fecha seleccionada, filtramos por esa fecha
+                if (index === 1 && selectedDate) {
                     return cls.fecha.substring(0, 10) === selectedDate;
                 }
+                // Si no, mostramos solo las clases futuras
                 const classDateTime = parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`);
                 return classDateTime.getTime() >= nowTime;
             })
@@ -198,31 +201,55 @@ const CalendarScreen = () => {
                 dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
             }))
             .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-    }, [allClasses, selectedDate, selectedClassType, activeView, user]);
+    }, [allClasses, selectedDate, selectedClassType, index, user]); // <-- 'activeView' cambiado por 'index'
 
-    const handleEnroll = async (classId) => {
-        try {
-            await apiClient.post(`/classes/${classId}/enroll`);
-            setAlertInfo({ visible: true, title: '¡Éxito!', message: 'Te has inscrito en el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-            await refreshUser();
-            fetchData();
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-        }
-    };
+    const handleEnroll = useCallback(async (classId) => {
+        const performEnroll = async () => {
+            try {
+                await apiClient.post(`/classes/${classId}/enroll`);
+                await refreshUser();
+                await fetchData();
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Éxito!', 
+                    message: 'Te has inscrito en el turno.', 
+                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] 
+                });
+            } catch (error) {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.response?.data?.message || 'No se pudo procesar la inscripción.', 
+                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] 
+                });
+            }
+        };
+
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Inscripción",
+            message: "¿Estás seguro de que quieres inscribirte en este turno?",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Sí, Inscribirme", style: 'primary', onPress: () => {
+                    setAlertInfo({ visible: false });
+                    performEnroll();
+                }}
+            ]
+        });
+    }, [refreshUser, fetchData]);
 
     const handleUnenroll = useCallback(async (classId) => {
         const performUnenroll = async () => {
             try {
                 const response = await apiClient.post(`/classes/${classId}/unenroll`);
-                setAlertInfo({ visible: true, title: 'Anulación Procesada', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                 await refreshUser();
-                fetchData();
+                await fetchData();
+                setAlertInfo({ visible: true, title: 'Anulación Procesada', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             } catch (error) {
                 setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo anular la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             }
         };
-
         setAlertInfo({
             visible: true,
             title: "Confirmar Anulación",
@@ -237,11 +264,12 @@ const CalendarScreen = () => {
         });
     }, [refreshUser, fetchData]);
 
+    // ... (handleSubscribe y handleUnsubscribe se mantienen igual)
     const handleSubscribe = useCallback(async (classId) => {
         try {
             const response = await classService.subscribeToWaitlist(classId);
-            setAlertInfo({ visible: true, title: '¡Listo!', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             fetchData();
+            setAlertInfo({ visible: true, title: '¡Listo!', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } catch (err) {
             setAlertInfo({ visible: true, title: 'Error', message: err.response?.data?.message || 'No se pudo procesar la solicitud.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
@@ -250,20 +278,29 @@ const CalendarScreen = () => {
     const handleUnsubscribe = useCallback(async (classId) => {
         try {
             const response = await classService.unsubscribeFromWaitlist(classId);
-            setAlertInfo({ visible: true, title: 'Hecho', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             fetchData();
+            setAlertInfo({ visible: true, title: 'Hecho', message: response.data.message, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } catch (err) {
             setAlertInfo({ visible: true, title: 'Error', message: err.response?.data?.message || 'No se pudo procesar la solicitud.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     }, [fetchData]);
 
+    // --- MANEJADORES DE EVENTOS (MODIFICADOS) ---
     const handleDayPress = (day) => {
         setSelectedDate(day.dateString);
-        setActiveView('list');
+        setIndex(1); // Cambia al tab de "Turnos"
+    };
+
+    const handleIndexChange = (newIndex) => {
+        // Si el usuario vuelve al calendario, limpiamos la fecha seleccionada
+        if (newIndex === 0) {
+            setSelectedDate(null);
+        }
+        setIndex(newIndex);
     };
 
     const formattedDateTitle = useMemo(() => {
-        if (activeView === 'calendar' || !selectedDate) {
+        if (!selectedDate) {
             return 'Próximos Turnos'; 
         }
         try {
@@ -272,10 +309,10 @@ const CalendarScreen = () => {
         } catch (e) {
             return 'Clases'; 
         }
-    }, [selectedDate, activeView]);
+    }, [selectedDate]);
 
     const sectionedClasses = useMemo(() => {
-        if (activeView === 'list' && selectedDate) return []; 
+        if (selectedDate) return []; // SectionList solo se usa para la vista general
 
         const grouped = visibleClasses.reduce((acc, clase) => {
             const dateKey = clase.fecha.substring(0, 10);
@@ -292,7 +329,7 @@ const CalendarScreen = () => {
                 title: capitalize(format(parseISO(dateKey), "EEEE, d 'de' MMMM", { locale: es })),
                 data: grouped[dateKey]
             }));
-    }, [visibleClasses, activeView, selectedDate]);
+    }, [visibleClasses, selectedDate]);
 
     const renderClassItem = ({ item }) => {
         const { isEnrolled, isFull, isWaiting, isCancelled, isFinished } = item;
@@ -352,13 +389,81 @@ const CalendarScreen = () => {
         if (clase.estado === 'cancelada') {
             return styles.cancelledClass;
         }
-        const fillRatio = clase.capacidad > 0 ? clase.usuariosInscritos.length / clase.capacidad : 0;
+        const fillRatio = clase.capacidad > 0 ? (clase.usuariosInscritos || []).length / clase.capacidad : 0;
         if (fillRatio === 1) return styles.fullClass;
         if (fillRatio >= 0.8) return styles.almostFullClass;
         if (fillRatio < 0.4) return styles.emptyClass;
         if (fillRatio < 0.7) return styles.almostEmptyClass;
         return {}; 
     };
+    
+    // --- RENDERIZADO DE ESCENAS PARA TABVIEW ---
+    const CalendarScene = () => (
+           <ThemedView style={{ flex: 1 }}>
+        <Calendar 
+            onDayPress={handleDayPress} 
+            markedDates={markedDates} 
+            markingType={'custom'} 
+            theme={calendarTheme} 
+        />
+        </ThemedView>
+    );
+
+    const ListScene = () => (
+        <ThemedView style={{ flex: 1 }}>
+            <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
+            
+            <View style={styles.pickerContainer}>
+                <Picker 
+                    selectedValue={selectedClassType} 
+                    onValueChange={itemValue => setSelectedClassType(itemValue)}
+                    style={{ color: Colors[colorScheme].text }}
+                    dropdownIconColor={Colors[colorScheme].text}
+                >
+                    <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
+                    {classTypes.map(type => (
+                        <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
+                    ))}
+                </Picker>
+            </View>
+
+            {visibleClasses.length === 0 && !isLoading ? (
+                 <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
+            ) : (
+                selectedDate ? (
+                    <FlatList
+                        data={visibleClasses}
+                        keyExtractor={item => item._id}
+                        renderItem={renderClassItem}
+                        ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        refreshControl={
+                            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                        }
+                    />
+                ) : (
+                    <SectionList
+                        sections={sectionedClasses}
+                        keyExtractor={(item, index) => item._id + index}
+                        renderItem={renderClassItem}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
+                        )}
+                        ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        refreshControl={
+                            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
+                        }
+                    />
+                )
+            )}
+        </ThemedView>
+    );
+
+    const renderScene = SceneMap({
+      calendar: CalendarScene,
+      list: ListScene,
+    });
 
     if (isLoading) {
         return (
@@ -368,91 +473,24 @@ const CalendarScreen = () => {
             </ThemedView>
         );
     }
-
-    if (error) {
-        return (
-            <ThemedView style={styles.centered}>
-                <ThemedText style={styles.errorText}>Error: {error}</ThemedText>
-                <TouchableOpacity style={styles.retryButton} onPress={fetchData}>
-                    <ThemedText style={styles.retryButtonText}>Reintentar</ThemedText>
-                </TouchableOpacity>
-            </ThemedView>
-        );
-    }
-
+    
+    // El render principal ahora usa TabView
     return (
         <View style={{ flex: 1 }}>
-            <ThemedView style={styles.container}>
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity onPress={() => { setActiveView('calendar'); setSelectedDate(null); }} style={[styles.tab, activeView === 'calendar' && styles.activeTab]}>
-                        <Text style={styles.tabText}>Calendario</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setActiveView('list')} style={[styles.tab, activeView === 'list' && styles.activeTab]}>
-                        <Text style={styles.tabText}>Turnos</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {activeView === 'calendar' && (
-                    <Calendar 
-                        onDayPress={handleDayPress} 
-                        markedDates={markedDates} 
-                        markingType={'custom'} 
-                        theme={calendarTheme} 
-                        hideArrows={true}
+            <TabView
+                navigationState={{ index, routes }}
+                renderScene={renderScene}
+                onIndexChange={handleIndexChange} // Usamos el nuevo handler
+                initialLayout={{ width: layout.width }}
+                renderTabBar={props => (
+                    <TabBar
+                        {...props}
+                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }}
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
+                        labelStyle={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}
                     />
                 )}
-
-                {activeView === 'list' && (
-                    <>
-                        <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
-                        
-                        <View style={styles.pickerContainer}>
-                            <Picker 
-                                selectedValue={selectedClassType} 
-                                onValueChange={itemValue => setSelectedClassType(itemValue)}
-                                style={{ color: Colors[colorScheme].text }}
-                                dropdownIconColor={Colors[colorScheme].text}
-                            >
-                                <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
-                                {classTypes.map(type => (
-                                    <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
-                                ))}
-                            </Picker>
-                        </View>
-
-                        {visibleClasses.length === 0 && !isLoading ? (
-                             <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
-                        ) : (
-                            selectedDate ? (
-                                <FlatList
-                                    data={visibleClasses}
-                                    keyExtractor={item => item._id}
-                                    renderItem={renderClassItem}
-                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
-                                    contentContainerStyle={{ paddingBottom: 20 }}
-                                    refreshControl={
-                                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
-                                    }
-                                />
-                            ) : (
-                                <SectionList
-                                    sections={sectionedClasses}
-                                    keyExtractor={(item, index) => item._id + index}
-                                    renderItem={renderClassItem}
-                                    renderSectionHeader={({ section: { title } }) => (
-                                        <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
-                                    )}
-                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
-                                    contentContainerStyle={{ paddingBottom: 20 }}
-                                    refreshControl={
-                                        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
-                                    }
-                                />
-                            )
-                        )}
-                    </>
-                )}
-            </ThemedView>
+            />
             {adminPhoneNumber && (
                 <TouchableOpacity
                     style={styles.fab}
@@ -474,16 +512,6 @@ const CalendarScreen = () => {
 };
 
 const getStyles = (colorScheme, gymColor) => {
-    const shadowProp = {
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.23,
-        shadowRadius: 2.62,
-        elevation: 4,
-    };
 
     return StyleSheet.create({
         actionButton: {
@@ -493,7 +521,6 @@ const getStyles = (colorScheme, gymColor) => {
             paddingVertical: 10,
             paddingHorizontal: 15,
             borderRadius: 8,
-            ...shadowProp,
         },
         actionButtonText: {
             color: '#fff',
@@ -501,26 +528,17 @@ const getStyles = (colorScheme, gymColor) => {
             marginLeft: 10,
             fontSize: 14,
         },
-        container: { flex: 1 },
-        tabContainer: {
-            flexDirection: 'row',
-            justifyContent: 'space-around',
-            paddingTop: Platform.OS === 'android' ? 10 : 0,
-            backgroundColor: gymColor,
-        },
-        tab: { paddingBottom: 10, paddingHorizontal: 10, paddingTop: 10 },
-        activeTab: { borderBottomWidth: 3, borderBottomColor: '#ffffff' },
-        tabText: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
+        container: { flex: 1, },
         pickerContainer: {
             marginHorizontal: 15,
             marginVertical: 10,
             borderRadius: 8,
             borderWidth: 1,
             borderColor: Colors[colorScheme].border,
-            backgroundColor: Colors[colorScheme].cardBackground,
+            backgroundColor: Colors[colorScheme].background,
             justifyContent: 'center',
         },
-        listHeader: { textAlign: 'center', fontSize: 22, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text },
+        listHeader: { textAlign: 'center', fontSize: 22, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background },
         sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
         classItem: {
             padding: 20,
@@ -528,12 +546,12 @@ const getStyles = (colorScheme, gymColor) => {
             marginVertical: 8,
             borderRadius: 8,
             borderWidth: 0,
-            backgroundColor: Colors[colorScheme].cardBackground,
-            ...shadowProp,
+            elevation:2,
+            backgroundColor: Colors[colorScheme].background
         },
         className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
         classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
-        buttonContainer: { marginTop: 12, alignSelf: 'flex-start' },
+        buttonContainer: { marginTop: 12, alignSelf: 'flex-start', elevation: 3, },
         emptyText: { textAlign: 'center', marginTop: 30, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
         cancelledClass: { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5', borderColor: colorScheme === 'dark' ? '#555' : '#e0e0e0', borderLeftWidth: 0, borderWidth: 1 },
         finishedClass: { opacity: 0.6 },

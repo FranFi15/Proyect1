@@ -12,7 +12,8 @@ import {
     Modal,
     TextInput,
     Platform,
-    RefreshControl
+    RefreshControl,
+    useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -27,6 +28,7 @@ import { es } from 'date-fns/locale';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import CustomAlert from '@/components/CustomAlert';
+import {TabView, TabBar} from 'react-native-tab-view';
 
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
@@ -41,6 +43,14 @@ const ManageClassesScreen = () => {
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
+    const layout = useWindowDimensions();
+
+    const [index, setIndex] = useState(0);
+    const [routes] = useState([
+        { key: 'calendar', title: 'Calendario' },
+        { key: 'bulk', title: 'Recurrentes' },
+        { key: 'day-management', title: 'Gestión por Día' },
+    ]);
 
     const [activeTab, setActiveTab] = useState('calendar');
     const [loading, setLoading] = useState(true);
@@ -586,12 +596,8 @@ const ManageClassesScreen = () => {
         </View>
     );
 
-    const renderContent = () => {
-        if (loading) {
-            return <ActivityIndicator size="large" color={gymColor} style={{ marginTop: 50 }} />;
-        }
-
-        switch (activeTab) {
+    const renderScene = ({ route }) => {
+        switch (route.key) {
             case 'calendar':
                 return (
                     <FlatList
@@ -681,21 +687,28 @@ const ManageClassesScreen = () => {
         }
     };
 
+    if (loading) {
+        return <ActivityIndicator size="large" color={gymColor} style={{ flex: 1 }} />;
+    }
+
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.tabContainer}>
-                <TouchableOpacity onPress={() => setActiveTab('calendar')} style={[styles.tab, activeTab === 'calendar' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'calendar' && styles.activeTabText]}>Calendario</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('bulk')} style={[styles.tab, activeTab === 'bulk' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'bulk' && styles.activeTabText]}>Recurrentes</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setActiveTab('day-management')} style={[styles.tab, activeTab === 'day-management' && styles.activeTab]}>
-                    <Text style={[styles.tabText, activeTab === 'day-management' && styles.activeTabText]}>Cancelar  Día</Text>
-                </TouchableOpacity>
-            </View>
-            
-            {renderContent()}
+            <TabView
+                navigationState={{ index, routes }}
+                renderScene={renderScene}
+                onIndexChange={setIndex}
+                initialLayout={{ width: layout.width }}
+                renderTabBar={props => (
+                    <TabBar
+                        {...props}
+                        style={{ backgroundColor: gymColor }}
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3, }}
+                        labelStyle={{ color: gymColor, fontSize: 13, fontWeight: '700' }}
+                        scrollEnabled={true}
+                        tabStyle={{width: 'auto' }}
+                    />
+                )}
+            />
 
             <TouchableOpacity style={styles.fab} onPress={() => { setEditingClass(null); setShowAddModal(true); }}>
                 <Ionicons name="add" size={30} color="#fff" />
@@ -982,27 +995,7 @@ const ManageClassesScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    tabContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: Colors[colorScheme].cardBackground,
-        elevation: 4,
-    },
-    tab: {
-        paddingVertical: 15,
-        paddingHorizontal: 10,
-        alignItems: 'center',
-        flex: 1,
-    },
-    activeTab: {
-        borderBottomWidth: 3,
-        borderBottomColor: gymColor,
-    },
-    tabText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors[colorScheme].icon,
-    },
+    
     activeTabText: {
         color: gymColor,
     },
