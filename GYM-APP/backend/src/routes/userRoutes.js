@@ -8,7 +8,6 @@ import {
     deleteUser,
     updateUserProfileByAdmin,
     updateUserPlan,
-    getUserMetrics,
     clearUserCredits,
     removeUserSubscription,
     subscribeUserToPlan,
@@ -28,8 +27,7 @@ const router = express.Router();
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 
-
-router.get('/metrics', protect, authorizeRoles('admin'), getUserMetrics); 
+ 
 
 router.route('/')
     .get(protect, authorizeRoles('admin', 'profesor'), getAllUsers); 

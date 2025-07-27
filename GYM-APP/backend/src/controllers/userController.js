@@ -657,7 +657,6 @@ export {
     updateUserProfileByAdmin,
     updateUserPlan, 
     triggerMonthlyPaymentNotifications, 
-    getUserMetrics,
     clearUserCredits,
     removeUserSubscription,
     subscribeUserToPlan,
