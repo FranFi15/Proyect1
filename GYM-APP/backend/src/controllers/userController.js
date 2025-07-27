@@ -267,7 +267,7 @@ const updateUserPlan = asyncHandler(async (req, res) => {
             }
 
             const title = "Suscripción Activada";
-            const message = `Te has suscrito al plan mensual de ${tipoClase.nombre}. Recibirás ${autoRenewAmount || 8} créditos cada mes.`;
+            const message = `Te has suscrito al plan mensual de ${tipoClase.nombre}. Recibirás ${autoRenewAmount} créditos cada mes.`;
             await sendSingleNotification(Notification, User, userId, title, message, 'subscription_activated', false);
         }
     } else {
@@ -349,106 +349,6 @@ const triggerMonthlyPaymentNotifications = async (req, res) => {
     }
 };
 
-const getUserMetrics = asyncHandler(async (req, res) => {
-    const { TipoClase, User, Clase } = getModels(req.gymDBConnection);
-
-    // --- Métricas existentes (sin cambios) ---
-    const genderDistribution = await User.aggregate([
-        { $match: { roles: 'cliente', sexo: { $in: ['Masculino', 'Femenino', 'Otro'] } } },
-        { $group: { _id: '$sexo', count: { $sum: 1 } } },
-        { $project: { name: '$_id', value: '$count', _id: 0 } }
-    ]);
-
-    const ageDistribution = await User.aggregate([
-        { $match: { roles: 'cliente', fechaNacimiento: { $exists: true, $ne: null } } },
-        { $addFields: { age: { $divide: [{ $subtract: [new Date(), "$fechaNacimiento"] }, 31557600000] } } },
-        { $bucket: { groupBy: "$age", boundaries: [0, 18, 26, 36, 46, 65, 120], default: "Otro", output: { "count": { $sum: 1 } } } },
-        { $project: { name: { $switch: { branches: [ { case: { $eq: [ "$_id", 0 ] }, then: "<18" }, { case: { $eq: [ "$_id", 18 ] }, then: "18-25" }, { case: { $eq: [ "$_id", 26 ] }, then: "26-35" }, { case: { $eq: [ "$_id", 36 ] }, then: "36-45" }, { case: { $eq: [ "$_id", 46 ] }, then: "46-65" }, { case: { $eq: [ "$_id", 65 ] }, then: "65+" } ], default: "Otro" } }, value: '$count', _id: 0 } }
-    ]);
-
-    const creditsPerClassType = await User.aggregate([
-        { $match: { roles: 'cliente' } },
-        { $project: { creditosArray: { $objectToArray: "$creditosPorTipo" } } },
-        { $unwind: "$creditosArray" },
-        { $group: { _id: "$creditosArray.k", totalCredits: { $sum: "$creditosArray.v" } } },
-        { $lookup: { from: TipoClase.collection.name, localField: "_id", foreignField: "_id", as: "classTypeInfo" } },
-        { $unwind: "$classTypeInfo" },
-        { $project: { name: "$classTypeInfo.nombre", value: "$totalCredits", _id: 0 } }
-    ]);
-    
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const newClientsPerMonth = await User.aggregate([
-        { $match: { roles: 'cliente', createdAt: { $gte: oneYearAgo } } },
-        { $group: { _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } }, count: { $sum: 1 } }},
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
-        { $project: { name: { $concat: [ { $toString: "$_id.month" }, "/", { $toString: "$_id.year" } ] }, value: "$count", _id: 0 }}
-    ]);
-
-    // --- NUEVA MÉTRICA: Tasa de Ocupación por Tipo de Clase ---
-    const occupancyRate = await Clase.aggregate([
-        { $match: { fecha: { $gte: new Date() } } }, // Solo clases futuras
-        {
-            $group: {
-                _id: '$tipoClase',
-                totalInscritos: { $sum: { $size: '$usuariosInscritos' } },
-                totalCapacidad: { $sum: '$capacidad' }
-            }
-        },
-        {
-            $lookup: {
-                from: TipoClase.collection.name,
-                localField: '_id',
-                foreignField: '_id',
-                as: 'tipoClaseInfo'
-            }
-        },
-        { $unwind: '$tipoClaseInfo' },
-        {
-            $project: {
-                _id: 0,
-                name: '$tipoClaseInfo.nombre',
-                ocupacion: {
-                    $cond: [
-                        { $eq: ['$totalCapacidad', 0] },
-                        0,
-                        { $multiply: [{ $divide: ['$totalInscritos', '$totalCapacidad'] }, 100] }
-                    ]
-                }
-            }
-        },
-        { $sort: { ocupacion: -1 } }
-    ]);
-
-    // --- NUEVA MÉTRICA: Horarios de Mayor Demanda ---
-    const peakHours = await Clase.aggregate([
-        { $match: { fecha: { $gte: new Date() } } },
-        {
-            $group: {
-                _id: '$horaInicio',
-                totalInscritos: { $sum: { $size: '$usuariosInscritos' } }
-            }
-        },
-        { $sort: { totalInscritos: -1 } },
-        { $limit: 10 },
-        {
-            $project: {
-                name: '$_id',
-                value: '$totalInscritos',
-                _id: 0
-            }
-        }
-    ]);
-
-    res.json({
-        genderDistribution,
-        ageDistribution,
-        creditsPerClassType,
-        newClientsPerMonth,
-        occupancyRate,
-        peakHours,
-    });
-});
 
 const subscribeUserToPlan = asyncHandler(async (req, res) => {
     const { Clase, User, TipoClase, Notification } = getModels(req.gymDBConnection);
@@ -530,7 +430,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     // 4. Notificar al usuario sobre su nuevo plan.
     const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}.`;
+    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
 
     res.status(200).json({

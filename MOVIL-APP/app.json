@@ -18,7 +18,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.franfi15.MOVILAPP",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",

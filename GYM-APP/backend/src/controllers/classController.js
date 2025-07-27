@@ -228,7 +228,6 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
-    // **VALIDACIÓN CLAVE**
     if (!classItem.tipoClase) {
         res.status(500); // O 400, dependiendo de cómo quieras manejarlo
         throw new Error('El turno no tiene un tipo de turno asociado, no se puede procesar la inscripción.');
@@ -241,6 +240,10 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     if (classItem.usuariosInscritos.includes(userId)) {
         res.status(400);
         throw new Error('Ya estás inscrito en este turno.');
+    }
+
+        if (classItem.waitlist && classItem.waitlist.includes(userId)) {
+        classItem.waitlist.pull(userId);
     }
     
     const tipoClaseId = classItem.tipoClase._id.toString();
@@ -329,7 +332,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         const classTypeName = clase.tipoClase ? clase.tipoClase.nombre : 'la clase';
 
         const title = `¡Lugar disponible en ${className}!`;
-        const message = `Se liberó un cupo en ${classTypeName} a las ${clase.horaInicio}. ¡Inscríbete rápido!`;
+        const message = `Se liberó un cupo en ${classTypeName} del día ${clase.fecha.toLocaleDateString('es-AR')} a las ${clase.horaInicio}hs. ¡Inscríbete rápido!`;
 
         const notificationPromises = clase.waitlist.map(userIdToNotify => 
             sendSingleNotification(
