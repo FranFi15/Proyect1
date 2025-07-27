@@ -127,14 +127,13 @@ const EditProfileModal = ({ userProfile, onClose }) => {
 
                     <Text style={styles.inputLabel}>Teléfono</Text>
                     <TextInput style={styles.input} value={editableProfile.numeroTelefono} onChangeText={text => setEditableProfile(p => ({ ...p, numeroTelefono: text }))} keyboardType="phone-pad" />
-
+                    <Text style={styles.inputLabel}>Teléfono de Emergencia</Text>
+                    <TextInput style={styles.input} value={editableProfile.telefonoEmergencia} onChangeText={text => setEditableProfile(p => ({ ...p, telefonoEmergencia: text }))} keyboardType="phone-pad" />
                      <Text style={styles.inputLabel}>Dirección</Text>
                     <TextInput style={styles.input} value={editableProfile.direccion} onChangeText={text => setEditableProfile(p => ({ ...p, direccion: text }))} />   
                     <Text style={styles.inputLabel}>Obra Social</Text>
                     <TextInput style={styles.input} value={editableProfile.obraSocial} onChangeText={text => setEditableProfile(p => ({ ...p, obraSocial: text }))} />
                     
-                    <Text style={styles.inputLabel}>Teléfono de Emergencia</Text>
-                    <TextInput style={styles.input} value={editableProfile.telefonoEmergencia} onChangeText={text => setEditableProfile(p => ({ ...p, telefonoEmergencia: text }))} keyboardType="phone-pad" />
 
                     <Text style={styles.sectionTitle}>Cambiar Contraseña (opcional)</Text>
                     <TextInput style={styles.input} placeholder="Contraseña Actual" secureTextEntry onChangeText={setCurrentPassword} placeholderTextColor={Colors[colorScheme].icon}/>
@@ -162,7 +161,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     inputLabel: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 8, marginLeft: 5 },
     input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -172,12 +171,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10, 
         paddingHorizontal: 20, 
         borderWidth: 1, 
-        borderColor: Colors[colorScheme].icon, 
+        borderColor: Colors[colorScheme].border, 
         borderRadius: 8 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 
-        borderColor: gymColor || '#00177d'
     },
     genderButtonText: { 
         color: Colors[colorScheme].text 

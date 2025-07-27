@@ -137,7 +137,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     input: {
         height: 45,
-        borderColor: Colors[colorScheme].icon,
+        borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,

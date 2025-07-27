@@ -177,14 +177,10 @@ const NotificationAdminScreen = () => {
             <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
             <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
             
-            <View style={styles.switchContainer}>
-                <ThemedText>Marcar como Importante (modal)</ThemedText>
-                <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
-            </View>
 
-            <ThemedText style={styles.sectionTitle}>Destinatarios</ThemedText>
+            
             <View style={styles.pickerContainer}>
-                <Picker selectedValue={targetType} onValueChange={(itemValue) => setTargetType(itemValue)}>
+                <Picker color={Colors[colorScheme].icon} selectedValue={targetType} onValueChange={(itemValue) => setTargetType(itemValue)}>
                     <Picker.Item label="Todos los Usuarios" value="all" />
                     <Picker.Item label="Usuario Específico" value="user" />
                     <Picker.Item label="Rol Específico" value="role" />
@@ -239,6 +235,10 @@ const NotificationAdminScreen = () => {
                     </ScrollView>
                 </View>
             )}
+            <View style={styles.switchContainer}>
+                <ThemedText>Marcar como Importante (modal)</ThemedText>
+                <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
+            </View>
             
             <View style={styles.buttonWrapper}>
                 <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
@@ -262,7 +262,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     pageTitle: {
         marginBottom: 20,
-        fontSize: 24,
+        fontSize: 20,
     },
     input: {
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -280,13 +280,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
         paddingVertical: 10,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: 10,
-        marginBottom: 10,
-        color: Colors[colorScheme].text,
     },
     pickerContainer: {
         borderColor: Colors[colorScheme].border,

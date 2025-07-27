@@ -234,7 +234,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowRadius: 1.41,
     },
     cardTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 15,
         color: Colors[colorScheme].text,

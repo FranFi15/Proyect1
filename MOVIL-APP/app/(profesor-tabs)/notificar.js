@@ -158,15 +158,15 @@ const NotificationTeacherScreen = () => {
             <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
             
             <View style={styles.switchContainer}>
-                <ThemedText>Marcar como Importante (modal)</ThemedText>
+                <ThemedText>¡Marcar como Importante!</ThemedText>
                 <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
             </View>
 
             <ThemedText style={styles.sectionTitle}>Destinatarios</ThemedText>
             <View style={styles.pickerContainer}>
                 <Picker selectedValue={targetType} onValueChange={(itemValue) => setTargetType(itemValue)}>
-                    <Picker.Item label="Clase Específica" value="class" />
-                    <Picker.Item label="Alumno Específico" value="user" />
+                    <Picker.Item style={styles.listItemText} label="Clase Específica" value="class" />
+                    <Picker.Item style={styles.listItemText} label="Alumno Específico" value="user" />
                 </Picker>
             </View>
 
@@ -233,6 +233,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     pageTitle: {
         marginBottom: 25,
+        fontSize: 21,
     },
     input: {
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -252,7 +253,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10,
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 21,
         fontWeight: 'bold',
         marginTop: 10,
         marginBottom: 10,

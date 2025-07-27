@@ -94,6 +94,7 @@ export default function GymIdentifierScreen() {
             <TextInput
                 style={styles.input}
                 placeholder="xxxx-xxxx-xxxx"
+                placeholderTextColor={Colors[colorScheme].icon}
                 value={identifier}
                 onChangeText={setIdentifier}
                 autoCapitalize="none"
@@ -131,7 +132,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         resizeMode: 'cover',
     },
     title: { marginBottom: 15, padding:5, fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-    input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].cardBackground },
+    input: { width: '100%', height: 50, borderWidth: 1, borderColor: Colors[colorScheme].border ,borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, fontSize: 16, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].cardBackground },
     button: { width: '100%', height: 50, backgroundColor: gymColor || '#000000ff', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
      contactText: {

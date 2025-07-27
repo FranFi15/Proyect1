@@ -637,7 +637,7 @@ const ManageClassesScreen = () => {
                                     selectedValue={selectedRecurrentClassTypeFilter}
                                     onValueChange={(itemValue) => setSelectedRecurrentClassTypeFilter(itemValue)}
                                 >
-                                    <Picker.Item label="Todos los Tipos" value="all" />
+                                    <Picker.Item color={Colors[colorScheme].icon} label="Todos los Tipos" value="all"/>
                                     {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
                                 </Picker>
                             </View>

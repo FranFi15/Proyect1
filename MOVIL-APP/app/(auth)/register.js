@@ -155,7 +155,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     label: { color: Colors[colorScheme].text, marginBottom: 5, marginLeft: 5, opacity: 0.8 },
     input: { 
         height: 45, 
-        borderColor: Colors[colorScheme].icon, // Un color de borde sutil
+        borderColor: Colors[colorScheme].border, // Un color de borde sutil
         borderWidth: 1, 
         borderRadius: 8, 
         marginBottom: 12, 
@@ -167,7 +167,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
     dateInput: { 
         height: 45, 
-        borderColor: Colors[colorScheme].icon, 
+        borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
         borderRadius: 8, 
         paddingHorizontal: 8, 
@@ -183,7 +183,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10, 
         paddingHorizontal: 20, 
         borderWidth: 1, 
-        borderColor: Colors[colorScheme].icon, 
+        borderColor: Colors[colorScheme].border, 
         borderRadius: 8 
     },
     genderButtonSelected: { 

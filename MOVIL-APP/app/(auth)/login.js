@@ -134,7 +134,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     error: { color: Colors.light.error, marginBottom: 10, textAlign: 'center', fontWeight: 'bold' },
     input: { 
         height: 45, 
-        borderColor: Colors[colorScheme].icon,
+        borderColor: Colors[colorScheme].border,
         borderWidth: 1, 
         borderRadius: 8, 
         marginBottom: 12, 
