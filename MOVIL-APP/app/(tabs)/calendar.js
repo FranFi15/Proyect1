@@ -11,7 +11,7 @@ import {
     Text,
     RefreshControl,
     Linking,
-    useWindowDimensions, // <-- AÑADIDO
+    useWindowDimensions,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -23,7 +23,7 @@ import { es } from 'date-fns/locale';
 
 // --- AÑADIDO: Importaciones para TabView ---
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
-
+import FilterModal from '@/components/FilterModal';
 // --- COMPONENTES Y CONSTANTES TEMÁTICAS ---
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -106,6 +106,7 @@ const CalendarScreen = () => {
         message: '', 
         buttons: [] 
     });
+    const [isFilterModalVisible, setFilterModalVisible] = useState(false);
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
@@ -311,6 +312,11 @@ const CalendarScreen = () => {
         }
     }, [selectedDate]);
 
+    const handleSelectClassType = (typeId) => {
+        setSelectedClassType(typeId);
+        setFilterModalVisible(false); // La lógica se mantiene aquí
+    };
+
     const sectionedClasses = useMemo(() => {
         if (selectedDate) return []; // SectionList solo se usa para la vista general
 
@@ -409,23 +415,22 @@ const CalendarScreen = () => {
         </ThemedView>
     );
 
-    const ListScene = () => (
-        <ThemedView style={{ flex: 1 }}>
-            <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
-            
-            <View style={styles.pickerContainer}>
-                <Picker 
-                    selectedValue={selectedClassType} 
-                    onValueChange={itemValue => setSelectedClassType(itemValue)}
-                    style={{ color: Colors[colorScheme].text }}
-                    dropdownIconColor={Colors[colorScheme].text}
-                >
-                    <Picker.Item label="Todos los Turnos" value="all" color={Colors[colorScheme].text} />
-                    {classTypes.map(type => (
-                        <Picker.Item key={type._id} label={type.nombre} value={type._id} color={Colors[colorScheme].text} />
-                    ))}
-                </Picker>
-            </View>
+    const ListScene = () => {
+        const filterButtonText = useMemo(() => {
+            if (selectedClassType === 'all') {
+                return 'Todos los Turnos';
+            }
+            return classTypes.find(t => t._id === selectedClassType)?.nombre || 'Todos los Turnos';
+        }, [selectedClassType, classTypes]);
+        
+        return (
+            <ThemedView style={{ flex: 1 }}>
+                <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
+
+                <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
+                    <ThemedText style={styles.filterButtonText}>Filtrar Turnos</ThemedText>
+                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
 
             {visibleClasses.length === 0 && !isLoading ? (
                  <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
@@ -459,6 +464,7 @@ const CalendarScreen = () => {
             )}
         </ThemedView>
     );
+};
 
     const renderScene = SceneMap({
       calendar: CalendarScene,
@@ -499,6 +505,15 @@ const CalendarScreen = () => {
                     <FontAwesome5 name="whatsapp" size={30} color="#fff" />
                 </TouchableOpacity>
             )}
+            <FilterModal
+                visible={isFilterModalVisible}
+                onClose={() => setFilterModalVisible(false)}
+                options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]}
+                onSelect={handleSelectClassType}
+                selectedValue={selectedClassType}
+                title="Tipo de Turno"
+                theme={{ colors: Colors[colorScheme], gymColor }}
+            />
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -623,7 +638,24 @@ const getStyles = (colorScheme, gymColor) => {
             color: '#fff',
             fontSize: 16,
             fontWeight: 'bold'
-        }
+        },
+        filterButton: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginHorizontal: 15,
+            marginVertical: 10,
+            paddingVertical: 1,
+            paddingHorizontal: 12,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: Colors[colorScheme].border,
+            backgroundColor: Colors[colorScheme].background,
+        },
+        filterButtonText: {
+            fontSize: 16,
+            color: Colors[colorScheme].text,
+        },
     });
 };
 export default CalendarScreen

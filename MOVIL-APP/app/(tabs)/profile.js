@@ -246,13 +246,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 8,
     },
     infoLabel: {
-        fontSize: 16,
+        fontSize: 14,
         color: Colors[colorScheme].text,
-        marginLeft: 10,
+        marginLeft: 5,
         flex: 1,
     },
     infoValue: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '500',
         color: Colors[colorScheme].text,
         opacity: 0.8,

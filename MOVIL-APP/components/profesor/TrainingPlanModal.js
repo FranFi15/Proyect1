@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Switch, ScrollView } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, TextInput, Switch, ScrollView, useColorScheme } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
 
 // --- Componente Principal del Modal ---
 const TrainingPlanModal = ({ client, visible, onClose }) => {
     const { gymColor } = useAuth();
-    const colorScheme = 'light';
+    // 1. Detecta el tema real del dispositivo
+    const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
     const [plans, setPlans] = useState([]);
@@ -19,14 +20,7 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('list');
     const [currentPlan, setCurrentPlan] = useState(null);
-
-    // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
-    });
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     const fetchData = useCallback(async () => {
         if (!client) return;
@@ -109,32 +103,35 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
         });
     };
 
+
     const renderContent = () => {
         if (loading) return <ActivityIndicator color={gymColor} size="large" style={{flex: 1}} />;
+        
+        // 2. Pasa el colorScheme como prop a los sub-componentes
         switch (view) {
             case 'editPlan':
             case 'newPlan':
-                return <PlanEditor plan={currentPlan} onSave={handleSaveChanges} onCancel={() => setView('list')} />;
+                return <PlanEditor plan={currentPlan} onSave={handleSaveChanges} onCancel={() => setView('list')} colorScheme={colorScheme} />;
             case 'selectTemplate':
                 return <TemplateSelector templates={templates} onSelect={(template) => {
                     setCurrentPlan({ name: template.name, description: template.description, content: template.content, isVisibleToUser: false });
                     setView('newPlan');
-                }} onCancel={() => setView('list')} />;
+                }} onCancel={() => setView('list')} colorScheme={colorScheme} />;
             default:
-                return <PlanList plans={plans} onEdit={(plan) => { setCurrentPlan(plan); setView('editPlan'); }} onDelete={handleDeletePlan} onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} onNewFromTemplate={() => setView('selectTemplate')} />;
+                return <PlanList plans={plans} onEdit={(plan) => { setCurrentPlan(plan); setView('editPlan'); }} onDelete={handleDeletePlan} onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} onNewFromTemplate={() => setView('selectTemplate')} colorScheme={colorScheme} />;
         }
     };
 
     return (
         <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
-                <ThemedView style={styles.modalContainer}>
+                <View style={styles.modalContainer}>
                     <View style={styles.header}>
-                        <ThemedText style={styles.headerTitle}>Planes de {client.nombre}</ThemedText>
-                        <TouchableOpacity onPress={() => onClose(false)}><Ionicons name="close-circle" size={30} color={Colors[colorScheme].text} /></TouchableOpacity>
+                        <Text style={styles.headerTitle}>Planes de {client.nombre}</Text>
+                        <TouchableOpacity onPress={() => onClose(false)}><Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} /></TouchableOpacity>
                     </View>
                     {renderContent()}
-                </ThemedView>
+                </View>
                 <CustomAlert
                     visible={alertInfo.visible}
                     title={alertInfo.title}
@@ -148,19 +145,20 @@ const TrainingPlanModal = ({ client, visible, onClose }) => {
     );
 };
 
-// --- Editor de Planes (Simplificado) ---
-const PlanEditor = ({ plan: initialPlan, onSave, onCancel }) => {
+// --- Editor de Planes ---
+const PlanEditor = ({ plan: initialPlan, onSave, onCancel, colorScheme }) => {
     const [plan, setPlan] = useState(initialPlan);
     const { gymColor } = useAuth();
-    const styles = getStyles('light', gymColor);
+    // 3. Usa el colorScheme recibido por props
+    const styles = getStyles(colorScheme, gymColor);
 
     return (
         <ScrollView style={{flex: 1}}>
             <Text style={styles.label}>Título del Plan</Text>
-            <TextInput style={styles.input} value={plan.name} onChangeText={text => setPlan(p => ({ ...p, name: text }))} />
+            <TextInput style={styles.input} value={plan.name} onChangeText={text => setPlan(p => ({ ...p, name: text }))} placeholderTextColor={Colors[colorScheme].icon}/>
 
             <Text style={styles.label}>Contenido del Plan</Text>
-            <TextInput style={[styles.input, styles.textArea, {height: 250}]} multiline value={plan.content} onChangeText={text => setPlan(p => ({ ...p, content: text }))} />
+            <TextInput style={[styles.input, styles.textArea, {height: 250}]} multiline value={plan.content} onChangeText={text => setPlan(p => ({ ...p, content: text }))} placeholderTextColor={Colors[colorScheme].icon}/>
 
             <View style={styles.switchContainer}>
                 <Text style={styles.label}>Visible para el Cliente</Text>
@@ -175,9 +173,10 @@ const PlanEditor = ({ plan: initialPlan, onSave, onCancel }) => {
     );
 };
 
-const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => {
+// --- Lista de Planes ---
+const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate, colorScheme }) => {
     const { gymColor } = useAuth();
-    const styles = getStyles('light', gymColor);
+    const styles = getStyles(colorScheme, gymColor);
     const renderItem = ({ item }) => (
         <View style={styles.planCard}>
             <View style={{ flex: 1 }}>
@@ -186,7 +185,7 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => 
             </View>
             <View style={styles.planActions}>
                 <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors.light.error} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors[colorScheme].text} /></TouchableOpacity>
             </View>
         </View>
     );
@@ -199,9 +198,11 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate }) => 
         </View>
     );
 };
-const TemplateSelector = ({ templates, onSelect, onCancel }) => {
+
+// --- Selector de Plantillas ---
+const TemplateSelector = ({ templates, onSelect, onCancel, colorScheme }) => {
     const { gymColor } = useAuth();
-    const styles = getStyles('light', gymColor);
+    const styles = getStyles(colorScheme, gymColor);
     return (
         <View style={{flex: 1}}>
             <FlatList data={templates} keyExtractor={item => item._id} renderItem={({item}) => (<TouchableOpacity style={styles.planCard} onPress={() => onSelect(item)}><Text style={styles.planTitle}>{item.name}</Text></TouchableOpacity>)} ListEmptyComponent={<Text style={styles.emptyText}>No has creado plantillas.</Text>} />
@@ -209,6 +210,8 @@ const TemplateSelector = ({ templates, onSelect, onCancel }) => {
         </View>
     );
 };
+
+// 4. Estilos actualizados para ser dinámicos
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 15 },
@@ -225,40 +228,37 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
+        shadowOpacity: colorScheme === 'dark' ? 0.8 : 0.2,
         shadowRadius: 1.41,
+        borderWidth: colorScheme === 'dark' ? 1 : 0,
+        borderColor: Colors[colorScheme].border
     },
-    planTitle: { fontSize: 16, fontWeight: '600' },
-    planDate: { fontSize: 12, opacity: 0.6, marginTop: 4 },
+    planTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
+    planDate: { fontSize: 12, opacity: 0.6, marginTop: 4, color: Colors[colorScheme].text },
     planActions: { flexDirection: 'row', gap: 15 },
     footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 10 },
-    button: { 
-        flex: 1, 
-        padding: 15, 
-        borderRadius: 8, 
-        alignItems: 'center', 
-        backgroundColor: gymColor 
-    },
+    button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', backgroundColor: gymColor },
     buttonText: { color: '#fff', fontWeight: 'bold' },
-    buttonSecondary: { backgroundColor: Colors[colorScheme].border },
+    buttonSecondary: { backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border },
     buttonTextSecondary: { color: Colors[colorScheme].text, fontWeight: 'bold' },
-    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7 },
-    label: { fontSize: 16, fontWeight: '600', marginBottom: 5, marginTop: 15 },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
+    label: { fontSize: 16, fontWeight: '600', marginBottom: 5, marginTop: 15, color: Colors[colorScheme].text },
     input: { 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
         borderRadius: 8, 
         paddingHorizontal: 15, 
-        backgroundColor: '#fff', 
+        backgroundColor: Colors[colorScheme].inputBackground, 
         fontSize: 16,
-        height: 50
+        height: 50,
+        color: Colors[colorScheme].text
     },
     textArea: { 
         textAlignVertical: 'top', 
         paddingTop: 15,
         height: 'auto'
     },
-    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingVertical: 10 }
 });
 
 export default TrainingPlanModal;

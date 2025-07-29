@@ -18,8 +18,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Picker } from '@react-native-picker/picker';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import FilterModal from '@/components/FilterModal'; 
+import CustomAlert from '@/components/CustomAlert'; 
+import { FontAwesome5 } from '@expo/vector-icons';
+
 
 const NotificationAdminScreen = () => {
     const { gymColor } = useAuth();
@@ -51,6 +53,8 @@ const NotificationAdminScreen = () => {
         message: '', 
         buttons: [] 
     });
+
+    const [activeModal, setActiveModal] = useState(null);
 
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
@@ -166,6 +170,54 @@ const NotificationAdminScreen = () => {
         });
     };
 
+    const getModalConfig = useMemo(() => {
+        const targetTypeOptions = [
+            { _id: 'all', nombre: 'Todos los Usuarios' },
+            { _id: 'user', nombre: 'Usuario Específico' },
+            { _id: 'role', nombre: 'Rol Específico' },
+            { _id: 'class', nombre: 'Clase Específica' },
+        ];
+        const roleOptions = [
+            { _id: '', nombre: 'Selecciona un rol' },
+            { _id: 'cliente', nombre: 'Clientes' },
+            { _id: 'profesor', nombre: 'Profesores' },
+            { _id: 'admin', nombre: 'Admins' },
+        ];
+
+        switch (activeModal) {
+            case 'targetType':
+                return {
+                    title: 'Seleccionar Destinatario',
+                    options: targetTypeOptions,
+                    onSelect: setTargetType,
+                    selectedValue: targetType,
+                };
+            case 'role':
+                return {
+                    title: 'Seleccionar Rol',
+                    options: roleOptions,
+                    onSelect: setSelectedRoleId,
+                    selectedValue: selectedRoleId,
+                };
+            default:
+                return null;
+        }
+    }, [activeModal, targetType, selectedRoleId]);
+    
+    // --- HELPER para mostrar el nombre del valor seleccionado ---
+    const getDisplayName = (id, type) => {
+        if (!id) return 'Seleccionar';
+        if (type === 'targetType') {
+            const options = [ { _id: 'all', nombre: 'Todos los Usuarios' }, { _id: 'user', nombre: 'Usuario Específico' }, { _id: 'role', nombre: 'Rol Específico' }, { _id: 'class', nombre: 'Clase Específica' }];
+            return options.find(o => o._id === id)?.nombre || 'Seleccionar';
+        }
+        if (type === 'role') {
+             const options = [{ _id: 'cliente', nombre: 'Clientes' }, { _id: 'profesor', nombre: 'Profesores' }, { _id: 'admin', nombre: 'Admins' }];
+             return options.find(o => o._id === id)?.nombre || 'Seleccionar un rol';
+        }
+        return 'Seleccionar';
+    };
+
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
@@ -179,14 +231,10 @@ const NotificationAdminScreen = () => {
             
 
             
-            <View style={styles.pickerContainer}>
-                <Picker color={Colors[colorScheme].icon} selectedValue={targetType} onValueChange={(itemValue) => setTargetType(itemValue)}>
-                    <Picker.Item label="Todos los Usuarios" value="all" />
-                    <Picker.Item label="Usuario Específico" value="user" />
-                    <Picker.Item label="Rol Específico" value="role" />
-                    <Picker.Item label="Clase Específica" value="class" />
-                </Picker>
-            </View>
+            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
+                <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType, 'targetType')}</ThemedText>
+                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+            </TouchableOpacity>
 
             {targetType === 'user' && (
                 <View>
@@ -207,14 +255,10 @@ const NotificationAdminScreen = () => {
             )}
 
             {targetType === 'role' && (
-                <View style={styles.pickerContainer}>
-                    <Picker selectedValue={selectedRoleId} onValueChange={(itemValue) => setSelectedRoleId(itemValue)}>
-                        <Picker.Item label="Selecciona un rol" value="" />
-                        <Picker.Item label="Clientes" value="cliente" />
-                        <Picker.Item label="Profesores" value="profesor" />
-                        <Picker.Item label="Admins" value="admin" />
-                    </Picker>
-                </View>
+                 <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('role')}>
+                    <ThemedText style={styles.filterButtonText}>{getDisplayName(selectedRoleId, 'role')}</ThemedText>
+                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
             )}
 
             {targetType === 'class' && (
@@ -243,6 +287,21 @@ const NotificationAdminScreen = () => {
             <View style={styles.buttonWrapper}>
                 <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
             </View>
+
+            {getModalConfig && (
+                <FilterModal
+                    visible={!!activeModal}
+                    onClose={() => setActiveModal(null)}
+                    onSelect={(id) => {
+                        getModalConfig.onSelect(id);
+                        setActiveModal(null);
+                    }}
+                    title={getModalConfig.title}
+                    options={getModalConfig.options}
+                    selectedValue={getModalConfig.selectedValue}
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
+            )}
             
             <CustomAlert
                 visible={alertInfo.visible}
@@ -322,7 +381,25 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 8,
         overflow: 'hidden', // Necesario para que el borderRadius se aplique al Button en Android
         marginTop: 10,
-    }
+    },
+    filterButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        padding: 15,
+        borderRadius: 8,
+        fontSize: 16,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    filterButtonText: {
+        color: Colors[colorScheme].text,
+        fontSize: 16,
+    },
+
 });
 
 export default NotificationAdminScreen;

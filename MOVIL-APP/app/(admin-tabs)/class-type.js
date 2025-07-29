@@ -1,16 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     StyleSheet,
     View,
     Text,
     FlatList,
     TouchableOpacity,
-    Modal,
     TextInput,
     useColorScheme,
     ActivityIndicator,
     RefreshControl,
-    Switch
+    Switch,
+    Pressable 
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
 
 const ClassTypeManagementScreen = () => {
     const { gymColor } = useAuth();
@@ -30,17 +30,13 @@ const ClassTypeManagementScreen = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     
+    // --- AÑADIDO: Estado para el filtro de búsqueda ---
+    const [searchTerm, setSearchTerm] = useState('');
+    
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingClassType, setEditingClassType] = useState(null);
     const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
-
-    // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
-    });
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     const fetchClassTypes = useCallback(async () => {
         try {
@@ -75,6 +71,16 @@ const ClassTypeManagementScreen = () => {
         setIsRefreshing(true);
         fetchClassTypes();
     }, [fetchClassTypes]);
+
+    // --- AÑADIDO: Lógica para filtrar los tipos de clase ---
+    const filteredClassTypes = useMemo(() => {
+        if (!searchTerm) {
+            return classTypes;
+        }
+        return classTypes.filter(type =>
+            type.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [classTypes, searchTerm]);
 
     const handleFormChange = (name, value) => {
         setFormData({ ...formData, [name]: value });
@@ -148,7 +154,7 @@ const ClassTypeManagementScreen = () => {
                     text: 'Eliminar',
                     style: 'destructive',
                     onPress: async () => {
-                        setAlertInfo({ visible: false }); // Cierra la alerta de confirmación
+                        setAlertInfo({ visible: false });
                         try {
                             await apiClient.delete(`/tipos-clase/${type._id}`);
                             setAlertInfo({
@@ -204,8 +210,16 @@ const ClassTypeManagementScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por nombre..."
+                placeholderTextColor={Colors[colorScheme].icon}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+            />
+
             <FlatList
-                data={classTypes}
+                data={filteredClassTypes}
                 renderItem={renderClassType}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
@@ -223,14 +237,10 @@ const ClassTypeManagementScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            <Modal
-                visible={isModalVisible}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setIsModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <ThemedView style={styles.modalContainer}>
+            {/* --- MODIFICADO: El Modal ahora es un View condicional --- */}
+            {isModalVisible && (
+                <Pressable style={styles.modalOverlay} onPress={() => setIsModalVisible(false)}>
+                    <Pressable style={styles.modalContainer}>
                         <ThemedText style={styles.modalTitle}>
                             {editingClassType ? 'Editar Tipo de Turno' : 'Añadir Tipo de Turno'}
                         </ThemedText>
@@ -266,13 +276,13 @@ const ClassTypeManagementScreen = () => {
                             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
                                 <Text style={styles.buttonText}>Cancelar</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.button, { backgroundColor: '#1a5276' }]} onPress={handleFormSubmit}>
+                            <TouchableOpacity style={[styles.button, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit}>
                                 <Text style={styles.buttonText}>{editingClassType ? 'Actualizar' : 'Guardar'}</Text>
                             </TouchableOpacity>
                         </View>
-                    </ThemedView>
-                </View>
-            </Modal>
+                    </Pressable>
+                </Pressable>
+            )}
 
             <CustomAlert
                 visible={alertInfo.visible}
@@ -290,6 +300,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     listContainer: { padding: 10, paddingBottom: 80 },
+    searchInput: { 
+        height: 50, 
+        borderColor: Colors[colorScheme].border, 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        paddingHorizontal: 15, 
+        margin: 15, 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        color: Colors[colorScheme].text, 
+        fontSize: 16 
+    },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
         borderRadius: 8,
@@ -306,8 +327,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowRadius: 1.5,
     },
     cardContent: { flex: 1 },
-    cardTitle: { fontSize: 18, fontWeight: 'bold' },
-    cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4 },
+    cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
+    cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
     priceText: {
         fontSize: 16,
         fontWeight: '600',
@@ -324,17 +345,30 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'center',
         right: 20,
         bottom: 20,
-        backgroundColor: '#1a5276',
+        backgroundColor: gymColor ||'#1a5276',
         borderRadius: 30,
         elevation: 8,
     },
-    modalOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-    modalContainer: { width: '100%', height: '85%', borderRadius: 2, padding: 25, elevation: 5 },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-    inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9 },
+    modalOverlay: { 
+        position: 'absolute',
+        top: 0, bottom: 0, left: 0, right: 0,
+        zIndex: 1000,
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0, 0, 0, 0.5)' 
+    },
+    modalContainer: { 
+        width: '90%', 
+        backgroundColor: Colors[colorScheme].background,
+        borderRadius: 12, 
+        padding: 25, 
+        elevation: 5 
+    },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
+    inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
         height: 50,
-        backgroundColor: Colors[colorScheme].background,
+        backgroundColor: Colors[colorScheme].inputBackground,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
@@ -343,18 +377,16 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors[colorScheme].text,
         fontSize: 16,
     },
-    textArea: { height: 100, textAlignVertical: 'top', paddingTop: 15 },
     switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20, 
-},
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20, 
+    },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
     button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    
 });
 
 export default ClassTypeManagementScreen;

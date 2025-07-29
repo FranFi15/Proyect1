@@ -36,7 +36,7 @@ const NotificationsScreen = () => {
     const { user, refreshUser, gymColor } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
-    const styles = getStyles(colorScheme);
+    const styles = getStyles(colorScheme , gymColor);
 
     // Estado para manejar la alerta personalizada
     const [alertInfo, setAlertInfo] = useState({ 
@@ -129,7 +129,6 @@ const NotificationsScreen = () => {
     const renderItem = ({ item }) => {
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
-                <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon} style={styles.icon} />
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
                     <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
@@ -178,7 +177,7 @@ const NotificationsScreen = () => {
     );
 };
 
-const getStyles = (colorScheme) => {
+const getStyles = (colorScheme, gymColor) => {
     return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -192,7 +191,7 @@ const getStyles = (colorScheme) => {
     notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 8, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2},
     unreadNotification: {
         borderLeftWidth: 4,
-        borderColor: '#1a5276', // Un color para destacar las no leídas
+        borderColor: gymColor || '#1a5276', // Un color para destacar las no leídas
     },
     icon: { marginRight: 15 },
     notificationContent: { flex: 1 },

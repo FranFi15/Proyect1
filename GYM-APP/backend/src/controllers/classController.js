@@ -113,6 +113,10 @@ const updateClass = asyncHandler(async (req, res) => {
         throw new Error('Turno no encontrado.');
     }
 
+     if (otherUpdates.fecha) {
+        otherUpdates.fecha = new Date(`${otherUpdates.fecha}T12:00:00.000Z`);
+    }
+
     const oldCapacity = classItem.capacidad;
     const newCapacity = capacidad !== undefined ? Number(capacidad) : oldCapacity;
     const capacityDifference = newCapacity - oldCapacity;

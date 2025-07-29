@@ -106,8 +106,8 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
                     <View style={styles.formContainer}>
                         <Text style={styles.formTitle}>Registrar Movimiento</Text>
-                        <TextInput style={styles.input} placeholder="Monto" keyboardType="numeric" value={newTransaction.amount} onChangeText={text => setNewTransaction(p => ({...p, amount: text}))} />
-                        <TextInput style={styles.input} placeholder="Descripción (Ej: Pago cuota, Cargo inscripción)" value={newTransaction.description} onChangeText={text => setNewTransaction(p => ({...p, description: text}))} />
+                        <TextInput style={styles.input} placeholderTextColor={Colors[colorScheme].text} placeholder="Monto" keyboardType="numeric" value={newTransaction.amount} onChangeText={text => setNewTransaction(p => ({...p, amount: text}))} />
+                        <TextInput style={styles.input} placeholderTextColor={Colors[colorScheme].text} placeholder="Descripción (Ej: Pago cuota, Cargo inscripción)" value={newTransaction.description} onChangeText={text => setNewTransaction(p => ({...p, description: text}))} />
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={[styles.styledButton, styles.paymentButton]} onPress={() => handleCreateTransaction('payment')}>
                                 <Text style={styles.styledButtonText}>Registrar Pago</Text>

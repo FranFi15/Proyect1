@@ -17,7 +17,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Picker } from '@react-native-picker/picker';
+import FilterModal from '@/components/FilterModal';
+import { FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
 // Nuevo componente para la pantalla de notificaciones del profesor
@@ -39,6 +40,8 @@ const NotificationTeacherScreen = () => {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
+
+    const [activeModal, setActiveModal] = useState(null);
 
     const fetchTeacherData = useCallback(async () => {
         if (!user || !user._id) return;
@@ -145,6 +148,30 @@ const NotificationTeacherScreen = () => {
         });
     };
 
+     const getModalConfig = useMemo(() => {
+        const targetTypeOptions = [
+            { _id: 'class', nombre: 'Clase Específica' },
+            { _id: 'user', nombre: 'Alumno Específico' },
+        ];
+
+        if (activeModal === 'targetType') {
+            return {
+                title: 'Seleccionar Destinatario',
+                options: targetTypeOptions,
+                onSelect: setTargetType,
+                selectedValue: targetType,
+            };
+        }
+        return null;
+    }, [activeModal, targetType]);
+
+    // --- HELPER para mostrar el nombre del valor seleccionado ---
+    const getDisplayName = (id) => {
+        if (id === 'class') return 'Clase Específica';
+        if (id === 'user') return 'Alumno Específico';
+        return 'Seleccionar';
+    };
+
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
@@ -163,12 +190,10 @@ const NotificationTeacherScreen = () => {
             </View>
 
             <ThemedText style={styles.sectionTitle}>Destinatarios</ThemedText>
-            <View style={styles.pickerContainer}>
-                <Picker selectedValue={targetType} onValueChange={(itemValue) => setTargetType(itemValue)}>
-                    <Picker.Item style={styles.listItemText} label="Clase Específica" value="class" />
-                    <Picker.Item style={styles.listItemText} label="Alumno Específico" value="user" />
-                </Picker>
-            </View>
+            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
+                <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType)}</ThemedText>
+                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+            </TouchableOpacity>
 
             {targetType === 'user' && (
                 <View>
@@ -209,7 +234,20 @@ const NotificationTeacherScreen = () => {
             <View style={styles.buttonWrapper}>
                 <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
             </View>
-            
+            {getModalConfig && (
+                <FilterModal
+                    visible={!!activeModal}
+                    onClose={() => setActiveModal(null)}
+                    onSelect={(id) => {
+                        getModalConfig.onSelect(id);
+                        setActiveModal(null);
+                    }}
+                    title={getModalConfig.title}
+                    options={getModalConfig.options}
+                    selectedValue={getModalConfig.selectedValue}
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
+            )}
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -300,7 +338,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 8,
         overflow: 'hidden',
         marginTop: 10,
-    }
+    },
+    filterButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        height: 45,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        marginBottom: 15,
+
+    },
+    filterButtonText: {
+        fontSize: 14,
+        color: Colors[colorScheme].text,
+    },
 });
 
 export default NotificationTeacherScreen;

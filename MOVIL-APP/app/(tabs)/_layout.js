@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, View, Text, useColorScheme } from 'react-native';
+import { Image, View, Text, useColorScheme, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
@@ -16,10 +16,9 @@ export default function TabsLayout() {
   const colorScheme = useColorScheme() ?? 'light';
 
   return (
-    <Tabs 
+   <Tabs 
       screenOptions={{
         tabBarActiveTintColor: gymColor, 
-        // --- CAMBIOS AQUÍ ---
         tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].cardBackground,
@@ -27,8 +26,12 @@ export default function TabsLayout() {
         headerStyle: {
           backgroundColor: gymColor,
           shadowColor: 'transparent',
+          // 2. Añade la altura condicional aquí
+          height: Platform.select({
+            ios: 120, // Altura mayor para iOS (ajusta este valor según necesites)
+            android: 80, // Una altura estándar para Android
+          }),
         },
-        // --- FIN DE CAMBIOS ---
         headerTitleAlign: 'center',
         headerTitle: (props) => <HeaderLogoTitle {...props} />, 
       }}
@@ -73,20 +76,6 @@ export default function TabsLayout() {
           ),
         }} 
       />
-
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
-          title: 'Mi Perfil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
-              size={size} 
-              color={color} 
-            />
-          ),
-        }} 
-      />
       <Tabs.Screen 
         name="notifications" 
         options={{ 
@@ -111,6 +100,19 @@ export default function TabsLayout() {
                 </View>
               )}
             </View>
+          ),
+        }} 
+      />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ 
+          title: 'Mi Perfil',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'person' : 'person-outline'} 
+              size={size} 
+              color={color} 
+            />
           ),
         }} 
       />

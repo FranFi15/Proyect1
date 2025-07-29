@@ -7,7 +7,7 @@ import {
     ActivityIndicator, 
     TouchableOpacity,
     useColorScheme,
-    Modal,
+    Pressable,
     Text,
     ScrollView,
     Switch,
@@ -21,11 +21,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO, isValid } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent'; 
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert'; 
+import FilterModal from '@/components/FilterModal'
 
 const ManageClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -70,6 +70,9 @@ const ManageClientsScreen = () => {
     const [editingClientDay, setEditingClientDay] = useState('');
     const [editingClientMonth, setEditingClientMonth] = useState('');
     const [editingClientYear, setEditingClientYear] = useState('');
+
+     const [activeModal, setActiveModal] = useState(null);
+
 
     const fetchAllData = useCallback(async () => {
         setLoading(true);
@@ -393,6 +396,55 @@ const ManageClientsScreen = () => {
         });
     };
 
+     const getModalConfig = useMemo(() => {
+        const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes];
+        const roleOptions = [
+            { _id: 'cliente', nombre: 'Cliente' },
+            { _id: 'profesor', nombre: 'Profesor' },
+            { _id: 'admin', nombre: 'Admin' },
+        ];
+
+        switch (activeModal) {
+            case 'addRole':
+                return {
+                    title: 'Seleccionar Rol',
+                    options: roleOptions,
+                    onSelect: (id) => handleNewClientChange('roles', [id]),
+                    selectedValue: newClientData.roles[0],
+                };
+            case 'editRole':
+                return {
+                    title: 'Seleccionar Rol',
+                    options: roleOptions,
+                    onSelect: (id) => handleEditingClientChange('roles', [id]),
+                    selectedValue: editingClientData?.roles[0],
+                };
+            case 'creditsClassType':
+                return {
+                    title: 'Seleccionar Tipo de Clase',
+                    options: classTypeOptions,
+                    onSelect: (id) => setPlanData(prev => ({...prev, tipoClaseId: id})),
+                    selectedValue: planData.tipoClaseId,
+                };
+            case 'massEnrollClassType':
+                 return {
+                    title: 'Seleccionar Tipo de Clase',
+                    options: classTypeOptions,
+                    onSelect: (id) => setMassEnrollFilters(prev => ({...prev, tipoClaseId: id, diasDeSemana: []})),
+                    selectedValue: massEnrollFilters.tipoClaseId,
+                };
+            default:
+                return null;
+        }
+    }, [activeModal, classTypes, newClientData.roles, editingClientData?.roles, planData.tipoClaseId, massEnrollFilters.tipoClaseId]);
+
+    const getDisplayName = (id, type) => {
+        if (!id) return 'Seleccionar';
+        if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || 'Seleccionar';
+        if (type === 'role') return id.charAt(0).toUpperCase() + id.slice(1);
+        return 'Seleccionar';
+    };
+
     const filteredData = useMemo(() => {
         if (!searchTerm) return users;
         return users.filter(user =>
@@ -481,11 +533,11 @@ const ManageClientsScreen = () => {
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            <Modal animationType="slide" transparent={true} visible={showAddFormModal} onRequestClose={() => setShowAddFormModal(false)}>
-                <View style={styles.modalContainer}>
-                    <ThemedView style={styles.modalView}>
+            {showAddFormModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowAddFormModal(false)}>
+                    <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowAddFormModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Registrar Nuevo Socio</ThemedText>
@@ -499,7 +551,7 @@ const ManageClientsScreen = () => {
                             <TextInput style={styles.input} secureTextEntry value={newClientData.contraseña} onChangeText={(text) => handleNewClientChange('contraseña', text)} />
                             <ThemedText style={styles.inputLabel}>DNI</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={newClientData.dni} onChangeText={(text) => handleNewClientChange('dni', text)} />
-                             <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
                             <View style={styles.dateInputContainer}>
                                 <TextInput style={styles.dateInput} placeholder="DD" value={newClientDay} onChangeText={setNewClientDay} keyboardType="number-pad" maxLength={2} />
                                 <TextInput style={styles.dateInput} placeholder="MM" value={newClientMonth} onChangeText={setNewClientMonth} keyboardType="number-pad" maxLength={2} />
@@ -511,55 +563,33 @@ const ManageClientsScreen = () => {
                             <TextInput style={styles.input} keyboardType="phone-pad" value={newClientData.numeroTelefono} onChangeText={(text) => handleNewClientChange('numeroTelefono', text)} />
                             <ThemedText style={styles.inputLabel}>Obra Social</ThemedText>
                             <TextInput style={styles.input} value={newClientData.obraSocial} onChangeText={(text) => handleNewClientChange('obraSocial', text)} />
-                            
                             <ThemedText style={styles.inputLabel}>Rol</ThemedText>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={newClientData.roles[0]}
-                                    onValueChange={(itemValue) => handleNewClientChange('roles', [itemValue])}
-                                >
-                                    <Picker.Item label="Cliente" value="cliente" />
-                                    <Picker.Item label="Profesor" value="profesor" />
-                                    <Picker.Item label="Admin" value="admin" />
-                                </Picker>
-                            </View>
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('addRole')}>
+                                <ThemedText style={styles.filterButtonText}>{getDisplayName(newClientData.roles[0], 'role')}</ThemedText>
+                                <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                             <View style={styles.switchRow}>
-                                 <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                 <Switch
-                                     value={newClientData.ordenMedicaRequerida}
-                                     onValueChange={(value) => handleNewClientChange('ordenMedicaRequerida', value)}
-                                     trackColor={{ false: "#767577", true: gymColor }}
-                                     thumbColor={"#f4f3f4"}
-                                 />
-                             </View>
-                             {newClientData.ordenMedicaRequerida && (
-                                 <View style={styles.switchRow}>
-                                     <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                     <Switch
-                                         value={newClientData.ordenMedicaEntregada}
-                                         onValueChange={(value) => handleNewClientChange('ordenMedicaEntregada', value)}
-                                         trackColor={{ false: "#767577", true: gymColor }}
-                                         thumbColor={"#f4f3f4"}
-                                     />
-                                 </View>
-                             )}
-
-                            <View style={styles.modalActions}>
-                                <View style={styles.buttonWrapper}>
-                                    <Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} />
-                                </View>
+                                <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
+                                <Switch value={newClientData.ordenMedicaRequerida} onValueChange={(value) => handleNewClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                             </View>
+                            {newClientData.ordenMedicaRequerida && (
+                                <View style={styles.switchRow}>
+                                    <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
+                                    <Switch value={newClientData.ordenMedicaEntregada} onValueChange={(value) => handleNewClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
+                                </View>
+                            )}
+                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} /></View></View>
                         </ScrollView>
-                    </ThemedView>
-                </View>
-            </Modal>
+                    </Pressable>
+                </Pressable>
+            )}
 
-            <Modal animationType="slide" transparent={true} visible={showEditFormModal} onRequestClose={() => setShowEditFormModal(false)}>
-                <View style={styles.modalContainer}>
+            {showEditFormModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowEditFormModal(false)}>
                     {editingClientData && (
-                        <ThemedView style={styles.modalView}>
+                        <Pressable style={styles.modalView}>
                             <TouchableOpacity onPress={() => setShowEditFormModal(false)} style={styles.closeButton}>
-                                <Ionicons name="close-circle" size={30} color="#ccc" />
+                                <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                             </TouchableOpacity>
                             <ScrollView>
                                 <ThemedText style={styles.modalTitle}>Editar Socio</ThemedText>
@@ -569,71 +599,51 @@ const ManageClientsScreen = () => {
                                 <TextInput style={styles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
                                 <ThemedText style={styles.inputLabel}>DNI</ThemedText>
                                 <TextInput style={styles.input} keyboardType="numeric" value={editingClientData.dni} onChangeText={(text) => handleEditingClientChange('dni', text)} />
-                                 <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
-                            <View style={styles.dateInputContainer}>
-                                <TextInput style={styles.dateInput} placeholder="DD" value={editingClientDay} onChangeText={setEditingClientDay} keyboardType="number-pad" maxLength={2} />
-                                <TextInput style={styles.dateInput} placeholder="MM" value={editingClientMonth} onChangeText={setEditingClientMonth} keyboardType="number-pad" maxLength={2} />
-                                <TextInput style={styles.dateInput} placeholder="AAAA" value={editingClientYear} onChangeText={setEditingClientYear} keyboardType="number-pad" maxLength={4} />
-                            </View>
+                                <ThemedText style={styles.inputLabel}>Fecha de Nacimiento</ThemedText>
+                                <View style={styles.dateInputContainer}>
+                                    <TextInput style={styles.dateInput} placeholder="DD" value={editingClientDay} onChangeText={setEditingClientDay} keyboardType="number-pad" maxLength={2} />
+                                    <TextInput style={styles.dateInput} placeholder="MM" value={editingClientMonth} onChangeText={setEditingClientMonth} keyboardType="number-pad" maxLength={2} />
+                                    <TextInput style={styles.dateInput} placeholder="AAAA" value={editingClientYear} onChangeText={setEditingClientYear} keyboardType="number-pad" maxLength={4} />
+                                </View>
                                 <ThemedText style={styles.inputLabel}>Teléfono de Emergencia</ThemedText>
                                 <TextInput style={styles.input} keyboardType="phone-pad" value={editingClientData.telefonoEmergencia} onChangeText={(text) => handleEditingClientChange('telefonoEmergencia', text)} />
                                 <ThemedText style={styles.inputLabel}>Teléfono</ThemedText>
                                 <TextInput style={styles.input} keyboardType="phone-pad" value={editingClientData.numeroTelefono} onChangeText={(text) => handleEditingClientChange('numeroTelefono', text)} />
                                 <ThemedText style={styles.inputLabel}>Obra Social</ThemedText>
                                 <TextInput style={styles.input} value={editingClientData.obraSocial} onChangeText={(text) => handleEditingClientChange('obraSocial', text)} />
-
                                 <ThemedText style={styles.inputLabel}>Rol</ThemedText>
-                                <View style={styles.pickerContainer}>
-                                    <Picker
-                                        selectedValue={editingClientData.roles[0]}
-                                        onValueChange={(itemValue) => handleEditingClientChange('roles', [itemValue])}
-                                    >
-                                        <Picker.Item label="Cliente" value="cliente" />
-                                        <Picker.Item label="Profesor" value="profesor" />
-                                        <Picker.Item label="Admin" value="admin" />
-                                    </Picker>
-                                </View>
+                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('editRole')}>
+                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(editingClientData.roles[0], 'role')}</ThemedText>
+                                    <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
                                 <View style={styles.switchRow}>
                                     <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                    <Switch
-                                        value={editingClientData.ordenMedicaRequerida}
-                                        onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)}
-                                        trackColor={{ false: "#767577", true: gymColor }}
-                                        thumbColor={"#f4f3f4"}
-                                    />
+                                    <Switch value={editingClientData.ordenMedicaRequerida} onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                 </View>
                                 {editingClientData.ordenMedicaRequerida && (
                                     <View style={styles.switchRow}>
                                         <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                        <Switch
-                                            value={editingClientData.ordenMedicaEntregada}
-                                            onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)}
-                                            trackColor={{ false: "#767577", true: gymColor }}
-                                            thumbColor={"#f4f3f4"}
-                                        />
+                                        <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                     </View>
                                 )}
-
-                                <View style={styles.modalActions}>
-                                    <View style={styles.buttonWrapper}>
-                                        <Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} />
-                                    </View>
-                                </View>
+                                <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} /></View></View>
                             </ScrollView>
-                        </ThemedView>
+                        </Pressable>
                     )}
-                </View>
-            </Modal>
+                </Pressable>
+            )}
 
-            <Modal visible={billingModalVisible} onRequestClose={() => setBillingModalVisible(false)} transparent={true} animationType="slide">
-                {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
-            </Modal>
+            {billingModalVisible && (
+                <Pressable style={styles.modalOverlay} onPress={() => setBillingModalVisible(false)}>
+                    {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
+                </Pressable>
+            )}
             
-            <Modal animationType="slide" transparent={true} visible={creditsModalVisible} onRequestClose={() => setCreditsModalVisible(false)}>
-                 <View style={styles.modalContainer}>
-                    <ThemedView style={styles.modalView}>
+            {creditsModalVisible && (
+                <Pressable style={styles.modalOverlay} onPress={() => setCreditsModalVisible(false)}>
+                    <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setCreditsModalVisible(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
@@ -642,33 +652,24 @@ const ManageClientsScreen = () => {
                                 {selectedClient?.monthlySubscriptions?.length > 0 && selectedClient.monthlySubscriptions.map(sub => (
                                     <View key={sub._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase)} ({sub.autoRenewAmount} créditos/mes)</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}>
-                                            <Octicons name="trash" size={22} color={Colors.light.error} />
-                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
                                     </View>
                                 ))}
                                 {selectedClient?.planesFijos?.length > 0 && selectedClient.planesFijos.map(plan => (
                                     <View key={plan._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase)} ({plan.diasDeSemana.join(', ')})</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}>
-                                            <Octicons name="trash" size={22} color={Colors.light.error} />
-                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
                                     </View>
                                 ))}
-                                {(selectedClient?.monthlySubscriptions?.length === 0 && selectedClient?.planesFijos?.length === 0) && (
-                                    <Text style={styles.planText}>Este socio no tiene planes activos.</Text>
-                                )}
+                                {(selectedClient?.monthlySubscriptions?.length === 0 && selectedClient?.planesFijos?.length === 0) && (<Text style={styles.planText}>Este socio no tiene planes activos.</Text>)}
                             </View>
-                            
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Carga de Créditos / Suscripción</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Tipo de Clase</ThemedText>
-                                <View style={styles.pickerContainer}>
-                                    <Picker selectedValue={planData.tipoClaseId} onValueChange={(itemValue) => setPlanData(prev => ({...prev, tipoClaseId: itemValue}))}>
-                                        <Picker.Item label=" Selecciona un tipo " value="" />
-                                        {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                    </Picker>
-                                </View>
+                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('creditsClassType')}>
+                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(planData.tipoClaseId, 'classType')}</ThemedText>
+                                    <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
                                 <TextInput style={styles.input} keyboardType="numeric" value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({...prev, creditsToAdd: text}))}/>
                                 <View style={styles.switchContainer}>
@@ -681,21 +682,16 @@ const ManageClientsScreen = () => {
                                         <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({...prev, autoRenewAmount: text}))}/>
                                     </>
                                 )}
-                                <View style={styles.buttonWrapper}>
-                                    <Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color='#1a5276' />
-                                </View>
+                                <View style={styles.buttonWrapper}><Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
-
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Inscripción a Horario Fijo</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Paso 1: Buscar horarios disponibles</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Tipo de Clase</ThemedText>
-                                <View style={styles.pickerContainer}>
-                                    <Picker selectedValue={massEnrollFilters.tipoClaseId} onValueChange={(itemValue) => setMassEnrollFilters(prev => ({...prev, tipoClaseId: itemValue, diasDeSemana: []}))}>
-                                        <Picker.Item label=" Selecciona un tipo " value="" />
-                                        {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                    </Picker>
-                                </View>
+                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('massEnrollClassType')}>
+                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(massEnrollFilters.tipoClaseId, 'classType')}</ThemedText>
+                                    <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
                                 <View style={styles.weekDayContainer}>
                                     {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
@@ -706,22 +702,14 @@ const ManageClientsScreen = () => {
                                 </View>
                                 <ThemedText style={styles.inputLabel}>Desde</ThemedText>
                                 <TouchableOpacity onPress={() => showDatePickerFor('fechaInicio')}>
-                                    <View style={styles.dateInputTouchable}>
-                                        <Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text>
-                                    </View>
+                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>
                                 </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Hasta</ThemedText>
                                 <TouchableOpacity onPress={() => showDatePickerFor('fechaFin')}>
-                                    <View style={styles.dateInputTouchable}>
-                                        <Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text>
-                                    </View>
+                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>
                                 </TouchableOpacity>
-                                {showMassEnrollDatePicker && (
-                                    <DateTimePicker value={new Date()} mode="date" display="default" onChange={handleDateChangeForMassEnroll} />
-                                )}
-                                <View style={styles.buttonWrapper}>
-                                    <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color='#1a5276' />
-                                </View>
+                                {showMassEnrollDatePicker && (<DateTimePicker value={new Date()} mode="date" display="default" onChange={handleDateChangeForMassEnroll} />)}
+                                <View style={styles.buttonWrapper}><Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} /></View>
                                 {availableSlots.length > 0 && (
                                     <View style={{marginTop: 20}}>
                                         <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
@@ -730,16 +718,29 @@ const ManageClientsScreen = () => {
                                                 <Text style={selectedSlot?.horaInicio === slot.horaInicio ? styles.slotTextSelected : styles.slotText}>{slot.horaInicio} - {slot.horaFin}</Text>
                                             </TouchableOpacity>
                                         ))}
-                                        <View style={styles.buttonWrapper}>
-                                            <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
-                                        </View>
+                                        <View style={styles.buttonWrapper}><Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} /></View>
                                     </View>
                                 )}
                             </View>
                         </ScrollView>
-                    </ThemedView>
-                </View>
-            </Modal>
+                    </Pressable>
+                </Pressable>
+            )}
+
+            {getModalConfig && (
+                <FilterModal
+                    visible={!!activeModal}
+                    onClose={() => setActiveModal(null)}
+                    onSelect={(id) => {
+                        getModalConfig.onSelect(id);
+                        setActiveModal(null);
+                    }}
+                    title={getModalConfig.title}
+                    options={getModalConfig.options}
+                    selectedValue={getModalConfig.selectedValue}
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
+            )}
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -756,131 +757,51 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
-    card: { 
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 8,
-        padding: 15, 
-        marginVertical: 8, 
-        marginHorizontal: 15, 
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-    },
-    cardTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 10,
-    },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
+    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, },
     userInfo: { flex: 1, marginRight: 10 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    cardSubtitle: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
+    cardSubtitle: { fontSize: 9, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { marginLeft: 10, },
-    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#1a5276', borderRadius: 30, elevation: 8 },
+    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: gymColor || '#1a5276', borderRadius: 30, elevation: 8 },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-    roleBadge: {
-        marginTop: 8,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 'bold',
-        overflow: 'hidden',
-        textTransform: 'capitalize',
-        alignSelf: 'flex-start',
-    },
+    roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, fontSize: 12, fontWeight: 'bold', overflow: 'hidden', textTransform: 'capitalize', alignSelf: 'flex-start', },
     clienteBadge: { backgroundColor: '#e0f3ffff', color: '#0561daff' },
     profesorBadge: { backgroundColor: '#d1e7dd', color: '#0f5132' },
     adminBadge: { backgroundColor: '#eff7d3ff', color: '#b6df00ff' },
-    creditsContainer: { 
-        flexDirection: 'row', 
-        flexWrap: 'wrap',
-        paddingTop: 10,
-        
-    },
-    creditChip: {
-        backgroundColor: gymColor + '20',
-        borderRadius: 12,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginRight: 6,
-        marginBottom: 6,
-    },
-    creditText: {
-        color: gymColor,
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    creditsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 10, },
+    creditChip: { backgroundColor: gymColor + '20', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 6, },
+    creditText: { color: Colors[colorScheme].text, fontSize: 12, fontWeight: '600', },
+    modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
-    closeButton: {
-        position: 'absolute',
-        top: 15,
-        right: 15,
-        zIndex: 10,
-    },
+    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10, },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text, paddingTop: 10 },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.8 },
     input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
-    pickerContainer: { 
-        borderColor: Colors[colorScheme].border, 
-        borderWidth: 1, 
-        borderRadius: 8, 
-        marginBottom: 15,
-        justifyContent: 'center'
-    },
     modalActions: { marginTop: 20, flexDirection: 'row', justifyContent: 'center' },
-    balanceText: { fontSize: 14, fontWeight: '600', marginTop: 8 },
-    debtText: { color: Colors.light.error },
-    okText: { color: '#28a745' },
-    dateInputContainer: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        marginBottom: 15 
-    },
-    dateInput: {
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-        padding: 12,
-        borderRadius: 8,
-        fontSize: 16,
-        color: Colors[colorScheme].text,
-        backgroundColor: Colors[colorScheme].background,
-        textAlign: 'center',
-        flex: 1,
-        marginHorizontal: 4,
-    },
+    dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    dateInput: { borderWidth: 1, borderColor: Colors[colorScheme].border, padding: 12, borderRadius: 8, fontSize: 16, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background, textAlign: 'center', flex: 1, marginHorizontal: 4, },
     section: { marginBottom: 15, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 15 },
     sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 15, color: Colors[colorScheme].text },
     planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, },
     planText: { fontSize: 14, color: Colors[colorScheme].text, flex: 1 },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 6, paddingHorizontal: 5, borderRadius: 8, borderWidth: 1, borderColor: '#1a5276', margin: 4 },
-    dayChipSelected: { backgroundColor: '#1a5276'},
-    dayChipText: { fontSize: 16 },
-    dayChipTextSelected: { color: '#FFFFFF', fontSize: 16 },
+    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4,},
+    dayChipSelected: { backgroundColor: gymColor || '#1a5276'},
+    dayChipText: { fontSize: 14, color: Colors[colorScheme].text},
+    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold'},
     slotItem: { padding: 12, marginVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border },
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
     dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
     dateInputText: { fontSize: 14, color: Colors[colorScheme].text, },
-    switchRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-        paddingVertical: 10,
-    },
-    buttonWrapper: {
-        borderRadius: 8,
-        overflow: 'hidden',
-        marginTop: 10,
-    }
+    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 10, },
+    buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
+    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
+    filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
 });
 
 export default ManageClientsScreen;

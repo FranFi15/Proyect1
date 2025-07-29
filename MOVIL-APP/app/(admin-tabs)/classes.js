@@ -9,7 +9,7 @@ import {
     FlatList,
     useColorScheme,
     Button,
-    Modal,
+    Pressable,
     TextInput,
     Platform,
     RefreshControl,
@@ -25,9 +25,9 @@ import { Ionicons, FontAwesome6, Octicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, parseISO, isBefore, startOfDay, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import CustomAlert from '@/components/CustomAlert';
+import FilterModal from '@/components/FilterModal';
 import {TabView, TabBar} from 'react-native-tab-view';
 
 LocaleConfig.locales['es'] = {
@@ -52,7 +52,7 @@ const ManageClassesScreen = () => {
         { key: 'day-management', title: 'Gestión por Día' },
     ]);
 
-    const [activeTab, setActiveTab] = useState('calendar');
+ 
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -94,6 +94,8 @@ const ManageClassesScreen = () => {
     const [dayToManage, setDayToManage] = useState(new Date());
     const [showDayPicker, setShowDayPicker] = useState(false);
 
+    const [activeModal, setActiveModal] = useState(null);
+
 
     const [formData, setFormData] = useState({
         tipoClase: '', 
@@ -116,8 +118,9 @@ const ManageClassesScreen = () => {
 
     const fetchAllData = useCallback(async () => {
         try {
+            const cacheBuster = `?t=${new Date().getTime()}`;
             const [classesRes, teachersRes, typesRes] = await Promise.all([
-                apiClient.get('/classes'),
+                apiClient.get(`/classes${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
                 apiClient.get('/tipos-clase')
             ]);
@@ -208,10 +211,11 @@ const ManageClassesScreen = () => {
 
     const handleEdit = (classItem) => {
         setEditingClass(classItem);
+        const dateString = classItem.fecha.substring(0, 10);
         setFormData({
             tipoClase: classItem.tipoClase?._id || '',
             nombre: classItem.nombre,
-            fecha: classItem.fecha ? format(parseISO(classItem.fecha), 'yyyy-MM-dd') : '',
+            fecha: dateString,
             horaInicio: classItem.horaInicio,
             horaFin: classItem.horaFin,
             capacidad: classItem.capacidad.toString(),
@@ -294,6 +298,67 @@ const ManageClassesScreen = () => {
         } else if (dateFieldToEdit) {
             handleFormChange(dateFieldToEdit, formattedDate);
         }
+    };
+
+    const getModalConfig = useMemo(() => {
+        const classTypeOptions = [{ _id: 'all', nombre: 'Todos los Tipos' }, ...classTypes];
+        const teacherOptions = [{ _id: '', nombre: '-- Seleccionar --' }, ...teachers.map(t => ({ _id: t._id, nombre: `${t.nombre} ${t.apellido}` }))];
+        const inscriptionTypeOptions = [
+            { _id: 'libre', nombre: 'Fecha Única' },
+            { _id: 'fijo', nombre: 'Recurrente' },
+        ];
+
+        switch (activeModal) {
+            case 'recurrentFilter':
+                return {
+                    title: 'Filtrar por Tipo',
+                    options: classTypeOptions,
+                    onSelect: setSelectedRecurrentClassTypeFilter,
+                    selectedValue: selectedRecurrentClassTypeFilter
+                };
+            case 'formClassType':
+                return {
+                    title: 'Seleccionar Tipo de Turno',
+                    options: classTypes.map(t => ({_id: t._id, nombre: t.nombre})),
+                    onSelect: (id) => handleFormChange('tipoClase', id),
+                    selectedValue: formData.tipoClase,
+                };
+            case 'formTeacher':
+                return {
+                    title: 'Seleccionar Encargado',
+                    options: teacherOptions,
+                    onSelect: (id) => handleFormChange('profesor', id),
+                    selectedValue: formData.profesor,
+                };
+            case 'formInscriptionType':
+                 return {
+                    title: 'Seleccionar Tipo de Inscripción',
+                    options: inscriptionTypeOptions,
+                    onSelect: (id) => handleFormChange('tipoInscripcion', id),
+                    selectedValue: formData.tipoInscripcion,
+                };
+            case 'bulkEditTeacher':
+                 return {
+                    title: 'Seleccionar Encargado',
+                    options: [{ _id: '', nombre: '-- No cambiar --' }, ...teacherOptions.slice(1)], // Reusa teacherOptions pero cambia el default
+                    onSelect: (id) => setBulkUpdates(p => ({ ...p, profesor: id })),
+                    selectedValue: bulkUpdates.profesor,
+                };
+            default:
+                return null;
+        }
+    }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, selectedRecurrentClassTypeFilter, bulkUpdates.profesor]);
+
+
+    
+    const getDisplayName = (id, type) => {
+        if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || '-- Seleccionar --';
+        if (type === 'teacher') {
+            const teacher = teachers.find(t => t._id === id);
+            return teacher ? `${teacher.nombre} ${teacher.apellido}` : '-- Seleccionar --';
+        }
+        if (type === 'inscription') return id === 'fijo' ? 'Recurrente' : 'Fecha Única';
+        return 'Seleccionar';
     };
 
     const markedDates = useMemo(() => {
@@ -629,18 +694,14 @@ const ManageClassesScreen = () => {
                     />
                 );
             case 'bulk':
+                const recurrentFilterText = classTypes.find(t => t._id === selectedRecurrentClassTypeFilter)?.nombre || 'Todos los Tipos';
                 return (
                     <FlatList
                         ListHeaderComponent={
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedRecurrentClassTypeFilter}
-                                    onValueChange={(itemValue) => setSelectedRecurrentClassTypeFilter(itemValue)}
-                                >
-                                    <Picker.Item color={Colors[colorScheme].icon} label="Todos los Tipos" value="all"/>
-                                    {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                </Picker>
-                            </View>
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('recurrentFilter')}>
+                                <ThemedText style={styles.filterButtonText}>{recurrentFilterText}</ThemedText>
+                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                         }
                         data={filteredGroupedClasses}
                         renderItem={renderGroupedClassItem}
@@ -677,7 +738,7 @@ const ManageClassesScreen = () => {
                                 <Button title="Cancelar Turnos del Día" onPress={() => handleCancelDay(true)} color='#500000ff' />
                             </View>
                             <View style={styles.buttonWrapper}>
-                                <Button title="Reactivar Turnos del Día" onPress={handleReactivateDay} color='#1a5276' />
+                                <Button title="Reactivar Turnos del Día" onPress={handleReactivateDay} color='#005013ff' />
                             </View>
                         </View>
                     </View>
@@ -702,10 +763,14 @@ const ManageClassesScreen = () => {
                     <TabBar
                         {...props}
                         style={{ backgroundColor: gymColor }}
-                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3, }}
-                        labelStyle={{ color: gymColor, fontSize: 13, fontWeight: '700' }}
-                        scrollEnabled={true}
-                        tabStyle={{width: 'auto' }}
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
+                        labelStyle={{ 
+                            color: Colors[colorScheme].background, // Color de texto que contraste con gymColor
+                            fontSize: 13, 
+                            fontWeight: '700',
+                            textAlign: 'center' // Asegura centrado del texto
+                        }}
+                        tabStyle={{ flex: 1, paddingHorizontal: 5, }} 
                     />
                 )}
             />
@@ -714,107 +779,57 @@ const ManageClassesScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* --- MODAL PARA AÑADIR/EDITAR CLASE (ACTUALIZADO) --- */}
-            <Modal visible={showAddModal} transparent={true} animationType="slide" onRequestClose={() => setShowAddModal(false)}>
-                <View style={styles.modalContainer}>
-                    <ThemedView style={styles.modalView}>
+            {showAddModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
+                    <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView contentContainerStyle={styles.modalContent}>
-                             <ThemedText style={styles.modalTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</ThemedText>
-                            
-                             <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
-                             <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} />
-                            
-                             <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
-                             <View style={styles.pickerContainer}>
-                                 <Picker selectedValue={formData.tipoClase} onValueChange={itemValue => handleFormChange('tipoClase', itemValue)}>
-                                     <Picker.Item label="-- Seleccionar --" value="" />
-                                     {classTypes.map(type => <Picker.Item key={type._id} label={type.nombre} value={type._id} />)}
-                                 </Picker>
-                             </View>
-                            
+                            <ThemedText style={styles.modalTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
+                            <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholderTextColor={Colors[colorScheme].icon} />
+                            <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
+                                <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
+                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                             <ThemedText style={styles.inputLabel}>A cargo de</ThemedText>
-                            <View style={styles.pickerContainer}>
-                                <Picker selectedValue={formData.profesor} onValueChange={itemValue => handleFormChange('profesor', itemValue)}>
-                                    <Picker.Item label="-- Seleccionar --" value="" />
-                                    {teachers.map(t => <Picker.Item key={t._id} label={`${t.nombre} ${t.apellido}`} value={t._id} />)}
-                                </Picker>
-                            </View>
-
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formTeacher')}>
+                                <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.profesor, 'teacher')}</ThemedText>
+                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                             <ThemedText style={styles.inputLabel}>Capacidad</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} />
-
                             <ThemedText style={styles.inputLabel}>Tipo de Inscripción</ThemedText>
-                            <View style={styles.pickerContainer}>
-                                <Picker selectedValue={formData.tipoInscripcion} onValueChange={itemValue => handleFormChange('tipoInscripcion', itemValue)} enabled={!editingClass}>
-                                    <Picker.Item label="Fecha Única" value="libre" />
-                                    <Picker.Item label="Recurrente" value="fijo" />
-                                </Picker>
-                            </View>
-                            
+                            <TouchableOpacity style={styles.filterButton} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
+                                <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
+                                <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                            </TouchableOpacity>
                             {formData.tipoInscripcion === 'libre' ? (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Fecha</ThemedText>
                                     <TouchableOpacity onPress={() => showDatePickerForField('fecha')}>
-                                        <View style={styles.dateInputTouchable}>
-                                            <Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text>
-                                        </View>
+                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>
                                     </TouchableOpacity>
                                     <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="HH:MM" 
-                                        value={formData.horaInicio} 
-                                        onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)}
-                                        keyboardType="numeric"
-                                        maxLength={5}
-                                    />
+                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="HH:MM" 
-                                        value={formData.horaFin} 
-                                        onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)}
-                                        keyboardType="numeric"
-                                        maxLength={5}
-                                    />
+                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
                                 </>
                             ) : (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Horario Fijo</ThemedText>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="HH:MM" 
-                                        value={formData.horaInicio} 
-                                        onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)}
-                                        keyboardType="numeric"
-                                        maxLength={5}
-                                    />
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="HH:MM" 
-                                        value={formData.horaFin} 
-                                        onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)}
-                                        keyboardType="numeric"
-                                        maxLength={5}
-                                    />
-                                    
+                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
                                     <TouchableOpacity onPress={() => showDatePickerForField('fechaInicio')}>
-                                        <View style={styles.dateInputTouchable}>
-                                            <Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text>
-                                        </View>
+                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>
                                     </TouchableOpacity>
-                                    
                                     <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
                                     <TouchableOpacity onPress={() => showDatePickerForField('fechaFin')}>
-                                        <View style={styles.dateInputTouchable}>
-                                            <Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text>
-                                        </View>
+                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>
                                     </TouchableOpacity>
-
                                     <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
                                     <View style={styles.weekDayContainer}>
                                         {daysOfWeekOptions.map(day => (
@@ -825,106 +840,77 @@ const ManageClassesScreen = () => {
                                     </View>
                                 </>
                             )}
-                            
-                            <View style={styles.modalActions}>
-                                <View style={styles.buttonWrapper}>
-                                    <Button title={editingClass ? 'Actualizar' : 'Guardar'} onPress={handleFormSubmit} color='#1a5276' />
-                                </View>
-                            </View>
+                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title={editingClass ? 'Actualizar' : 'Guardar'} onPress={handleFormSubmit} color={gymColor || '#1a5276'} /></View></View>
                         </ScrollView>
-                    </ThemedView>
-                </View>
-            </Modal>
+                    </Pressable>
+                </Pressable>
+            )}
 
-            {/* --- MODAL PARA LISTA DE INSCRIPTOS  --- */}
-            <Modal visible={showRosterModal} transparent={true} animationType="slide" onRequestClose={() => setShowRosterModal(false)}>
-                <View style={styles.modalContainer}>
-                        <ThemedView style={styles.modalView}>
-                            <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.closeButton}>
-                                <Ionicons name="close-circle" size={30} color="#ccc" />
-                            </TouchableOpacity>
-                            <ThemedText style={styles.modalTitle}>Inscriptos en {viewingClassRoster?.nombre}</ThemedText>
-                            <FlatList
-                                data={viewingClassRoster?.usuariosInscritos || []}
-                                keyExtractor={item => item._id || Math.random().toString()}
-                                renderItem={({item}) => {
-                                     if (!item) {
-                                        return null;
-                                    }
-                                    return (
-                                    <View style={styles.rosterItem}>
-                                        <Text style={styles.rosterText}>{item.nombre} {item.apellido}</Text>
-                                        <Text style={styles.rosterSubtext}>DNI: {item.dni}</Text>
-                                        <Text style={styles.rosterSubtext}>Teléfono: {item.numeroTelefono}</Text>
-                                        <Text style={styles.rosterSubtext}>Teléfono de Emergencia: {item.telefonoEmergencia}</Text>
-                                        <Text style={styles.rosterSubtext}>Obra Social: {item.obraSocial}</Text>
-                                    </View>
-                                    )
-                                }}
-                                ListEmptyComponent={<Text style={styles.placeholderText}>No hay nadie inscripto.</Text>}
-                                style={{width: '100%'}}
-                            />
-                        </ThemedView>
-                </View>
-            </Modal>
+            {showRosterModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>
+                    <Pressable style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
+                        </TouchableOpacity>
+                        <ThemedText style={styles.modalTitle}>Inscriptos en {viewingClassRoster?.nombre}</ThemedText>
+                        <FlatList
+                            data={viewingClassRoster?.usuariosInscritos || []}
+                            keyExtractor={item => item._id || Math.random().toString()}
+                            renderItem={({item}) => item ? (
+                            <View style={styles.rosterItem}>
 
-            {/* --- MODAL DE CONFIRMACIÓN PARA CANCELAR --- */}
-            <Modal visible={showCancelModal} transparent={true} animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
-                <View style={styles.modalContainer}>
-                    <View style={[styles.modalView, styles.confirmationModal]}>
+                            <Text style={styles.rosterText}>{item.nombre} {item.apellido}</Text>
+
+                             <Text style={styles.rosterSubtext}>DNI: {item.dni}</Text>
+
+                             <Text style={styles.rosterSubtext}>Teléfono: {item.numeroTelefono}</Text>
+
+                             <Text style={styles.rosterSubtext}>Teléfono de Emergencia: {item.telefonoEmergencia}</Text>
+
+                             <Text style={styles.rosterSubtext}>Obra Social: {item.obraSocial}</Text>
+                            </View>) : null}
+                            ListEmptyComponent={<Text style={styles.placeholderText}>No hay nadie inscripto.</Text>}
+                            style={{width: '100%'}}
+                        />
+                    </Pressable>
+                </Pressable>
+            )}
+
+            {showCancelModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+                    <Pressable style={[styles.modalView, styles.confirmationModal]}>
                         <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ThemedText style={styles.modalTitle}>Confirmar Cancelación</ThemedText>
                         <ThemedText>¿Deseas devolver los créditos a los usuarios inscritos?</ThemedText>
                         <View style={styles.modalActions}>
-                            <View style={styles.buttonWrapper}>
-                                <Button title="Sí, con reembolso" onPress={() => confirmCancelClass(true)} color='#1a5276' />
-                            </View>
-                            <View style={styles.buttonWrapper}>
-                                <Button title="No, sin reembolso" onPress={() => confirmCancelClass(false)} color='#500000ff' />
-                            </View>
+                            <View style={styles.buttonWrapper}><Button title="Sí, con reembolso" onPress={() => confirmCancelClass(true)} color={'#005013ff'} /></View>
+                            <View style={styles.buttonWrapper}><Button title="No, sin reembolso" onPress={() => confirmCancelClass(false)} color={'#500000ff'} /></View>
                         </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* --- MODAL PARA EDITAR GRUPO  --- */}
-            <Modal visible={showBulkEditModal} transparent={true} animationType="slide" onRequestClose={() => setShowBulkEditModal(false)}>
-                 <View style={styles.modalContainer}>
-                    <ThemedView style={styles.modalView}>
+                    </Pressable>
+                </Pressable>
+            )}
+            
+            {showBulkEditModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowBulkEditModal(false)}>
+                    <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color="#ccc" />
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <ThemedText style={styles.modalTitle}>Editar Grupo: {editingGroup?.nombre}</ThemedText>
-                            
-                            <TextInput 
-                                style={styles.input} 
-                                value={bulkUpdates.horaInicio} 
-                                onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)}
-                                keyboardType="numeric"
-                                maxLength={5}
-                            />
-                            
-                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin: </ThemedText>
-                            <TextInput 
-                                style={styles.input} 
-                                value={bulkUpdates.horaFin} 
-                                onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)}
-                                keyboardType="numeric"
-                                maxLength={5}
-                            />
-                            <ThemedText style={styles.inputLabel}>Capacidad: </ThemedText>
-                            <TextInput style={styles.input} value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
+                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Inicio:</ThemedText>
+                            <TextInput style={styles.input} value={bulkUpdates.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
+                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin:</ThemedText>
+                            <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
+                            <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
+                            <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
                             <ThemedText style={styles.inputLabel}>A cargo de:</ThemedText>
-                            <View style={styles.pickerContainer}>
-                                <Picker selectedValue={bulkUpdates.profesor} onValueChange={itemValue => setBulkUpdates(p => ({...p, profesor: itemValue}))}>
-                                    <Picker.Item label="-- No cambiar --" value="" />
-                                    {teachers.map(t => <Picker.Item key={t._id} label={`${t.nombre} ${t.apellido}`} value={t._id} />)}
-                                </Picker>
-                            </View>
-
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('bulkEditTeacher')}>
+                                <ThemedText style={styles.filterButtonText}>{bulkUpdates.profesor ? getDisplayName(bulkUpdates.profesor, 'teacher') : '-- No cambiar --'}</ThemedText>
+                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                             <ThemedText style={styles.inputLabel}>Nuevos Días de la Semana:</ThemedText>
                             <View style={styles.weekDayContainer}>
                                 {daysOfWeekOptions.map(day => (
@@ -933,47 +919,50 @@ const ManageClassesScreen = () => {
                                     </TouchableOpacity>
                                 ))}
                             </View>
-
-                             <View style={styles.modalActions}>
-                                <View style={styles.buttonWrapper}>
-                                    <Button title="Guardar Cambios" onPress={handleBulkUpdate} color='#1a5276' />
-                                </View>
-                            </View>
+                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleBulkUpdate} color={gymColor || '#1a5276'} /></View></View>
                         </ScrollView>
-                    </ThemedView>
-                 </View>
-            </Modal>
+                    </Pressable>
+                </Pressable>
+            )}
 
-            {/* --- MODAL PARA EXTENDER CLASES  --- */}
-            <Modal visible={showExtendModal} transparent={true} animationType="slide" onRequestClose={() => setShowExtendModal(false)}>
-                 <View style={styles.modalContainer}>
-                        <ThemedView style={styles.modalView}>
-                            <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.closeButton}>
-                                <Ionicons name="close-circle" size={30} color="#ccc" />
+            {showExtendModal && (
+                <Pressable style={styles.modalOverlay} onPress={() => setShowExtendModal(false)}>
+                    <Pressable style={styles.modalView}>
+                        <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
+                        </TouchableOpacity>
+                        <ScrollView contentContainerStyle={styles.modalContent}>
+                            <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
+                            <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
+                                <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>
                             </TouchableOpacity>
-                            <ScrollView contentContainerStyle={styles.modalContent}>
-                                <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
-                                <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
-                                <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
-                                    <View style={styles.dateInputTouchable}>
-                                        <Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                                <View style={styles.modalActions}>
-                                    <View style={styles.buttonWrapper}>
-                                        <Button title="Confirmar Extensión" onPress={() => handleExtendSubmit()} color='#1a5276' />
-                                    </View>
-                                </View>
-                            </ScrollView>
-                        </ThemedView>
-                 </View>
-            </Modal>
+                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Confirmar Extensión" onPress={() => handleExtendSubmit()} color={gymColor || '#1a5276'} /></View></View>
+                        </ScrollView>
+                    </Pressable>
+                </Pressable>
+            )}
+
+            {getModalConfig && (
+                <FilterModal
+                    visible={!!activeModal}
+                    onClose={() => setActiveModal(null)}
+                    onSelect={(id) => {
+                        getModalConfig.onSelect(id);
+                        setActiveModal(null);
+                    }}
+                    title={getModalConfig.title}
+                    options={getModalConfig.options}
+                    selectedValue={getModalConfig.selectedValue}
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
+            )}
 
             {showDatePicker && (
                 <DateTimePicker
-                    value={
-                        (dateFieldToEdit && formData[dateFieldToEdit] && new Date(formData[dateFieldToEdit])) ||
-                        (extendUntilDate && new Date(extendUntilDate)) ||
+                  value={
+                        (dateFieldToEdit && formData[dateFieldToEdit] && new Date(formData[dateFieldToEdit].replace(/-/g, '/'))) ||
+                        (extendUntilDate && new Date(extendUntilDate.replace(/-/g, '/'))) ||
                         new Date()
                     }
                     mode="date"
@@ -995,231 +984,43 @@ const ManageClassesScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    
-    activeTabText: {
-        color: gymColor,
-    },
-    placeholderText: {
-        textAlign: 'center',
-        marginTop: 50,
-        fontSize: 16,
-        opacity: 0.7,
-        paddingHorizontal: 20,
-    },
-    card: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
-        padding: 15,
-        marginVertical: 8,
-        marginHorizontal: 15,
-        elevation: 3,
-    },
-    expiringCard: {
-        borderColor: '#f0ad4e',
-        borderWidth: 2,
-    },
-    cancelledCard: {
-        backgroundColor: '#f0f0f0',
-        opacity: 0.7,
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        marginTop: 10,
-        borderTopWidth: 1,
-        borderTopColor: Colors[colorScheme].border,
-        paddingTop: 10,
-    },
-    cancelledText: {
-        color: Colors.light.error,
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginRight: 'auto',
-    },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: Colors[colorScheme].text,
-    },
-    cardSubtitle: {
-        fontSize: 16,
-        color: gymColor,
-        marginBottom: 10,
-    },
-    cardInfo: {
-        fontSize: 14,
-        color: Colors[colorScheme].text,
-        opacity: 0.8,
-        marginBottom: 4,
-    },
-    actionButton: {
-        padding: 8,
-        marginLeft: 15,
-    },
-    fab: {
-        position: 'absolute',
-        width: 60,
-        height: 60,
-        alignItems: 'center',
-        justifyContent: 'center',
-        left: 20,
-        bottom: 20,
-        backgroundColor: '#1a5276',
-        borderRadius: 30,
-        elevation: 8,
-    },
-    modalContainer: { 
-        flex: 1, 
-        justifyContent: 'flex-end', 
-        alignItems: 'center', 
-        backgroundColor: 'rgba(0,0,0,0.5)' 
-    },
-    modalView: { 
-        height: '90%', 
-        width: '100%', 
-        backgroundColor: Colors[colorScheme].background, 
-        borderTopLeftRadius: 12, 
-        borderTopRightRadius: 12, 
-        padding: 20, 
-        elevation: 5 
-    },
-    closeButton: {
-        position: 'absolute',
-        top: 15,
-        right: 15,
-        zIndex: 10,
-    },
-    modalContent: {
-        paddingBottom: 40,
-    },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 25,
-        textAlign: 'center',
-        paddingTop: 10,
-        color: Colors[colorScheme].text,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 30,
-        gap: 15
-    },
-    confirmationModal: {
-        width: '100%',
-        backgroundColor: Colors[colorScheme].background,
-        borderRadius: 12,
-        padding: 25,
-        alignItems: "center",
-        elevation: 5,
-    },
-    inputLabel: {
-        fontSize: 16,
-        marginBottom: 8,
-        color: Colors[colorScheme].text,
-        opacity: 0.9,
-        fontWeight: '500',
-    },
-    input: {
-        height: 50,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 20,
-        color: Colors[colorScheme].text,
-        fontSize: 16,
-    },
-    pickerContainer: {
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        margin: 15,
-        justifyContent: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground,
-    },
-    dateInputTouchable: {
-        height: 50,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 20,
-        justifyContent: 'center',
-    },
-    dateInputText: {
-        fontSize: 16,
-        color: Colors[colorScheme].text,
-    },
-    weekDayContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        marginBottom: 15,
-    },
-    dayChip: {
-        paddingVertical: 6,
-        paddingHorizontal: 5,
-        borderRadius: 8,
-        borderWidth: 1.5,
-        borderColor: gymColor || '#1a5276',
-        margin: 4,
-        color :Colors[colorScheme].text
-    },
-    dayChipSelected: {
-        backgroundColor: gymColor || '#1a5276',
-    },
-    dayChipText: {
-        fontWeight: '600',
-        color :Colors[colorScheme].text
-    },
-    dayChipTextSelected: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
-    rosterItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-    },
-    rosterText: {
-        fontSize: 16,
-        color: Colors[colorScheme].text,
-    },
-    rosterSubtext: {
-        fontSize: 12,
-        color: Colors[colorScheme].icon,
-    },
-    dayManagementContainer: {
-        flex: 1,
-        alignItems: 'center',
-        padding: 20,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 20,
-    },
-    dayActions: {
-        marginTop: 20,
-        width: '100%',
-        gap: 15,
-    },
-    buttonWrapper: {
-        borderRadius: 8,
-        overflow: 'hidden',
-        marginTop: 10,
-    },
-    filtersContainer: {
-        marginHorizontal: 15,
-        marginTop: 10,
-        flexDirection: 'row',
-        gap: 10,
-    }
+    placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3 },
+    expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },
+    cancelledCard: { backgroundColor: '#f0f0f0', opacity: 0.7 },
+    actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
+    cancelledText: { color: Colors.light.error, fontSize: 16, fontWeight: 'bold', marginRight: 'auto' },
+    cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
+    cardSubtitle: { fontSize: 16, color: gymColor, marginBottom: 10 },
+    cardInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 4 },
+    actionButton: { padding: 8, marginLeft: 15 },
+    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8 },
+    modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
+    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
+    modalContent: { paddingBottom: 40 },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
+    modalActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
+    confirmationModal: { height: 'auto', width: '90%', borderRadius: 12, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
+    inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500' },
+    input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, color: Colors[colorScheme].text, fontSize: 16 },
+    dateInputTouchable: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' },
+    dateInputText: { fontSize: 16, color: Colors[colorScheme].text },
+    weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
+    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4 },
+    dayChipSelected: { backgroundColor: gymColor || '#1a5276' },
+    dayChipText: { color :Colors[colorScheme].text, fontSize: 14 },
+    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
+    rosterItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    rosterText: { fontSize: 16, color: Colors[colorScheme].text },
+    rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon },
+    dayManagementContainer: { flex: 1, alignItems: 'center', padding: 20 },
+    sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+    dayActions: { marginTop: 20, width: '100%', gap: 15 },
+    buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10 },
+    filterButton: { width: '100%', alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, marginTop: 10 },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
+    disabledText: { color: Colors[colorScheme].icon },
 });
 
 export default ManageClassesScreen;

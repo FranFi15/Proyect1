@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, View, Text, useColorScheme } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Image, View, Text, useColorScheme, Platform } from 'react-native';
+import { Ionicons,} from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 
@@ -18,16 +18,22 @@ export default function ProfessorTabsLayout() {
   return (
     <Tabs 
       screenOptions={{
-        tabBarActiveTintColor: gymColor,
+        tabBarActiveTintColor: gymColor, 
+        tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
-                  backgroundColor: Colors[colorScheme].cardBackground,
-                },
-        headerTitleAlign: 'center',
-        headerTitle: (props) => <HeaderLogoTitle {...props} />,
-        headerStyle: { 
+          backgroundColor: Colors[colorScheme].cardBackground,
+        },
+        headerStyle: {
           backgroundColor: gymColor,
           shadowColor: 'transparent',
-         },
+          // 2. Añade la altura condicional aquí
+          height: Platform.select({
+            ios: 120, // Altura mayor para iOS (ajusta este valor según necesites)
+            android: 80, // Una altura estándar para Android
+          }),
+        },
+        headerTitleAlign: 'center',
+        headerTitle: (props) => <HeaderLogoTitle {...props} />, 
       }}
     >
       <Tabs.Screen 

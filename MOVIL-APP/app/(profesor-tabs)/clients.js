@@ -79,7 +79,7 @@ const ProfessorClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <TextInput style={styles.searchInput} placeholder="Buscar socio..." value={searchTerm} onChangeText={setSearchTerm} />
+            <TextInput style={styles.searchInput}placeholderTextColor={Colors[colorScheme].icon} placeholder="Buscar socio..." value={searchTerm} onChangeText={setSearchTerm} />
             {loading ? <ActivityIndicator color={gymColor} /> : (
                 <FlatList
                     data={filteredData}

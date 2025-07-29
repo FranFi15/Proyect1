@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-// ---> CORRECCIÓN: Se elimina 'Stack' y se mantiene 'Slot'
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
@@ -80,9 +80,11 @@ async function registerForPushNotificationsAsync(userId, updatePushTokenBackend)
 
 export default function RootLayout() {
     return (
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+         <GestureHandlerRootView style={{ flex: 1 }}>
+            <AuthProvider>
+                <AppContent />
+            </AuthProvider>
+        </GestureHandlerRootView>
     );
 }
 
