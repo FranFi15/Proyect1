@@ -21,31 +21,83 @@ import FilterModal from '@/components/FilterModal';
 import CustomAlert from '@/components/CustomAlert';
 import { FontAwesome5 } from '@expo/vector-icons';
 
+// --- Estilos para la nueva estructura ---
+const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
+    formContainer: { paddingHorizontal: 20, paddingTop: 10 },
+    listContainer: { flex: 1 }, // Contenedor para la lista
+    actionsContainer: { padding: 20 }, // Contenedor para el botón y el switch
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    pageTitle: { marginBottom: 15, fontSize: 21, paddingHorizontal: 20, paddingTop: 20 },
+    input: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        padding: 15,
+        borderRadius: 8,
+        fontSize: 16,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingVertical: 10,
+    },
+    listItem: {
+        padding: 15,
+        marginHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 8,
+        marginBottom: 5,
+    },
+    listItemSelected: { 
+        backgroundColor: gymColor + '30',
+        borderColor: gymColor,
+        borderWidth: 1,
+    },
+    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
+    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
+    emptyListText: { padding: 15, textAlign: 'center', color: Colors[colorScheme].icon },
+    buttonWrapper: { borderRadius: 8, overflow: 'hidden' },
+    filterButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: Colors[colorScheme].cardBackground,
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
+});
+
+
 const NotificationAdminScreen = () => {
+    // Los hooks y la lógica se mantienen igual
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // --- Estados del formulario ---
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [isImportant, setIsImportant] = useState(false);
     const [targetType, setTargetType] = useState('all');
-    
-    // --- Estados de selección y búsqueda ---
     const [selectedUserId, setSelectedUserId] = useState('');
     const [selectedRoleId, setSelectedRoleId] = useState('');
     const [selectedClassId, setSelectedClassId] = useState('');
     const [userSearchTerm, setUserSearchTerm] = useState('');
     const [classSearchTerm, setClassSearchTerm] = useState('');
-
-    // --- Estados de datos y carga ---
     const [allUsers, setAllUsers] = useState([]);
     const [allClasses, setAllClasses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-
-    // --- Estado para Alerta y Modal ---
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [activeModal, setActiveModal] = useState(null);
 
@@ -53,30 +105,20 @@ const NotificationAdminScreen = () => {
         setLoading(true);
         try {
             const [usersRes, classesRes] = await Promise.all([
-                apiClient.get('/users'),
-                apiClient.get('/classes')
+                apiClient.get('/users?populate=creditos'),
+                apiClient.get('/classes?populate=tipoClase,profesor')
             ]);
             setAllUsers(usersRes.data || []);
             setAllClasses(classesRes.data || []);
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron cargar los datos necesarios.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            console.error("Error fetching admin data:", error);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchInitialData();
-        }, [fetchInitialData])
-    );
+    useFocusEffect(useCallback(() => { fetchInitialData(); }, [fetchInitialData]));
 
-    // --- Lógica de filtrado ---
     const filteredUsers = useMemo(() => {
         if (!userSearchTerm) return allUsers;
         return allUsers.filter(user =>
@@ -174,41 +216,6 @@ const NotificationAdminScreen = () => {
     };
 
 
-    const renderListHeader = () => (
-        <>
-            <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación</ThemedText>
-            <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
-            <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
-            
-            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
-                <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType, 'targetType')}</ThemedText>
-                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-            </TouchableOpacity>
-
-            {targetType === 'role' && (
-                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('role')}>
-                    <ThemedText style={styles.filterButtonText}>{getDisplayName(selectedRoleId, 'role')}</ThemedText>
-                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-            )}
-
-            {targetType === 'user' && <TextInput style={styles.input} placeholder="Buscar usuario..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
-            {targetType === 'class' && <TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
-        </>
-    );
-
-    const renderListFooter = () => (
-        <>
-            <View style={styles.switchContainer}>
-                <ThemedText>Marcar como Importante (modal)</ThemedText>
-                <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
-            </View>
-            <View style={styles.buttonWrapper}>
-                <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
-            </View>
-        </>
-    );
-
     const renderItem = ({ item }) => {
         if (targetType === 'user') {
             return (
@@ -227,10 +234,9 @@ const NotificationAdminScreen = () => {
                 </TouchableOpacity>
             );
         }
-        return null;
+        return null; // No mostramos nada si el target es 'all' o 'role'
     };
     
-    // --- Renderizado principal ---
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
@@ -239,23 +245,57 @@ const NotificationAdminScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación</ThemedText>
+
+            {/* 1. Contenedor para el formulario */}
+            <View style={styles.formContainer}>
+                <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
+                <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
+                
+                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
+                    <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType, 'targetType')}</ThemedText>
+                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
+
+                {targetType === 'role' && (
+                    <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('role')}>
+                        <ThemedText style={styles.filterButtonText}>{getDisplayName(selectedRoleId, 'role')}</ThemedText>
+                        <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {/* 2. FlatList, que puede tener su propio header para el campo de búsqueda */}
             <FlatList
+                style={styles.listContainer}
                 data={listData}
                 renderItem={renderItem}
                 keyExtractor={(item) => item._id}
-                ListHeaderComponent={renderListHeader}
-                ListFooterComponent={renderListFooter}
+                ListHeaderComponent={
+                    <>
+                        {targetType === 'user' && <View style={{paddingHorizontal: 20}}><TextInput style={styles.input} placeholder="Buscar usuario..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} /></View>}
+                        {targetType === 'class' && <View style={{paddingHorizontal: 20}}><TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} /></View>}
+                    </>
+                }
                 ListEmptyComponent={
                     (targetType === 'user' || targetType === 'class') ?
                     <Text style={styles.emptyListText}>No se encontraron resultados</Text>
                     : null
                 }
-                contentContainerStyle={styles.content}
-                // Añadimos un estilo al contenedor de la lista si hay datos
-                style={listData.length > 0 ? styles.listContainerWithData : {}}
             />
 
-            {/* Los modales y alertas se quedan fuera de la lista */}
+            {/* 3. Contenedor para las acciones finales */}
+            <View style={styles.actionsContainer}>
+                <View style={styles.switchContainer}>
+                    <ThemedText>Marcar como Importante (modal)</ThemedText>
+                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
+                </View>
+                <View style={styles.buttonWrapper}>
+                    <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
+                </View>
+            </View>
+
+            {/* Modales y Alertas */}
             {getModalConfig && (
                 <FilterModal
                     visible={!!activeModal}
@@ -270,7 +310,6 @@ const NotificationAdminScreen = () => {
                     theme={{ colors: Colors[colorScheme], gymColor }}
                 />
             )}
-            
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -282,54 +321,5 @@ const NotificationAdminScreen = () => {
         </ThemedView>
     );
 };
-
-// --- Estilos ---
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    content: { padding: 20, paddingBottom: 50 }, // Padding extra al final
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { marginBottom: 20, fontSize: 20 },
-    input: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        padding: 15,
-        borderRadius: 8,
-        fontSize: 16,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    switchContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        paddingVertical: 10,
-    },
-    
-    listItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-        backgroundColor: Colors[colorScheme].cardBackground
-    },
-    listItemSelected: { backgroundColor: gymColor + '30' },
-    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
-    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
-    emptyListText: { padding: 15, textAlign: 'center', color: Colors[colorScheme].icon },
-    buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, paddingHorizontal: 4 },
-    filterButton: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground,
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
-});
 
 export default NotificationAdminScreen;

@@ -116,7 +116,7 @@ const NotificationTeacherScreen = () => {
     if (!user || !user._id) return;
     setLoading(true);
     try {
-        const classesRes = await apiClient.get(`/classes?profesorId=${user._id}&populate=usuariosInscritos`);
+        const classesRes = await apiClient.get('/classes/profesor/me')
         
         // DEBUG 1: Mostrame la respuesta cruda de la API en la consola.
         console.log("Respuesta de la API de clases:", JSON.stringify(classesRes.data, null, 2));
