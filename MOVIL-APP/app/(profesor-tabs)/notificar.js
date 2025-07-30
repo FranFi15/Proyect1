@@ -9,7 +9,7 @@ import {
     Button,
     TextInput,
     Switch,
-    FlatList // Importamos FlatList
+    FlatList
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -21,12 +21,81 @@ import FilterModal from '@/components/FilterModal';
 import { FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
+// La función de estilos se define primero
+const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
+    formContainer: { paddingHorizontal: 20, paddingTop: 10 },
+    listContainer: { flex: 1 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    pageTitle: { marginBottom: 15, fontSize: 21, paddingHorizontal: 20, paddingTop: 20 },
+    input: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        padding: 15,
+        borderRadius: 8,
+        fontSize: 16,
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingVertical: 10,
+    },
+    sectionTitle: {
+        fontSize: 21,
+        fontWeight: 'bold',
+        marginTop: 10,
+        marginBottom: 10,
+        color: Colors[colorScheme].text,
+    },
+    buttonWrapper: { 
+        borderRadius: 8, 
+        overflow: 'hidden', 
+        marginHorizontal: 20,
+        marginBottom: 20, 
+    },
+    listItem: {
+        padding: 15,
+        marginHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 8,
+        marginBottom: 5,
+    },
+    listItemSelected: { 
+        backgroundColor: gymColor + '30',
+        borderColor: gymColor,
+        borderWidth: 1,
+    },
+    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
+    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
+    emptyListText: { padding: 15, textAlign: 'center', color: Colors[colorScheme].icon },
+    filterButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        height: 50,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        marginBottom: 15,
+        backgroundColor: Colors[colorScheme].cardBackground
+    },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
+});
+
 const NotificationTeacherScreen = () => {
     const { gymColor, user } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estados (sin cambios)
+    // Estados del componente
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [isImportant, setIsImportant] = useState(false);
@@ -41,36 +110,45 @@ const NotificationTeacherScreen = () => {
     const [sending, setSending] = useState(false);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [activeModal, setActiveModal] = useState(null);
-
-    // Funciones de fetch, filtros y envío (sin cambios)
+    
+    // Lógica para obtener los datos
     const fetchTeacherData = useCallback(async () => {
-        if (!user || !user._id) return;
-        setLoading(true);
-        try {
-            const classesRes = await apiClient.get(`/classes?profesorId=${user._id}`);
-            const teacherClasses = classesRes.data || [];
-            setMyClasses(teacherClasses);
+    if (!user || !user._id) return;
+    setLoading(true);
+    try {
+        const classesRes = await apiClient.get(`/classes?profesorId=${user._id}&populate=usuariosInscritos`);
+        
+        // DEBUG 1: Mostrame la respuesta cruda de la API en la consola.
+        console.log("Respuesta de la API de clases:", JSON.stringify(classesRes.data, null, 2));
 
-            const studentMap = new Map();
-            teacherClasses.forEach(cls => {
-                (cls.usuariosInscritos || []).forEach(student => {
-                    if (student && student._id && !studentMap.has(student._id)) {
-                        studentMap.set(student._id, student);
-                    }
-                });
+        const teacherClasses = classesRes.data || [];
+        setMyClasses(teacherClasses);
+
+        const studentMap = new Map();
+        teacherClasses.forEach(cls => {
+            (cls.usuariosInscritos || []).forEach(student => {
+                if (student && student._id && !studentMap.has(student._id)) {
+                    studentMap.set(student._id, student);
+                }
             });
-            const uniqueStudents = Array.from(studentMap.values());
-            setMyStudents(uniqueStudents);
+        });
+        const uniqueStudents = Array.from(studentMap.values());
+        
+        // DEBUG 2: Mostrame el array de alumnos que se va a guardar en el estado.
+        console.log("Alumnos únicos procesados:", uniqueStudents);
+        
+        setMyStudents(uniqueStudents);
 
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar tus clases y alumnos.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
+    } catch (error) {
+        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar tus clases y alumnos.', buttons: [{ text: 'OK' }] });
+    } finally {
+        setLoading(false);
+    }
+}, [user]);
 
     useFocusEffect(useCallback(() => { fetchTeacherData(); }, [fetchTeacherData]));
-
+    
+    // Lógica de filtrado
     const filteredStudents = useMemo(() => {
         if (!userSearchTerm) return myStudents;
         return myStudents.filter(student => `${student.nombre} ${student.apellido}`.toLowerCase().includes(userSearchTerm.toLowerCase()));
@@ -81,6 +159,7 @@ const NotificationTeacherScreen = () => {
         return myClasses.filter(cls => (cls.nombre || 'Turno').toLowerCase().includes(classSearchTerm.toLowerCase()));
     }, [myClasses, classSearchTerm]);
     
+    // Lógica para enviar la notificación
     const handleSendNotification = () => {
         if (!title || !message) {
             setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -112,16 +191,16 @@ const NotificationTeacherScreen = () => {
             title: "Confirmar Envío",
             message: confirmationMessage,
             buttons: [
-                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
                 { text: 'Enviar', style: 'primary', onPress: async () => {
                     setAlertInfo({ visible: false });
                     setSending(true);
                     try {
                         await apiClient.post('/notifications', payload);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK' }] });
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
                         setTitle(''); setMessage(''); setIsImportant(false);
                     } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK' }] });
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
                     } finally {
                         setSending(false);
                     }
@@ -129,7 +208,8 @@ const NotificationTeacherScreen = () => {
             ]
         });
     };
-
+    
+    // Lógica para el modal de filtros
     const getModalConfig = useMemo(() => {
         const targetTypeOptions = [{ _id: 'class', nombre: 'Clase Específica' }, { _id: 'user', nombre: 'Alumno Específico' }];
         if (activeModal === 'targetType') {
@@ -144,43 +224,7 @@ const NotificationTeacherScreen = () => {
         return 'Seleccionar';
     };
 
-    if (loading) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
-    }
-
-    // --- Componentes de renderizado para FlatList ---
-    
-    const renderHeader = () => (
-        <>
-            <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Alumnos</ThemedText>
-            
-            <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
-            <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
-            
-            <View style={styles.switchContainer}>
-                <ThemedText>¡Marcar como Importante!</ThemedText>
-                <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
-            </View>
-
-            <ThemedText style={styles.sectionTitle}>Destinatarios</ThemedText>
-            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
-                <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType)}</ThemedText>
-                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-            </TouchableOpacity>
-
-            {targetType === 'user' && <TextInput style={styles.input} placeholder="Buscar alumno..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
-            {targetType === 'class' && <TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
-        </>
-    );
-
-    const renderFooter = () => (
-        <View style={styles.footerContainer}>
-            <View style={styles.buttonWrapper}>
-                <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
-            </View>
-        </View>
-    );
-
+    // Renderizado del item de la lista
     const renderItem = ({ item }) => {
         if (targetType === 'user') {
             return (
@@ -200,32 +244,53 @@ const NotificationTeacherScreen = () => {
         }
         return null;
     };
-    
-    // --- Renderizado principal ---
 
+    if (loading) {
+        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+    }
+    
     const listData = targetType === 'user' ? filteredStudents : filteredClasses;
 
     return (
         <ThemedView style={styles.container}>
+            <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Alumnos</ThemedText>
+
+            {/* 1. Contenedor del Formulario (fuera de la lista) */}
+            <View style={styles.formContainer}>
+                <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
+                <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} multiline numberOfLines={4} placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].text} />
+                <View style={styles.switchContainer}>
+                    <ThemedText>¡Marcar como Importante!</ThemedText>
+                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
+                </View>
+                <ThemedText style={styles.sectionTitle}>Destinatarios</ThemedText>
+                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
+                    <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType)}</ThemedText>
+                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
+                {targetType === 'user' && <TextInput style={styles.input} placeholder="Buscar alumno..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
+                {targetType === 'class' && <TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
+            </View>
+
+            {/* 2. FlatList separada que solo maneja la lista */}
             <FlatList
+                style={styles.listContainer}
                 data={listData}
                 renderItem={renderItem}
                 keyExtractor={(item) => item._id}
-                ListHeaderComponent={renderHeader}
-                ListFooterComponent={renderFooter}
                 ListEmptyComponent={
                     <Text style={styles.emptyListText}>
                         {targetType === 'user' ? 'No se encontraron alumnos' : 'No tienes clases asignadas'}
                     </Text>
                 }
-                contentContainerStyle={styles.contentContainer}
-                // Añadimos un contenedor con borde para la lista
-                ListHeaderComponentStyle={styles.listSection}
-                ListFooterComponentStyle={styles.listSection}
-                style={styles.listContainer}
             />
 
-            {/* Los modales y alertas van fuera, al mismo nivel que la FlatList */}
+            {/* 3. Botón de envío al final */}
+            <View style={styles.buttonWrapper}>
+                <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
+            </View>
+
+            {/* Modales y Alertas */}
             {getModalConfig && (
                 <FilterModal
                     visible={!!activeModal}
@@ -251,71 +316,5 @@ const NotificationTeacherScreen = () => {
         </ThemedView>
     );
 };
-
-// Estilos actualizados
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    contentContainer: { paddingBottom: 40 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { marginBottom: 25, fontSize: 21 },
-    input: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        padding: 15,
-        borderRadius: 8,
-        fontSize: 16,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    switchContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        paddingVertical: 10,
-    },
-    sectionTitle: {
-        fontSize: 21,
-        fontWeight: 'bold',
-        marginTop: 10,
-        marginBottom: 10,
-        color: Colors[colorScheme].text,
-    },
-    listContainer: {
-        flex: 1,
-        marginHorizontal: 20, // Centra el contenido
-    },
-    listSection: {
-        marginBottom: 10,
-    },
-    footerContainer: {
-        marginTop: 20,
-    },
-    listItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-        backgroundColor: Colors[colorScheme].cardBackground
-    },
-    listItemSelected: { backgroundColor: gymColor + '30' },
-    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
-    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
-    emptyListText: { padding: 15, textAlign: 'center', color: Colors[colorScheme].icon },
-    buttonWrapper: { borderRadius: 8, overflow: 'hidden' },
-    filterButton: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 50,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        marginBottom: 15,
-        backgroundColor: Colors[colorScheme].cardBackground
-    },
-    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
-});
 
 export default NotificationTeacherScreen;
