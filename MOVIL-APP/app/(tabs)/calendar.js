@@ -544,15 +544,6 @@ const getStyles = (colorScheme, gymColor) => {
             fontSize: 14,
         },
         container: { flex: 1, },
-        pickerContainer: {
-            marginHorizontal: 15,
-            marginVertical: 10,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: Colors[colorScheme].border,
-            backgroundColor: Colors[colorScheme].background,
-            justifyContent: 'center',
-        },
         listHeader: { textAlign: 'center', fontSize: 20, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background },
         sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
         classItem: {
@@ -640,13 +631,13 @@ const getStyles = (colorScheme, gymColor) => {
             fontWeight: 'bold'
         },
         filterButton: {
+            height: 50,
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
             marginHorizontal: 15,
             marginVertical: 10,
-            paddingVertical: 1,
-            paddingHorizontal: 12,
+            paddingHorizontal: 15,
             borderRadius: 8,
             borderWidth: 1,
             borderColor: Colors[colorScheme].border,

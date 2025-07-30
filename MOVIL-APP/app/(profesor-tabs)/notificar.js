@@ -9,7 +9,7 @@ import {
     Button,
     TextInput,
     Switch,
-    ScrollView // Se vuelve a usar ScrollView como contenedor principal
+    FlatList // Importamos FlatList
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -21,12 +21,12 @@ import FilterModal from '@/components/FilterModal';
 import { FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
-// Nuevo componente para la pantalla de notificaciones del profesor
 const NotificationTeacherScreen = () => {
     const { gymColor, user } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // Estados (sin cambios)
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [isImportant, setIsImportant] = useState(false);
@@ -40,9 +40,9 @@ const NotificationTeacherScreen = () => {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
-
     const [activeModal, setActiveModal] = useState(null);
 
+    // Funciones de fetch, filtros y envío (sin cambios)
     const fetchTeacherData = useCallback(async () => {
         if (!user || !user._id) return;
         setLoading(true);
@@ -63,12 +63,7 @@ const NotificationTeacherScreen = () => {
             setMyStudents(uniqueStudents);
 
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron cargar tus clases y alumnos.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar tus clases y alumnos.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
         } finally {
             setLoading(false);
         }
@@ -78,34 +73,25 @@ const NotificationTeacherScreen = () => {
 
     const filteredStudents = useMemo(() => {
         if (!userSearchTerm) return myStudents;
-        return myStudents.filter(student =>
-            `${student.nombre} ${student.apellido}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-            student.email.toLowerCase().includes(userSearchTerm.toLowerCase())
-        );
+        return myStudents.filter(student => `${student.nombre} ${student.apellido}`.toLowerCase().includes(userSearchTerm.toLowerCase()));
     }, [myStudents, userSearchTerm]);
 
     const filteredClasses = useMemo(() => {
         if (!classSearchTerm) return myClasses;
-        return myClasses.filter(cls =>
-            (cls.nombre || 'Turno').toLowerCase().includes(classSearchTerm.toLowerCase()) ||
-            (cls.tipoClase?.nombre || '').toLowerCase().includes(classSearchTerm.toLowerCase())
-        );
+        return myClasses.filter(cls => (cls.nombre || 'Turno').toLowerCase().includes(classSearchTerm.toLowerCase()));
     }, [myClasses, classSearchTerm]);
-
+    
     const handleSendNotification = () => {
         if (!title || !message) {
             setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
-
         let payload = { title, message, isImportant, targetType };
         let confirmationMessage = '';
-
         switch (targetType) {
             case 'user':
                 if (!selectedUserId) { 
-                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un alumno.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); 
-                    return; 
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un alumno.', buttons: [{ text: 'OK' }] }); return; 
                 }
                 payload.targetId = selectedUserId;
                 const student = myStudents.find(u => u._id === selectedUserId);
@@ -113,8 +99,7 @@ const NotificationTeacherScreen = () => {
                 break;
             case 'class':
                 if (!selectedClassId) { 
-                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona una clase.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); 
-                    return; 
+                    setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona una clase.', buttons: [{ text: 'OK' }] }); return;
                 }
                 payload.targetId = selectedClassId;
                 const cls = myClasses.find(c => c._id === selectedClassId);
@@ -122,24 +107,21 @@ const NotificationTeacherScreen = () => {
                 break;
             default: return;
         }
-
         setAlertInfo({
             visible: true,
             title: "Confirmar Envío",
             message: confirmationMessage,
             buttons: [
-                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                { text: 'Cancelar', style: 'cancel' },
                 { text: 'Enviar', style: 'primary', onPress: async () => {
                     setAlertInfo({ visible: false });
                     setSending(true);
                     try {
                         await apiClient.post('/notifications', payload);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
-                        setTitle('');
-                        setMessage('');
-                        setIsImportant(false);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK' }] });
+                        setTitle(''); setMessage(''); setIsImportant(false);
                     } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK' }] });
                     } finally {
                         setSending(false);
                     }
@@ -148,24 +130,14 @@ const NotificationTeacherScreen = () => {
         });
     };
 
-     const getModalConfig = useMemo(() => {
-        const targetTypeOptions = [
-            { _id: 'class', nombre: 'Clase Específica' },
-            { _id: 'user', nombre: 'Alumno Específico' },
-        ];
-
+    const getModalConfig = useMemo(() => {
+        const targetTypeOptions = [{ _id: 'class', nombre: 'Clase Específica' }, { _id: 'user', nombre: 'Alumno Específico' }];
         if (activeModal === 'targetType') {
-            return {
-                title: 'Seleccionar Destinatario',
-                options: targetTypeOptions,
-                onSelect: setTargetType,
-                selectedValue: targetType,
-            };
+            return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: setTargetType, selectedValue: targetType };
         }
         return null;
     }, [activeModal, targetType]);
 
-    // --- HELPER para mostrar el nombre del valor seleccionado ---
     const getDisplayName = (id) => {
         if (id === 'class') return 'Clase Específica';
         if (id === 'user') return 'Alumno Específico';
@@ -176,9 +148,10 @@ const NotificationTeacherScreen = () => {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
 
-    return (
-        // Se vuelve a usar un ScrollView principal para toda la pantalla
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    // --- Componentes de renderizado para FlatList ---
+    
+    const renderHeader = () => (
+        <>
             <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Alumnos</ThemedText>
             
             <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].text} />
@@ -195,45 +168,64 @@ const NotificationTeacherScreen = () => {
                 <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
             </TouchableOpacity>
 
-            {targetType === 'user' && (
-                <View>
-                    <TextInput style={styles.input} placeholder="Buscar alumno..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />
-                    <ScrollView style={styles.listContainer} nestedScrollEnabled={true}>
-                        {filteredStudents.length > 0 ? (
-                            filteredStudents.map(item => (
-                                <TouchableOpacity key={item._id} style={[styles.listItem, selectedUserId === item._id && styles.listItemSelected]} onPress={() => setSelectedUserId(item._id)}>
-                                    <Text style={styles.listItemText}>{item.nombre} {item.apellido}</Text>
-                                    <Text style={styles.listItemSubtext}>{item.email}</Text>
-                                </TouchableOpacity>
-                            ))
-                        ) : (
-                            <Text style={styles.emptyListText}>No se encontraron alumnos</Text>
-                        )}
-                    </ScrollView>
-                </View>
-            )}
+            {targetType === 'user' && <TextInput style={styles.input} placeholder="Buscar alumno..." value={userSearchTerm} onChangeText={setUserSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
+            {targetType === 'class' && <TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />}
+        </>
+    );
 
-            {targetType === 'class' && (
-                 <View>
-                    <TextInput style={styles.input} placeholder="Buscar clase..." value={classSearchTerm} onChangeText={setClassSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />
-                    <ScrollView style={styles.listContainer} nestedScrollEnabled={true}>
-                        {filteredClasses.length > 0 ? (
-                            filteredClasses.map(item => (
-                                <TouchableOpacity key={item._id} style={[styles.listItem, selectedClassId === item._id && styles.listItemSelected]} onPress={() => setSelectedClassId(item._id)}>
-                                    <Text style={styles.listItemText}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre}</Text>
-                                    <Text style={styles.listItemSubtext}>{new Date(item.fecha).toLocaleDateString()} - {item.horaInicio}</Text>
-                                </TouchableOpacity>
-                            ))
-                        ) : (
-                            <Text style={styles.emptyListText}>No tienes clases asignadas</Text>
-                        )}
-                    </ScrollView>
-                </View>
-            )}
-            
+    const renderFooter = () => (
+        <View style={styles.footerContainer}>
             <View style={styles.buttonWrapper}>
                 <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
             </View>
+        </View>
+    );
+
+    const renderItem = ({ item }) => {
+        if (targetType === 'user') {
+            return (
+                <TouchableOpacity style={[styles.listItem, selectedUserId === item._id && styles.listItemSelected]} onPress={() => setSelectedUserId(item._id)}>
+                    <Text style={styles.listItemText}>{item.nombre} {item.apellido}</Text>
+                    <Text style={styles.listItemSubtext}>{item.email}</Text>
+                </TouchableOpacity>
+            );
+        }
+        if (targetType === 'class') {
+            return (
+                <TouchableOpacity style={[styles.listItem, selectedClassId === item._id && styles.listItemSelected]} onPress={() => setSelectedClassId(item._id)}>
+                    <Text style={styles.listItemText}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre}</Text>
+                    <Text style={styles.listItemSubtext}>{new Date(item.fecha).toLocaleDateString()} - {item.horaInicio}</Text>
+                </TouchableOpacity>
+            );
+        }
+        return null;
+    };
+    
+    // --- Renderizado principal ---
+
+    const listData = targetType === 'user' ? filteredStudents : filteredClasses;
+
+    return (
+        <ThemedView style={styles.container}>
+            <FlatList
+                data={listData}
+                renderItem={renderItem}
+                keyExtractor={(item) => item._id}
+                ListHeaderComponent={renderHeader}
+                ListFooterComponent={renderFooter}
+                ListEmptyComponent={
+                    <Text style={styles.emptyListText}>
+                        {targetType === 'user' ? 'No se encontraron alumnos' : 'No tienes clases asignadas'}
+                    </Text>
+                }
+                contentContainerStyle={styles.contentContainer}
+                // Añadimos un contenedor con borde para la lista
+                ListHeaderComponentStyle={styles.listSection}
+                ListFooterComponentStyle={styles.listSection}
+                style={styles.listContainer}
+            />
+
+            {/* Los modales y alertas van fuera, al mismo nivel que la FlatList */}
             {getModalConfig && (
                 <FilterModal
                     visible={!!activeModal}
@@ -256,23 +248,16 @@ const NotificationTeacherScreen = () => {
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor} 
             />
-        </ScrollView>
+        </ThemedView>
     );
 };
 
+// Estilos actualizados
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { 
-        flex: 1, 
-        backgroundColor: Colors[colorScheme].cardBackground,
-    },
-    contentContainer: {
-        padding: 20,
-    },
+    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
+    contentContainer: { paddingBottom: 40 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: {
-        marginBottom: 25,
-        fontSize: 21,
-    },
+    pageTitle: { marginBottom: 25, fontSize: 21 },
     input: {
         backgroundColor: Colors[colorScheme].cardBackground,
         color: Colors[colorScheme].text,
@@ -297,64 +282,40 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 10,
         color: Colors[colorScheme].text,
     },
-    pickerContainer: {
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        marginBottom: 20,
-        color: Colors[colorScheme].text,
-    },
     listContainer: {
-        maxHeight: 250, // Altura máxima para que la lista interna sea scrollable
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-        borderRadius: 8,
-        marginBottom: 20,
+        flex: 1,
+        marginHorizontal: 20, // Centra el contenido
+    },
+    listSection: {
+        marginBottom: 10,
+    },
+    footerContainer: {
+        marginTop: 20,
     },
     listItem: {
         padding: 15,
         borderBottomWidth: 1,
         borderBottomColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].cardBackground
     },
-    listItemSelected: {
-        backgroundColor: gymColor + '30', // 30 for opacity
-    },
-    listItemText: {
-        color: Colors[colorScheme].text,
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    listItemSubtext: {
-        color: Colors[colorScheme].text,
-        fontSize: 12,
-        opacity: 0.7,
-    },
-    emptyListText: {
-        padding: 15,
-        textAlign: 'center',
-        color: Colors[colorScheme].icon,
-    },
-    buttonWrapper: {
-        borderRadius: 8,
-        overflow: 'hidden',
-        marginTop: 10,
-    },
+    listItemSelected: { backgroundColor: gymColor + '30' },
+    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
+    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
+    emptyListText: { padding: 15, textAlign: 'center', color: Colors[colorScheme].icon },
+    buttonWrapper: { borderRadius: 8, overflow: 'hidden' },
     filterButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        height: 45,
+        height: 50,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
-        paddingHorizontal: 10,
+        paddingHorizontal: 15,
         marginBottom: 15,
-
+        backgroundColor: Colors[colorScheme].cardBackground
     },
-    filterButtonText: {
-        fontSize: 14,
-        color: Colors[colorScheme].text,
-    },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
 });
 
 export default NotificationTeacherScreen;

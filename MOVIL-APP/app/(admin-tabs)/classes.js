@@ -11,7 +11,7 @@ import {
     Button,
     Pressable,
     TextInput,
-    Platform,
+    Platform, // Necesario para la lógica condicional
     RefreshControl,
     useWindowDimensions,
 } from 'react-native';
@@ -23,23 +23,33 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome6, Octicons } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { format, parseISO, isBefore, startOfDay, addMonths } from 'date-fns';
+import { format, parseISO, isBefore, startOfDay, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Picker nativo
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+// 💡 PASO 1: Importar el picker para la web y sus estilos
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
-import {TabView, TabBar} from 'react-native-tab-view';
+import { TabView, TabBar } from 'react-native-tab-view';
 
+// ... (configuración de LocaleConfig se mantiene igual)
 LocaleConfig.locales['es'] = {
-  monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
-  monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
-  dayNames: ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'],
-  dayNamesShort: ['Dom.','Lun.','Mar.','Mié.','Jue.','Vie.','Sáb.'],
-  today: 'Hoy'
+    monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+    monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
+    dayNames: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    dayNamesShort: ['Dom.', 'Lun.', 'Mar.', 'Mié.', 'Jue.', 'Vie.', 'Sáb.'],
+    today: 'Hoy'
 };
 LocaleConfig.defaultLocale = 'es';
 
+
 const ManageClassesScreen = () => {
+    // ... (todos tus estados y hooks se mantienen igual)
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -52,16 +62,16 @@ const ManageClassesScreen = () => {
         { key: 'day-management', title: 'Gestión por Día' },
     ]);
 
- 
+
     const [loading, setLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [classes, setClasses] = useState([]);
     const [teachers, setTeachers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
-    
+
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    
+
     // --- Estados para Filtros ---
     const [selectedClassTypeFilter, setSelectedClassTypeFilter] = useState('all');
     const [selectedProfessorFilter, setSelectedProfessorFilter] = useState('all');
@@ -71,13 +81,13 @@ const ManageClassesScreen = () => {
     const [notifiedGroups, setNotifiedGroups] = useState(new Set());
 
 
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: []
     });
-    
+
     // --- Estados para Modales ---
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
@@ -98,24 +108,25 @@ const ManageClassesScreen = () => {
 
 
     const [formData, setFormData] = useState({
-        tipoClase: '', 
+        tipoClase: '',
         nombre: '',
         fecha: '',
-        horaInicio: '', 
-        horaFin: '', 
+        horaInicio: '',
+        horaFin: '',
         capacidad: '10',
-        profesor: '', 
+        profesor: '',
         tipoInscripcion: 'libre',
-        diaDeSemana: [], 
-        fechaInicio: '', 
-        fechaFin: '', 
+        diaDeSemana: [],
+        fechaInicio: '',
+        fechaFin: '',
     });
-    
+
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateFieldToEdit, setDateFieldToEdit] = useState(null);
-    
+
     const daysOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+    // ... (fetchAllData, useFocusEffect, onRefresh, etc. se mantienen igual)
     const fetchAllData = useCallback(async () => {
         try {
             const cacheBuster = `?t=${new Date().getTime()}`;
@@ -169,7 +180,7 @@ const ManageClassesScreen = () => {
             : [...currentDays, day];
         handleFormChange('diaDeSemana', newDays);
     };
-    
+
     const handleBulkDaySelection = (day) => {
         const currentDays = bulkUpdates.diasDeSemana;
         const newDays = currentDays.includes(day)
@@ -185,26 +196,28 @@ const ManageClassesScreen = () => {
             message: '¿Estás seguro de que quieres guardar los cambios en este turno?',
             buttons: [
                 { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                { text: 'Guardar', style: 'primary', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    const payload = { ...formData };
-                    if (!payload.profesor) delete payload.profesor;
-                    
-                    try {
-                        if (editingClass) {
-                            await apiClient.put(`/classes/${editingClass._id}`, payload);
-                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Turno actualizado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        } else {
-                            await apiClient.post('/classes', payload);
-                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Turno/s creado/s correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: 'Guardar', style: 'primary', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        const payload = { ...formData };
+                        if (!payload.profesor) delete payload.profesor;
+
+                        try {
+                            if (editingClass) {
+                                await apiClient.put(`/classes/${editingClass._id}`, payload);
+                                setAlertInfo({ visible: true, title: 'Éxito', message: 'Turno actualizado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            } else {
+                                await apiClient.post('/classes', payload);
+                                setAlertInfo({ visible: true, title: 'Éxito', message: 'Turno/s creado/s correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            }
+                            setShowAddModal(false);
+                            setEditingClass(null);
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo guardar el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                         }
-                        setShowAddModal(false);
-                        setEditingClass(null);
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo guardar el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                     }
-                }}
+                }
             ]
         });
     };
@@ -228,7 +241,7 @@ const ManageClassesScreen = () => {
         setShowAddModal(true);
     };
 
-   const handleViewRoster = async (classId) => {
+    const handleViewRoster = async (classId) => {
         try {
             const response = await apiClient.get(`/classes/${classId}`);
             const classData = response.data;
@@ -269,37 +282,60 @@ const ManageClassesScreen = () => {
             message: `¿Estás seguro de que quieres reactivar el turno "${classItem.nombre}"?`,
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Sí, Reactivar", style: 'primary', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.put(`/classes/${classItem._id}/reactivate`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'El turno ha sido reactivado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo reactivar el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Sí, Reactivar", style: 'primary', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.put(`/classes/${classItem._id}/reactivate`);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'El turno ha sido reactivado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo reactivar el turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
-
+    
+    // 💡 PASO 2: Modificar los manejadores de fecha para que sean compatibles con web y nativo
     const showDatePickerForField = (field) => {
         setDateFieldToEdit(field);
         setShowDatePicker(true);
     };
 
-    const onDateChange = (event, selectedDate) => {
-        const currentDate = selectedDate || new Date();
-        setShowDatePicker(Platform.OS === 'ios');
-        const formattedDate = format(currentDate, 'yyyy-MM-dd');
+    const onDateChange = (eventOrDate, selectedDate) => {
+        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
+        setShowDatePicker(Platform.OS === 'ios'); // En web, este estado no controla el picker
+        
+        if (Platform.OS === 'web') {
+            setShowDatePicker(false); // Cierra el "modal" virtual en la web
+        }
 
-        if (dateFieldToEdit === 'extendUntilDate') {
-            setExtendUntilDate(formattedDate);
-        } else if (dateFieldToEdit) {
-            handleFormChange(dateFieldToEdit, formattedDate);
+        if (currentDate) {
+            const formattedDate = format(currentDate, 'yyyy-MM-dd');
+            if (dateFieldToEdit === 'extendUntilDate') {
+                setExtendUntilDate(formattedDate);
+            } else if (dateFieldToEdit) {
+                handleFormChange(dateFieldToEdit, formattedDate);
+            }
         }
     };
 
+    const onDayToManageChange = (eventOrDate, selectedDate) => {
+        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
+        setShowDayPicker(Platform.OS === 'ios');
+
+        if(Platform.OS === 'web') {
+            setShowDayPicker(false);
+        }
+
+        if (currentDate) {
+            setDayToManage(currentDate);
+        }
+    };
+
+    // ... (getModalConfig y el resto de la lógica de negocio se mantienen igual)
     const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: 'all', nombre: 'Todos los Tipos' }, ...classTypes];
         const teacherOptions = [{ _id: '', nombre: '-- Seleccionar --' }, ...teachers.map(t => ({ _id: t._id, nombre: `${t.nombre} ${t.apellido}` }))];
@@ -319,7 +355,7 @@ const ManageClassesScreen = () => {
             case 'formClassType':
                 return {
                     title: 'Seleccionar Tipo de Turno',
-                    options: classTypes.map(t => ({_id: t._id, nombre: t.nombre})),
+                    options: classTypes.map(t => ({ _id: t._id, nombre: t.nombre })),
                     onSelect: (id) => handleFormChange('tipoClase', id),
                     selectedValue: formData.tipoClase,
                 };
@@ -331,14 +367,14 @@ const ManageClassesScreen = () => {
                     selectedValue: formData.profesor,
                 };
             case 'formInscriptionType':
-                 return {
+                return {
                     title: 'Seleccionar Tipo de Inscripción',
                     options: inscriptionTypeOptions,
                     onSelect: (id) => handleFormChange('tipoInscripcion', id),
                     selectedValue: formData.tipoInscripcion,
                 };
             case 'bulkEditTeacher':
-                 return {
+                return {
                     title: 'Seleccionar Encargado',
                     options: [{ _id: '', nombre: '-- No cambiar --' }, ...teacherOptions.slice(1)], // Reusa teacherOptions pero cambia el default
                     onSelect: (id) => setBulkUpdates(p => ({ ...p, profesor: id })),
@@ -350,7 +386,7 @@ const ManageClassesScreen = () => {
     }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, selectedRecurrentClassTypeFilter, bulkUpdates.profesor]);
 
 
-    
+
     const getDisplayName = (id, type) => {
         if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || '-- Seleccionar --';
         if (type === 'teacher') {
@@ -410,12 +446,12 @@ const ManageClassesScreen = () => {
                     profesor: cls.profesor,
                     diasDeSemana: new Set(),
                     cantidadDeInstancias: 0,
-                    _id: groupKey, 
+                    _id: groupKey,
                     lastDate: cls.fecha,
                 };
             }
-            if (cls.diaDeSemana) {
-                acc[groupKey].diasDeSemana.add(cls.diaDeSemana);
+            if (Array.isArray(cls.diaDeSemana) && cls.diaDeSemana.length > 0) {
+                acc[groupKey].diasDeSemana.add(cls.diaDeSemana[0]);
             }
             acc[groupKey].cantidadDeInstancias += 1;
             if (isBefore(new Date(acc[groupKey].lastDate), new Date(cls.fecha))) {
@@ -445,19 +481,21 @@ const ManageClassesScreen = () => {
 
     const handleExtendNotification = (group) => {
         const message = `Se están terminando las clases de "${group.nombre} - ${group.tipoClase.nombre}" de los días ${group.diasDeSemana.join(', ')}. ¿Quieres extenderlos un mes más?`;
-        
+
         setAlertInfo({
             visible: true,
             title: "Extender Clases Recurrentes",
             message: message,
             buttons: [
                 { text: "No, gracias", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Sí, extender", style: "primary", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    const newEndDate = addMonths(new Date(group.lastDate), 1);
-                    const formattedEndDate = format(newEndDate, 'yyyy-MM-dd');
-                    await handleExtendSubmit(group, formattedEndDate);
-                }}
+                {
+                    text: "Sí, extender", style: "primary", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        const newEndDate = addMonths(new Date(group.lastDate), 1);
+                        const formattedEndDate = format(newEndDate, 'yyyy-MM-dd');
+                        await handleExtendSubmit(group, formattedEndDate);
+                    }
+                }
             ]
         });
     };
@@ -467,7 +505,7 @@ const ManageClassesScreen = () => {
             .filter(group => selectedRecurrentClassTypeFilter === 'all' || group.tipoClase?._id === selectedRecurrentClassTypeFilter)
             .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
     }, [correctlyGroupedClasses, selectedRecurrentClassTypeFilter]);
-    
+
     const renderClassItem = ({ item }) => (
         <View style={[styles.card, item.estado === 'cancelada' && styles.cancelledCard]}>
             <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
@@ -475,25 +513,25 @@ const ManageClassesScreen = () => {
             <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
             <ThemedText style={styles.cardInfo}>A cargo de: {item.profesor ? `${item.profesor.nombre} ${item.profesor.apellido}` : 'No asignado'}</ThemedText>
             <ThemedText style={styles.cardInfo}>Cupos: {item.usuariosInscritos.length} / {item.capacidad}</ThemedText>
-            
+
             <View style={styles.actionsContainer}>
                 {item.estado === 'cancelada' ? (
                     <>
                         <Text style={styles.cancelledText}>CANCELADA</Text>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
-                            <Ionicons name="checkmark-circle" size={24} color={Colors[colorScheme].text}  />
+                            <Ionicons name="checkmark-circle" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                     </>
                 ) : (
                     <>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
-                            <Ionicons name="people" size={24} color={Colors[colorScheme].text}  />
+                            <Ionicons name="people" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
-                            <Ionicons name="close-circle" size={24} color={'#a72828ff'}  />
+                            <Ionicons name="close-circle" size={24} color={'#a72828ff'} />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
-                            <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text}  />
+                            <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                     </>
                 )}
@@ -503,11 +541,11 @@ const ManageClassesScreen = () => {
 
     const handleOpenBulkEditModal = (group) => {
         setEditingGroup(group);
-        setBulkUpdates({ 
-            profesor: group.profesor?._id || '', 
-            horaInicio: group.horaInicio, 
-            horaFin: group.horaFin, 
-            diasDeSemana: [...group.diasDeSemana] 
+        setBulkUpdates({
+            profesor: group.profesor?._id || '',
+            horaInicio: group.horaInicio,
+            horaFin: group.horaFin,
+            diasDeSemana: [...group.diasDeSemana]
         });
         setShowBulkEditModal(true);
     };
@@ -576,21 +614,23 @@ const ManageClassesScreen = () => {
             message: `¿Estás seguro de que quieres eliminar TODAS las ${group.cantidadDeInstancias} instancias futuras de "${group.nombre}"?`,
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Eliminar", style: "destructive", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        const filters = {
-                            nombre: group.nombre,
-                            tipoClase: group.tipoClase._id,
-                            horaInicio: group.horaInicio,
-                        };
-                        await apiClient.post('/classes/bulk-delete', { filters });
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Grupo de turnos eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el grupo.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Eliminar", style: "destructive", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            const filters = {
+                                nombre: group.nombre,
+                                tipoClase: group.tipoClase._id,
+                                horaInicio: group.horaInicio,
+                            };
+                            await apiClient.post('/classes/bulk-delete', { filters });
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Grupo de turnos eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el grupo.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -603,20 +643,22 @@ const ManageClassesScreen = () => {
             message: `¿Seguro que quieres cancelar todos los turnos del ${format(dayToManage, 'dd/MM/yyyy')} ${refund ? 'con' : 'sin'} reembolso?`,
             buttons: [
                 { text: "Volver", style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Confirmar", style: 'destructive', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.post('/classes/cancel-day', { date, refundCredits: refund });
-                        setAlertInfo({ visible: true, title: 'Éxito', message: `Todos los turnos del día han sido cancelados.`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || "No se pudo completar la operación.", buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Confirmar", style: 'destructive', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.post('/classes/cancel-day', { date, refundCredits: refund });
+                            setAlertInfo({ visible: true, title: 'Éxito', message: `Todos los turnos del día han sido cancelados.`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || "No se pudo completar la operación.", buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
-    
+
     const handleReactivateDay = () => {
         const date = format(dayToManage, 'yyyy-MM-dd');
         setAlertInfo({
@@ -625,16 +667,18 @@ const ManageClassesScreen = () => {
             message: `¿Seguro que quieres reactivar todos los turnos del ${format(dayToManage, 'dd/MM/yyyy')}?`,
             buttons: [
                 { text: "Volver", style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Confirmar", style: 'primary', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.post('/classes/reactivate-day', { date });
-                        setAlertInfo({ visible: true, title: 'Éxito', message: `Todos los turnos del día han sido reactivados.`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || "No se pudo completar la operación.", buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Confirmar", style: 'primary', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.post('/classes/reactivate-day', { date });
+                            setAlertInfo({ visible: true, title: 'Éxito', message: `Todos los turnos del día han sido reactivados.`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || "No se pudo completar la operación.", buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -649,17 +693,32 @@ const ManageClassesScreen = () => {
             <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
             <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
-                    <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text}  />
+                    <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
-                    <Ionicons name="add-circle" size={24} color={Colors[colorScheme].text}  />
+                    <Ionicons name="add-circle" size={24} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
-                    <Octicons name="trash" size={24} color={Colors[colorScheme].text}  />
+                    <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
             </View>
         </View>
     );
+
+    // 💡 PASO 3: Crear un componente de renderizado de fecha reutilizable para la web.
+    // Esto simplifica el JSX principal.
+    const renderWebDatePicker = (value, onChange, placeholder) => {
+        const dateValue = value && isValid(parseISO(value)) ? parseISO(value) : null;
+        return (
+            <DatePicker
+                selected={dateValue}
+                onChange={onChange}
+                dateFormat="yyyy-MM-dd"
+                placeholderText={placeholder}
+                customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{value || placeholder}</Text></View>}
+            />
+        );
+    };
 
     const renderScene = ({ route }) => {
         switch (route.key) {
@@ -667,27 +726,27 @@ const ManageClassesScreen = () => {
                 return (
                     <FlatList
                         ListHeaderComponent={
-                            <>
-                                <Calendar
-                                    onDayPress={(day) => setSelectedDate(day.dateString)}
-                                    markedDates={markedDates}
-                                    theme={{
-                                        calendarBackground: Colors[colorScheme].background,
-                                        textSectionTitleColor: Colors[colorScheme].text,
-                                        selectedDayBackgroundColor: gymColor,
-                                        selectedDayTextColor: '#ffffff',
-                                        todayTextColor: gymColor,
-                                        dayTextColor: Colors[colorScheme].text,
-                                        textDisabledColor: Colors[colorScheme].icon,
-                                        arrowColor: gymColor,
-                                    }}
-                                />
-                            </>
+                            <Calendar
+                                onDayPress={(day) => setSelectedDate(day.dateString)}
+                                markedDates={markedDates}
+                                theme={{
+                                    calendarBackground: Colors[colorScheme].background,
+                                    textSectionTitleColor: Colors[colorScheme].text,
+                                    selectedDayBackgroundColor: gymColor,
+                                    selectedDayTextColor: '#ffffff',
+                                    todayTextColor: gymColor,
+                                    dayTextColor: Colors[colorScheme].text,
+                                    textDisabledColor: Colors[colorScheme].icon,
+                                    arrowColor: gymColor,
+                                }}
+                            />
                         }
                         data={filteredClassesForSelectedDate}
                         renderItem={renderClassItem}
                         keyExtractor={(item) => item._id}
-                        ListEmptyComponent={<ThemedText style={styles.placeholderText}>No hay turnos para este día.</ThemedText>}
+                        ListEmptyComponent={
+                            <ThemedText style={styles.placeholderText}>No hay turnos para este día.</ThemedText>
+                        }
                         refreshControl={
                             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
                         }
@@ -717,22 +776,38 @@ const ManageClassesScreen = () => {
                     <View style={styles.dayManagementContainer}>
                         <ThemedText style={styles.sectionTitle}>Gestión por Día Completo</ThemedText>
                         <ThemedText style={styles.inputLabel}>Selecciona una fecha:</ThemedText>
-                        <TouchableOpacity onPress={() => setShowDayPicker(true)}>
-                            <View style={styles.dateInputTouchable}>
-                                <Text style={styles.dateInputText}>{format(dayToManage, 'dd/MM/yyyy')}</Text>
-                            </View>
-                        </TouchableOpacity>
-                        {showDayPicker && (
+                        
+                        {/* 💡 PASO 4: Usar lógica condicional para el selector de fecha */}
+                        {Platform.OS === 'web' ? (
+                            <DatePicker
+                                selected={dayToManage}
+                                onChange={onDayToManageChange}
+                                dateFormat="dd/MM/yyyy"
+                                customInput={
+                                    <TouchableOpacity>
+                                        <View style={styles.dateInputTouchable}>
+                                            <Text style={styles.dateInputText}>{format(dayToManage, 'dd/MM/yyyy')}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                }
+                            />
+                        ) : (
+                            <TouchableOpacity onPress={() => setShowDayPicker(true)}>
+                                <View style={styles.dateInputTouchable}>
+                                    <Text style={styles.dateInputText}>{format(dayToManage, 'dd/MM/yyyy')}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                        
+                        {Platform.OS !== 'web' && showDayPicker && (
                             <DateTimePicker
                                 value={dayToManage}
                                 mode="date"
                                 display="default"
-                                onChange={(event, date) => {
-                                    setShowDayPicker(Platform.OS === 'ios');
-                                    if (date) setDayToManage(date);
-                                }}
+                                onChange={onDayToManageChange}
                             />
                         )}
+
                         <View style={styles.dayActions}>
                             <View style={styles.buttonWrapper}>
                                 <Button title="Cancelar Turnos del Día" onPress={() => handleCancelDay(true)} color='#500000ff' />
@@ -749,7 +824,7 @@ const ManageClassesScreen = () => {
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" color={gymColor} style={{ flex: 1 }} />;
+        return <ActivityIndicator size="large" color={gymColor} style={{ flex: 1, backgroundColor: Colors[colorScheme].background }} />;
     }
 
     return (
@@ -764,13 +839,13 @@ const ManageClassesScreen = () => {
                         {...props}
                         style={{ backgroundColor: gymColor }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
-                        labelStyle={{ 
-                            color: Colors[colorScheme].background, // Color de texto que contraste con gymColor
-                            fontSize: 13, 
+                        labelStyle={{
+                            color: Colors[colorScheme].background,
+                            fontSize: 13,
                             fontWeight: '700',
-                            textAlign: 'center' // Asegura centrado del texto
+                            textAlign: 'center'
                         }}
-                        tabStyle={{ flex: 1, paddingHorizontal: 5, }} 
+                        tabStyle={{ flex: 1, paddingHorizontal: 5, }}
                     />
                 )}
             />
@@ -809,9 +884,19 @@ const ManageClassesScreen = () => {
                             {formData.tipoInscripcion === 'libre' ? (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Fecha</ThemedText>
-                                    <TouchableOpacity onPress={() => showDatePickerForField('fecha')}>
-                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>
-                                    </TouchableOpacity>
+                                    {Platform.OS === 'web' ? (
+                                        // 💡 CORRECCIÓN: El onChange ahora actualiza el estado directamente.
+                                        <DatePicker
+                                            selected={formData.fecha && isValid(parseISO(formData.fecha)) ? parseISO(formData.fecha) : null}
+                                            onChange={(date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd'))}
+                                            dateFormat="yyyy-MM-dd"
+                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>}
+                                        />
+                                    ) : (
+                                        <TouchableOpacity onPress={() => showDatePickerForField('fecha')}>
+                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>
+                                        </TouchableOpacity>
+                                    )}
                                     <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
@@ -819,22 +904,40 @@ const ManageClassesScreen = () => {
                                 </>
                             ) : (
                                 <>
+                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
+                                    {Platform.OS === 'web' ? (
+                                        <DatePicker
+                                            selected={formData.fechaInicio && isValid(parseISO(formData.fechaInicio)) ? parseISO(formData.fechaInicio) : null}
+                                            onChange={(date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd'))}
+                                            dateFormat="yyyy-MM-dd"
+                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>}
+                                        />
+                                    ) : (
+                                        <TouchableOpacity onPress={() => showDatePickerForField('fechaInicio')}>
+                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>
+                                        </TouchableOpacity>
+                                    )}
+                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                    {Platform.OS === 'web' ? (
+                                        <DatePicker
+                                            selected={formData.fechaFin && isValid(parseISO(formData.fechaFin)) ? parseISO(formData.fechaFin) : null}
+                                            onChange={(date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd'))}
+                                            dateFormat="yyyy-MM-dd"
+                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>}
+                                        />
+                                    ) : (
+                                        <TouchableOpacity onPress={() => showDatePickerForField('fechaFin')}>
+                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>
+                                        </TouchableOpacity>
+                                    )}
                                     <ThemedText style={styles.inputLabel}>Horario Fijo</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                    <TouchableOpacity onPress={() => showDatePickerForField('fechaInicio')}>
-                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>
-                                    </TouchableOpacity>
-                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                    <TouchableOpacity onPress={() => showDatePickerForField('fechaFin')}>
-                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>
-                                    </TouchableOpacity>
                                     <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
                                     <View style={styles.weekDayContainer}>
                                         {daysOfWeekOptions.map(day => (
                                             <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
-                                                <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0,3)}</Text>
+                                                <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -934,13 +1037,36 @@ const ManageClassesScreen = () => {
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
                             <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
-                            <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
-                                <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>
-                            </TouchableOpacity>
+                            {Platform.OS === 'web' ? (
+                                <DatePicker
+                                    selected={extendUntilDate && isValid(parseISO(extendUntilDate)) ? parseISO(extendUntilDate) : null}
+                                    onChange={(date) => setExtendUntilDate(format(date, 'yyyy-MM-dd'))}
+                                    dateFormat="yyyy-MM-dd"
+                                    customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>}
+                                />
+                            ) : (
+                                <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
+                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>
+                                </TouchableOpacity>
+                            )}
                             <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Confirmar Extensión" onPress={() => handleExtendSubmit()} color={gymColor || '#1a5276'} /></View></View>
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+            )}
+
+            {Platform.OS !== 'web' && showDatePicker && (
+                <DateTimePicker
+                    value={
+                        (dateFieldToEdit && formData[dateFieldToEdit] && parseISO(formData[dateFieldToEdit])) ||
+                        (extendUntilDate && parseISO(extendUntilDate)) ||
+                        new Date()
+                    }
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                    themeVariant={colorScheme}
+                />
             )}
 
             {getModalConfig && (
@@ -983,7 +1109,7 @@ const ManageClassesScreen = () => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3 },
     expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },

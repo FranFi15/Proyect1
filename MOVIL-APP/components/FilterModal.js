@@ -62,14 +62,14 @@ const getStyles = (theme) => StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 1000, // Se asegura de que esté por encima de todo
+        zIndex: 1000, 
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     modalContent: {
         width: '85%',
-        maxHeight: '60%',
+        maxHeight: '100%',
         backgroundColor: theme.colors.background,
         borderRadius: 12,
         padding: 20,
@@ -91,8 +91,7 @@ const getStyles = (theme) => StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
+    
     },
     optionText: {
         fontSize: 18,

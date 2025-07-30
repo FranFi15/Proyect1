@@ -143,7 +143,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center',},
     modalView: {  width: '100%',height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 10, right: 10, zIndex: 1},
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },

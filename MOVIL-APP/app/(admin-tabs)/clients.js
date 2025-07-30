@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { 
-    StyleSheet, 
-    FlatList, 
-    View, 
-    TextInput, 
-    ActivityIndicator, 
+import {
+    StyleSheet,
+    FlatList,
+    View,
+    TextInput,
+    ActivityIndicator,
     TouchableOpacity,
     useColorScheme,
     Pressable,
@@ -12,7 +12,7 @@ import {
     ScrollView,
     Switch,
     Button,
-    Platform
+    Platform // Asegúrate de que Platform está importado
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -21,13 +21,21 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons } from '@expo/vector-icons';
+
+// Importa el picker nativo
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+// 💡 PASO 1: Importa el picker para la web y sus estilos
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
 import { format, parseISO, isValid } from 'date-fns';
-import BillingModalContent from '@/components/admin/BillingModalContent'; 
-import CustomAlert from '@/components/CustomAlert'; 
-import FilterModal from '@/components/FilterModal'
+import BillingModalContent from '@/components/admin/BillingModalContent';
+import CustomAlert from '@/components/CustomAlert';
+import FilterModal from '@/components/FilterModal';
 
 const ManageClientsScreen = () => {
+    // ... (todo tu estado y hooks existentes se mantienen igual) ...
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,12 +44,11 @@ const ManageClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: []
     });
 
     const [selectedClient, setSelectedClient] = useState(null);
@@ -50,7 +57,7 @@ const ManageClientsScreen = () => {
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
 
-    
+
     const [planData, setPlanData] = useState({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' });
     const [massEnrollFilters, setMassEnrollFilters] = useState({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -58,22 +65,22 @@ const ManageClientsScreen = () => {
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
     const [showMassEnrollDatePicker, setShowMassEnrollDatePicker] = useState(false);
     const [datePickerField, setDatePickerField] = useState(null);
-    
-    
+
+
     const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
     const [newClientDay, setNewClientDay] = useState('');
     const [newClientMonth, setNewClientMonth] = useState('');
     const [newClientYear, setNewClientYear] = useState('');
 
-    
+
     const [editingClientData, setEditingClientData] = useState(null);
     const [editingClientDay, setEditingClientDay] = useState('');
     const [editingClientMonth, setEditingClientMonth] = useState('');
     const [editingClientYear, setEditingClientYear] = useState('');
 
-     const [activeModal, setActiveModal] = useState(null);
+    const [activeModal, setActiveModal] = useState(null);
 
-
+    // ... (todas tus funciones fetchAllData, handle*, etc., se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
@@ -81,7 +88,7 @@ const ManageClientsScreen = () => {
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase')
             ]);
-            
+
             const validUsers = usersResponse.data.filter(user => user !== null);
             const filteredUsers = validUsers.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
             setUsers(filteredUsers);
@@ -134,11 +141,11 @@ const ManageClientsScreen = () => {
 
     const handleOpenEditModal = (client) => {
         const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente'];
-        setEditingClientData({ 
-            ...client, 
-            roles: clientRoles, 
-            ordenMedicaRequerida: client.ordenMedicaRequerida || false, 
-            ordenMedicaEntregada: client.ordenMedicaEntregada || false 
+        setEditingClientData({
+            ...client,
+            roles: clientRoles,
+            ordenMedicaRequerida: client.ordenMedicaRequerida || false,
+            ordenMedicaEntregada: client.ordenMedicaEntregada || false
         });
 
         if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) {
@@ -161,7 +168,7 @@ const ManageClientsScreen = () => {
         setNewClientYear('');
         setShowAddFormModal(true);
     };
-    
+
     const handleDeleteClient = (client) => {
         setAlertInfo({
             visible: true,
@@ -169,16 +176,18 @@ const ManageClientsScreen = () => {
             message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`,
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Eliminar", style: "destructive", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.delete(`/users/${client._id}`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Eliminar", style: "destructive", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.delete(`/users/${client._id}`);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -200,7 +209,7 @@ const ManageClientsScreen = () => {
             setCreditsModalVisible(false);
             fetchAllData();
         } catch (error) {
-             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -212,17 +221,19 @@ const ManageClientsScreen = () => {
             message: "¿Seguro que quieres eliminar la suscripción automática para esta clase?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Quitar", style: "destructive", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Suscripción eliminada.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                        setCreditsModalVisible(false);
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la suscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Quitar", style: "destructive", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Suscripción eliminada.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                            setCreditsModalVisible(false);
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la suscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -235,17 +246,19 @@ const ManageClientsScreen = () => {
             message: "¿Seguro que quieres quitar este plan de horario fijo?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Quitar", style: "destructive", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Plan de horario fijo eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        fetchAllData();
-                        setCreditsModalVisible(false);
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo quitar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Quitar", style: "destructive", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Plan de horario fijo eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            fetchAllData();
+                            setCreditsModalVisible(false);
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo quitar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -271,7 +284,7 @@ const ManageClientsScreen = () => {
             setIsLoadingSlots(false);
         }
     };
-    
+
     const handleMassEnrollSubmit = async () => {
         if (!selectedClient || !selectedSlot) {
             setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un horario para inscribir.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -286,19 +299,21 @@ const ManageClientsScreen = () => {
             message: `¿Inscribir a ${selectedClient.nombre} en este plan?`,
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Inscribir", style: "primary", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, {
-                            tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin,
-                        });
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        setCreditsModalVisible(false);
-                        fetchAllData();
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Inscribir", style: "primary", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, {
+                                tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin,
+                            });
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            setCreditsModalVisible(false);
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
@@ -316,13 +331,21 @@ const ManageClientsScreen = () => {
         setShowMassEnrollDatePicker(true);
     };
 
-    const handleDateChangeForMassEnroll = (event, selectedDate) => {
-        setShowMassEnrollDatePicker(Platform.OS === 'ios');
-        if (selectedDate) {
-            const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+    // 💡 PASO 2: Modifica tu manejador de fecha para que funcione en ambas plataformas
+    const handleDateChangeForMassEnroll = (eventOrDate, selectedDate) => {
+        // En web, 'eventOrDate' es directamente el objeto Date.
+        // En nativo, el primer argumento es 'event' y el segundo 'selectedDate'.
+        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
+
+        // Ocultamos el picker
+        setShowMassEnrollDatePicker(Platform.OS === 'ios'); // En iOS se mantiene abierto, en Android y web se cierra
+
+        if (currentDate) {
+            const formattedDate = format(currentDate, 'yyyy-MM-dd');
             setMassEnrollFilters(prev => ({ ...prev, [datePickerField]: formattedDate }));
         }
     };
+
 
     const handleNewClientChange = (name, value) => {
         setNewClientData(prev => ({ ...prev, [name]: value }));
@@ -374,29 +397,31 @@ const ManageClientsScreen = () => {
             message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${userName}?`,
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Confirmar", style: "primary", onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await apiClient.put(`/users/${user._id}`, {
-                            ordenMedicaEntregada: newStatus
-                        });
-                        setUsers(currentUsers =>
-                            currentUsers.map(u =>
-                                u._id === user._id
-                                    ? { ...u, ordenMedicaEntregada: newStatus }
-                                    : u
-                            )
-                        );
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Confirmar", style: "primary", onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.put(`/users/${user._id}`, {
+                                ordenMedicaEntregada: newStatus
+                            });
+                            setUsers(currentUsers =>
+                                currentUsers.map(u =>
+                                    u._id === user._id
+                                        ? { ...u, ordenMedicaEntregada: newStatus }
+                                        : u
+                                )
+                            );
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }}
+                }
             ]
         });
     };
 
-     const getModalConfig = useMemo(() => {
+    const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes];
         const roleOptions = [
             { _id: 'cliente', nombre: 'Cliente' },
@@ -423,14 +448,14 @@ const ManageClientsScreen = () => {
                 return {
                     title: 'Seleccionar Tipo de Clase',
                     options: classTypeOptions,
-                    onSelect: (id) => setPlanData(prev => ({...prev, tipoClaseId: id})),
+                    onSelect: (id) => setPlanData(prev => ({ ...prev, tipoClaseId: id })),
                     selectedValue: planData.tipoClaseId,
                 };
             case 'massEnrollClassType':
-                 return {
+                return {
                     title: 'Seleccionar Tipo de Clase',
                     options: classTypeOptions,
-                    onSelect: (id) => setMassEnrollFilters(prev => ({...prev, tipoClaseId: id, diasDeSemana: []})),
+                    onSelect: (id) => setMassEnrollFilters(prev => ({ ...prev, tipoClaseId: id, diasDeSemana: [] })),
                     selectedValue: massEnrollFilters.tipoClaseId,
                 };
             default:
@@ -452,7 +477,7 @@ const ManageClientsScreen = () => {
             user.email.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [users, searchTerm]);
-    
+
     const getTypeName = (typeId) => {
         const classType = classTypes.find(t => t._id === typeId);
         return classType?.nombre || 'Desconocido';
@@ -480,7 +505,7 @@ const ManageClientsScreen = () => {
                         </TouchableOpacity>
                         {item?.ordenMedicaRequerida && (
                             <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
-                            <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}/>
+                                <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'} />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenEditModal(item)}>
@@ -512,6 +537,42 @@ const ManageClientsScreen = () => {
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
+
+    // 💡 PASO 3: Crea un componente reutilizable para el selector de fecha
+    const renderDatePicker = (field, value) => {
+        if (Platform.OS === 'web') {
+            const dateValue = value ? new Date(value + 'T00:00:00') : null; // Ajuste para que la fecha no se corra
+            return (
+                <DatePicker
+                    selected={dateValue}
+                    onChange={(date) => handleDateChangeForMassEnroll(date, null)}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="YYYY-MM-DD"
+                    customInput={<TouchableOpacity style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{value || 'YYYY-MM-DD'}</Text></TouchableOpacity>}
+                />
+            );
+        }
+
+        // Lógica nativa (iOS/Android)
+        return (
+            <>
+                <TouchableOpacity onPress={() => showDatePickerFor(field)}>
+                    <View style={styles.dateInputTouchable}>
+                        <Text style={styles.dateInputText}>{value || 'YYYY-MM-DD'}</Text>
+                    </View>
+                </TouchableOpacity>
+                {showMassEnrollDatePicker && datePickerField === field && (
+                    <DateTimePicker
+                        value={value ? new Date(value + 'T00:00:00') : new Date()}
+                        mode="date"
+                        display="default"
+                        onChange={handleDateChangeForMassEnroll}
+                    />
+                )}
+            </>
+        );
+    };
+
 
     return (
         <ThemedView style={styles.container}>
@@ -635,10 +696,12 @@ const ManageClientsScreen = () => {
 
             {billingModalVisible && (
                 <Pressable style={styles.modalOverlay} onPress={() => setBillingModalVisible(false)}>
-                    {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
+                    <Pressable style={styles.modalView}>
+                        {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
+                    </Pressable>
                 </Pressable>
             )}
-            
+
             {creditsModalVisible && (
                 <Pressable style={styles.modalOverlay} onPress={() => setCreditsModalVisible(false)}>
                     <Pressable style={styles.modalView}>
@@ -671,15 +734,15 @@ const ManageClientsScreen = () => {
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
-                                <TextInput style={styles.input} keyboardType="numeric" value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({...prev, creditsToAdd: text}))}/>
+                                <TextInput style={styles.input} keyboardType="numeric" value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
                                 <View style={styles.switchContainer}>
                                     <ThemedText>¿Renovación automática mensual?</ThemedText>
-                                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={value => setPlanData(prev => ({...prev, isSubscription: value}))} value={planData.isSubscription}/>
+                                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={value => setPlanData(prev => ({ ...prev, isSubscription: value }))} value={planData.isSubscription} />
                                 </View>
                                 {planData.isSubscription && (
                                     <>
                                         <ThemedText style={styles.inputLabel}>Créditos a renovar por mes</ThemedText>
-                                        <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({...prev, autoRenewAmount: text}))}/>
+                                        <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({ ...prev, autoRenewAmount: text }))} />
                                     </>
                                 )}
                                 <View style={styles.buttonWrapper}><Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
@@ -696,22 +759,52 @@ const ManageClientsScreen = () => {
                                 <View style={styles.weekDayContainer}>
                                     {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
                                         <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, massEnrollFilters.diasDeSemana.includes(day) && styles.dayChipSelected]}>
-                                            <Text style={massEnrollFilters.diasDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0,3)}</Text>
+                                            <Text style={massEnrollFilters.diasDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
-                                <ThemedText style={styles.inputLabel}>Desde</ThemedText>
-                                <TouchableOpacity onPress={() => showDatePickerFor('fechaInicio')}>
-                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>
-                                </TouchableOpacity>
+
+                                 <ThemedText style={styles.inputLabel}>Desde</ThemedText>
+                                {Platform.OS === 'web' ? (
+                                    <DatePicker
+                                        selected={massEnrollFilters.fechaInicio ? parseISO(massEnrollFilters.fechaInicio) : null}
+                                        onChange={(date) => setMassEnrollFilters(prev => ({ ...prev, fechaInicio: format(date, 'yyyy-MM-dd') }))}
+                                        dateFormat="yyyy-MM-dd"
+                                        customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>}
+                                    />
+                                ) : (
+                                    <TouchableOpacity onPress={() => showDatePickerFor('fechaInicio')}>
+                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>
+                                    </TouchableOpacity>
+                                )}
+
                                 <ThemedText style={styles.inputLabel}>Hasta</ThemedText>
-                                <TouchableOpacity onPress={() => showDatePickerFor('fechaFin')}>
-                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>
-                                </TouchableOpacity>
-                                {showMassEnrollDatePicker && (<DateTimePicker value={new Date()} mode="date" display="default" onChange={handleDateChangeForMassEnroll} />)}
+                                {Platform.OS === 'web' ? (
+                                    <DatePicker
+                                        selected={massEnrollFilters.fechaFin ? parseISO(massEnrollFilters.fechaFin) : null}
+                                        onChange={(date) => setMassEnrollFilters(prev => ({ ...prev, fechaFin: format(date, 'yyyy-MM-dd') }))}
+                                        dateFormat="yyyy-MM-dd"
+                                        customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>}
+                                    />
+                                ) : (
+                                    <TouchableOpacity onPress={() => showDatePickerFor('fechaFin')}>
+                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {Platform.OS !== 'web' && showMassEnrollDatePicker && (
+                                    <DateTimePicker
+                                        value={new Date()}
+                                        mode="date"
+                                        display="default"
+                                        onChange={handleDateChangeForMassEnroll}
+                                        themeVariant={colorScheme}
+                                    />
+                                )}
+                                
                                 <View style={styles.buttonWrapper}><Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} /></View>
                                 {availableSlots.length > 0 && (
-                                    <View style={{marginTop: 20}}>
+                                    <View style={{ marginTop: 20 }}>
                                         <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
                                         {availableSlots.map((slot, index) => (
                                             <TouchableOpacity key={index} style={[styles.slotItem, selectedSlot?.horaInicio === slot.horaInicio && styles.slotItemSelected]} onPress={() => setSelectedSlot(slot)}>
@@ -747,12 +840,13 @@ const ManageClientsScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );
 }
 
+// ... (tus estilos `getStyles` se mantienen igual) ...
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -788,10 +882,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     planText: { fontSize: 14, color: Colors[colorScheme].text, flex: 1 },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4,},
-    dayChipSelected: { backgroundColor: gymColor || '#1a5276'},
-    dayChipText: { fontSize: 14, color: Colors[colorScheme].text},
-    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold'},
+    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4, },
+    dayChipSelected: { backgroundColor: gymColor || '#1a5276' },
+    dayChipText: { fontSize: 14, color: Colors[colorScheme].text },
+    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
     slotItem: { padding: 12, marginVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border },
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
