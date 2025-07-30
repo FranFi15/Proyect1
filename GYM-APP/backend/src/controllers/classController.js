@@ -892,10 +892,11 @@ const getProfessorClasses = asyncHandler(async (req, res) => {
     
     // req.user._id viene del middleware 'protect'
     const professorId = req.user._id;
-    
+
     const classes = await Clase.find({ profesor: professorId })
-        .populate('tipoClase', 'nombre','usuariosInscritos' ) // Traemos el nombre del tipo de clase
-        .sort({ fecha: 'asc' }); // Ordenamos por fecha ascendente
+        .populate('tipoClase', 'nombre' )
+        .populate('usuariosInscritos', 'nombre apellido dni email ')
+        .sort({ fecha: 'asc' }); 
 
     res.status(200).json(classes);
 });
