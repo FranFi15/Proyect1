@@ -2,14 +2,20 @@
   "expo": {
     "name": "Gain Wellness",
     "slug": "MOVIL-APP",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
-    "icon": "./assets/images/android.png",
+    "icon": "./assets/images/apple.png",
     "scheme": "gain-wellness",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.franfi15.MOVILAPP",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "Usamos las notificaciones para avisarte sobre tus turnos, créditos, recordatorios importantes y novedades de la institución."
+      }
+      
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.franfi15.MOVILAPP",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +40,11 @@
           "image": "./assets/images/icono-noti-oscuro.png",
           "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/images/icono-noti.png", 
+            "backgroundColor": "#000000" 
+          }
         }
       ],
        [
