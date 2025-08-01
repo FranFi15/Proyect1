@@ -194,7 +194,7 @@ const NotificationAdminScreen = () => {
     // (Tu lógica de getModalConfig y getDisplayName existente no necesita cambios)
     const getModalConfig = useMemo(() => {
         const targetTypeOptions = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Clase Específica'}];
-        const roleOptions = [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesores'}, {_id: 'admin', nombre: 'Admins'}];
+        const roleOptions = [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}];
         switch (activeModal) {
             case 'targetType': return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: setTargetType, selectedValue: targetType };
             case 'role': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: setSelectedRoleId, selectedValue: selectedRoleId };
@@ -209,7 +209,7 @@ const NotificationAdminScreen = () => {
             return options.find(o => o._id === id)?.nombre || 'Seleccionar';
         }
         if (type === 'role') {
-            const options = [{_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesores'}, {_id: 'admin', nombre: 'Admins'}];
+            const options = [{_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}];
             return options.find(o => o._id === id)?.nombre || 'Seleccionar un rol';
         }
         return 'Seleccionar';

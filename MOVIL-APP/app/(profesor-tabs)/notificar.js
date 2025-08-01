@@ -117,10 +117,6 @@ const NotificationTeacherScreen = () => {
     setLoading(true);
     try {
         const classesRes = await apiClient.get('/classes/profesor/me')
-        
-        // DEBUG 1: Mostrame la respuesta cruda de la API en la consola.
-        console.log("Respuesta de la API de clases:", JSON.stringify(classesRes.data, null, 2));
-
         const teacherClasses = classesRes.data || [];
         setMyClasses(teacherClasses);
 
@@ -133,10 +129,6 @@ const NotificationTeacherScreen = () => {
             });
         });
         const uniqueStudents = Array.from(studentMap.values());
-        
-        // DEBUG 2: Mostrame el array de alumnos que se va a guardar en el estado.
-        console.log("Alumnos únicos procesados:", uniqueStudents);
-        
         setMyStudents(uniqueStudents);
 
     } catch (error) {
@@ -220,7 +212,7 @@ const NotificationTeacherScreen = () => {
 
     const getDisplayName = (id) => {
         if (id === 'class') return 'Clase Específica';
-        if (id === 'user') return 'Alumno Específico';
+        if (id === 'user') return 'Cliente Específico';
         return 'Seleccionar';
     };
 

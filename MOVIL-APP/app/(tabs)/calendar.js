@@ -188,8 +188,11 @@ const CalendarScreen = () => {
                     return cls.fecha.substring(0, 10) === selectedDate;
                 }
                 // Si no, mostramos solo las clases futuras
-                const classDateTime = parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`);
-                return classDateTime.getTime() >= nowTime;
+                const classDate = parseISO(cls.fecha);
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            return classDate.getMonth() === currentMonth && classDate.getFullYear() === currentYear;
             })
             .filter(cls => selectedClassType === 'all' || cls.tipoClase?._id === selectedClassType)
             .map(cls => ({
@@ -302,7 +305,8 @@ const CalendarScreen = () => {
 
     const formattedDateTitle = useMemo(() => {
         if (!selectedDate) {
-            return 'Próximos Turnos'; 
+            const currentMonthName = format(new Date(), 'MMMM', { locale: es });
+            return `Turnos de ${capitalize(currentMonthName)}`; 
         }
         try {
             const date = parseISO(selectedDate);
@@ -411,6 +415,7 @@ const CalendarScreen = () => {
             markedDates={markedDates} 
             markingType={'custom'} 
             theme={calendarTheme} 
+            hideArrows = {true}
         />
         </ThemedView>
     );
