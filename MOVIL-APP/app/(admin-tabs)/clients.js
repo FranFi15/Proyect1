@@ -265,15 +265,22 @@ const ManageClientsScreen = () => {
 
     const findAvailableSlots = async () => {
         const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters;
-        if (!tipoClaseId || diasDeSemana.length === 0 || !fechaInicio || !fechaFin) {
+        if (!tipoClaseId || diasDeSemana.length === 0 || !fechaInicio ) {
             setAlertInfo({ visible: true, title: 'Error', message: 'Completa todos los filtros para buscar horarios.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         setIsLoadingSlots(true);
         try {
-            const response = await apiClient.get('/classes/available-slots', {
-                params: { tipoClaseId, diasDeSemana: diasDeSemana.join(','), fechaInicio, fechaFin }
-            });
+            const params = {
+            tipoClaseId,
+            diasDeSemana: diasDeSemana.join(','),
+            fechaInicio,
+        };
+        if (fechaFin) {
+            params.fechaFin = fechaFin;
+        }
+            const response = await apiClient.get('/classes/available-slots', {params});
+            
             setAvailableSlots(response.data);
             if (response.data.length === 0) {
                 setAlertInfo({ visible: true, title: 'Sin resultados', message: 'No se encontraron horarios disponibles para esa combinación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -293,6 +300,18 @@ const ManageClientsScreen = () => {
         const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters;
         const { horaInicio, horaFin } = selectedSlot;
 
+        const payload = {
+        tipoClaseId,
+        diasDeSemana,
+        fechaInicio,
+        horaInicio,
+        horaFin,
+    };
+
+    if (fechaFin) {
+        payload.fechaFin = fechaFin;
+    }
+
         setAlertInfo({
             visible: true,
             title: "Confirmar Inscripción Masiva",
@@ -303,9 +322,7 @@ const ManageClientsScreen = () => {
                     text: "Inscribir", style: "primary", onPress: async () => {
                         setAlertInfo({ visible: false });
                         try {
-                            await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, {
-                                tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin,
-                            });
+                            await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, payload);
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                             setCreditsModalVisible(false);
                             fetchAllData();

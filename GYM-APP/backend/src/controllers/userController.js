@@ -352,10 +352,15 @@ const triggerMonthlyPaymentNotifications = async (req, res) => {
 
 const subscribeUserToPlan = asyncHandler(async (req, res) => {
     const { Clase, User, TipoClase, Notification } = getModels(req.gymDBConnection);
-    const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin, horaInicio, horaFin } = req.body;
+    const { tipoClaseId, diasDeSemana, fechaInicio, horaInicio, horaFin } = req.body;
+    let { fechaFin } = req.body;
     const userId = req.params.id;
 
-    if (!tipoClaseId || !diasDeSemana || !fechaInicio || !fechaFin || !horaInicio) {
+    if (!fechaFin) {
+        fechaFin = fechaInicio;
+    }
+
+    if (!tipoClaseId || !diasDeSemana || !fechaInicio || !horaInicio) {
         res.status(400);
         throw new Error('Faltan datos para la inscripción al plan.');
     }
@@ -430,7 +435,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     // 4. Notificar al usuario sobre su nuevo plan.
     const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs.`;
+    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${fechaFin}.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
 
     res.status(200).json({

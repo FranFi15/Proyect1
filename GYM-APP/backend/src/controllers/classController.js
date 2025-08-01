@@ -770,9 +770,14 @@ const reactivateClassesByDate = asyncHandler(async (req, res) => {
 // @access  Admin
 const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
-    const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = req.query;
+    const { tipoClaseId, diasDeSemana, fechaInicio } = req.query;
+    let { fechaFin } = req.query;
 
-    if (!tipoClaseId || !diasDeSemana || !fechaInicio || !fechaFin) {
+    if (!fechaFin) {
+        fechaFin = fechaInicio;
+    }
+
+    if (!tipoClaseId || !diasDeSemana || !fechaInicio) {
         res.status(400);
         throw new Error('Faltan parámetros de búsqueda.');
     }
