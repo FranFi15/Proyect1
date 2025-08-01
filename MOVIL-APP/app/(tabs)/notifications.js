@@ -6,8 +6,9 @@ import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons, Octicons } from '@expo/vector-icons';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import { Octicons } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert'; 
+import apiClient from '../../services/apiClient';
 
 const groupNotificationsByDate = (notifs) => {
     const today = new Date();
@@ -65,7 +66,29 @@ const NotificationsScreen = () => {
         }
     }, [user, isRefreshing]);
 
-    useFocusEffect(useCallback(() => { fetchNotifications(); }, [fetchNotifications]));
+    useFocusEffect(
+        useCallback(() => {
+            const markAndRefresh = async () => {
+                // 1. Carga las notificaciones para que el usuario las vea
+                await fetchNotifications(); 
+                
+                try {
+                    // 2. Llama a la API para marcar todas como leídas en la base de datos
+                    await apiClient.put('/notifications/mark-all-read');
+                    
+                    // 3. Llama a refreshUser() para actualizar el estado global del usuario
+                    //    (esto obtendrá el nuevo contador en 0 y ocultará el punto rojo)
+                    await refreshUser();
+                } catch (error) {
+                    console.error("Error al marcar notificaciones como leídas:", error);
+                }
+            };
+
+            if (user) {
+                markAndRefresh();
+            }
+        }, [user]) 
+    );
     
     const onRefresh = useCallback(() => {
         setIsRefreshing(true);

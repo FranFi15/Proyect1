@@ -358,7 +358,7 @@ const CalendarScreen = () => {
                     {isCancelled ? (
                         <Text style={styles.badgeCancelled}>CANCELADO</Text>
                     ) : isFinished ? (
-                        <Text style={styles.badgeFinished}>TERMINADO</Text>
+                        <Text style={styles.badgeFinished}>FINALIZADO</Text>
                     ) : isEnrolled ? (
                         <ActionButton
                             title="Anular Inscripción"

@@ -46,7 +46,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User , Notification } = getModels(req.gymDBConnection);
     // Fetch the user. Ensure 'requestedSpotNotifications' is included.
     // If you use .select(), make sure to include the fields you need,
     // or simply don't use .select() for inclusion if you want all fields by default.
@@ -55,7 +55,10 @@ const getMe = asyncHandler(async (req, res) => {
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
     
     if (user) {
-
+        const unreadNotificationsCount = await Notification.countDocuments({
+            user: user._id,
+            read: false
+        });
         const admin = await User.findOne({ roles: 'admin' });
         const adminPhoneNumber = admin ? admin.numeroTelefono : null;
 
@@ -89,6 +92,7 @@ const getMe = asyncHandler(async (req, res) => {
             updatedAt: user.updatedAt,
             requestedSpotNotifications: user.requestedSpotNotifications || [], 
             adminPhoneNumber: adminPhoneNumber,
+            unreadNotificationsCount: unreadNotificationsCount,
         };
         res.json(userProfile);
     } else {
