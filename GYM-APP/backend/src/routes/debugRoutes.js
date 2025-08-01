@@ -4,6 +4,7 @@ import { generateFutureFixedClasses } from '../controllers/classController.js';
 import { runCreditResetJob } from '../cron/CreditResetJob.js'; 
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js'; 
 import { masterCronJob } from '../cron/monthlyReport.js'; 
+import { runDebtorNotificationJob} from '../cron/debtorBalanceNotifier.js';
 
 const router = express.Router();
 
@@ -61,5 +62,20 @@ router.get('/generate-classes', gymTenantMiddleware, asyncHandler(async (req, re
         res.status(500).json({ message: 'Error al forzar la generación de clases.', error: error.message });
     }
 }));
+
+router.get('/run-debtor-notifications', protectDebugRoute, async (req, res) => {
+    try {
+        console.log('DEBUG: Disparando manualmente el job de notificaciones a deudores...');
+        
+        // Llamamos directamente a la lógica del cron
+        await runDebtorNotificationJob();
+
+        res.status(200).json({ message: 'Proceso de notificación a deudores ejecutado. Revisa los logs del servidor para ver el resultado.' });
+    } catch (error) {
+        console.error('DEBUG: Error al ejecutar el job de notificaciones a deudores:', error);
+        res.status(500).json({ message: 'Error al ejecutar el job.', error: error.message });
+    }
+});
+
 
 export default router;

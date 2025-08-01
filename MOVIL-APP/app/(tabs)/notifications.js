@@ -6,9 +6,60 @@ import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Octicons } from '@expo/vector-icons';
+import { Octicons, Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert'; 
 import apiClient from '../../services/apiClient';
+
+const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
+    let iconName;
+    let baseColor;
+
+    // Colores para los íconos (puedes personalizarlos)
+    const colors = {
+        error: '#dc3545',    
+        success: '#28a745',   
+        warning: '#ffc107',   
+        info: gymColor,       
+    };
+
+    switch (type) {
+        case 'credit_update':
+            iconName = 'coins';
+            baseColor = colors.success;
+            break;
+        case 'monthly_payment_reminder':
+            iconName = 'usd';
+            baseColor = colors.error;
+            break;
+        case 'class_cancellation':
+            iconName = 'calendar-times';
+            baseColor = colors.error;
+            break;
+        case 'class_cancellation_refund':
+            iconName = 'calendar-times';
+            baseColor = colors.error;
+            break;
+        case 'plan_enrollment':
+            iconName = 'user-check';
+            baseColor = colors.warning;
+            break;
+        case 'spot_available':
+            iconName = 'person-running';
+            baseColor = colors.warning;
+            break;
+        case 'waitlist_subscription':
+            iconName = 'hourglass';
+            baseColor = Colors[colorScheme].icon; 
+            break;
+        default:
+            iconName = 'info';
+            baseColor = Colors[colorScheme].icon; // Color neutro por defecto
+            break;
+    }
+
+    return <FontAwesome6 name={iconName} size={size} color={baseColor} />;
+};
+
 
 const groupNotificationsByDate = (notifs) => {
     const today = new Date();
@@ -152,6 +203,9 @@ const NotificationsScreen = () => {
     const renderItem = ({ item }) => {
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
+                <View style={styles.iconContainer}>
+                <NotificationIcon type={item.type} size={24} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme}/>
+                </View>
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
                     <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
@@ -223,6 +277,11 @@ const getStyles = (colorScheme, gymColor) => {
     notificationTime: { fontSize: 12, opacity: 0.6, marginTop: 8, alignSelf: 'flex-end' },
     deleteButton: { padding: 10, marginLeft: 10 },
     errorText: { color: Colors.light.error },
+    iconContainer: {
+            marginRight: 15,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
 });}
 
 export default NotificationsScreen;

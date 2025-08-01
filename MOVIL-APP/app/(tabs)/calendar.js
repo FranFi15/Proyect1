@@ -371,7 +371,7 @@ const CalendarScreen = () => {
                             <ActionButton
                                 title="En lista de espera"
                                 onPress={() => handleUnsubscribe(item._id)}
-                                iconName="check-circle"
+                                iconName="user-clock"
                                 color="#f0ad4e" 
                             />
                         ) : (
