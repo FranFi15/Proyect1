@@ -19,7 +19,7 @@ const getAllActiveClientIds = async () => {
         // ASUMO que tienes un endpoint como este en tu panel de admin para obtener todos los IDs.
         // Si la ruta es diferente, ajústala aquí.
         const response = await axios.get(`${adminApiUrl}/api/clients/all-active-ids`, {
-            headers: { 'internal-admin-api-key': internalApiKey }
+            headers: { 'x-internal-api-key': internalApiKey }
         });
 
         // ASUMO que la respuesta es un array de strings, ej: ['gym1', 'gym2', ...]
