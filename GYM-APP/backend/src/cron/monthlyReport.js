@@ -172,4 +172,4 @@ const scheduleMonthlyCleanup = () => {
     });
 };
 
-export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob };
+export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob, getAllActiveClients };

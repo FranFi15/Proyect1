@@ -10,7 +10,7 @@ dotenv.config({ path: '../.env' }); // Adjust path if .env is not in the root of
 const ADMIN_PANEL_API_URL = process.env.ADMIN_PANEL_API_URL;
 const INTERNAL_ADMIN_API_KEY = process.env.INTERNAL_ADMIN_API_KEY;
 
-export const scheduleMonthlyClassGeneration = () => {
+const scheduleMonthlyClassGeneration = () => {
     
 
     // Cron schedule: '0 2 1 * *' means at 02:00 (2 AM) on day 1 of every month.
@@ -59,3 +59,5 @@ export const scheduleMonthlyClassGeneration = () => {
         timezone: "America/Argentina/Buenos_Aires" 
     });
 };
+
+export { scheduleMonthlyClassGeneration }; // Export the function to be used in other parts of the application

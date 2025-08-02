@@ -9,7 +9,7 @@ dotenv.config({ path: '../.env' });
 const SUPER_ADMIN_API_URL = process.env.ADMIN_PANEL_API_URL;
 const INTERNAL_ADMIN_API_KEY = process.env.INTERNAL_ADMIN_API_KEY;
 
-export const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
+const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
     try {
         const { User, TipoClase } = getModels(gymDBConnection);
 
@@ -76,7 +76,7 @@ export const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
 
 
 
-export const runCreditResetJob = async () => {
+const runCreditResetJob = async () => {
     if (!SUPER_ADMIN_API_URL || !INTERNAL_ADMIN_API_KEY) {
         console.error('[Cron Job: Monthly Credit Reset] Error: Variables de entorno no configuradas. El cron job no se ejecutará.');
         return;
@@ -111,8 +111,10 @@ export const runCreditResetJob = async () => {
 };
 
 // --- La función scheduleMonthlyCreditReset ahora llama a la nueva función exportable ---
-export const scheduleMonthlyCreditReset = () => {
+const scheduleMonthlyCreditReset = () => {
     cron.schedule('0 0 1 * *', runCreditResetJob, { // Ahora llama a la función runCreditResetJob
         timezone: "America/Argentina/Buenos_Aires"
     });
 };
+
+export { scheduleMonthlyCreditReset, runCreditResetJob, resetCreditsForCurrentGym };
