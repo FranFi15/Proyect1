@@ -3,6 +3,7 @@ import axios from 'axios';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 import { sendExpoPushNotification } from '../utils/notificationSender.js';
+import { sendSingleNotification } from '../controllers/notificationController.js';
 
 const getAllActiveClientIds = async () => {
     try {
@@ -41,7 +42,7 @@ const runDebtorNotificationJob = async () => {
     for (const client of clients) {
         try {
             const tenantConnection = await connectToGymDB(client.clientId);
-            const { User } = getModels(tenantConnection);
+            const { User, Notification } = getModels(tenantConnection);
             const fiveDaysAgo = new Date();
             fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
@@ -61,7 +62,16 @@ const runDebtorNotificationJob = async () => {
                     const debtAmount = Math.abs(user.balance);
                     const message = `Hola ${user.nombre}, te recordamos que tienes un saldo pendiente de $${debtAmount.toFixed(2)}.`;
                     
-                    await sendExpoPushNotification(user.pushToken, title, message);
+                    await sendSingleNotification(
+                        Notification, 
+                        User, 
+                        user._id, 
+                        title, 
+                        message, 
+                        'debt_reminder',
+                        true, 
+                        null 
+                    );
                     user.lastBalanceNotificationDate = new Date();
                     await user.save();
                     console.log(`CRON JOB: [${client.clientId}] Notificación de deuda enviada a ${user.email}`);

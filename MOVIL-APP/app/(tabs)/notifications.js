@@ -27,7 +27,7 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'coins';
             baseColor = colors.success;
             break;
-        case 'monthly_payment_reminder':
+        case 'debt_reminder':
             iconName = 'usd';
             baseColor = colors.error;
             break;
