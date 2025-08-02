@@ -1,11 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
+import { sendSingleNotification } from './notificationController.js';
 
 // @desc    Crear una nueva transacción (cargo o pago)
 // @route   POST /api/transactions
 // @access  Private/Admin
 const createTransaction = asyncHandler(async (req, res) => {
-    const { Transaction, User } = getModels(req.gymDBConnection);
+    const { Transaction, User, Notification } = getModels(req.gymDBConnection);
     const { userId, type, amount, description } = req.body;
 
     if (!userId || !type || !amount || !description) {
@@ -25,9 +26,7 @@ const createTransaction = asyncHandler(async (req, res) => {
         throw new Error('El monto debe ser un número positivo.');
     }
 
-    // --- LÓGICA DE SALDO CORREGIDA ---
-    // Un 'charge' (cargo) es negativo para el balance (aumenta la deuda).
-    // Un 'payment' (pago) es positivo para el balance (reduce la deuda).
+   
     const amountToUpdate = type === 'charge' ? -numericAmount : numericAmount;
     user.balance += amountToUpdate;
 
@@ -40,6 +39,28 @@ const createTransaction = asyncHandler(async (req, res) => {
     });
     
     await user.save();
+
+     try {
+        const title = type === 'payment' ? 'Pago Registrado' : 'Nuevo Cargo en tu Cuenta';
+        const message = type === 'payment' 
+            ? `Se registró un pago de $${numericAmount.toFixed(2)} por "${description}". Tu nuevo saldo es $${user.balance.toFixed(2)}.`
+            : `Se añadió un cargo de $${numericAmount.toFixed(2)} por "${description}". Tu nuevo saldo es $${user.balance.toFixed(2)}.`;
+        
+        const notificationType = type === 'payment' ? 'transaction_payment' : 'transaction_charge';
+        
+        await sendSingleNotification(
+            Notification,
+            User,
+            userId,
+            title,
+            message,
+            notificationType,
+            true, 
+            null
+        );
+    } catch (notificationError) {
+        console.error(`Transacción ${transaction._id} creada, pero falló el envío de la notificación:`, notificationError);
+    }
 
     res.status(201).json({
         message: 'Transacción creada exitosamente.',

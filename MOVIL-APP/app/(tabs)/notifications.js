@@ -25,10 +25,10 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
     switch (type) {
         case 'credit_update':
             iconName = 'coins';
-            baseColor = colors.success;
+            baseColor = colors.warning;
             break;
         case 'debt_reminder':
-            iconName = 'usd';
+            iconName = 'credit-card';
             baseColor = colors.error;
             break;
         case 'class_cancellation':
@@ -41,7 +41,7 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             break;
         case 'plan_enrollment':
             iconName = 'user-check';
-            baseColor = colors.warning;
+            baseColor = colors.success;
             break;
         case 'spot_available':
             iconName = 'person-running';
