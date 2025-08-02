@@ -12,6 +12,9 @@ const getAllActiveClientIds = async () => {
 
         const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY;
         if (!internalApiKey) throw new Error('INTERNAL_ADMIN_API_KEY no está configurada.');
+
+        console.log(`DEBUG: Conectando a Admin Panel URL: ${adminApiUrl}`);
+        console.log(`DEBUG: Usando API Key que termina en: ${internalApiKey?.slice(-4)}`);
         
         // ASUMO que tienes un endpoint como este en tu panel de admin para obtener todos los IDs.
         // Si la ruta es diferente, ajústala aquí.
