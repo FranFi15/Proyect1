@@ -23,7 +23,7 @@ const getDbConnectionString = async (clientId) => {
             `${adminApiUrl}/api/clients/${clientId}/internal-db-info`,
             {
                 headers: {
-                    'x-internal-admin-api-key': internalApiKey
+                    'x-internal-api-key': internalApiKey
                 }
             }
         );
