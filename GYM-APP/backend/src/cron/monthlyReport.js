@@ -20,7 +20,7 @@ const getAllActiveClients = async () => {
         }
 
         const response = await axios.get(`${adminApiUrl}/api/clients/internal/all-clients`, {
-            headers: { 'x-internal-api-key': internalApiKey }
+            headers: { 'Authorization': `Bearer ${internalApiKey}` }
         });
 
         if (!response.data || !Array.isArray(response.data)) {

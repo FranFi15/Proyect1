@@ -83,7 +83,7 @@ export const runCreditResetJob = async () => {
     }
     try {
         const response = await fetch(`${SUPER_ADMIN_API_URL}/clients/internal/all-clients`, {
-            headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
+            'Authorization': `Bearer ${INTERNAL_ADMIN_API_KEY}`
         });
         const clients = await response.json();
         if (!response.ok) {
