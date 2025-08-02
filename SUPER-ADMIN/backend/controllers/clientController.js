@@ -146,12 +146,6 @@ const getClientDbInfo = asyncHandler(async (req, res) => {
 
 
 const getAllInternalClients = asyncHandler(async (req, res) => {
-    const internalApiKey = req.headers['x-internal-api-key'];
-    if (internalApiKey !== process.env.INTERNAL_ADMIN_API_KEY) {
-        console.warn('[Admin Panel - Internal Clients] Acceso no autorizado: Clave API interna no coincide.');
-        res.status(403);
-        throw new Error('Clave API interna no autorizada.');
-    }
 
     try {
         const clients = await Client.find({}); // Obtiene todos los clientes
