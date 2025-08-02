@@ -100,7 +100,7 @@ const updateClientStatus = asyncHandler(async (req, res) => {
 
     // CORRECCIÓN: Se busca por _id en lugar de por clientId.
     const client = await Client.findByIdAndUpdate(
-        {clientId: clientId},
+        clientId,
         { estadoSuscripcion: estado },
         { new: true, runValidators: true }
     );
@@ -130,7 +130,7 @@ const getClientDbInfo = asyncHandler(async (req, res) => {
     }
 
     // CORRECCIÓN: Se busca por _id y luego se compara la clave secreta.
-    const client = await Client.findById({clientId: clientId});
+    const client = await Client.findById(clientId);
 
     if (!client || client.apiSecretKey !== apiSecretKey) {
         res.status(404);
@@ -217,7 +217,7 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
     const { clientId } = req.params; // Este 'clientId' contiene el _id de MongoDB.
     
     // CORRECCIÓN: Se usa findById para buscar por el _id de MongoDB.
-    const client = await Client.findById({clientId: clientId});
+    const client = await Client.findById(clientId);
 
     if (!client) {
         res.status(404);
