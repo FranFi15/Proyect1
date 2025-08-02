@@ -4,6 +4,7 @@ import { generateFutureFixedClasses } from '../controllers/classController.js';
 import { runCreditResetJob } from '../cron/CreditResetJob.js'; 
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js'; 
 import { masterCronJob } from '../cron/monthlyReport.js'; 
+import { runDebtorNotificationJob } from '../cron/debtorBalanceNotifier.js';
 
 const router = express.Router();
 
