@@ -26,7 +26,7 @@ export const scheduleMonthlyClassGeneration = () => {
             
             const response = await fetch(`${ADMIN_PANEL_API_URL}/clients/internal/all-clients`, { // Adjust path if needed
                 headers: {
-                    'Authorization': `Bearer ${INTERNAL_ADMIN_API_KEY}`,
+                    'x-internal-api-key': INTERNAL_ADMIN_API_KEY,
                 },
             });
             const clients = await response.json();
