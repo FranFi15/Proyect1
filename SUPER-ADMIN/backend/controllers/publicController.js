@@ -22,7 +22,7 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
 
     if (gym) {
         res.status(200).json({ 
-            clientId: gym._id,
+            clientId: gym.clientId,
             gymName: gym.nombre,
             logoUrl: gym.logoUrl,
             primaryColor: gym.primaryColor 
