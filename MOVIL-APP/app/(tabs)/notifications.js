@@ -16,9 +16,9 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
 
     // Colores para los íconos (puedes personalizarlos)
     const colors = {
-        error: '#dc3545',    
-        success: '#28a745',   
-        warning: '#ffc107',   
+        error: '#c50216ff',    
+        success: '#008a20ff',   
+        warning: '#ffbf00ff',   
         info: gymColor,       
     };
 
@@ -29,7 +29,15 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             break;
         case 'debt_reminder':
             iconName = 'credit-card';
-            baseColor = colors.error;
+            baseColor = Colors[colorScheme].icon;
+            break;
+            case 'transaction_payment':
+            iconName = 'money-bill-wave';
+            baseColor = colors.success;
+            break;
+            case 'transaction_charge':
+            iconName = 'money-bill-wave';
+            baseColor = Colors[colorScheme].icon;
             break;
         case 'class_cancellation':
             iconName = 'calendar-times';

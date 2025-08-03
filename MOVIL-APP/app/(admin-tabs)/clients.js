@@ -12,8 +12,10 @@ import {
     ScrollView,
     Switch,
     Button,
-    Platform // Asegúrate de que Platform está importado
+    Platform,
+    Modal // 💡 PASO 1: Importa Modal de React Native
 } from 'react-native';
+// ... el resto de tus imports ...
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -21,21 +23,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons } from '@expo/vector-icons';
-
-// Importa el picker nativo
 import DateTimePicker from '@react-native-community/datetimepicker';
-
-// 💡 PASO 1: Importa el picker para la web y sus estilos
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isAfter } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 
+
 const ManageClientsScreen = () => {
-    // ... (todo tu estado y hooks existentes se mantienen igual) ...
+    // ... (la mayoría de tu estado se mantiene igual) ...
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,28 +42,24 @@ const ManageClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    const [alertInfo, setAlertInfo] = useState({
-        visible: false,
-        title: '',
-        message: '',
-        buttons: []
-    });
-
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [selectedClient, setSelectedClient] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
-
-
     const [planData, setPlanData] = useState({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' });
     const [massEnrollFilters, setMassEnrollFilters] = useState({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-    const [showMassEnrollDatePicker, setShowMassEnrollDatePicker] = useState(false);
-    const [datePickerField, setDatePickerField] = useState(null);
-
+    
+    // 💡 PASO 2: Centraliza el estado del DatePicker en un objeto.
+    const [datePickerConfig, setDatePickerConfig] = useState({
+        visible: false,
+        field: null, // 'fechaInicio' o 'fechaFin'
+        currentValue: new Date(),
+    });
 
     const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
     const [newClientDay, setNewClientDay] = useState('');
@@ -80,7 +74,8 @@ const ManageClientsScreen = () => {
 
     const [activeModal, setActiveModal] = useState(null);
 
-    // ... (todas tus funciones fetchAllData, handle*, etc., se mantienen igual) ...
+
+    // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
@@ -343,27 +338,6 @@ const ManageClientsScreen = () => {
         setMassEnrollFilters(prev => ({ ...prev, diasDeSemana: newDays }));
     };
 
-    const showDatePickerFor = (field) => {
-        setDatePickerField(field);
-        setShowMassEnrollDatePicker(true);
-    };
-
-    // 💡 PASO 2: Modifica tu manejador de fecha para que funcione en ambas plataformas
-    const handleDateChangeForMassEnroll = (eventOrDate, selectedDate) => {
-        // En web, 'eventOrDate' es directamente el objeto Date.
-        // En nativo, el primer argumento es 'event' y el segundo 'selectedDate'.
-        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
-
-        // Ocultamos el picker
-        setShowMassEnrollDatePicker(Platform.OS === 'ios'); // En iOS se mantiene abierto, en Android y web se cierra
-
-        if (currentDate) {
-            const formattedDate = format(currentDate, 'yyyy-MM-dd');
-            setMassEnrollFilters(prev => ({ ...prev, [datePickerField]: formattedDate }));
-        }
-    };
-
-
     const handleNewClientChange = (name, value) => {
         setNewClientData(prev => ({ ...prev, [name]: value }));
     };
@@ -500,6 +474,91 @@ const ManageClientsScreen = () => {
         return classType?.nombre || 'Desconocido';
     };
 
+    const showDatePickerFor = (field) => {
+        let initialDate = new Date();
+        let minDate;
+
+        if (field === 'fechaFin' && massEnrollFilters.fechaInicio) {
+            const startDate = parseISO(massEnrollFilters.fechaInicio);
+            minDate = startDate;
+            initialDate = (massEnrollFilters.fechaFin && isAfter(parseISO(massEnrollFilters.fechaFin), startDate))
+                ? parseISO(massEnrollFilters.fechaFin)
+                : startDate;
+        } else if (massEnrollFilters[field]) {
+            initialDate = parseISO(massEnrollFilters[field]);
+        }
+
+        setDatePickerConfig({
+            visible: true,
+            field: field,
+            currentValue: initialDate,
+            minimumDate: minDate,
+        });
+    };
+
+    const handleDateChange = (event, selectedDate) => {
+        if (Platform.OS === 'android') {
+            setDatePickerConfig(prev => ({ ...prev, visible: false }));
+        }
+        if (event.type === 'dismissed') {
+            if (Platform.OS === 'ios') setDatePickerConfig(prev => ({...prev, visible: false}));
+            return;
+        }
+
+        const newDate = selectedDate || datePickerConfig.currentValue;
+
+        if (Platform.OS === 'ios') {
+            setDatePickerConfig(prev => ({ ...prev, currentValue: newDate }));
+            return;
+        }
+        
+        const formattedDate = format(newDate, 'yyyy-MM-dd');
+        setMassEnrollFilters(prev => ({ ...prev, [datePickerConfig.field]: formattedDate }));
+    };
+    
+    const confirmIosDate = () => {
+        const { field, currentValue } = datePickerConfig;
+        const formattedDate = format(currentValue, 'yyyy-MM-dd');
+        setMassEnrollFilters(prev => ({ ...prev, [field]: formattedDate }));
+        setDatePickerConfig({ visible: false, field: null, currentValue: new Date(), minimumDate: undefined });
+    };
+
+    const renderDateField = (field) => {
+        const value = massEnrollFilters[field];
+
+        if (Platform.OS === 'web') {
+            const startDate = massEnrollFilters.fechaInicio ? parseISO(massEnrollFilters.fechaInicio) : null;
+            
+            return (
+                <DatePicker
+                    selected={value ? parseISO(value) : null}
+                    onChange={(date) => {
+                        if (date) {
+                            setMassEnrollFilters(prev => ({ ...prev, [field]: format(date, 'yyyy-MM-dd') }));
+                        }
+                    }}
+                    minDate={field === 'fechaFin' ? startDate : null}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="YYYY-MM-DD"
+                    customInput={
+                        <View style={styles.dateInputTouchable}>
+                            <Text style={styles.dateInputText}>{value || 'Seleccionar fecha'}</Text>
+                        </View>
+                    }
+                />
+            );
+        }
+
+        return (
+            <Pressable onPress={() => showDatePickerFor(field)}>
+                <View style={styles.dateInputTouchable}>
+                    <Text style={styles.dateInputText}>{value || 'Seleccionar fecha'}</Text>
+                </View>
+            </Pressable>
+        );
+    };
+
+
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
 
@@ -551,45 +610,10 @@ const ManageClientsScreen = () => {
         );
     };
 
+
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
-
-    // 💡 PASO 3: Crea un componente reutilizable para el selector de fecha
-    const renderDatePicker = (field, value) => {
-        if (Platform.OS === 'web') {
-            const dateValue = value ? new Date(value + 'T00:00:00') : null; // Ajuste para que la fecha no se corra
-            return (
-                <DatePicker
-                    selected={dateValue}
-                    onChange={(date) => handleDateChangeForMassEnroll(date, null)}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="YYYY-MM-DD"
-                    customInput={<TouchableOpacity style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{value || 'YYYY-MM-DD'}</Text></TouchableOpacity>}
-                />
-            );
-        }
-
-        // Lógica nativa (iOS/Android)
-        return (
-            <>
-                <TouchableOpacity onPress={() => showDatePickerFor(field)}>
-                    <View style={styles.dateInputTouchable}>
-                        <Text style={styles.dateInputText}>{value || 'YYYY-MM-DD'}</Text>
-                    </View>
-                </TouchableOpacity>
-                {showMassEnrollDatePicker && datePickerField === field && (
-                    <DateTimePicker
-                        value={value ? new Date(value + 'T00:00:00') : new Date()}
-                        mode="date"
-                        display="default"
-                        onChange={handleDateChangeForMassEnroll}
-                    />
-                )}
-            </>
-        );
-    };
-
 
     return (
         <ThemedView style={styles.container}>
@@ -611,6 +635,7 @@ const ManageClientsScreen = () => {
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
 
+            {/* ... Tus modales de 'Add', 'Edit', 'Billing', etc. se mantienen igual ... */}
             {showAddFormModal && (
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddFormModal(false)}>
                     <Pressable style={styles.modalView}>
@@ -719,6 +744,7 @@ const ManageClientsScreen = () => {
                 </Pressable>
             )}
 
+            {/* Este es el modal principal que se modifica */}
             {creditsModalVisible && (
                 <Pressable style={styles.modalOverlay} onPress={() => setCreditsModalVisible(false)}>
                     <Pressable style={styles.modalView}>
@@ -726,6 +752,7 @@ const ManageClientsScreen = () => {
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
+                            {/* ... (el contenido del modal se mantiene, pero la lógica del date picker cambia) */}
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Planes Actuales</ThemedText>
@@ -781,45 +808,21 @@ const ManageClientsScreen = () => {
                                     ))}
                                 </View>
 
-                                 <ThemedText style={styles.inputLabel}>Desde</ThemedText>
-                                {Platform.OS === 'web' ? (
-                                    <DatePicker
-                                        selected={massEnrollFilters.fechaInicio ? parseISO(massEnrollFilters.fechaInicio) : null}
-                                        onChange={(date) => setMassEnrollFilters(prev => ({ ...prev, fechaInicio: format(date, 'yyyy-MM-dd') }))}
-                                        dateFormat="yyyy-MM-dd"
-                                        customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>}
-                                    />
-                                ) : (
-                                    <TouchableOpacity onPress={() => showDatePickerFor('fechaInicio')}>
-                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaInicio || 'YYYY-MM-DD'}</Text></View>
-                                    </TouchableOpacity>
-                                )}
-
-                                <ThemedText style={styles.inputLabel}>Hasta</ThemedText>
-                                {Platform.OS === 'web' ? (
-                                    <DatePicker
-                                        selected={massEnrollFilters.fechaFin ? parseISO(massEnrollFilters.fechaFin) : null}
-                                        onChange={(date) => setMassEnrollFilters(prev => ({ ...prev, fechaFin: format(date, 'yyyy-MM-dd') }))}
-                                        dateFormat="yyyy-MM-dd"
-                                        customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>}
-                                    />
-                                ) : (
-                                    <TouchableOpacity onPress={() => showDatePickerFor('fechaFin')}>
-                                        <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{massEnrollFilters.fechaFin || 'YYYY-MM-DD'}</Text></View>
-                                    </TouchableOpacity>
-                                )}
-
-                                {Platform.OS !== 'web' && showMassEnrollDatePicker && (
-                                    <DateTimePicker
-                                        value={new Date()}
-                                        mode="date"
-                                        display="default"
-                                        onChange={handleDateChangeForMassEnroll}
-                                        themeVariant={colorScheme}
-                                    />
-                                )}
+                                <ThemedText style={styles.inputLabel}>Desde</ThemedText>
+                                {renderDateField('fechaInicio')}
                                 
-                                <View style={styles.buttonWrapper}><Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} /></View>
+                                <ThemedText style={styles.inputLabel}>Hasta (Opcional)</ThemedText>
+                                {renderDateField('fechaFin')}
+                                
+                                <View style={styles.buttonWrapper}>
+                                    <Button 
+                                        title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} 
+                                        onPress={findAvailableSlots} 
+                                        disabled={isLoadingSlots} 
+                                        color={gymColor || '#1a5276'} 
+                                    />
+                                </View>
+                                
                                 {availableSlots.length > 0 && (
                                     <View style={{ marginTop: 20 }}>
                                         <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
@@ -828,7 +831,9 @@ const ManageClientsScreen = () => {
                                                 <Text style={selectedSlot?.horaInicio === slot.horaInicio ? styles.slotTextSelected : styles.slotText}>{slot.horaInicio} - {slot.horaFin}</Text>
                                             </TouchableOpacity>
                                         ))}
-                                        <View style={styles.buttonWrapper}><Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} /></View>
+                                        <View style={styles.buttonWrapper}>
+                                            <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
+                                        </View>
                                     </View>
                                 )}
                             </View>
@@ -837,37 +842,81 @@ const ManageClientsScreen = () => {
                 </Pressable>
             )}
 
-            {getModalConfig && (
-                <FilterModal
-                    visible={!!activeModal}
-                    onClose={() => setActiveModal(null)}
-                    onSelect={(id) => {
-                        getModalConfig.onSelect(id);
-                        setActiveModal(null);
-                    }}
-                    title={getModalConfig.title}
-                    options={getModalConfig.options}
-                    selectedValue={getModalConfig.selectedValue}
-                    theme={{ colors: Colors[colorScheme], gymColor }}
-                />
+            {datePickerConfig.visible && Platform.OS !== 'web' && (
+                <>
+                    {Platform.OS === 'android' && (
+                        <DateTimePicker
+                            value={datePickerConfig.currentValue}
+                            mode="date"
+                            display="default"
+                            minimumDate={datePickerConfig.minimumDate}
+                            onChange={handleDateChange}
+                        />
+                    )}
+                    {Platform.OS === 'ios' && (
+                        <Modal transparent={true} animationType="slide" visible={datePickerConfig.visible}>
+                            <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(p => ({...p, visible: false}))}>
+                                <Pressable style={styles.iosPickerContainer} onPress={() => {}}>
+                                    <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="inline" minimumDate={datePickerConfig.minimumDate} onChange={handleDateChange} themeVariant={colorScheme} />
+                                    <Button title="Confirmar" onPress={confirmIosDate} color={gymColor} />
+                                </Pressable>
+                            </Pressable>
+                        </Modal>
+                    )}
+                </>
             )}
-            <CustomAlert
-                visible={alertInfo.visible}
-                title={alertInfo.title}
-                message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor}
-            />
+
+            {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
+            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
         </ThemedView>
     );
 }
 
-// ... (tus estilos `getStyles` se mantienen igual) ...
+// 💡 PASO 5: Añade los estilos para el modal del picker en iOS
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    // ... (todos tus estilos existentes)
+    dateInputTouchable: {
+        height: 45,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        marginBottom: 15,
+        justifyContent: 'center',
+    },
+    dateInputText: {
+        fontSize: 14,
+        color: Colors[colorScheme].text,
+    },
+    // NUEVOS ESTILOS PARA EL PICKER DE IOS
+    iosPickerOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    iosPickerContainer: {
+        backgroundColor: Colors[colorScheme].background,
+        borderTopRightRadius: 20,
+        borderTopLeftRadius: 20,
+        padding: 20,
+        height: '50%',
+        justifyContent: 'space-evenly',
+        alignItems: 'center',
+    },
+    // ... (el resto de tus estilos)
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
+    searchInput: { 
+        height: 50, 
+        borderColor: Colors[colorScheme].border, 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        paddingHorizontal: 15, 
+        margin: 15, 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        color: Colors[colorScheme].text, 
+        fontSize: 16 
+    },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, },
     userInfo: { flex: 1, marginRight: 10 },
@@ -907,12 +956,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
-    dateInputTouchable: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, justifyContent: 'center', },
-    dateInputText: { fontSize: 14, color: Colors[colorScheme].text, },
     switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 10, },
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
     filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
+
 });
 
 export default ManageClientsScreen;

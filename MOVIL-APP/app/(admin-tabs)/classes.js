@@ -1144,7 +1144,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
     dayActions: { marginTop: 20, width: '100%', gap: 15 },
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10 },
-    filterButton: { width: '100%', alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, marginTop: 10 },
+    filterButton:{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        height: 50, 
+        borderColor: Colors[colorScheme].border, 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        paddingHorizontal: 15, 
+        margin: 15, 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        color: Colors[colorScheme].text, 
+        fontSize: 16 
+    },
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
 });
