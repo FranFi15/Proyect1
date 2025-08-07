@@ -2,55 +2,38 @@ import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
 const ClientSchema = new mongoose.Schema({
-    nombre: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    // Este campo es clave para que el frontend pueda encontrar el gym por la URL
-    urlIdentifier: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        lowercase: true,
-    },
-    emailContacto: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        lowercase: true,
-        match: [/.+@.+\..+/, 'Por favor, usa un email válido'] 
-    },
-    clientId: { 
-        type: String,
-        unique: true,
-        default: uuidv4 
-    },
-    apiSecretKey: { 
-        type: String,
-        required: true,
-        unique: true,
-        default: () => uuidv4().replace(/-/g, '') + Date.now().toString(36)
-    },
-    estadoSuscripcion: {
-        type: String,
-        enum: ['activo', 'inactivo', 'periodo_prueba'], 
-        default: 'periodo_prueba' 
-    },
-    logoUrl: { 
-        type: String,
-        default: '' 
-    },
-    primaryColor: {
-        type: String,
-        default: '#150224' 
-    },
-    fechaInicioSuscripcion: { type: Date, default: Date.now },
-    fechaVencimientoSuscripcion: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+    nombre: { type: String, required: true, trim: true },
+    urlIdentifier: { type: String, required: true, unique: true, trim: true, lowercase: true },
+    emailContacto: { type: String, required: true, unique: true, trim: true, lowercase: true, match: [/.+@.+\..+/, 'Por favor, usa un email válido'] },
+    clientId: { type: String, unique: true, default: uuidv4 },
+    apiSecretKey: { type: String, required: true, unique: true, default: () => uuidv4().replace(/-/g, '') + Date.now().toString(36) },
+    estadoSuscripcion: { type: String, enum: ['activo', 'inactivo', 'periodo_prueba'], default: 'periodo_prueba' },
+    logoUrl: { type: String, default: '' },
+    primaryColor: { type: String, default: '#150224' },
     connectionStringDB: { type: String, required: true, unique: true },
-    createdAt: { type: Date, default: Date.now }
+
+    // --- NUEVOS CAMPOS PARA PRECIOS Y LÍMITES INDIVIDUALES ---
+    clientLimit: {
+        type: Number,
+        required: true,
+        default: 100, // Límite de clientes por defecto para un nuevo gimnasio
+    },
+    clientCount: {
+        type: Number,
+        required: true,
+        default: 0, // Contador de clientes actuales, se actualizará desde GYM-APP
+    },
+    basePrice: {
+        type: Number,
+        required: true,
+        default: 40000, // Precio base por defecto en ARS
+    },
+    pricePerBlock: {
+        type: Number,
+        required: true,
+        default: 15000, // Precio por cada bloque de clientes adicional
+    },
+
 }, { timestamps: true });
 
 const Client = mongoose.model('Client', ClientSchema);
