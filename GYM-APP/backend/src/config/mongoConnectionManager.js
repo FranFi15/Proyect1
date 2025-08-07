@@ -7,38 +7,34 @@ import getModels from '../utils/getModels.js';
 
 const activeConnections = new Map();
 
-const getDbConnectionString = async (clientId) => {
+const getDbConfig = async (clientId) => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
-        if (!adminApiUrl) {
-            throw new Error('La URL del ADMIN_PANEL_API_URL no está configurada en el .env');
-        }
+        const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY; // Your GYM-APP needs its own secret key
 
-        const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY;
-        if (!internalApiKey) {
-            throw new Error('La clave INTERNAL_ADMIN_API_KEY no está configurada en el .env');
+        if (!adminApiUrl || !internalApiKey) {
+            throw new Error('La configuración de la API del Super Admin no está completa en el .env');
         }
 
         const response = await axios.get(
             `${adminApiUrl}/api/clients/${clientId}/internal-db-info`,
             {
-                headers: {
-                    'x-internal-api-key': internalApiKey
-                }
+                headers: { 'x-internal-api-key': internalApiKey }
             }
         );
         
-        const { connectionStringDB, estadoSuscripcion } = response.data;
+        const { connectionStringDB, estadoSuscripcion, _id, apiSecretKey } = response.data;
 
         if (estadoSuscripcion !== 'activo' && estadoSuscripcion !== 'periodo_prueba') {
             throw new Error(`Suscripción inactiva o vencida (${estadoSuscripcion}). Acceso denegado.`);
         }
 
-        if (!connectionStringDB) {
-            throw new Error('La respuesta del SUPER-ADMIN no contenía una cadena de conexión.');
+        if (!connectionStringDB || !_id || !apiSecretKey) {
+            throw new Error('La respuesta del SUPER-ADMIN no contenía la configuración completa.');
         }
 
-        return connectionStringDB;
+        // Return all necessary data
+        return { connectionStringDB, superAdminId: _id, apiSecretKey };
 
     } catch (error) {
         console.error(`Error al obtener la cadena de conexión para ${clientId}:`, error.response ? error.response.data : error.message);
@@ -51,22 +47,28 @@ const getDbConnectionString = async (clientId) => {
 
 const connectToGymDB = async (clientId) => {
     if (activeConnections.has(clientId)) {
-        console.log(`🔌 Reutilizando conexión existente para el cliente: ${clientId}`);
+        console.log(`🔌 Reutilizando conexión para: ${clientId}`);
         return activeConnections.get(clientId);
     }
 
-    const connectionString = await getDbConnectionString(clientId);
+    // --- MODIFIED: Get the full config object ---
+    const { connectionStringDB, superAdminId, apiSecretKey } = await getDbConfig(clientId);
 
     try {
-        console.log(`✨ Creando nueva conexión para el cliente: ${clientId}`);
+        console.log(`✨ Creando nueva conexión para: ${clientId}`);
         const newConnection = await mongoose.createConnection(connectionString).asPromise();
-
-        // --- CORRECCIÓN FINAL: Se delega el registro de todos los modelos a tu utilidad ---
+        
         getModels(newConnection);
         
-        activeConnections.set(clientId, newConnection);
+        const connectionData = {
+            connection: newConnection,
+            superAdminId: superAdminId,
+            apiSecretKey: apiSecretKey
+        };
 
-        return newConnection;
+        activeConnections.set(clientId, connectionData);
+
+        return connectionData;
 
     } catch (error) {
         console.error(`Error al crear la conexión de Mongoose para ${clientId}:`, error);

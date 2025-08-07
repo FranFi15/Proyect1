@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import generateToken from '../utils/generateToken.js';
 import { calculateAge } from '../utils/ageUtils.js';
 import getModels from '../utils/getModels.js';
+import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClient.js';
 
 const registerUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
@@ -18,12 +19,17 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Ya existe un usuario con este email.');
     }
     
-    // --- LÓGICA MODIFICADA ---
-    // 1. Contamos cuántos usuarios existen en la base de datos de este gimnasio.
     const userCount = await User.countDocuments();
 
-    // 2. Si no hay usuarios (count es 0), el rol será 'admin'. De lo contrario, será 'cliente'.
     const roles = userCount === 0 ? ['admin'] : ['cliente'];
+
+    if (roles.includes('cliente')) {
+        const hasSpace = await checkClientLimit(req.superAdminId, req.apiSecretKey);
+        if (!hasSpace) {
+            res.status(403); 
+            throw new Error('El gimnasio ha alcanzado el límite de socios activos. Por favor, contacta al administrador.');
+        }
+    }
     
     const userData = { 
         nombre, 
@@ -36,13 +42,17 @@ const registerUser = asyncHandler(async (req, res) => {
         direccion: direccion || '', 
         numeroTelefono: numeroTelefono || '', 
         obraSocial: obraSocial || '', 
-        roles: roles, // 3. Asignamos el rol determinado dinámicamente.
+        roles: roles, 
         sexo: sexo || 'Otro' 
     };
     
     const user = await User.create(userData);
 
     if (user) {
+        if (user.roles.includes('cliente')) {
+            updateClientCount(req.superAdminId, req.apiSecretKey, 'increment');
+        }
+
         res.status(201).json({
             _id: user._id, 
             nombre: user.nombre, 
@@ -54,6 +64,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Datos de usuario inválidos.');
     }
 });
+
 
 const loginUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);

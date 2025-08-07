@@ -10,13 +10,14 @@ const gymTenantMiddleware = async (req, res, next) => {
 
     try {
         // Obtenemos la conexión (nueva o reutilizada) de nuestro gestor.
-        const gymDBConnection = await connectToGymDB(clientId);
+        const {connection, superAdminId, apiSecretKey}= await connectToGymDB(clientId);
 
-        // Adjuntamos la conexión y el ID al objeto 'req' para que los controladores lo usen.
-        req.gymDBConnection = gymDBConnection;
-        req.gymId = clientId;
+        req.gymDBConnection = connection;
+        req.gymId = clientId; 
+        req.superAdminId = superAdminId; 
+        req.apiSecretKey = apiSecretKey;
 
-        next(); // La petición continúa al controlador.
+        next();
     } catch (error) {
         console.error(`Error en el middleware para el cliente ${clientId}:`, error.message);
         const statusCode = error.message.includes('Suscripción inactiva') ? 403 : 500;

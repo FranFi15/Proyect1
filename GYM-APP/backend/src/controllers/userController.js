@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
+import { updateClientCount } from '../utils/superAdminApiClient.js';
 
 const getAllUsers = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
@@ -173,8 +174,16 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 const deleteUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id);
+
     if (user) {
+        const wasClient = user.roles.includes('cliente'); 
+
         await user.deleteOne();
+
+        if (wasClient) {
+            updateClientCount(req.superAdminId, req.apiSecretKey, 'decrement');
+        }
+
         res.json({ message: 'Usuario eliminado correctamente.' });
     } else {
         res.status(404);
