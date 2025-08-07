@@ -231,7 +231,6 @@ export {
     getClientDbInfo,
     getClients,
     deleteClient,
-    getAllInternalClients, 
     getClientInternalDbInfo,
     getInternalDbInfo,
 };
