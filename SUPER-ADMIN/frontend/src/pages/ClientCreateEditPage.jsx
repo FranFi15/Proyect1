@@ -21,7 +21,6 @@ const generateUrlIdentifier = (name) => {
 function ClientCreateEditPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    // --- 1. AÑADIMOS LOS NUEVOS CAMPOS AL ESTADO INICIAL ---
     const [client, setClient] = useState({
         nombre: '',
         emailContacto: '',
@@ -29,10 +28,7 @@ function ClientCreateEditPage() {
         logoUrl: '', 
         primaryColor: '#150224',
         estadoSuscripcion: 'periodo_prueba', 
-        // Nuevos campos con valores por defecto
-        clientLimit: 100,
-        basePrice: 40000,
-        pricePerBlock: 15000,
+        clientLimit: 50, // Límite base, el admin puede ajustarlo
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -40,39 +36,24 @@ function ClientCreateEditPage() {
     const isEditing = Boolean(id);
 
     useEffect(() => {
-        if (isEditing) {
+        if (id) { 
             setLoading(true);
             clientService.getClientById(id)
                 .then(data => {
-                    // --- 2. CARGAMOS LOS NUEVOS DATOS AL EDITAR ---
                     setClient({
                         nombre: data.nombre,
                         emailContacto: data.emailContacto,
-                        urlIdentifier: data.urlIdentifier || '', 
-                        logoUrl: data.logoUrl || '',
-                        primaryColor: data.primaryColor || '#150224',
+                        urlIdentifier: data.urlIdentifier, 
+                        logoUrl: data.logoUrl,
+                        primaryColor: data.primaryColor,
                         estadoSuscripcion: data.estadoSuscripcion,
-                        // Cargar datos existentes o usar defaults
-                        clientLimit: data.clientLimit || 100,
-                        basePrice: data.basePrice || 40000,
-                        pricePerBlock: data.pricePerBlock || 15000,
-                        // Campos informativos (no editables directamente aquí)
-                        clientId: data.clientId,
-                        apiSecretKey: data.apiSecretKey,
-                        connectionStringDB: data.connectionStringDB,
+                        clientLimit: data.clientLimit, // Mantenemos el límite individual
                     });
-                    setLoading(false);
                 })
-                .catch(err => {
-                    setError(err.message || 'Error al cargar los datos del gimnasio.');
-                    setLoading(false);
-                    if (err && (String(err).includes('No autorizado') || String(err).includes('Token'))) {
-                        authService.logout();
-                        navigate('/login');
-                    }
-                });
+                .catch(err => setError(err.message))
+                .finally(() => setLoading(false));
         }
-    }, [id, isEditing, navigate]);
+    }, [id]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -94,8 +75,7 @@ function ClientCreateEditPage() {
         setLoading(true);
         setError(null);
 
-        // --- 3. CREAMOS UN PAYLOAD LIMPIO PARA LA API ---
-        const payload = {
+       const payload = {
             nombre: client.nombre,
             emailContacto: client.emailContacto,
             urlIdentifier: client.urlIdentifier,
@@ -103,8 +83,6 @@ function ClientCreateEditPage() {
             primaryColor: client.primaryColor,
             estadoSuscripcion: client.estadoSuscripcion,
             clientLimit: Number(client.clientLimit),
-            basePrice: Number(client.basePrice),
-            pricePerBlock: Number(client.pricePerBlock),
         };
 
         try {
@@ -148,20 +126,11 @@ function ClientCreateEditPage() {
                         className="client-input"
                         readOnly={!isEditing} 
                     />
-                    <h2 className="client-form-subtitle">Plan y Precios</h2>
+                    <h2 className="client-form-subtitle">Plan</h2>
                 <div className="client-form-group">
-                    <label htmlFor="clientLimit" className="client-label">Límite de Clientes (Plan Base):</label>
-                    <input type="number" id="clientLimit" name="clientLimit" value={client.clientLimit} onChange={handleChange} required className="client-input" />
+                    <label htmlFor="clientLimit">Límite de Clientes (Plan Base):</label>
+                    <input type="number" id="clientLimit" name="clientLimit" value={client.clientLimit} onChange={handleChange} required />
                 </div>
-                <div className="client-form-group">
-                    <label htmlFor="basePrice" className="client-label">Precio Base Mensual (ARS):</label>
-                    <input type="number" id="basePrice" name="basePrice" value={client.basePrice} onChange={handleChange} required className="client-input" />
-                </div>
-                <div className="client-form-group">
-                    <label htmlFor="pricePerBlock" className="client-label">Precio por Bloque Adicional (ARS):</label>
-                    <input type="number" id="pricePerBlock" name="pricePerBlock" value={client.pricePerBlock} onChange={handleChange} required className="client-input" />
-                </div>
-                     {!isEditing && <small>Se genera automáticamente a partir del nombre.</small>}
                 </div>
                 <div className="client-form-group">
                     <label htmlFor="logoUrl" className="client-label">URL del Logo:</label>
