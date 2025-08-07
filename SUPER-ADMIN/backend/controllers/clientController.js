@@ -86,9 +86,6 @@ const updateClient = asyncHandler(async (req, res) => {
 // --- NUEVA FUNCIÓN ---
 // Endpoint seguro para que el GYM-APP consulte su límite y conteo actual de clientes
 const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
-    // Esta función asume que tu middleware 'protectInternal' ya ha verificado
-    // el clientId y la apiSecretKey y ha adjuntado el 'client' al request.
-    // Si no es así, necesitaríamos buscar el cliente aquí.
     const client = await Client.findById(req.params.id);
 
     if (!client) {
@@ -124,13 +121,10 @@ const updateClientCount = asyncHandler(async (req, res) => {
 
     await client.save();
     
-    // Lógica para auto-incrementar el límite si se supera
     if (client.clientCount > client.clientLimit) {
-        // Aumentamos el límite al siguiente bloque de 100
         client.clientLimit += 100; 
         await client.save();
         console.log(`Límite para ${client.nombre} aumentado a ${client.clientLimit}. Se requiere ajuste de facturación.`);
-        // Aquí podrías enviar un email de notificación al superadmin
     }
 
     res.status(200).json({
@@ -140,89 +134,100 @@ const updateClientCount = asyncHandler(async (req, res) => {
     });
 });
 
-
-
 const getClients = asyncHandler(async (req, res) => {
-    try {
-        const clients = await Client.find({});
-        const safeClients = clients.map(client => ({
-            _id: client._id,
-            nombre: client.nombre,
-            emailContacto: client.emailContacto,
-            clientId: client.clientId,
-            estadoSuscripcion: client.estadoSuscripcion,
-            fechaInicioSuscripcion: client.fechaInicioSuscripcion,
-            fechaVencimientoSuscripcion: client.fechaVencimientoSuscripcion,
-            createdAt: client.createdAt
-        }));
-        res.status(200).json(safeClients);
-    } catch (error) {
-        console.error('Error al obtener clientes:', error);
-        res.status(500);
-        throw new Error('Error interno del servidor al obtener clientes.');
-    }
+    const clients = await Client.find({});
+    const safeClients = clients.map(client => ({
+        _id: client._id,
+        nombre: client.nombre,
+        emailContacto: client.emailContacto,
+        clientId: client.clientId,
+        estadoSuscripcion: client.estadoSuscripcion,
+        clientLimit: client.clientLimit,
+        clientCount: client.clientCount,
+        basePrice: client.basePrice,
+        pricePerBlock: client.pricePerBlock,
+    }));
+    res.status(200).json(safeClients);
 });
 
+const getClientById = asyncHandler(async (req, res) => {
+    const client = await Client.findById(req.params.id);
+    if (!client) {
+        res.status(404);
+        throw new Error('Gimnasio no encontrado.');
+    }
+    res.json(client);
+});
 
 const deleteClient = asyncHandler(async (req, res) => {
-    try {
-        const client = await Client.findByIdAndDelete(req.params.id);
-
-        if (!client) {
-            res.status(404);
-            throw new Error('Gimnasio no encontrado.');
-        }
-
-        res.json({ message: 'Gimnasio eliminado exitosamente.' });
-    } catch (error) {
-        console.error('Error al eliminar gimnasio:', error);
-        if (error.name === 'CastError') {
-            res.status(400);
-            throw new Error('ID de gimnasio inválido.');
-        }
-        res.status(500);
-        throw new Error('Error interno del servidor al eliminar gimnasio.');
+    const client = await Client.findByIdAndDelete(req.params.id);
+    if (!client) {
+        res.status(404);
+        throw new Error('Gimnasio no encontrado.');
     }
+    res.json({ message: 'Gimnasio eliminado exitosamente.' });
 });
 
-const getClientInternalDbInfo = asyncHandler(async (req, res) => {
-    const { clientId } = req.params; // Este 'clientId' contiene el _id de MongoDB.
-    
-    // CORRECCIÓN: Se usa findById para buscar por el _id de MongoDB.
-     const client = await Client.findOne({ clientId: clientId });
-
+const updateClientStatus = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const { estado } = req.body;
+    if (!estado || !['activo', 'inactivo', 'periodo_prueba', 'vencido', 'cancelado'].includes(estado)) {
+        res.status(400);
+        throw new Error('Estado de suscripción inválido.');
+    }
+    const client = await Client.findOneAndUpdate(
+        { clientId: clientId },
+        { estadoSuscripcion: estado },
+        { new: true, runValidators: true }
+    );
     if (!client) {
         res.status(404);
         throw new Error('Cliente no encontrado.');
     }
-
     res.status(200).json({
-        clientId: client.clientId, 
+        message: `Estado de suscripción actualizado a '${estado}' para ${client.nombre}.`,
+        client: {
+            clientId: client.clientId,
+            nombre: client.nombre,
+            estadoSuscripcion: client.estadoSuscripcion
+        }
+    });
+});
+
+const getClientDbInfo = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const apiSecretKey = req.headers['x-api-secret'];
+    if (!apiSecretKey) {
+        res.status(401);
+        throw new Error('Acceso no autorizado. Se requiere una API secret key.');
+    }
+    const client = await Client.findOne({ clientId: clientId });
+    if (!client || client.apiSecretKey !== apiSecretKey) {
+        res.status(401);
+        throw new Error('Cliente o API secret key inválida.');
+    }
+    res.status(200).json({
+        clientId: client.clientId,
         connectionStringDB: client.connectionStringDB,
         estadoSuscripcion: client.estadoSuscripcion
     });
 });
 
-const getInternalDbInfo = asyncHandler(async (req, res) => {
-    const client = await Client.findById(req.params.id);
-
-    if (client) {
-        const connectionString = client.connectionStringDB;
-        if (!connectionString) {
-            res.status(500);
-            throw new Error(`El cliente con ID ${req.params.id} fue encontrado, pero no tiene una cadena de conexión (connectionStringDB) configurada.`);
-        }
-        res.json({
-            dbConnectionString: connectionString
-        });
-    } else {
+const getClientInternalDbInfo = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const client = await Client.findOne({ clientId: clientId });
+    if (!client) {
         res.status(404);
-        throw new Error('Cliente no encontrado');
+        throw new Error('Cliente no encontrado.');
     }
+    res.status(200).json({
+        clientId: client.clientId,
+        connectionStringDB: client.connectionStringDB,
+        estadoSuscripcion: client.estadoSuscripcion
+    });
 });
 
-
-
+// --- BLOQUE DE EXPORTACIÓN CORREGIDO Y COMPLETO ---
 export {
     registerClient,
     getClientSubscriptionInfo,
@@ -230,6 +235,8 @@ export {
     updateClient,
     getClients,
     deleteClient,
+    getClientById,
+    updateClientStatus,
+    getClientDbInfo,
     getClientInternalDbInfo,
-    getInternalDbInfo,
 };
