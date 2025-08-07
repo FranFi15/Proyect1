@@ -3,11 +3,9 @@ import express from 'express';
 import { 
     registerClient, 
     getClients,
-    getClientById,
     updateClient,
     updateClientStatus,
     deleteClient,
-    getClientDbInfo,
     getClientInternalDbInfo,
     getClientSubscriptionInfo,
     updateClientCount,
