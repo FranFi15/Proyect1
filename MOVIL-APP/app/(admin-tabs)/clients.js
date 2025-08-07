@@ -13,16 +13,17 @@ import {
     Switch,
     Button,
     Platform,
-    Modal // 💡 PASO 1: Importa Modal de React Native
+    Modal,
+    KeyboardAvoidingView,
+    RefreshControl,
 } from 'react-native';
-// ... el resto de tus imports ...
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome, Octicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -53,6 +54,7 @@ const ManageClientsScreen = () => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     
     // 💡 PASO 2: Centraliza el estado del DatePicker en un objeto.
     const [datePickerConfig, setDatePickerConfig] = useState({
@@ -77,7 +79,6 @@ const ManageClientsScreen = () => {
 
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
-        setLoading(true);
         try {
             const [usersResponse, classTypesResponse] = await Promise.all([
                 apiClient.get('/users'),
@@ -97,11 +98,19 @@ const ManageClientsScreen = () => {
             });
         } finally {
             setLoading(false);
+            setIsRefreshing(false);
         }
     }, []);
 
+    const onRefresh = useCallback(async () => {
+            setIsRefreshing(true);
+            await fetchAllData();
+            setIsRefreshing(false);
+        }, [fetchAllData]);
+
     useFocusEffect(
         useCallback(() => {
+            setLoading(true);
             fetchAllData();
         }, [fetchAllData])
     );
@@ -616,27 +625,40 @@ const ManageClientsScreen = () => {
     }
 
     return (
-        <ThemedView style={styles.container}>
-            <TextInput
-                style={styles.searchInput}
+        <ThemedView style={styles.container} >
+            <TouchableOpacity style={styles.searchInput}><TextInput
                 placeholder="Buscar por nombre, apellido o email..."
                 placeholderTextColor={Colors[colorScheme].icon}
                 value={searchTerm}
                 onChangeText={setSearchTerm}
             />
+            <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
+            </TouchableOpacity>
+            
             <FlatList
                 data={filteredData}
                 renderItem={renderUserCard}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={{ paddingBottom: 80 }}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No se encontraron usuarios.</ThemedText>}
+                refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={onRefresh}
+                            tintColor={gymColor} 
+                        />
+                    }
             />
             <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* ... Tus modales de 'Add', 'Edit', 'Billing', etc. se mantienen igual ... */}
             {showAddFormModal && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlayWrapper}
+                    keyboardVerticalOffset={70} 
+                >
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddFormModal(false)}>
                     <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowAddFormModal(false)} style={styles.closeButton}>
@@ -685,9 +707,15 @@ const ManageClientsScreen = () => {
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+             </KeyboardAvoidingView>
             )}
 
             {showEditFormModal && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlayWrapper}
+                    keyboardVerticalOffset={70} 
+                >
                 <Pressable style={styles.modalOverlay} onPress={() => setShowEditFormModal(false)}>
                     {editingClientData && (
                         <Pressable style={styles.modalView}>
@@ -734,18 +762,30 @@ const ManageClientsScreen = () => {
                         </Pressable>
                     )}
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {billingModalVisible && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlayWrapper}
+                    keyboardVerticalOffset={70} 
+                >
                 <Pressable style={styles.modalOverlay} onPress={() => setBillingModalVisible(false)}>
                     <Pressable style={styles.modalView}>
                         {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
                     </Pressable>
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {/* Este es el modal principal que se modifica */}
             {creditsModalVisible && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlayWrapper}
+                    keyboardVerticalOffset={70} 
+                >
                 <Pressable style={styles.modalOverlay} onPress={() => setCreditsModalVisible(false)}>
                     <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setCreditsModalVisible(false)} style={styles.closeButton}>
@@ -840,6 +880,7 @@ const ManageClientsScreen = () => {
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {datePickerConfig.visible && Platform.OS !== 'web' && (
@@ -903,7 +944,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'space-evenly',
         alignItems: 'center',
     },
-    // ... (el resto de tus estilos)
+    modalOverlayWrapper: {
+        ...StyleSheet.absoluteFillObject, 
+        zIndex: 1000, 
+    },
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     searchInput: { 
@@ -915,7 +959,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         margin: 15, 
         backgroundColor: Colors[colorScheme].cardBackground, 
         color: Colors[colorScheme].text, 
-        fontSize: 16 
+        fontSize: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, },

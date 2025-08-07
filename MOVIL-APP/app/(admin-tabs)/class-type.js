@@ -10,18 +10,24 @@ import {
     ActivityIndicator,
     RefreshControl,
     Switch,
-    Pressable 
+    Pressable,
+    // --- NUEVOS IMPORTS ---
+    KeyboardAvoidingView,
+    ScrollView,
+    Platform
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useAuth } from '../../contexts/AuthContext'; 
+import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
 const ClassTypeManagementScreen = () => {
+    // All your existing state and functions (fetchClassTypes, handleFormChange, etc.)
+    // do not need changes. They are correct.
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -29,10 +35,7 @@ const ClassTypeManagementScreen = () => {
     const [classTypes, setClassTypes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    
-    // --- AÑADIDO: Estado para el filtro de búsqueda ---
     const [searchTerm, setSearchTerm] = useState('');
-    
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingClassType, setEditingClassType] = useState(null);
     const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
@@ -51,7 +54,7 @@ const ClassTypeManagementScreen = () => {
                 visible: true,
                 title: 'Error',
                 message: 'No se pudieron obtener los tipos de turno.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
             });
             setClassTypes([]);
         } finally {
@@ -72,7 +75,6 @@ const ClassTypeManagementScreen = () => {
         fetchClassTypes();
     }, [fetchClassTypes]);
 
-    // --- AÑADIDO: Lógica para filtrar los tipos de clase ---
     const filteredClassTypes = useMemo(() => {
         if (!searchTerm) {
             return classTypes;
@@ -94,52 +96,31 @@ const ClassTypeManagementScreen = () => {
 
     const handleEdit = (type) => {
         setEditingClassType(type);
-        setFormData({ 
-            nombre: type.nombre, 
-            descripcion: type.descripcion || '', 
+        setFormData({
+            nombre: type.nombre,
+            descripcion: type.descripcion || '',
             price: type.price?.toString() || '0',
-            resetMensual: type.resetMensual ?? true, 
+            resetMensual: type.resetMensual ?? true,
         });
         setIsModalVisible(true);
     };
 
     const handleFormSubmit = async () => {
         if (!formData.nombre) {
-            setAlertInfo({
-                visible: true,
-                title: 'Campo Requerido',
-                message: 'El nombre del tipo de turno es obligatorio.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Campo Requerido', message: 'El nombre del tipo de turno es obligatorio.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
 
-        const payload = {
-            ...formData,
-            price: Number(formData.price) || 0,
-        };
-
-        const apiCall = editingClassType
-            ? apiClient.put(`/tipos-clase/${editingClassType._id}`, payload)
-            : apiClient.post('/tipos-clase', payload);
+        const payload = { ...formData, price: Number(formData.price) || 0 };
+        const apiCall = editingClassType ? apiClient.put(`/tipos-clase/${editingClassType._id}`, payload) : apiClient.post('/tipos-clase', payload);
 
         try {
             await apiCall;
-            setAlertInfo({
-                visible: true,
-                title: 'Éxito',
-                message: `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`,
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Éxito', message: `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
             setIsModalVisible(false);
             fetchClassTypes();
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`,
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
         }
     };
 
@@ -157,26 +138,18 @@ const ClassTypeManagementScreen = () => {
                         setAlertInfo({ visible: false });
                         try {
                             await apiClient.delete(`/tipos-clase/${type._id}`);
-                            setAlertInfo({
-                                visible: true,
-                                title: 'Éxito',
-                                message: 'Tipo de turno eliminado.',
-                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                            });
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Tipo de turno eliminado.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
                             fetchClassTypes();
                         } catch (error) {
-                            setAlertInfo({
-                                visible: true,
-                                title: 'Error',
-                                message: error.response?.data?.message || 'Error al eliminar.',
-                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                            });
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'Error al eliminar.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
                         }
                     },
                 },
             ]
         });
     };
+    
+    // Your renderClassType function and isLoading check are correct.
 
     const renderClassType = ({ item }) => (
         <View style={styles.card}>
@@ -199,7 +172,7 @@ const ClassTypeManagementScreen = () => {
             </View>
         </View>
     );
-
+    
     if (isLoading) {
         return (
             <ThemedView style={styles.centered}>
@@ -207,7 +180,7 @@ const ClassTypeManagementScreen = () => {
             </ThemedView>
         );
     }
-
+    
     return (
         <ThemedView style={styles.container}>
             <TextInput
@@ -237,51 +210,62 @@ const ClassTypeManagementScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* --- MODIFICADO: El Modal ahora es un View condicional --- */}
+            {/* --- MODAL CORREGIDO --- */}
             {isModalVisible && (
-                <Pressable style={styles.modalOverlay} onPress={() => setIsModalVisible(false)}>
+                // 1. El overlay ahora es un KeyboardAvoidingView para mover todo el modal hacia arriba
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
+                    {/* El Pressable para cerrar el modal al tocar fuera sigue aquí */}
+                    <Pressable style={styles.modalBackdrop} onPress={() => setIsModalVisible(false)} />
+                    
+                    {/* El contenedor del modal */}
                     <Pressable style={styles.modalContainer}>
-                        <ThemedText style={styles.modalTitle}>
-                            {editingClassType ? 'Editar Tipo de Turno' : 'Añadir Tipo de Turno'}
-                        </ThemedText>
-                        
-                        <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Ej: Crossfit"
-                            value={formData.nombre}
-                            onChangeText={(text) => handleFormChange('nombre', text)}
-                        />
-
-                        <ThemedText style={styles.inputLabel}>Precio</ThemedText>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="0.00"
-                            value={formData.price}
-                            onChangeText={(text) => handleFormChange('price', text)}
-                            keyboardType="numeric"
-                        />
-                        <View style={styles.switchContainer}>
-                            <ThemedText style={styles.inputLabel}>¿Reiniciar créditos mensualmente?</ThemedText>
-                            <Switch
-                                trackColor={{ false: "#767577", true: gymColor || '#81b0ff' }}
-                                thumbColor={formData.resetMensual ? '#f4f3f4' : '#f4f3f4'}
-                                ios_backgroundColor="#3e3e3e"
-                                onValueChange={(value) => handleFormChange('resetMensual', value)}
-                                value={formData.resetMensual}
+                        {/* 2. El contenido del modal se envuelve en un ScrollView */}
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <ThemedText style={styles.modalTitle}>
+                                {editingClassType ? 'Editar Tipo de Turno' : 'Añadir Tipo de Turno'}
+                            </ThemedText>
+                            
+                            <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Ej: Crossfit"
+                                value={formData.nombre}
+                                onChangeText={(text) => handleFormChange('nombre', text)}
                             />
-                        </View>
 
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
-                                <Text style={styles.buttonText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.button, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit}>
-                                <Text style={styles.buttonText}>{editingClassType ? 'Actualizar' : 'Guardar'}</Text>
-                            </TouchableOpacity>
-                        </View>
+                            <ThemedText style={styles.inputLabel}>Precio</ThemedText>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="0.00"
+                                value={formData.price}
+                                onChangeText={(text) => handleFormChange('price', text)}
+                                keyboardType="numeric"
+                            />
+                            <View style={styles.switchContainer}>
+                                <ThemedText style={styles.inputLabel}>¿Reiniciar créditos mensualmente?</ThemedText>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: gymColor || '#81b0ff' }}
+                                    thumbColor={'#f4f3f4'}
+                                    ios_backgroundColor="#3e3e3e"
+                                    onValueChange={(value) => handleFormChange('resetMensual', value)}
+                                    value={formData.resetMensual}
+                                />
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
+                                    <Text style={styles.buttonText}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.button, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit}>
+                                    <Text style={styles.buttonText}>{editingClassType ? 'Actualizar' : 'Guardar'}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
                     </Pressable>
-                </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             <CustomAlert
@@ -290,26 +274,27 @@ const ClassTypeManagementScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    // ... Tus estilos de container, centered, listContainer, searchInput, card, etc. no cambian
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     listContainer: { padding: 10, paddingBottom: 80 },
-    searchInput: { 
-        height: 50, 
-        borderColor: Colors[colorScheme].border, 
-        borderWidth: 1, 
-        borderRadius: 8, 
-        paddingHorizontal: 15, 
-        margin: 15, 
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        color: Colors[colorScheme].text, 
-        fontSize: 16 
+    searchInput: {
+        height: 50,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        margin: 15,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        fontSize: 16
     },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -345,30 +330,35 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'center',
         right: 20,
         bottom: 20,
-        backgroundColor: gymColor ||'#1a5276',
+        backgroundColor: gymColor || '#1a5276',
         borderRadius: 30,
         elevation: 8,
     },
-    modalOverlay: { 
+    // --- ESTILOS DEL MODAL AJUSTADOS ---
+    modalOverlay: {
         position: 'absolute',
         top: 0, bottom: 0, left: 0, right: 0,
         zIndex: 1000,
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        backgroundColor: 'rgba(0, 0, 0, 0.5)' 
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    modalContainer: { 
-        width: '90%', 
+    modalBackdrop: { // Nuevo estilo para el fondo oscuro que cierra el modal
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContainer: {
+        width: '90%',
+        maxHeight: '85%', // Límite para que no ocupe toda la pantalla
         backgroundColor: Colors[colorScheme].background,
-        borderRadius: 12, 
-        padding: 25, 
-        elevation: 5 
+        borderRadius: 12,
+        padding: 25,
+        elevation: 5
     },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
         height: 50,
-        backgroundColor: Colors[colorScheme].inputBackground,
+        backgroundColor: Colors[colorScheme].cardBackground, // Un fondo ligeramente diferente
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
@@ -381,7 +371,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20, 
+        marginBottom: 20,
+        paddingVertical: 10,
     },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
     button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },

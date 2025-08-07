@@ -30,7 +30,7 @@ const login = async (credentials) => {
             await AsyncStorage.setItem('user', JSON.stringify(response.data));
             return response.data;
         }
-        return response.data;
+        throw new Error('Respuesta de login inválida del servidor.');
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Error de autenticación');
     }

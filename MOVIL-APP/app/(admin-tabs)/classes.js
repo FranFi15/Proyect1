@@ -11,9 +11,10 @@ import {
     Button,
     Pressable,
     TextInput,
-    Platform, // Necesario para la lógica condicional
+    Platform, 
     RefreshControl,
     useWindowDimensions,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -831,21 +832,14 @@ const ManageClassesScreen = () => {
         <ThemedView style={styles.container}>
             <TabView
                 navigationState={{ index, routes }}
-                renderScene={renderScene}
+                renderScene={renderScene} // renderScene y toda su lógica interna se mantiene
                 onIndexChange={setIndex}
                 initialLayout={{ width: layout.width }}
                 renderTabBar={props => (
-                    <TabBar
-                        {...props}
-                        style={{ backgroundColor: gymColor }}
+                    <TabBar {...props} style={{ backgroundColor: gymColor }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
-                        labelStyle={{
-                            color: Colors[colorScheme].background,
-                            fontSize: 13,
-                            fontWeight: '700',
-                            textAlign: 'center'
-                        }}
-                        tabStyle={{ flex: 1, paddingHorizontal: 5, }}
+                        labelStyle={styles.tabLabel}
+                        tabStyle={styles.tabStyle}
                     />
                 )}
             />
@@ -855,6 +849,7 @@ const ManageClassesScreen = () => {
             </TouchableOpacity>
 
             {showAddModal && (
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
                     <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
@@ -930,8 +925,9 @@ const ManageClassesScreen = () => {
                                             <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>
                                         </TouchableOpacity>
                                     )}
-                                    <ThemedText style={styles.inputLabel}>Horario Fijo</ThemedText>
+                                    <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                        <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
                                     <View style={styles.weekDayContainer}>
@@ -947,6 +943,7 @@ const ManageClassesScreen = () => {
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {showRosterModal && (
@@ -996,6 +993,7 @@ const ManageClassesScreen = () => {
             )}
             
             {showBulkEditModal && (
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowBulkEditModal(false)}>
                     <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.closeButton}>
@@ -1026,9 +1024,11 @@ const ManageClassesScreen = () => {
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {showExtendModal && (
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowExtendModal(false)}>
                     <Pressable style={styles.modalView}>
                         <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.closeButton}>
@@ -1053,6 +1053,7 @@ const ManageClassesScreen = () => {
                         </ScrollView>
                     </Pressable>
                 </Pressable>
+                </KeyboardAvoidingView>
             )}
 
             {Platform.OS !== 'web' && showDatePicker && (
@@ -1113,14 +1114,15 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3 },
     expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },
-    cancelledCard: { backgroundColor: '#f0f0f0', opacity: 0.7 },
+    cancelledCard: { backgroundColor: Colors[colorScheme].cardBackground, opacity: 0.7 },
     actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
-    cancelledText: { color: Colors.light.error, fontSize: 16, fontWeight: 'bold', marginRight: 'auto' },
+    cancelledText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: 'bold', marginRight: 'auto' },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 16, color: gymColor, marginBottom: 10 },
     cardInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 4 },
     actionButton: { padding: 8, marginLeft: 15 },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8 },
+    modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
     modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
@@ -1128,8 +1130,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
     modalActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
     confirmationModal: { height: 'auto', width: '90%', borderRadius: 12, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
-    inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500' },
-    input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, color: Colors[colorScheme].text, fontSize: 16 },
+    inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500', marginTop: 15 },
+    input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16, marginTop:10 },
     dateInputTouchable: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' },
     dateInputText: { fontSize: 16, color: Colors[colorScheme].text },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
@@ -1152,8 +1154,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
         borderRadius: 8, 
-        paddingHorizontal: 15, 
-        margin: 15, 
+        paddingHorizontal: 15,  
         backgroundColor: Colors[colorScheme].cardBackground, 
         color: Colors[colorScheme].text, 
         fontSize: 16 

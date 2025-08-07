@@ -14,13 +14,13 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
-// --- COMPONENTES TEMÁTICOS ---
 import { ThemedView } from '@/components/ThemedView'; 
 import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants/Colors'; // Paleta de colores para el tema
+import { Colors } from '@/constants/Colors';
+// --- 1. Importar CustomAlert ---
+import CustomAlert from '@/components/CustomAlert';
 
 const RegisterPage = () => {
-    // --- Estados para todos los campos (sin cambios) ---
     const [nombre, setNombre] = useState('');
     const [apellido, setApellido] = useState('');
     const [email, setEmail] = useState('');
@@ -35,14 +35,20 @@ const RegisterPage = () => {
     const [direccion, setDireccion] = useState('');
     const [numeroTelefono, setNumeroTelefono] = useState('');
     const [obraSocial, setObraSocial] = useState('');
-    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
     const { register, gymName, gymLogo, gymColor } = useAuth(); 
     const router = useRouter();
-    const colorScheme = useColorScheme() ?? 'light'; // Detecta el tema y usa 'light' como fallback
+    const colorScheme = useColorScheme() ?? 'light';
 
-    // useEffect para unir la fecha (sin cambios)
+    // --- 2. Reemplazar el estado de 'error' por 'alertInfo' ---
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: [],
+    });
+
     useEffect(() => {
         if (day && month && year && year.length === 4) {
             setFechaNacimiento(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
@@ -53,24 +59,32 @@ const RegisterPage = () => {
 
 
     const handleRegister = async () => {
-        // Lógica de registro (sin cambios)
         if (!nombre || !apellido || !email || !password || !dni || !fechaNacimiento || !telefonoEmergencia) {
-            setError('Por favor, completa todos los campos obligatorios.');
+            // --- 3. Usar setAlertInfo para mostrar el error en el modal ---
+            setAlertInfo({
+                visible: true,
+                title: 'Campos Incompletos',
+                message: 'Por favor, completa todos los campos obligatorios (*).',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             return;
         }
         setIsLoading(true);
-        setError('');
         try {
             const userData = { nombre, apellido, email, contraseña: password, dni, fechaNacimiento, telefonoEmergencia, sexo: sexo || 'Otro', direccion, numeroTelefono, obraSocial };
             await register(userData);
         } catch (e) {
-            setError(e.response?.data?.message || e.message || 'Error al registrarse');
+            setAlertInfo({
+                visible: true,
+                title: 'Error de Registro',
+                message: e.response?.data?.message || e.message || 'No se pudo completar el registro. Intenta de nuevo.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setIsLoading(false);
         }
     };
 
-    // --- ESTILOS DINÁMICOS BASADOS EN EL TEMA ---
     const styles = getStyles(colorScheme, gymColor);
 
     return (
@@ -88,7 +102,7 @@ const RegisterPage = () => {
 
                     <ThemedText type="title" style={styles.title}>Crear Cuenta</ThemedText>
 
-                    {error ? <Text style={styles.error}>{error}</Text> : null}
+                    {/* El Text de error se elimina de aquí */}
 
                     <TextInput style={styles.input} placeholder="Nombre (*)" placeholderTextColor={Colors[colorScheme].text} value={nombre} onChangeText={setNombre} />
                     <TextInput style={styles.input} placeholder="Apellido (*)" placeholderTextColor={Colors[colorScheme].text} value={apellido} onChangeText={setApellido} />
@@ -140,28 +154,36 @@ const RegisterPage = () => {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* --- 4. Añadir el componente CustomAlert al final --- */}
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                gymColor={gymColor}
+            />
         </ThemedView>
     );
 };
 
-// Función que genera los estilos dinámicamente
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     outerContainer: { flex: 1 },
     scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 20 },
     logo: { width: '80%', height: 100, alignSelf: 'center', marginBottom: 20 },
     title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
     gymName: { fontSize: 22, color: '#007BFF', textAlign: 'center', marginBottom: 20 },
-    error: { color: 'red', marginBottom: 10, textAlign: 'center' },
     label: { color: Colors[colorScheme].text, marginBottom: 5, marginLeft: 5, opacity: 0.8 },
     input: { 
         height: 45, 
-        borderColor: Colors[colorScheme].border, // Un color de borde sutil
+        borderColor: Colors[colorScheme].border,
         borderWidth: 1, 
         borderRadius: 8, 
         marginBottom: 12, 
         paddingHorizontal: 12,
-        backgroundColor: Colors[colorScheme].background, // Fondo del tema
-        color: Colors[colorScheme].text, // Color de texto del tema
+        backgroundColor: Colors[colorScheme].background,
+        color: Colors[colorScheme].text,
         fontSize: 16
     },
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },

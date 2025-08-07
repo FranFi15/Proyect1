@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Button, useColorScheme, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Button, useColorScheme, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,6 +88,12 @@ const EditProfileModal = ({ userProfile, onClose }) => {
     };
 
     return (
+        <KeyboardAvoidingView
+            style={styles.modalContainer}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            // Este valor puede necesitar ajuste si el modal no sube lo suficiente
+            keyboardVerticalOffset={20} 
+        >
         <View style={styles.modalContainer}>
             <View style={styles.modalView}>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -154,19 +160,74 @@ const EditProfileModal = ({ userProfile, onClose }) => {
                 gymColor={gymColor} 
             />
         </View>
+        </KeyboardAvoidingView>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
-    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    inputLabel: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 8, marginLeft: 5 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 16 },
-    dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-    dateInput: { flex: 1, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text, marginHorizontal: 4, fontSize: 16 },
-    genderSelector: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
+     modalContainer: { 
+        flex: 1, 
+        justifyContent: 'flex-end', 
+        backgroundColor: 'rgba(0,0,0,0.5)' ,
+    },
+    modalView: { 
+        height: '90%', 
+        backgroundColor: Colors[colorScheme].background, 
+        borderRadius: 12,  
+        padding: 20, 
+        elevation: 5,
+    },
+    closeButton: { 
+        position: 'absolute', 
+        top: 15, 
+        right: 15, 
+        zIndex: 1 
+    },
+    modalTitle: { 
+        fontSize: 20, 
+        fontWeight: 'bold', 
+        marginBottom: 20, 
+        textAlign: 'center', 
+        color: Colors[colorScheme].text 
+    },
+    inputLabel: { 
+        fontSize: 16, 
+        color: Colors[colorScheme].text, 
+        marginBottom: 8, 
+        marginLeft: 5 
+    },
+    input: { 
+        height: 50, 
+        borderColor: Colors[colorScheme].border, 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        paddingHorizontal: 15, 
+        marginBottom: 15, 
+        color: Colors[colorScheme].text, 
+        fontSize: 16 
+    },
+    dateInputContainer: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between' 
+    },
+    dateInput: { 
+        flex: 1, 
+        height: 50, 
+        borderColor: Colors[colorScheme].border, 
+        borderWidth: 1, 
+        borderRadius: 8, 
+        paddingHorizontal: 15, 
+        marginBottom: 15, 
+        textAlign: 'center', 
+        color: Colors[colorScheme].text, 
+        marginHorizontal: 4, 
+        fontSize: 16 
+    },
+    genderSelector: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-around', 
+        marginBottom: 15 
+    },
     genderButton: { 
         paddingVertical: 10, 
         paddingHorizontal: 20, 
@@ -184,7 +245,18 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold'
     },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', borderTopWidth: 1, paddingTop: 15, marginTop: 15, marginBottom: 10, borderColor: Colors[colorScheme].border, textAlign: 'center', width: '100%', color: Colors[colorScheme].text },
+    sectionTitle: { 
+        fontSize: 18, 
+        fontWeight: 'bold', 
+        borderTopWidth: 1, 
+        paddingTop: 15, 
+        marginTop: 15, 
+        marginBottom: 10, 
+        borderColor: Colors[colorScheme].border, 
+        textAlign: 'center', 
+        width: '100%', 
+        color: Colors[colorScheme].text 
+    },
     buttonWrapper: {
         borderRadius: 8,
         overflow: 'hidden',

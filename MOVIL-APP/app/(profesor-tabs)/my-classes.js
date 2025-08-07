@@ -90,7 +90,7 @@ const ProfessorMyClassesScreen = () => {
             const response = await apiClient.get(`/classes/${classId}/students`);
             setSelectedClassStudents(response.data);
         } catch (error) {
-            setListModalVisible(false); // Close modal on error
+            setListModalVisible(false); 
             setAlertInfo({
                 visible: true,
                 title: 'Error',
@@ -263,7 +263,7 @@ const ProfessorMyClassesScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, },
     classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
@@ -271,7 +271,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a5276', paddingVertical: 10, borderRadius: 8, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5, width: '90%', maxHeight: '80%' },
+    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5, width: '100%', height: '90%' },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
     
     // Generic button style

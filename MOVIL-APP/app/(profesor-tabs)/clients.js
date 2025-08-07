@@ -1,12 +1,23 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, FlatList, View, TextInput, ActivityIndicator, TouchableOpacity, useColorScheme, Text } from 'react-native';
+import { 
+    StyleSheet, 
+    FlatList, 
+    View, 
+    TextInput, 
+    ActivityIndicator, 
+    TouchableOpacity, 
+    useColorScheme, 
+    Text,
+    // --- 1. Import RefreshControl ---
+    RefreshControl 
+} from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import TrainingPlanModal from '../../components/profesor/TrainingPlanModal';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
 
 const ProfessorClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -14,12 +25,13 @@ const ProfessorClientsScreen = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedClient, setSelectedClient] = useState(null);
     const [planModalVisible, setPlanModalVisible] = useState(false);
+    // --- 2. Add state for refreshing ---
+    const [isRefreshing, setIsRefreshing] = useState(false);
     
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estado para manejar la alerta personalizada
     const [alertInfo, setAlertInfo] = useState({ 
         visible: false, 
         title: '', 
@@ -28,7 +40,7 @@ const ProfessorClientsScreen = () => {
     });
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
+        // No setLoading(true) here, handled by loading/isRefreshing states
         try {
             const response = await apiClient.get('/users?role=cliente');
             setUsers(response.data);
@@ -42,11 +54,19 @@ const ProfessorClientsScreen = () => {
             });
         } finally {
             setLoading(false);
+            setIsRefreshing(false);
         }
     }, []);
 
+    // --- 3. Create onRefresh function ---
+    const onRefresh = useCallback(() => {
+        setIsRefreshing(true);
+        fetchData();
+    }, [fetchData]);
+
     useFocusEffect(
         useCallback(() => {
+            setLoading(true);
             fetchData();
         }, [fetchData])
     );
@@ -79,23 +99,48 @@ const ProfessorClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <TextInput style={styles.searchInput}placeholderTextColor={Colors[colorScheme].icon} placeholder="Buscar socio..." value={searchTerm} onChangeText={setSearchTerm} />
-            {loading ? <ActivityIndicator color={gymColor} /> : (
+            {/* --- 4. Search input is always visible --- */}
+            <TextInput 
+                style={styles.searchInput}
+                placeholderTextColor={Colors[colorScheme].icon} 
+                placeholder="Buscar socio..." 
+                value={searchTerm} 
+                onChangeText={setSearchTerm} 
+            />
+            
+            {/* --- 5. Loading indicator only replaces the list --- */}
+            {loading ? <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} /> : (
                 <FlatList
                     data={filteredData}
                     renderItem={renderUserCard}
                     keyExtractor={(item) => item._id}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    // --- 6. Add RefreshControl and Empty State message ---
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={onRefresh}
+                            tintColor={gymColor}
+                        />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>
+                                {searchTerm ? "No se encontraron socios con ese nombre." : "Aún no tienes socios asignados."}
+                            </Text>
+                        </View>
+                    }
                 />
             )}
             
             {selectedClient && (
-                 <TrainingPlanModal
+                <TrainingPlanModal
                     visible={planModalVisible}
                     client={selectedClient}
                     onClose={handleCloseModal}
                 />
             )}
-             <CustomAlert
+            <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
@@ -113,6 +158,18 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
+    // --- 7. New styles for the empty message ---
+    emptyContainer: {
+        flex: 1,
+        marginTop: 50,
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: Colors[colorScheme].icon,
+        textAlign: 'center',
+    },
 });
 
 export default ProfessorClientsScreen;

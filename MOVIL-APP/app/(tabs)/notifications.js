@@ -128,19 +128,17 @@ const NotificationsScreen = () => {
     useFocusEffect(
         useCallback(() => {
             const markAndRefresh = async () => {
-                // 1. Carga las notificaciones para que el usuario las vea
-                await fetchNotifications(); 
+                    try {
+                  
+                   await apiClient.put('/notifications/mark-all-read');
+                   
+                   await refreshUser();
+                    } catch (error) {
+                   console.error("Error marking notifications as read:", error);
+                    } finally {
                 
-                try {
-                    // 2. Llama a la API para marcar todas como leídas en la base de datos
-                    await apiClient.put('/notifications/mark-all-read');
-                    
-                    // 3. Llama a refreshUser() para actualizar el estado global del usuario
-                    //    (esto obtendrá el nuevo contador en 0 y ocultará el punto rojo)
-                    await refreshUser();
-                } catch (error) {
-                    console.error("Error al marcar notificaciones como leídas:", error);
-                }
+                   await fetchNotifications(); 
+               }
             };
 
             if (user) {
