@@ -10,6 +10,8 @@ import {
     deleteClient,
     getClientDbInfo,
     getClientInternalDbInfo,
+    getClientSubscriptionInfo,
+    updateClientCount,
 } from '../controllers/clientController.js'; 
 import { protectInternal } from '../middleware/authInternalMiddleware.js'; 
 
@@ -18,7 +20,8 @@ const router = express.Router();
 // --- INICIO DE LA CORRECCIÓN ---
 // Las rutas más específicas se mueven al principio.
 // Se añade el middleware de seguridad 'protectInternal' a todas las rutas internas.
-
+router.get('/:id/subscription-info', protectInternal, getClientSubscriptionInfo); 
+router.put('/:id/client-count', protectInternal, updateClientCount);
 // Ruta para obtener todos los clientes para uso interno (ej: cron job).
 router.get('/internal/all-clients', protectInternal, getAllInternalClients);
 
