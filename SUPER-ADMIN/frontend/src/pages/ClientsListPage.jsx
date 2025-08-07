@@ -16,14 +16,12 @@ const calculateTotalPrice = (client) => {
         return basePrice;
     }
 
-    // Calcula cuántos bloques de 100 clientes adicionales se necesitan
     const extraClients = clientCount - clientLimit;
     const extraBlocks = Math.ceil(extraClients / 100);
 
     return basePrice + (extraBlocks * pricePerBlock);
 };
 
-// Formateador para la moneda local (ej: $ 45.000,00)
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-AR', {
         style: 'currency',
@@ -36,10 +34,8 @@ function ClientsListPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
-
-    // --- NUEVOS ESTADOS PARA LOS FILTROS ---
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('todos'); // 'todos' para mostrar todos
+    const [statusFilter, setStatusFilter] = useState('todos');
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -81,29 +77,25 @@ function ClientsListPage() {
         navigate('/login');
     };
 
-    // --- LÓGICA DE FILTRADO Y ORDENAMIENTO ---
     const filteredAndSortedClients = clients
         .filter(client => {
-            // Filtro por estado de suscripción
             const statusMatch = statusFilter === 'todos' || client.estadoSuscripcion === statusFilter;
-            // Filtro por nombre (insensible a mayúsculas/minúsculas)
             const searchMatch = client.nombre.toLowerCase().includes(searchTerm.toLowerCase());
             return statusMatch && searchMatch;
         })
-        .sort((a, b) => a.nombre.localeCompare(b.nombre)); // Ordenar por nombre alfabéticamente
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     if (loading) return <p>Cargando gimnasios...</p>;
     if (error) return <p className="clients-error">Error: {error}</p>;
 
     return (
         <div className="clients-container">
-            <h1 className="clients-title">Lista Clientes</h1>
+            <h1 className="clients-title">Lista de Clientes</h1>
             <div className="clients-actions">
                 <Link to="/clients/new" className="clients-button">Añadir Nuevo Gimnasio</Link>
                 <button onClick={handleLogout} className="clients-button clients-logout-button">Cerrar Sesión</button>
             </div>
 
-            {/* --- SECCIÓN DE FILTROS --- */}
             <div className="filters-container">
                 <input
                     type="text"
@@ -124,7 +116,6 @@ function ClientsListPage() {
                 </select>
             </div>
 
-            {/* --- Se usa la lista filtrada y ordenada --- */}
             {filteredAndSortedClients.length === 0 ? (
                 <p>No hay gimnasios que coincidan con los filtros.</p>
             ) : (
@@ -133,31 +124,29 @@ function ClientsListPage() {
                         <tr>
                             <th>Nombre</th>
                             <th>Estado</th>
-                            <th>Email Admin</th>
-                            <th>Client ID</th>
-                            <th>Client URL</th>
                             <th>Clientes (Actual/Límite)</th>
                             <th>Total a Facturar</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {/* --- Se itera sobre la lista filtrada y ordenada --- */}
-                        {filteredAndSortedClients.map((client) => (
-                            <tr key={client._id}>
-                                <td>{client.nombre}</td>
-                                <td>{client.estadoSuscripcion}</td>
-                                <td>{client.emailContacto}</td>
-                                <td className="id-column">{client.clientId}</td>
-                                <td>{client.urlIdentifier}</td>
-                                <td className="id-column">{client.clientCount || 0} / {client.clientLimit || 100}</td>
-                                <td className="id-column">{formatCurrency(totalPrice)}</td>
-                                <td className="actions-column">
-                                    <Link to={`/clients/${client._id}/edit`} className="clients-button clients-edit-button">Editar</Link>
-                                    <button onClick={() => handleDelete(client._id)} className="clients-button clients-delete-button">Eliminar</button>
-                                </td>
-                            </tr>
-                        ))}
+                        {filteredAndSortedClients.map((client) => {
+                            // --- ¡CORRECCIÓN AQUÍ! ---
+                            // Se llama a la función para CADA cliente y se guarda en una variable
+                            const totalPrice = calculateTotalPrice(client);
+                            return (
+                                <tr key={client._id}>
+                                    <td>{client.nombre}</td>
+                                    <td>{client.estadoSuscripcion}</td>
+                                    <td className="id-column">{client.clientCount || 0} / {client.clientLimit || 100}</td>
+                                    <td className="id-column">{formatCurrency(totalPrice)}</td>
+                                    <td className="actions-column">
+                                        <Link to={`/clients/${client._id}/edit`} className="clients-button clients-edit-button">Editar</Link>
+                                        <button onClick={() => handleDelete(client._id)} className="clients-button clients-delete-button">Eliminar</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             )}
