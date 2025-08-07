@@ -4,6 +4,33 @@ import clientService from '../services/clientService';
 import authService from '../services/authService';
 import '../styles/ClientListPage.css';
 
+const calculateTotalPrice = (client) => {
+    const { 
+        clientCount = 0, 
+        clientLimit = 100, 
+        basePrice = 0, 
+        pricePerBlock = 0 
+    } = client;
+
+    if (clientCount <= clientLimit) {
+        return basePrice;
+    }
+
+    // Calcula cuántos bloques de 100 clientes adicionales se necesitan
+    const extraClients = clientCount - clientLimit;
+    const extraBlocks = Math.ceil(extraClients / 100);
+
+    return basePrice + (extraBlocks * pricePerBlock);
+};
+
+// Formateador para la moneda local (ej: $ 45.000,00)
+const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+    }).format(amount);
+};
+
 function ClientsListPage() {
     const [clients, setClients] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -109,6 +136,8 @@ function ClientsListPage() {
                             <th>Email Admin</th>
                             <th>Client ID</th>
                             <th>Client URL</th>
+                            <th>Clientes (Actual/Límite)</th>
+                            <th>Total a Facturar</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -121,6 +150,8 @@ function ClientsListPage() {
                                 <td>{client.emailContacto}</td>
                                 <td className="id-column">{client.clientId}</td>
                                 <td>{client.urlIdentifier}</td>
+                                <td className="id-column">{client.clientCount || 0} / {client.clientLimit || 100}</td>
+                                <td className="id-column">{formatCurrency(totalPrice)}</td>
                                 <td className="actions-column">
                                     <Link to={`/clients/${client._id}/edit`} className="clients-button clients-edit-button">Editar</Link>
                                     <button onClick={() => handleDelete(client._id)} className="clients-button clients-delete-button">Eliminar</button>

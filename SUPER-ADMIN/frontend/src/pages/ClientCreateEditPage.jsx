@@ -21,6 +21,7 @@ const generateUrlIdentifier = (name) => {
 function ClientCreateEditPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    // --- 1. AÑADIMOS LOS NUEVOS CAMPOS AL ESTADO INICIAL ---
     const [client, setClient] = useState({
         nombre: '',
         emailContacto: '',
@@ -28,9 +29,10 @@ function ClientCreateEditPage() {
         logoUrl: '', 
         primaryColor: '#150224',
         estadoSuscripcion: 'periodo_prueba', 
-        clientId: '',
-        apiSecretKey: '',
-        connectionStringDB: '',
+        // Nuevos campos con valores por defecto
+        clientLimit: 100,
+        basePrice: 40000,
+        pricePerBlock: 15000,
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -42,13 +44,19 @@ function ClientCreateEditPage() {
             setLoading(true);
             clientService.getClientById(id)
                 .then(data => {
+                    // --- 2. CARGAMOS LOS NUEVOS DATOS AL EDITAR ---
                     setClient({
                         nombre: data.nombre,
                         emailContacto: data.emailContacto,
                         urlIdentifier: data.urlIdentifier || '', 
                         logoUrl: data.logoUrl || '',
                         primaryColor: data.primaryColor || '#150224',
-                        estadoSuscripcion: data.estadoSuscripcion, 
+                        estadoSuscripcion: data.estadoSuscripcion,
+                        // Cargar datos existentes o usar defaults
+                        clientLimit: data.clientLimit || 100,
+                        basePrice: data.basePrice || 40000,
+                        pricePerBlock: data.pricePerBlock || 15000,
+                        // Campos informativos (no editables directamente aquí)
                         clientId: data.clientId,
                         apiSecretKey: data.apiSecretKey,
                         connectionStringDB: data.connectionStringDB,
@@ -69,7 +77,6 @@ function ClientCreateEditPage() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         
-        // 2. Modificamos handleChange para que actualice el urlIdentifier automáticamente
         if (name === 'nombre' && !isEditing) {
             const newIdentifier = generateUrlIdentifier(value);
             setClient(prevClient => ({ 
@@ -86,43 +93,31 @@ function ClientCreateEditPage() {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        setSuccess(false);
+
+        // --- 3. CREAMOS UN PAYLOAD LIMPIO PARA LA API ---
+        const payload = {
+            nombre: client.nombre,
+            emailContacto: client.emailContacto,
+            urlIdentifier: client.urlIdentifier,
+            logoUrl: client.logoUrl,
+            primaryColor: client.primaryColor,
+            estadoSuscripcion: client.estadoSuscripcion,
+            clientLimit: Number(client.clientLimit),
+            basePrice: Number(client.basePrice),
+            pricePerBlock: Number(client.pricePerBlock),
+        };
 
         try {
             if (isEditing) {
-                // Para la edición, no enviamos el urlIdentifier ya que no debería cambiar
-                await clientService.updateClient(id, {
-                    nombre: client.nombre,
-                    emailContacto: client.emailContacto,
-                    logoUrl: client.logoUrl,
-                    primaryColor: client.primaryColor,
-                    estadoSuscripcion: client.estadoSuscripcion,
-                    urlIdentifier: client.urlIdentifier, 
-                });
-                setSuccess(true);
+                await clientService.updateClient(id, payload);
                 alert('Gimnasio actualizado exitosamente.');
-                navigate(`/clients`);
             } else {
-                if (!client.nombre || !client.emailContacto || !client.urlIdentifier) {
-                    throw new Error('Por favor, ingresa el nombre, email y asegúrate de que se genere un identificador.');
-                }
-                
-                // 3. Enviamos el nuevo urlIdentifier en la petición de creación
-                await clientService.createClient({
-                    nombre: client.nombre,
-                    emailContacto: client.emailContacto,
-                    urlIdentifier: client.urlIdentifier,
-                    logoUrl: client.logoUrl,
-                    primaryColor: client.primaryColor,
-                });
-                
-                setSuccess(true);
+                await clientService.createClient(payload);
                 alert('Gimnasio creado exitosamente.');
-                navigate('/clients');
             }
+            navigate('/clients');
         } catch (err) {
             setError(err.message || 'Error al guardar el gimnasio.');
-            console.error('Error al guardar gimnasio:', err);
         } finally {
             setLoading(false);
         }
@@ -141,8 +136,6 @@ function ClientCreateEditPage() {
                     <input type="text" id="nombre" name="nombre" value={client.nombre} onChange={handleChange} required className="client-input" />
                 </div>
                 
-                {/* 4. Añadimos el nuevo campo al formulario. Lo hacemos de solo lectura
-                    cuando se está creando para mostrar el valor autogenerado. */}
                 <div className="client-form-group">
                     <label htmlFor="urlIdentifier" className="client-label">Identificador para URL:</label>
                     <input
@@ -153,9 +146,21 @@ function ClientCreateEditPage() {
                         onChange={handleChange}
                         required
                         className="client-input"
-                        // Hacemos que sea editable solo si el admin lo necesita
                         readOnly={!isEditing} 
                     />
+                    <h2 className="client-form-subtitle">Plan y Precios</h2>
+                <div className="client-form-group">
+                    <label htmlFor="clientLimit" className="client-label">Límite de Clientes (Plan Base):</label>
+                    <input type="number" id="clientLimit" name="clientLimit" value={client.clientLimit} onChange={handleChange} required className="client-input" />
+                </div>
+                <div className="client-form-group">
+                    <label htmlFor="basePrice" className="client-label">Precio Base Mensual (ARS):</label>
+                    <input type="number" id="basePrice" name="basePrice" value={client.basePrice} onChange={handleChange} required className="client-input" />
+                </div>
+                <div className="client-form-group">
+                    <label htmlFor="pricePerBlock" className="client-label">Precio por Bloque Adicional (ARS):</label>
+                    <input type="number" id="pricePerBlock" name="pricePerBlock" value={client.pricePerBlock} onChange={handleChange} required className="client-input" />
+                </div>
                      {!isEditing && <small>Se genera automáticamente a partir del nombre.</small>}
                 </div>
                 <div className="client-form-group">
