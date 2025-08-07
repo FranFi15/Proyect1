@@ -228,7 +228,6 @@ export {
     getClientSubscriptionInfo,
     updateClientCount,
     updateClient,
-    getClientDbInfo,
     getClients,
     deleteClient,
     getClientInternalDbInfo,
