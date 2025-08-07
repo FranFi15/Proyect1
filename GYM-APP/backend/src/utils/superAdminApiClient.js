@@ -6,13 +6,11 @@ const superAdminApiClient = axios.create({
 });
 
 // Function to get the current client limit and count from the SUPER-ADMIN
-export const checkClientLimit = async (clientId, internalApiKey) => {
+export const checkClientLimit = async (superAdminId, internalApiKey) => {
     try {
         const response = await superAdminApiClient.get(
-            `/api/clients/${clientId}/subscription-info`,
-            {
-                headers: { 'x-internal-api-key': internalApiKey }
-            }
+            `/api/clients/${superAdminId}/subscription-info`, // Usa el _id
+            { headers: { 'x-internal-api-key': internalApiKey } }
         );
         const { clientLimit, clientCount } = response.data;
         return clientCount < clientLimit;
@@ -24,14 +22,12 @@ export const checkClientLimit = async (clientId, internalApiKey) => {
 };
 
 // Function to update the client count in the SUPER-ADMIN
-export const updateClientCount = async (clientId, internalApiKey, action) => {
+export const updateClientCount = async (superAdminId, internalApiKey, action) => {
     try {
         await superAdminApiClient.put(
-            `/api/clients/${clientId}/client-count`,
-            { action }, // action will be 'increment' or 'decrement'
-            {
-                headers: { 'x-internal-api-key': internalApiKey }
-            }
+            `/api/clients/${superAdminId}/client-count`, // Usa el _id
+            { action },
+            { headers: { 'x-internal-api-key': internalApiKey } }
         );
     } catch (error) {
         // This error should be logged, as it indicates a desync in the count

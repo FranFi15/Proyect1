@@ -28,8 +28,8 @@ router.route('/:id')
 
 // --- RUTAS INTERNAS (Server-to-Server, protegidas por API Key) ---
 router.get('/internal/all-clients', protectInternal, getClients);
-router.get('/:id/subscription-info', protectInternal, getClientSubscriptionInfo); 
-router.put('/:id/client-count', protectInternal, updateClientCount);
+router.get('/:clientId/subscription-info', protectInternal, getClientSubscriptionInfo); 
+router.put('/:clientId/client-count', protectInternal, updateClientCount);
 
 // Rutas antiguas que usan :clientId (considera unificar a :id en el futuro)
 router.get('/:clientId/internal-db-info', protectInternal, getClientInternalDbInfo);

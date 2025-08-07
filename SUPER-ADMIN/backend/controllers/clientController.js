@@ -88,7 +88,7 @@ const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
 
 const updateClientCount = asyncHandler(async (req, res) => {
     const { action } = req.body;
-    const client = await Client.findById(req.params.id);
+     const client = await Client.findOne({ clientId: req.params.clientId });
 
     if (!client) {
         res.status(404);
