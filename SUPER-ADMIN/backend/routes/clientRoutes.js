@@ -2,7 +2,6 @@
 import express from 'express';
 import { 
     registerClient, 
-    getAllInternalClients,
     getClients,
     getClientById,
     updateClient,
@@ -23,7 +22,7 @@ const router = express.Router();
 router.get('/:id/subscription-info', protectInternal, getClientSubscriptionInfo); 
 router.put('/:id/client-count', protectInternal, updateClientCount);
 // Ruta para obtener todos los clientes para uso interno (ej: cron job).
-router.get('/internal/all-clients', protectInternal, getAllInternalClients);
+router.get('/internal/all-clients', protectInternal, getClients);
 
 // Ruta para obtener información de DB de un cliente específico (para gym-app-backend).
 // Esta es la ruta CRÍTICA que debe ir antes de la ruta genérica '/:id'.
