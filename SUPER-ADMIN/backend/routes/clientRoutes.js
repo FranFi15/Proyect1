@@ -1,3 +1,4 @@
+// admin-panel-backend/routes/clientRoutes.js
 import express from 'express';
 import { 
     registerClient, 
@@ -5,54 +6,48 @@ import {
     getClients,
     getClientById,
     updateClient,
-    updateClientStatus, 
+    updateClientStatus,
     deleteClient,
     getClientDbInfo,
-    getClientByUrlIdentifier, 
+    getClientInternalDbInfo,
 } from '../controllers/clientController.js'; 
 import { protectInternal } from '../middleware/authInternalMiddleware.js'; 
 
-
 const router = express.Router();
 
-// ====================================================================
-// RUTA PÚBLICA (para la app móvil)
-// ====================================================================
-// GET /api/clients/identifier/:urlIdentifier
-// Esta es la nueva ruta que soluciona el bug de la app. Busca un gimnasio por su código único.
-// No necesita protección porque solo devuelve información pública (nombre, logo, color).
-router.get('/identifier/:urlIdentifier', getClientByUrlIdentifier);
+// --- INICIO DE LA CORRECCIÓN ---
+// Las rutas más específicas se mueven al principio.
+// Se añade el middleware de seguridad 'protectInternal' a todas las rutas internas.
+
+// Ruta para obtener todos los clientes para uso interno (ej: cron job).
+router.get('/internal/all-clients', protectInternal, getAllInternalClients);
+
+// Ruta para obtener información de DB de un cliente específico (para gym-app-backend).
+// Esta es la ruta CRÍTICA que debe ir antes de la ruta genérica '/:id'.
+router.get('/:clientId/internal-db-info', protectInternal, getClientInternalDbInfo);
+
+// Ruta para actualizar solo el estado de suscripción por clientId.
+router.put('/:clientId/status', protectInternal, updateClientStatus); 
+
+// Ruta para obtener información de DB (versión antigua, considerar unificar).
+router.get('/:clientId/db-info', protectInternal, getClientDbInfo); 
+
+// --- FIN DE LA CORRECCIÓN ---
 
 
-// ====================================================================
-// RUTAS PARA EL PANEL DE SUPER-ADMIN (Protegidas por un admin login)
-// ====================================================================
-// GET /api/clients/
-// POST /api/clients/
+// Ruta genérica para registrar un cliente o obtener todos los clientes (para el panel de admin).
+// Estas rutas no usan 'protectInternal' porque se acceden desde el frontend del admin con otra autenticación (JWT).
 router.route('/')
-    .get(getClients)      
-    .post(registerClient);
+    .get(getClients) // Aquí debería ir un 'protect' para admin, no 'protectInternal'
+    .post(registerClient); // Aquí también
 
-// GET /api/clients/:id
-// PUT /api/clients/:id
-// DELETE /api/clients/:id
+// Rutas genéricas para un cliente específico por su ID de MongoDB.
+// Estas rutas tampoco usan 'protectInternal'.
 router.route('/:id')
-    .get(getClientById)     
-    .put(updateClient)        
-    .delete(deleteClient);    
+    .get(getClientById) 
+    .put(updateClient) 
+    .delete(deleteClient); 
 
-
-// GET /api/clients/internal/all
-// Usada por el cron job para obtener la lista de todos los clientes.
-router.get('/internal/all', protectInternal, getAllInternalClients);
-
-// GET /api/clients/:id/db-info
-// Usada por gym-app para obtener la connection string. Estandarizamos a usar :id.
-router.get('/:id/db-info', protectInternal, getClientDbInfo); 
-
-// PUT /api/clients/:id/status
-// Usada para actualizar el estado de suscripción. Estandarizamos a usar :id.
-router.put('/:id/status', protectInternal, updateClientStatus); 
-
+// La ruta antigua y conflictiva ha sido eliminada para evitar ambigüedades.
 
 export default router;

@@ -55,8 +55,7 @@ export default function GymIdentifierScreen() {
     setLoading(true);
     try {
         // 2. Apuntamos a la RUTA CORRECTA del backend
-        const response = await axios.get(`${SUPER_ADMIN_API_URL}/api/clients/identifier/${trimmedIdentifier}`);
-        
+        const response = await axios.get(`${SUPER_ADMIN_API_URL}/api/public/gym/${trimmedIdentifier}`);
         if (!response.data?.clientId) {
             throw new Error("La respuesta del servidor no incluyó un ID de cliente.");
         }
