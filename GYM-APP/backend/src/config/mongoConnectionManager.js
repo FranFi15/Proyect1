@@ -51,7 +51,7 @@ const connectToGymDB = async (clientId) => {
         return activeConnections.get(clientId);
     }
 
-    // --- MODIFIED: Get the full config object ---
+
     const { connectionStringDB, superAdminId, apiSecretKey } = await getDbConfig(clientId);
 
     try {
