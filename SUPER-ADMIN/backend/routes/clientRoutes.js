@@ -38,10 +38,10 @@ router.get('/internal/all-clients', protectInternal, getClients);
 router.get('/internal/:clientId/db-info', protectInternal, getClientInternalDbInfo);
 
 // Usada por GYM-APP para consultar el límite de clientes.
-router.get('/internal/:id/subscription-info', protectInternal, getClientSubscriptionInfo); 
+router.get('/internal/:clientId/subscription-info', protectInternal, getClientSubscriptionInfo);
 
 // Usada por GYM-APP para actualizar el contador de clientes.
-router.put('/internal/:id/client-count', protectInternal, updateClientCount);
+router.put('/internal/:clientId/client-count', protectInternal, updateClientCount);
 
 // Usada para actualizar el estado (considera unificar con la de arriba).
 router.put('/internal/:clientId/status', protectInternal, updateClientStatus); 

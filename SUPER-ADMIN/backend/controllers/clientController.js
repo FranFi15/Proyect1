@@ -75,7 +75,8 @@ const updateClient = asyncHandler(async (req, res) => {
 });
 
 const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
-    const client = await Client.findById(req.params.id);
+    const { clientId } = req.params;
+    const client = await Client.findOne({ clientId: clientId });
     if (!client) {
         res.status(404);
         throw new Error('Cliente no encontrado.');
@@ -87,9 +88,9 @@ const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
 });
 
 const updateClientCount = asyncHandler(async (req, res) => {
-    const { action } = req.body;
-     const client = await Client.findOne({ clientId: req.params.clientId });
-
+   const { action } = req.body;
+    const { clientId } = req.params;
+    const client = await Client.findOne({ clientId: clientId });
     if (!client) {
         res.status(404);
         throw new Error('Cliente no encontrado.');
