@@ -34,7 +34,7 @@ const getDbConfig = async (clientId) => {
         }
 
         // Return all necessary data
-        return { connectionStringDB, superAdminId: _id, apiSecretKey };
+        return { connectionStringDB, gymId: _id, apiSecretKey };
 
     } catch (error) {
         console.error(`Error al obtener la cadena de conexión para ${clientId}:`, error.response ? error.response.data : error.message);
