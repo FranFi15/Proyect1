@@ -89,7 +89,8 @@ const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
 
 const updateClientCount = asyncHandler(async (req, res) => {
     const { action } = req.body;
-     const client = await Client.findOne({ clientId: req.params.clientId });
+    const { clientId } = req.params;
+    const client = await Client.findOne({ clientId: clientId });
 
     if (!client) {
         res.status(404);
@@ -196,7 +197,7 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
     res.status(200).json({
-        _id: client._id, // El ID de MongoDB para futuras llamadas
+        _id: client._id, 
         clientId: client.clientId, 
         connectionStringDB: client.connectionStringDB,
         estadoSuscripcion: client.estadoSuscripcion,

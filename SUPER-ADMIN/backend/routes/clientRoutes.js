@@ -46,7 +46,5 @@ router.put('/internal/:clientId/client-count', protectInternal, updateClientCoun
 // Usada para actualizar el estado (considera unificar con la de arriba).
 router.put('/internal/:clientId/status', protectInternal, updateClientStatus); 
 
-// Ruta antigua, considera eliminarla ya que getClientInternalDbInfo la reemplaza.
-router.get('/:clientId/db-info', protectInternal, getClientDbInfo); 
 
 export default router;

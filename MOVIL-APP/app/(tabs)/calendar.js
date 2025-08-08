@@ -415,7 +415,6 @@ const CalendarScreen = () => {
             markedDates={markedDates} 
             markingType={'custom'} 
             theme={calendarTheme} 
-            hideArrows = {true}
         />
         </ThemedView>
     );
