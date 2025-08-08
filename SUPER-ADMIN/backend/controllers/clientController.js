@@ -195,9 +195,11 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
     res.status(200).json({
-        clientId: client.clientId,
+        _id: client._id, // El ID de MongoDB para futuras llamadas
+        clientId: client.clientId, 
         connectionStringDB: client.connectionStringDB,
-        estadoSuscripcion: client.estadoSuscripcion
+        estadoSuscripcion: client.estadoSuscripcion,
+        apiSecretKey: client.apiSecretKey // La clave secreta para autenticar otras llamadas
     });
 });
 
