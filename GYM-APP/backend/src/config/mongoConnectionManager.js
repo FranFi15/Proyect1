@@ -17,7 +17,7 @@ const getDbConfig = async (clientId) => {
         }
 
         const response = await axios.get(
-            `${adminApiUrl}/api/clients/${clientId}/internal-db-info`,
+            `${adminApiUrl}/api/clients/internal/${clientId}/db-info`,
             {
                 headers: { 'x-internal-api-key': internalApiKey }
             }
@@ -56,7 +56,7 @@ const connectToGymDB = async (clientId) => {
 
     try {
         console.log(`✨ Creando nueva conexión para: ${clientId}`);
-        const newConnection = await mongoose.createConnection(connectionString).asPromise();
+        const newConnection = await mongoose.createConnection(connectionStringDB).asPromise();
         
         getModels(newConnection);
         
