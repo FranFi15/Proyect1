@@ -24,7 +24,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const roles = userCount === 0 ? ['admin'] : ['cliente'];
 
     if (roles.includes('cliente')) {
-        const hasSpace = await checkClientLimit(req.superAdminId, req.apiSecretKey);
+        const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
         if (!hasSpace) {
             res.status(403); 
             throw new Error('El gimnasio ha alcanzado el límite de socios activos. Por favor, contacta al administrador.');
@@ -50,7 +50,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     if (user) {
         if (user.roles.includes('cliente')) {
-            updateClientCount(req.superAdminId, req.apiSecretKey, 'increment');
+            updateClientCount(req.gymId, req.apiSecretKey, 'increment');
         }
 
         res.status(201).json({
