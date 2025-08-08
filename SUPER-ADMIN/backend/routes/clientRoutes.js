@@ -12,11 +12,10 @@ import {
     updateClientCount,
 } from '../controllers/clientController.js'; 
 import { protectInternal } from '../middleware/authInternalMiddleware.js'; 
-// import { protectAdmin } from '../middleware/adminAuthMiddleware.js';
 
 const router = express.Router();
 
-// --- RUTAS PARA EL PANEL DE ADMIN (deberían estar protegidas) ---
+// --- RUTAS PARA EL PANEL DE ADMIN ---
 router.route('/')
     .get(getClients)
     .post(registerClient);
@@ -26,14 +25,28 @@ router.route('/:id')
     .put(updateClient) 
     .delete(deleteClient); 
 
-// --- RUTAS INTERNAS (Server-to-Server, protegidas por API Key) ---
-router.get('/internal/all-clients', protectInternal, getClients);
-router.get('/:clientId/subscription-info', protectInternal, getClientSubscriptionInfo); 
-router.put('/:clientId/client-count', protectInternal, updateClientCount);
+// --- RUTAS INTERNAS (Server-to-Server) ---
 
-// Rutas antiguas que usan :clientId (considera unificar a :id en el futuro)
-router.get('/:clientId/internal-db-info', protectInternal, getClientInternalDbInfo);
-router.put('/:clientId/status', protectInternal, updateClientStatus); 
+// Ruta para el cron job
+router.get('/internal/all-clients', protectInternal, getClients);
+
+// --- ¡CORRECCIÓN APLICADA AQUÍ! ---
+// Se ha añadido el prefijo '/internal/' a todas las rutas que lo necesitaban
+// para que coincidan con lo que el GYM-APP espera.
+
+// Usada por GYM-APP para obtener la configuración inicial.
+router.get('/internal/:clientId/db-info', protectInternal, getClientInternalDbInfo);
+
+// Usada por GYM-APP para consultar el límite de clientes.
+router.get('/internal/:id/subscription-info', protectInternal, getClientSubscriptionInfo); 
+
+// Usada por GYM-APP para actualizar el contador de clientes.
+router.put('/internal/:id/client-count', protectInternal, updateClientCount);
+
+// Usada para actualizar el estado (considera unificar con la de arriba).
+router.put('/internal/:clientId/status', protectInternal, updateClientStatus); 
+
+// Ruta antigua, considera eliminarla ya que getClientInternalDbInfo la reemplaza.
 router.get('/:clientId/db-info', protectInternal, getClientDbInfo); 
 
 export default router;
