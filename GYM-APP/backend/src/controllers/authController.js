@@ -6,7 +6,19 @@ import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClien
 
 const registerUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
-    const { nombre, apellido, email, contraseña, dni, fechaNacimiento, telefonoEmergencia, direccion, numeroTelefono, obraSocial, sexo } = req.body;
+    const { 
+        nombre, 
+        apellido, 
+        email, 
+        contraseña, 
+        dni, 
+        fechaNacimiento, 
+        telefonoEmergencia, 
+        direccion, 
+        numeroTelefono, 
+        obraSocial, 
+        sexo 
+    } = req.body;
 
     if (!nombre || !apellido || !email || !contraseña || !dni || !fechaNacimiento || !telefonoEmergencia) {
         res.status(400);
@@ -20,9 +32,9 @@ const registerUser = asyncHandler(async (req, res) => {
     }
     
     const userCount = await User.countDocuments();
-
     const roles = userCount === 0 ? ['admin'] : ['cliente'];
 
+    // --- VERIFICACIÓN DE LÍMITE ---
     if (roles.includes('cliente')) {
         const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
         if (!hasSpace) {
@@ -42,7 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
         direccion: direccion || '', 
         numeroTelefono: numeroTelefono || '', 
         obraSocial: obraSocial || '', 
-        roles: roles, 
+        roles: roles,
         sexo: sexo || 'Otro' 
     };
     
