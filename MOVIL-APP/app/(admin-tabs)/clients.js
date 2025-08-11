@@ -31,28 +31,10 @@ import { format, parseISO, isValid, isAfter } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
-import UpgradePlanModal from '../../components/admin/UpgradePlanModal'; 
 
-const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) => {
-    const styles = getStyles(colorScheme, gymColor);
-    const isOverLimit = count >= limit;
-    return (
-        <View style={styles.counterContainer}>
-            <View>
-                <ThemedText style={styles.counterLabel}>Socios Activos</ThemedText>
-                <ThemedText style={[styles.counterText, isOverLimit && styles.overLimitText]}>
-                    {count} / {limit}
-                </ThemedText>
-            </View>
-            <TouchableOpacity style={styles.upgradeButton} onPress={onUpgradePress}>
-                <FontAwesome5 name="arrow-up" size={14} color="#fff" />
-                <Text style={styles.upgradeButtonText}>Ampliar Plan</Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
 
 const ManageClientsScreen = () => {
+    // ... (la mayoría de tu estado se mantiene igual) ...
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -93,23 +75,20 @@ const ManageClientsScreen = () => {
     const [editingClientYear, setEditingClientYear] = useState('');
 
     const [activeModal, setActiveModal] = useState(null);
-    const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
 
 
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse, subInfoResponse] = await Promise.all([
+            const [usersResponse, classTypesResponse] = await Promise.all([
                 apiClient.get('/users'),
-                apiClient.get('/tipos-clase'),
-                apiClient.get('/users/subscription-info')
+                apiClient.get('/tipos-clase')
             ]);
 
             const validUsers = usersResponse.data.filter(user => user !== null);
             const filteredUsers = validUsers.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
             setUsers(filteredUsers);
             setClassTypes(classTypesResponse.data.tiposClase || []);
-            setSubscriptionInfo(subInfoResponse.data);
         } catch (error) {
             setAlertInfo({
                 visible: true,

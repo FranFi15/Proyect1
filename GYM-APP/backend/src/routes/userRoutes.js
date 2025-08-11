@@ -29,6 +29,9 @@ const router = express.Router();
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 
+router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
+router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscriptionInfo);
+
  
 
 router.route('/')
@@ -39,6 +42,7 @@ router.route('/me')
 router.route('/me').get(protect, getUserProfile);
 router.route('/profile').put(protect, updateUserProfile);
 router.route('/profile/change-password').put(protect, changeUserPassword);
+
 
 router.route('/:id')
     .get(protect, authorizeRoles('admin', 'profesor'), getUserById) 
@@ -62,7 +66,6 @@ router.route('/:userId/fixed-plan/:planId')
 
 router.route('/profile/push-token').put(protect, updateUserPushToken);
 
-router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
-router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscriptionInfo);
+
 
 export default router;
