@@ -18,7 +18,7 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
             <Pressable style={styles.modalOverlay} onPress={onClose}>
                 <Pressable style={styles.upgradeModalView}>
                     <FontAwesome5 name="rocket" size={40} color={gymColor} style={{ marginBottom: 15 }} />
-                    <ThemedText style={styles.modalTitle}>¡Tu Gimnasio Está Creciendo!</ThemedText>
+                    <ThemedText style={styles.modalTitle}>¡Estás Creciendo!</ThemedText>
                     <ThemedText style={styles.modalText}>
                         Has alcanzado tu límite de {currentLimit} socios. Para seguir registrando, necesitas ampliar tu plan.
                     </ThemedText>

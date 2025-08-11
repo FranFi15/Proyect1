@@ -19,7 +19,8 @@ import {
     forgotPassword,
     resetPassword,
     handleResetLink,
-    requestPlanUpgrade
+    requestPlanUpgrade,
+    getSubscriptionInfo
 } from '../controllers/userController.js'; 
 
 
@@ -62,5 +63,6 @@ router.route('/:userId/fixed-plan/:planId')
 router.route('/profile/push-token').put(protect, updateUserPushToken);
 
 router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
+router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscriptionInfo);
 
 export default router;

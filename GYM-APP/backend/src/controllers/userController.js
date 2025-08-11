@@ -690,6 +690,11 @@ const requestPlanUpgrade = asyncHandler(async (req, res) => {
     res.json(result);
 });
 
+const getSubscriptionInfo = asyncHandler(async (req, res) => {
+    const subInfo = await getClientSubscriptionInfo(req.gymId, req.apiSecretKey);
+    res.json(subInfo);
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -710,4 +715,5 @@ export {
     resetPassword,
     handleResetLink,
     requestPlanUpgrade,
+    getSubscriptionInfo,
 };
