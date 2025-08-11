@@ -32,3 +32,19 @@ export const updateClientCount = async (clientId, internalApiKey, action) => {
         console.error(`CRITICAL: Failed to ${action} client count for ${clientId}:`, error.message);
     }
 };
+
+export const upgradeClientPlan = async (clientId, apiSecretKey) => {
+    try {
+        const response = await superAdminApiClient.put(
+            `/api/clients/internal/${clientId}/upgrade-plan`,
+            {}, // No necesita body, la acción está en la URL
+            { 
+                headers: { 'x-internal-api-key': apiSecretKey } 
+            }
+        );
+        return response.data;
+    } catch (error) {
+        console.error("Error upgrading client plan:", error.response?.data?.message || error.message);
+        throw new Error('No se pudo ampliar el plan. Inténtalo de nuevo.');
+    }
+};

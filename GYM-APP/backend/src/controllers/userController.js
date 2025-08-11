@@ -7,6 +7,7 @@ import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
 import { updateClientCount } from '../utils/superAdminApiClient.js';
+import { upgradeClientPlan } from '../utils/superAdminApiClient.js';
 
 const getAllUsers = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
@@ -114,15 +115,14 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 
-// @desc    Actualizar perfil de usuario por Admin
-// @route   PUT /api/users/:id
-// @access  Admin
 const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
     const {User} = getModels(req.gymDBConnection);
 
     const user = await User.findById(req.params.id);
 
     if (user) {
+        const wasClient = user.roles.includes('cliente');
+
         user.nombre = req.body.nombre !== undefined ? req.body.nombre : user.nombre;
         user.apellido = req.body.apellido !== undefined ? req.body.apellido : user.apellido;
         user.email = req.body.email !== undefined ? req.body.email : user.email;
@@ -133,6 +133,7 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         user.direccion = req.body.direccion !== undefined ? req.body.direccion : user.direccion;
         user.numeroTelefono = req.body.numeroTelefono !== undefined ? req.body.numeroTelefono : user.numeroTelefono;
         user.obraSocial = req.body.obraSocial !== undefined ? req.body.obraSocial : user.obraSocial;
+
 
         if (req.body.ordenMedicaRequerida !== undefined) {
             user.ordenMedicaRequerida = req.body.ordenMedicaRequerida;
@@ -145,11 +146,14 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
             user.planesFijos = new Map(Object.entries(req.body.planesFijos));
         }
 
+        let isNowClient = wasClient;
+
         if (req.body.roles && Array.isArray(req.body.roles)) {
             const validRoles = ['cliente', 'admin', 'profesor'];
             const newRoles = req.body.roles.filter(role => validRoles.includes(role));
             if (newRoles.length > 0) { 
                 user.roles = newRoles;
+                isNowClient = user.roles.includes('cliente');
             } else {
                 res.status(400);
                 throw new Error('Roles proporcionados inválidos.');
@@ -160,7 +164,21 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
             user.contraseña = req.body.contraseña; 
         }
 
+        if (!wasClient && isNowClient) {
+            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
+            if (!hasSpace) {
+                res.status(403);
+                throw new Error('No se puede cambiar el rol a "cliente" porque el gimnasio ha alcanzado su límite de socios activos.');
+            }
+        }
+
         const updatedUser = await user.save(); 
+
+        if (!wasClient && isNowClient) {
+            updateClientCount(req.gymId, req.apiSecretKey, 'increment');
+        } else if (wasClient && !isNowClient) {
+            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
+        }
 
         res.json(updatedUser);
     } else {
@@ -181,7 +199,7 @@ const deleteUser = asyncHandler(async (req, res) => {
         await user.deleteOne();
 
         if (wasClient) {
-            updateClientCount(req.superAdminId, req.apiSecretKey, 'decrement');
+            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
         }
 
         res.json({ message: 'Usuario eliminado correctamente.' });
@@ -667,6 +685,11 @@ const handleResetLink = asyncHandler(async (req, res, next) => {
     res.redirect(302, deepLink);
 });
 
+const requestPlanUpgrade = asyncHandler(async (req, res) => {
+    const result = await upgradeClientPlan(req.gymId, req.apiSecretKey);
+    res.json(result);
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -686,4 +709,5 @@ export {
     forgotPassword,
     resetPassword,
     handleResetLink,
+    requestPlanUpgrade,
 };

@@ -7,7 +7,6 @@ import {
     ActivityIndicator,
     Image,
     useColorScheme,
-    // --- NUEVOS IMPORTS ---
     KeyboardAvoidingView,
     ScrollView,
     Platform
@@ -17,6 +16,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
+import { useRouter } from 'expo-router';
 import CustomAlert from '@/components/CustomAlert';
 
 const ForgotPasswordScreen = () => {
@@ -31,6 +31,7 @@ const ForgotPasswordScreen = () => {
         message: '',
         buttons: [],
     });
+    const router = useRouter();
 
     // Tu lógica de handleResetPassword no necesita cambios.
     const handleResetPassword = async () => {
@@ -107,6 +108,9 @@ const ForgotPasswordScreen = () => {
                             <Text style={styles.buttonText}>Enviar Enlace</Text>
                         )}
                     </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+                                                <Text style={styles.loginLink}>Volver a Inicio de Sesión</Text>
+                                            </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -183,6 +187,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    loginLink: { fontSize: 14, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5, alignSelf: 'center', marginTop: 30 },
 });
 
 export default ForgotPasswordScreen;

@@ -8,7 +8,8 @@ import {
     getClientInternalDbInfo,
     getClientSubscriptionInfo,
     updateClientCount,
-    updateClientStatus
+    updateClientStatus,
+    upgradeClientPlan
 } from '../controllers/clientController.js'; 
 import { protectWithMasterKey, protectWithClientKey } from '../middleware/authInternalMiddleware.js'; 
 
@@ -29,6 +30,7 @@ router.get('/internal/:clientId/db-info', protectWithMasterKey, getClientInterna
 // Las siguientes llamadas ya usan la clave única del cliente
 router.get('/internal/:clientId/subscription-info', protectWithClientKey, getClientSubscriptionInfo);
 router.put('/internal/:clientId/client-count', protectWithClientKey, updateClientCount);
+router.put('/internal/:clientId/upgrade-plan', protectWithClientKey, upgradeClientPlan);
 router.put('/internal/:clientId/status', protectWithClientKey, updateClientStatus); 
 
 export default router;

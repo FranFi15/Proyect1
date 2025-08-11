@@ -175,8 +175,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 14,
     },
     registerContainer: { marginTop: 25, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-    registerText: { fontSize: 16 },
-    registerLink: { fontSize: 16, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 },
+    registerText: { fontSize: 14 },
+    registerLink: { fontSize: 14, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 },
     changeGymButton: {
         marginTop: 30,
         flexDirection: 'row',

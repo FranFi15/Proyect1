@@ -31,6 +31,27 @@ import { format, parseISO, isValid, isAfter } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
+import UpgradePlanModal from '../../components/admin/UpgradePlanModal'; 
+
+
+const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) => {
+    const styles = getStyles(colorScheme, gymColor);
+    const isOverLimit = count >= limit;
+    return (
+        <View style={styles.counterContainer}>
+            <View>
+                <ThemedText style={styles.counterLabel}>Socios Activos</ThemedText>
+                <ThemedText style={[styles.counterText, isOverLimit && styles.overLimitText]}>
+                    {count} / {limit}
+                </ThemedText>
+            </View>
+            <TouchableOpacity style={styles.upgradeButton} onPress={onUpgradePress}>
+                <FontAwesome5 name="arrow-up" size={14} color="#fff" />
+                <Text style={styles.upgradeButtonText}>Ampliar Límite</Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 
 const ManageClientsScreen = () => {
@@ -42,6 +63,8 @@ const ManageClientsScreen = () => {
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
+
+    const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
 
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [selectedClient, setSelectedClient] = useState(null);
@@ -75,19 +98,22 @@ const ManageClientsScreen = () => {
     const [editingClientYear, setEditingClientYear] = useState('');
 
     const [activeModal, setActiveModal] = useState(null);
+    
 
 
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse] = await Promise.all([
+            const [usersResponse, subInfoResponse, classTypesResponse] = await Promise.all([
                 apiClient.get('/users'),
+                apiClient.get('/admin/subscription-info'),
                 apiClient.get('/tipos-clase')
             ]);
 
             const validUsers = usersResponse.data.filter(user => user !== null);
             const filteredUsers = validUsers.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
             setUsers(filteredUsers);
+            setSubscriptionInfo(subInfoResponse.data);
             setClassTypes(classTypesResponse.data.tiposClase || []);
         } catch (error) {
             setAlertInfo({
@@ -213,7 +239,37 @@ const ManageClientsScreen = () => {
             setCreditsModalVisible(false);
             fetchAllData();
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            if (error.response && error.response.status === 403) {
+                setActiveModal('upgrade');
+            }else{
+                setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpgradePlan = async () => {
+        setLoading(true); 
+        try {
+            const response = await apiClient.put('/admin/upgrade-plan');
+            setAlertInfo({ 
+                visible: true, 
+                title: '¡Plan Ampliado!', 
+                message: `Tu límite de clientes ha sido aumentado a ${response.data.newLimit}.`, 
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+            });
+            setActiveModal(null);
+            fetchAllData(); 
+        } catch (error) {
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Error', 
+                message: error.response?.data?.message || 'No se pudo ampliar el plan.', 
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -626,6 +682,13 @@ const ManageClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container} >
+            <ClientCounter 
+                count={subscriptionInfo.clientCount}
+                limit={subscriptionInfo.clientLimit}
+                onUpgradePress={() => setActiveModal('upgrade')}
+                gymColor={gymColor}
+                colorScheme={colorScheme}
+            />
             <TouchableOpacity style={styles.searchInput}><TextInput
                 placeholder="Buscar por nombre, apellido o email..."
                 placeholderTextColor={Colors[colorScheme].icon}
@@ -652,6 +715,15 @@ const ManageClientsScreen = () => {
             <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
+
+            <UpgradePlanModal
+                visible={activeModal === 'upgrade'}
+                onClose={() => setActiveModal(null)}
+                onConfirm={handleUpgradePlan}
+                currentCount={subscriptionInfo.clientCount}
+                currentLimit={subscriptionInfo.clientLimit}
+                gymColor={gymColor}
+            />
 
             {showAddFormModal && (
                 <KeyboardAvoidingView
@@ -1007,7 +1079,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
     filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
-
+    counterContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 15,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+    },
+    counterLabel: { fontSize: 14, color: Colors[colorScheme].icon },
+    counterText: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
+    overLimitText: { color: '#e74c3c' },
+    upgradeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 8,
+    },
+    upgradeButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
 });
 
 export default ManageClientsScreen;

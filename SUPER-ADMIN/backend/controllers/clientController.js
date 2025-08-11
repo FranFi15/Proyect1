@@ -105,18 +105,31 @@ const updateClientCount = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error("Acción no válida. Debe ser 'increment' o 'decrement'.");
     }
-    
-    if (client.clientCount > client.clientLimit) {
-        client.clientLimit += 50; 
-        await client.save();
-        console.log(`Límite para ${client.nombre} aumentado a ${client.clientLimit}.`);
-    } else {
-        await client.save();
-    }
+    await client.save();
 
     res.status(200).json({
         message: 'Contador de clientes actualizado.',
-        newCount: client.clientCount,
+        newCount: client.clientCount
+    });
+});
+
+const upgradeClientPlan = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const client = await Client.findOne({ clientId: clientId });
+
+    if (!client) {
+        res.status(404);
+        throw new Error('Cliente no encontrado.');
+    }
+
+    // Aumentamos el límite al siguiente bloque de 50
+    client.clientLimit += 50; 
+    await client.save();
+    
+    console.log(`Plan para ${client.nombre} ampliado por el administrador del gym. Nuevo límite: ${client.clientLimit}.`);
+    
+    res.status(200).json({
+        message: '¡Plan ampliado exitosamente!',
         newLimit: client.clientLimit
     });
 });
@@ -209,6 +222,7 @@ export {
     registerClient,
     getClientSubscriptionInfo,
     updateClientCount,
+    upgradeClientPlan,
     updateClient,
     getClients,
     deleteClient,

@@ -60,4 +60,6 @@ router.route('/:userId/fixed-plan/:planId')
 
 router.route('/profile/push-token').put(protect, updateUserPushToken);
 
+router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
+
 export default router;

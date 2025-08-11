@@ -222,8 +222,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     registerButtonContainer: { backgroundColor: gymColor || '#00177d', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10, height: 50 },
     registerButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     loginContainer: { marginTop: 30, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-    loginText: { fontSize: 16 },
-    loginLink: { fontSize: 16, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 },
+    loginText: { fontSize: 14 },
+    loginLink: { fontSize: 14, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5 },
 });
 
 export default RegisterPage;
