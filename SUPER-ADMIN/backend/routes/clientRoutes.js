@@ -4,47 +4,31 @@ import {
     getClients,
     getClientById,
     updateClient,
-    updateClientStatus,
     deleteClient,
-    getClientDbInfo,
     getClientInternalDbInfo,
     getClientSubscriptionInfo,
     updateClientCount,
+    updateClientStatus
 } from '../controllers/clientController.js'; 
-import { protectInternal } from '../middleware/authInternalMiddleware.js'; 
+import { protectWithMasterKey, protectWithClientKey } from '../middleware/authInternalMiddleware.js'; 
 
 const router = express.Router();
 
-// --- RUTAS PARA EL PANEL DE ADMIN ---
-router.route('/')
-    .get(getClients)
-    .post(registerClient);
+// --- RUTAS PARA EL PANEL DE ADMIN (no cambian) ---
+router.route('/').get(getClients).post(registerClient);
+router.route('/:id').get(getClientById).put(updateClient).delete(deleteClient); 
 
-router.route('/:id')
-    .get(getClientById) 
-    .put(updateClient) 
-    .delete(deleteClient); 
+// --- RUTAS INTERNAS CON LA PROTECCIÓN CORRECTA ---
 
-// --- RUTAS INTERNAS (Server-to-Server) ---
+// Ruta para el cron job (usa la clave maestra)
+router.get('/internal/all-clients', protectWithMasterKey, getClients);
 
-// Ruta para el cron job
-router.get('/internal/all-clients', protectInternal, getClients);
+// Usada por GYM-APP para la configuración inicial (usa la clave maestra)
+router.get('/internal/:clientId/db-info', protectWithMasterKey, getClientInternalDbInfo);
 
-// --- ¡CORRECCIÓN APLICADA AQUÍ! ---
-// Se ha añadido el prefijo '/internal/' a todas las rutas que lo necesitaban
-// para que coincidan con lo que el GYM-APP espera.
-
-// Usada por GYM-APP para obtener la configuración inicial.
-router.get('/internal/:clientId/db-info', protectInternal, getClientInternalDbInfo);
-
-// Usada por GYM-APP para consultar el límite de clientes.
-router.get('/internal/:clientId/subscription-info', protectInternal, getClientSubscriptionInfo);
-
-// Usada por GYM-APP para actualizar el contador de clientes.
-router.put('/internal/:clientId/client-count', protectInternal, updateClientCount);
-
-// Usada para actualizar el estado (considera unificar con la de arriba).
-router.put('/internal/:clientId/status', protectInternal, updateClientStatus); 
-
+// Las siguientes llamadas ya usan la clave única del cliente
+router.get('/internal/:clientId/subscription-info', protectWithClientKey, getClientSubscriptionInfo);
+router.put('/internal/:clientId/client-count', protectWithClientKey, updateClientCount);
+router.put('/internal/:clientId/status', protectWithClientKey, updateClientStatus); 
 
 export default router;
