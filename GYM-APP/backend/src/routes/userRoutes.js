@@ -18,7 +18,8 @@ import {
     updateUserPushToken,
     forgotPassword,
     resetPassword,
-    handleResetLink
+    handleResetLink,
+    requestPlanUpgrade
 } from '../controllers/userController.js'; 
 
 
