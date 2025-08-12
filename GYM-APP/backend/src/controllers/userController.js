@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
-import { updateClientCount, getClientSubscriptionInfo, upgradeClientPlan } from '../utils/superAdminApiClient.js';
+import { updateClientCount, getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit } from '../utils/superAdminApiClient.js';
 
 
 const getAllUsers = asyncHandler(async (req, res) => {

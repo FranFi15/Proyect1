@@ -46,7 +46,7 @@ const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) 
             </View>
             <TouchableOpacity style={styles.upgradeButton} onPress={onUpgradePress}>
                 <FontAwesome6 name="arrow-trend-up" size={14} color="#fff" />
-                <Text style={styles.upgradeButtonText}>Ampliar Plan</Text>
+                <Text style={styles.upgradeButtonText}>Ampliar Limite</Text>
             </TouchableOpacity>
         </View>
     );
@@ -158,7 +158,7 @@ const ManageClientsScreen = () => {
                 buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
             });
             setActiveModal(null);
-            await fetchData();
+            await fetchAllData();
         } catch (error) {
             setAlertInfo({ 
                 visible: true, 
@@ -177,7 +177,7 @@ const ManageClientsScreen = () => {
             await apiClient.post('/auth/register', newClientData);
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'});
             setActiveModal(null);
-            await fetchData();
+            await fetchAllData();
         } catch (error) {
             if (error.response && error.response.status === 403) {
                 setActiveModal('upgrade');
@@ -1071,8 +1071,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
     counterContainer: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15,paddingBottom:0, marginBottom:0},
-    counterLabel: { fontSize: 14, color: Colors[colorScheme].icon },
-    counterText: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
+    counterLabel: { fontSize: 14, color: Colors[colorScheme].text },
+    counterText: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].icon },
     overLimitText: { color: '#e74c3c' },
     upgradeButton: {
         flexDirection: 'row', alignItems: 'center', backgroundColor: gymColor,
