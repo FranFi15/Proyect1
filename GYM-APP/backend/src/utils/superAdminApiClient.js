@@ -5,7 +5,21 @@ const superAdminApiClient = axios.create({
     baseURL: process.env.ADMIN_PANEL_API_URL, 
 });
 
-// Function to get the current client limit and count from the SUPER-ADMIN
+export const getClientSubscriptionInfo = async (clientId, apiSecretKey) => {
+    try {
+        const response = await superAdminApiClient.get(
+            `/api/clients/internal/${clientId}/subscription-info`,
+            { 
+                headers: { 'x-internal-api-key': apiSecretKey } 
+            }
+        );
+        return response.data; // Devuelve el objeto completo { clientLimit, clientCount }
+    } catch (error) {
+        console.error("Error getting subscription info:", error.response?.data?.message || error.message);
+        throw new Error('No se pudo obtener la información del plan.');
+    }
+};
+
 export const checkClientLimit = async (clientId, internalApiKey) => {
     try {
         const response = await superAdminApiClient.get(

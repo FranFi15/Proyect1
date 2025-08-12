@@ -31,14 +31,36 @@ import { format, parseISO, isValid, isAfter } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
+import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
+
+const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) => {
+    const styles = getStyles(colorScheme, gymColor);
+    const isOverLimit = count >= limit;
+    return (
+        <View style={styles.counterContainer}>
+            <View>
+                <ThemedText style={styles.counterLabel}>Socios Activos</ThemedText>
+                <ThemedText style={[styles.counterText, isOverLimit && styles.overLimitText]}>
+                    {count} / {limit}
+                </ThemedText>
+            </View>
+            <TouchableOpacity style={styles.upgradeButton} onPress={onUpgradePress}>
+                <FontAwesome5 name="arrow-up" size={14} color="#fff" />
+                <Text style={styles.upgradeButtonText}>Ampliar Plan</Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 
 const ManageClientsScreen = () => {
-    // ... (la mayoría de tu estado se mantiene igual) ...
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -54,7 +76,7 @@ const ManageClientsScreen = () => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    
     
     // 💡 PASO 2: Centraliza el estado del DatePicker en un objeto.
     const [datePickerConfig, setDatePickerConfig] = useState({
@@ -80,22 +102,18 @@ const ManageClientsScreen = () => {
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse] = await Promise.all([
+            const [usersResponse, classTypesResponse, subInfoResponse] = await Promise.all([
                 apiClient.get('/users'),
-                apiClient.get('/tipos-clase')
+                apiClient.get('/tipos-clase'),
+                apiClient.get('/users/subscription-info') // Ruta corregida
             ]);
 
-            const validUsers = usersResponse.data.filter(user => user !== null);
-            const filteredUsers = validUsers.filter(u => u.roles.includes('cliente') || u.roles.includes('profesor'));
-            setUsers(filteredUsers);
+            setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
             setClassTypes(classTypesResponse.data.tiposClase || []);
+            setSubscriptionInfo(subInfoResponse.data);
+
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron cargar los datos.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
             setLoading(false);
             setIsRefreshing(false);
@@ -128,6 +146,48 @@ const ManageClientsScreen = () => {
             setEditingClientData(prev => ({ ...prev, fechaNacimiento: dateString }));
         }
     }, [editingClientDay, editingClientMonth, editingClientYear]);
+
+    const handleUpgradePlan = async () => {
+        setIsSubmitting(true);
+        try {
+            const response = await apiClient.put('/users/upgrade-plan'); // Ruta corregida
+            setAlertInfo({ 
+                visible: true, 
+                title: '¡Plan Ampliado!', 
+                message: `Tu límite de clientes ha sido aumentado a ${response.data.newLimit}.`, 
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+            });
+            setActiveModal(null);
+            await fetchData();
+        } catch (error) {
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Error', 
+                message: error.response?.data?.message || 'No se pudo ampliar el plan.', 
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAddClientSubmit = async (newClientData) => {
+        setIsSubmitting(true);
+        try {
+            await apiClient.post('/auth/register', newClientData);
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'});
+            setActiveModal(null);
+            await fetchData();
+        } catch (error) {
+            if (error.response && error.response.status === 403) {
+                setActiveModal('upgrade');
+            } else {
+                setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo registrar al socio.' });
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleOpenBillingModal = (client) => {
         setSelectedClient(client);
@@ -351,23 +411,6 @@ const ManageClientsScreen = () => {
         setNewClientData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleAddClientSubmit = async () => {
-        for (const key in newClientData) {
-            const optionalFields = ['numeroTelefono', 'obraSocial', 'roles'];
-            if (newClientData[key] === '' && !optionalFields.includes(key)) {
-                setAlertInfo({ visible: true, title: 'Error', message: `Por favor, completa el campo: ${key}`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                return;
-            }
-        }
-        try {
-            await apiClient.post('/auth/register', newClientData);
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-            setShowAddFormModal(false);
-            fetchAllData();
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo registrar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-        }
-    };
 
     const handleEditingClientChange = (name, value) => {
         setEditingClientData(prev => ({ ...prev, [name]: value }));
@@ -626,14 +669,24 @@ const ManageClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container} >
-            <TouchableOpacity style={styles.searchInput}><TextInput
-                placeholder="Buscar por nombre, apellido o email..."
-                placeholderTextColor={Colors[colorScheme].icon}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
+            <ClientCounter 
+                count={subscriptionInfo.clientCount}
+                limit={subscriptionInfo.clientLimit}
+                onUpgradePress={() => setActiveModal('upgrade')}
+                gymColor={gymColor}
+                colorScheme={colorScheme}
             />
-            <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
-            </TouchableOpacity>
+            
+            <View style={styles.searchInput}>
+                <TextInput
+                    
+                    placeholder="Buscar socio por nombre..."
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                />
+                <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
+            </View>
             
             <FlatList
                 data={filteredData}
@@ -652,6 +705,15 @@ const ManageClientsScreen = () => {
             <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
+
+            <UpgradePlanModal
+                visible={activeModal === 'upgrade'}
+                onClose={() => setActiveModal(null)}
+                onConfirm={handleUpgradePlan}
+                currentCount={subscriptionInfo.clientCount}
+                currentLimit={subscriptionInfo.clientLimit}
+                gymColor={gymColor}
+            />
 
             {showAddFormModal && (
                 <KeyboardAvoidingView
@@ -1007,6 +1069,18 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
     filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
+    counterContainer: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15,
+    },
+    counterLabel: { fontSize: 14, color: Colors[colorScheme].icon },
+    counterText: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
+    overLimitText: { color: '#e74c3c' },
+    upgradeButton: {
+        flexDirection: 'row', alignItems: 'center', backgroundColor: gymColor,
+        paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8,
+    },
+    upgradeButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
+    
 
 });
 

@@ -6,8 +6,8 @@ import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
-import { updateClientCount } from '../utils/superAdminApiClient.js';
-import { upgradeClientPlan } from '../utils/superAdminApiClient.js';
+import { updateClientCount, getClientSubscriptionInfo, upgradeClientPlan } from '../utils/superAdminApiClient.js';
+
 
 const getAllUsers = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
