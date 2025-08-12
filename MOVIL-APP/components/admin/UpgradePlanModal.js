@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Pressable, View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLimit, gymColor }) => {
     const colorScheme = useColorScheme() ?? 'light';
@@ -17,14 +17,14 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
         >
             <Pressable style={styles.modalOverlay} onPress={onClose}>
                 <Pressable style={styles.upgradeModalView}>
-                    <FontAwesome5 name="rocket" size={40} color={gymColor} style={{ marginBottom: 15 }} />
+                    <FontAwesome6 name="arrow-trend-up" size={40} color={gymColor} style={{ marginBottom: 15 }} />
                     <ThemedText style={styles.modalTitle}>¡Estás Creciendo!</ThemedText>
                     <ThemedText style={styles.modalText}>
-                        Has alcanzado tu límite de {currentLimit} socios. Para seguir registrando, necesitas ampliar tu plan.
+                        Has alcanzado tu límite de {currentLimit} clientes. Para seguir registrando, necesitas ampliar tu plan.
                     </ThemedText>
                     <View style={styles.planInfoBox}>
                         <ThemedText style={styles.planInfoTitle}>Próximo Nivel</ThemedText>
-                        <ThemedText style={styles.planInfoText}>Nuevo Límite: {currentLimit + 50} socios</ThemedText>
+                        <ThemedText style={styles.planInfoText}>Nuevo Límite: {currentLimit + 50} clientes</ThemedText>
                         <ThemedText style={styles.planInfoText}>Se añadirá el costo del bloque adicional a tu próxima factura.</ThemedText>
                     </View>
                     <View style={styles.modalActions}>
@@ -32,7 +32,7 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
                             <Text style={styles.modalButtonText}>Más Tarde</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.modalButton, { backgroundColor: gymColor }]} onPress={onConfirm}>
-                            <Text style={styles.modalButtonText}>Ampliar Plan Ahora</Text>
+                            <Text style={styles.modalButtonText}>Ampliar Plan</Text>
                         </TouchableOpacity>
                     </View>
                 </Pressable>
@@ -74,7 +74,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     planInfoBox: { 
         width: '100%', 
-        backgroundColor: Colors[colorScheme].cardBackground, 
         padding: 15, 
         borderRadius: 8, 
         marginVertical: 20 
@@ -106,7 +105,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     modalButtonText: { 
         color: '#fff', 
-        fontSize: 16, 
+        fontSize: 14, 
         fontWeight: 'bold' 
     },
     cancelButton: { 

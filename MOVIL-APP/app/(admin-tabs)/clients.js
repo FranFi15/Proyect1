@@ -23,7 +23,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome, Octicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -39,13 +39,13 @@ const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) 
     return (
         <View style={styles.counterContainer}>
             <View>
-                <ThemedText style={styles.counterLabel}>Socios Activos</ThemedText>
+                <ThemedText style={styles.counterLabel}>Clientes</ThemedText>
                 <ThemedText style={[styles.counterText, isOverLimit && styles.overLimitText]}>
                     {count} / {limit}
                 </ThemedText>
             </View>
             <TouchableOpacity style={styles.upgradeButton} onPress={onUpgradePress}>
-                <FontAwesome5 name="arrow-up" size={14} color="#fff" />
+                <FontAwesome6 name="arrow-trend-up" size={14} color="#fff" />
                 <Text style={styles.upgradeButtonText}>Ampliar Plan</Text>
             </TouchableOpacity>
         </View>
@@ -1070,8 +1070,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
     counterContainer: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15,
-    },
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15,paddingBottom:0, marginBottom:0},
     counterLabel: { fontSize: 14, color: Colors[colorScheme].icon },
     counterText: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
     overLimitText: { color: '#e74c3c' },

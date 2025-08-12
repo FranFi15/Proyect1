@@ -51,7 +51,7 @@ export const upgradeClientPlan = async (clientId, apiSecretKey) => {
     try {
         const response = await superAdminApiClient.put(
             `/api/clients/internal/${clientId}/upgrade-plan`,
-            {}, // No necesita body, la acción está en la URL
+            {},
             { 
                 headers: { 'x-internal-api-key': apiSecretKey } 
             }
