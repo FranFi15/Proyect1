@@ -18,12 +18,12 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
             <Pressable style={styles.modalOverlay} onPress={onClose}>
                 <Pressable style={styles.upgradeModalView}>
                     <FontAwesome6 name="arrow-trend-up" size={40} color={gymColor} style={{ marginBottom: 15 }} />
-                    <ThemedText style={styles.modalTitle}>¡Estás Creciendo!</ThemedText>
-                    <ThemedText style={styles.modalText}>
-                        Has alcanzado tu límite de {currentLimit} clientes. Para seguir registrando, necesitas ampliar tu plan.
+                    <ThemedText style={styles.modalTitle}>¡Sigue Creciendo!</ThemedText>
+                    <ThemedText style={styles.planInfoText}>
+                        Tu límite es de {currentLimit} clientes. Para registrar más clientes, necesitas ampliar tu limite.
                     </ThemedText>
                     <View style={styles.planInfoBox}>
-                        <ThemedText style={styles.planInfoTitle}>Próximo Nivel</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Próximo Nivel</ThemedText>
                         <ThemedText style={styles.planInfoText}>Nuevo Límite: {currentLimit + 50} clientes</ThemedText>
                         <ThemedText style={styles.planInfoText}>Se añadirá el costo del bloque adicional a tu próxima factura.</ThemedText>
                     </View>
@@ -32,7 +32,7 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
                             <Text style={styles.modalButtonText}>Más Tarde</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.modalButton, { backgroundColor: gymColor }]} onPress={onConfirm}>
-                            <Text style={styles.modalButtonText}>Ampliar Plan</Text>
+                            <Text style={styles.modalButtonText}>Ampliar Limite</Text>
                         </TouchableOpacity>
                     </View>
                 </Pressable>
@@ -66,29 +66,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
     },
-    modalText: { 
-        fontSize: 16, 
-        textAlign: 'center', 
-        marginVertical: 10, 
-        lineHeight: 22 
-    },
     planInfoBox: { 
-        width: '100%', 
-        padding: 15, 
+        width: '100%',    
         borderRadius: 8, 
         marginVertical: 20 
-    },
-    planInfoTitle: { 
-        fontSize: 16, 
-        fontWeight: 'bold', 
-        textAlign: 'center', 
-        marginBottom: 10 
     },
     planInfoText: { 
         fontSize: 14, 
         textAlign: 'center', 
         opacity: 0.8, 
-        marginBottom: 5 
+        marginBottom: 5,
+        marginTop: 5 
     },
     modalActions: { 
         flexDirection: 'row', 

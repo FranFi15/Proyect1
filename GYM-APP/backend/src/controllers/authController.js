@@ -30,6 +30,12 @@ const registerUser = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Ya existe un usuario con este email.');
     }
+
+    const dniExists = await User.findOne({ dni });
+    if (dniExists) {
+        res.status(400);
+        throw new Error('Ya existe un usuario con este DNI.');
+    }
     
     const userCount = await User.countDocuments();
     const roles = userCount === 0 ? ['admin'] : ['cliente'];

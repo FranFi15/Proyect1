@@ -150,7 +150,7 @@ const ManageClientsScreen = () => {
     const handleUpgradePlan = async () => {
         setIsSubmitting(true);
         try {
-            const response = await apiClient.put('/users/upgrade-plan'); // Ruta corregida
+            const response = await apiClient.put('/users/upgrade-plan'); 
             setAlertInfo({ 
                 visible: true, 
                 title: '¡Plan Ampliado!', 
@@ -171,23 +171,45 @@ const ManageClientsScreen = () => {
         }
     };
 
-    const handleAddClientSubmit = async (newClientData) => {
-        setIsSubmitting(true);
+    const handleAddClientSubmit = async () => {
+        setLoading(true);
         try {
+            // Validación de campos (puedes hacerla más robusta si quieres)
+            if (!newClientData.nombre || !newClientData.email || !newClientData.contraseña) {
+                throw new Error('Por favor, ingresa todos los campos obligatorios.');
+            }
+
             await apiClient.post('/auth/register', newClientData);
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'});
             setActiveModal(null);
             await fetchAllData();
         } catch (error) {
-            if (error.response && error.response.status === 403) {
-                setActiveModal('upgrade');
-            } else {
-                setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo registrar al socio.' });
-            }
-        } finally {
-            setIsSubmitting(false);
+        // --- ¡AQUÍ ESTÁ LA LÓGICA MEJORADA! ---
+        let errorMessage = 'Ocurrió un error inesperado. Inténtalo de nuevo.'; // Mensaje por defecto
+
+        if (error.response && error.response.data && error.response.data.message) {
+            // Caso 1: El backend envió un mensaje de error específico (ej: "email ya existe").
+            errorMessage = error.response.data.message;
+        } else if (error.message) {
+            // Caso 2: No hubo respuesta del backend, es un error de red o de otro tipo.
+            errorMessage = error.message;
         }
-    };
+
+        // Caso especial para el límite de clientes
+        if (error.response && error.response.status === 403) {
+            setActiveModal('upgrade');
+        } else {
+            // Mostramos el mensaje de error correcto y amigable en el modal
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Error de Registro', 
+                message: errorMessage 
+            });
+        }
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleOpenBillingModal = (client) => {
         setSelectedClient(client);
