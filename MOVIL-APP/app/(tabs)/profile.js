@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     StyleSheet,
     View,
@@ -8,21 +8,25 @@ import {
     TouchableOpacity,
     useColorScheme,
     Modal,
+    Switch
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
 import es from 'date-fns/locale/es';
+import * as Notifications from 'expo-notifications';
+import {registerForPushNotificationsAsync} from '../../services/notificationService';
+import apiClient from '../../services/apiClient';
 
 // Importamos los componentes para los modales
 import BalanceModal from '@/components/client/BalanceModal';
 import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert'; 
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -36,10 +40,9 @@ const ProfileScreen = () => {
         buttons: [] 
     });
 
-    // Estados para controlar la visibilidad de cada modal
-    const [isBalanceModalVisible, setBalanceModalVisible] = useState(false);
-    const [isPlansModalVisible, setPlansModalVisible] = useState(false);
-    const [isEditModalVisible, setEditModalVisible] = useState(false);
+     const [activeModal, setActiveModal] = useState(null);
+
+     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -49,6 +52,60 @@ const ProfileScreen = () => {
             setProfile(user);
         }, [user])
     );
+
+    useEffect(() => {
+        const checkNotificationStatus = async () => {
+            const { status } = await Notifications.getPermissionsAsync();
+            setNotificationsEnabled(status === 'granted');
+        };
+        checkNotificationStatus();
+    }, []);
+
+    const handleToggleNotifications = async (value) => {
+        if (value) { 
+            const token = await registerForPushNotificationsAsync();
+            setNotificationsEnabled(token !== null);
+        } else {
+            setAlertInfo({
+                visible: true,
+                title: 'Desactivar Notificaciones',
+                message: 'Para desactivar las notificaciones, debes hacerlo desde los ajustes de tu teléfono.',
+                buttons: [{ text: 'Entendido', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Cuenta",
+            message: "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es permanente y no se puede deshacer.",
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { 
+                    text: "Sí, Eliminar", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        try {
+                            await apiClient.delete('/users/me'); // Llama al nuevo endpoint del backend
+                            setAlertInfo({
+                                visible: true,
+                                title: "Cuenta Eliminada",
+                                message: "Tu cuenta ha sido eliminada exitosamente.",
+                                buttons: [{ text: "OK", onPress: logout }] // Desloguea al usuario
+                            });
+                        } catch (error) {
+                            setAlertInfo({
+                                visible: true,
+                                title: "Error",
+                                message: "No se pudo eliminar la cuenta. Inténtalo de nuevo."
+                            });
+                        }
+                    }
+                }
+            ]
+        });
+    };
 
     const handleLogout = () => {
         setAlertInfo({
@@ -125,25 +182,35 @@ const ProfileScreen = () => {
                   </ThemedView>
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
-                    <TouchableOpacity style={styles.menuButton} onPress={() => setBalanceModalVisible(true)}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('balance')}>
                         <Ionicons name="logo-usd" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Mi Saldo y Movimientos</ThemedText>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuButton} onPress={() => setPlansModalVisible(true)}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('plans')}>
                         <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuButton} onPress={() => setEditModalVisible(true)}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
                         <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
-                </View>
 
-               
-
-                <View style={styles.logoutButtonContainer}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
+                        <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Activar Notificaciones</ThemedText>
+                        <Switch
+                            value={notificationsEnabled}
+                            onValueChange={handleToggleNotifications}
+                            trackColor={{ false: "#767577", true: gymColor }}
+                            thumbColor={"#f4f3f4"}
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuButton} onPress={handleDeleteAccount}>
+                        <Octicons name="trash" size={20} color={'#ff4040ff'} />
+                        <ThemedText style={[styles.menuButtonText, { color: '#ff4040ff'}]}>Eliminar mi Cuenta</ThemedText>
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={handleLogout}>
                         <Ionicons name="log-out" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={[styles.menuButtonText]}>Cerrar Sesión</ThemedText>
@@ -153,16 +220,16 @@ const ProfileScreen = () => {
             </ScrollView>
 
             {/* Renderizado de los Modales */}
-            <Modal visible={isBalanceModalVisible} transparent={true} animationType="slide" onRequestClose={() => setBalanceModalVisible(false)}>
-                <BalanceModal onClose={() => setBalanceModalVisible(false)} />
+            <Modal visible={activeModal === 'balance'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+                <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
 
-            <Modal visible={isPlansModalVisible} transparent={true} animationType="slide" onRequestClose={() => setPlansModalVisible(false)}>
-                <PlansAndCreditsModal onClose={() => setPlansModalVisible(false)} />
+            <Modal visible={activeModal === 'plans'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+                <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>
 
-            <Modal visible={isEditModalVisible} transparent={true} animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
-                <EditProfileModal userProfile={profile} onClose={() => setEditModalVisible(false)} />
+            <Modal visible={activeModal === 'edit'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+                <EditProfileModal userProfile={profile} onClose={() => setActiveModal(null)} />
             </Modal>
 
             <CustomAlert
@@ -261,7 +328,15 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 15,
         marginTop: 10,
         marginBottom: 30,
-    }
+    },
+    settingRow: { 
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        width: '100%',
+        margin: 0,
+        padding: 0,
+    },
 });
 
 export default ProfileScreen;

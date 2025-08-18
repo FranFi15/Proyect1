@@ -209,6 +209,24 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 });
 
+const deleteMyAccount = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        const wasClient = user.roles.includes('cliente');
+        
+        await user.deleteOne();
+        if (wasClient) {
+            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
+        }
+
+        res.json({ message: 'Tu cuenta ha sido eliminada exitosamente.' });
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+});
 
 const updateUserPlan = asyncHandler(async (req, res) => {
     const { User, CreditLog, TipoClase, Notification, Transaction } = getModels(req.gymDBConnection);
@@ -700,6 +718,7 @@ export {
     getUserById,
     getMe,
     deleteUser,
+    deleteMyAccount,
     updateUserProfileByAdmin,
     updateUserPlan, 
     triggerMonthlyPaymentNotifications, 

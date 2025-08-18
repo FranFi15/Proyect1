@@ -699,9 +699,9 @@ const ManageClientsScreen = () => {
                 colorScheme={colorScheme}
             />
             
-            <View style={styles.searchInput}>
+            <View style={styles.searchInputContainer}>
                 <TextInput
-                    
+                    style={styles.searchInput}
                     placeholder="Buscar socio por nombre..."
                     placeholderTextColor={Colors[colorScheme].icon}
                     value={searchTerm}
@@ -1034,19 +1034,24 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    searchInput: { 
-        height: 50, 
-        borderColor: Colors[colorScheme].border, 
-        borderWidth: 1, 
-        borderRadius: 8, 
-        paddingHorizontal: 15, 
-        margin: 15, 
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        color: Colors[colorScheme].text, 
-        fontSize: 16,
+    searchInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        margin: 15,
+        height: 50,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        fontSize: 16
+    }, 
+    searchInput: {
+        height: 50,
+        color: Colors[colorScheme].text,
+        fontSize: 16
     },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, },

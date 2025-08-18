@@ -6,6 +6,7 @@ import {
     getUserById,
     getMe,
     deleteUser,
+    deleteMyAccount,
     updateUserProfileByAdmin,
     updateUserPlan,
     clearUserCredits,
@@ -36,7 +37,7 @@ router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscripti
 
 router.route('/')
     .get(protect, authorizeRoles('admin', 'profesor'), getAllUsers); 
-
+router.delete('/me', protect, deleteMyAccount);
 router.route('/me')
     .get(protect, getMe);
 router.route('/me').get(protect, getUserProfile);

@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-// --- 1. Importar CustomAlert ---
 import CustomAlert from '@/components/CustomAlert';
 
 const LoginPage = () => {
@@ -29,7 +28,7 @@ const LoginPage = () => {
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
 
-    // --- 2. Reemplazar el estado de 'error' por 'alertInfo' ---
+    
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -43,7 +42,6 @@ const LoginPage = () => {
             const credentials = { email, contraseña: password };
             await login(credentials);
         } catch (e) {
-            // --- 3. Usar setAlertInfo para mostrar el error en el modal ---
             setAlertInfo({
                 visible: true,
                 title: 'Error de Autenticación',

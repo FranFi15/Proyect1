@@ -20,12 +20,11 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
                     <FontAwesome6 name="arrow-trend-up" size={40} color={gymColor} style={{ marginBottom: 15 }} />
                     <ThemedText style={styles.modalTitle}>¡Sigue Creciendo!</ThemedText>
                     <ThemedText style={styles.planInfoText}>
-                        Tu límite es de {currentLimit} clientes. Para registrar más clientes, necesitas ampliar tu limite.
+                        Tu límite es de {currentLimit} clientes. Para registrar más clientes, necesitas ampliarlo.
                     </ThemedText>
                     <View style={styles.planInfoBox}>
-                        <ThemedText style={styles.modalTitle}>Próximo Nivel</ThemedText>
-                        <ThemedText style={styles.planInfoText}>Nuevo Límite: {currentLimit + 50} clientes</ThemedText>
-                        <ThemedText style={styles.planInfoText}>Se añadirá el costo del bloque adicional a tu próxima factura.</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Próximo Límite: {currentLimit + 50} clientes</ThemedText>
+                        <ThemedText style={styles.planInfoText}>Se añadirá el costo a tu próxima factura.</ThemedText>
                     </View>
                     <View style={styles.modalActions}>
                         <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>

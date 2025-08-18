@@ -28,54 +28,6 @@ const findMostRecentImportantUnread = (notifications) => {
     return unreadImportant.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 };
 
-async function registerForPushNotificationsAsync(userId, updatePushTokenBackend) {
-    let token;
-    if (!Device.isDevice) {
-        Alert.alert('Funcionalidad no disponible', 'Las notificaciones push solo funcionan en dispositivos físicos.');
-        return;
-    }
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-        Alert.alert('Permiso de Notificaciones', 'No se concedió permiso para recibir notificaciones push.');
-        return;
-    }
-    
-    try {
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        if (!projectId) {
-            throw new Error("El ID del proyecto de Expo no se encuentra en app.json. Asegúrate de que extra.eas.projectId esté configurado.");
-        }
-        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-        console.log('Expo Push Token:', token);
-    } catch (e) {
-        console.error('Error obteniendo el Expo Push Token:', e);
-        Alert.alert("Error de Notificaciones", `No se pudo obtener el token para notificaciones: ${e.message}`);
-        return;
-    }
-
-    if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-        });
-    }
-
-    if (token && userId) {
-        try {
-            await updatePushTokenBackend(token);
-        } catch (error) {
-            console.error('Failed to send push token to backend:', error);
-        }
-    }
-    return token;
-}
 
 
 export default function RootLayout() {
@@ -156,10 +108,6 @@ function AppContent() {
     }, [loading, user, clientId, segments, router]); 
 
     useEffect(() => {
-        if (user && !loading) {
-            registerForPushNotificationsAsync(user._id, updatePushTokenBackend);
-        }
-
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             console.log('Notificación recibida en primer plano:', notification);
             refreshUser();

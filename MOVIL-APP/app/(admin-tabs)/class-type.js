@@ -22,7 +22,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
 const ClassTypeManagementScreen = () => {
@@ -183,14 +183,17 @@ const ClassTypeManagementScreen = () => {
     
     return (
         <ThemedView style={styles.container}>
-            <TextInput
-                style={styles.searchInput}
-                placeholder="Buscar por nombre..."
-                placeholderTextColor={Colors[colorScheme].icon}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-            />
-
+            <View style={styles.searchInputContainer}>
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Buscar por nombre..."
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                />
+                <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
+            </View>
+            
             <FlatList
                 data={filteredClassTypes}
                 renderItem={renderClassType}
@@ -285,14 +288,22 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     listContainer: { padding: 10, paddingBottom: 80 },
-    searchInput: {
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        margin: 15,
         height: 50,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 15,
-        margin: 15,
         backgroundColor: Colors[colorScheme].cardBackground,
+        color: Colors[colorScheme].text,
+        fontSize: 16
+    },
+    searchInput: {
+        height: 50,
         color: Colors[colorScheme].text,
         fontSize: 16
     },
