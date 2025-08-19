@@ -14,6 +14,56 @@ Notifications.setNotificationHandler({
     }),
 });
 
+export async function registerForPushNotificationsAsync() {
+        let token;
+        if (!Device.isDevice) {
+           throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
+        }
+
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            throw new Error('No has habilitado los permisos para recibir notificaciones.');
+        }
+
+        try {
+    // Este es el cambio crucial: obtener el projectId desde la configuración de Expo.
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+        throw new Error('El projectId de Expo no se encontró. Asegúrate de que está en app.json.');
+    }
+    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+  } catch (e) {
+    console.error("Error obteniendo el push token:", e);
+    throw new Error(`No se pudo obtener el token para notificaciones: ${e.message}`);
+  }
+
+        if (Platform.OS === 'android') {
+            Notifications.setNotificationChannelAsync('default', {
+                name: 'default',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#FF231F7C',
+            });
+        }
+
+        if (token) {
+            try {
+                // Enviamos el token al backend para guardarlo
+                await apiClient.put('/users/profile/push-token', { token });
+            } catch (error) {
+                console.error('Error al enviar el push token al servidor:', error);
+            }
+        }
+
+        return token;
+    }
+
 const notificationService = {
     getNotifications: async () => {
         try {
@@ -67,57 +117,8 @@ const notificationService = {
         }
     },
 
-    registerForPushNotificationsAsync: async () => {
-        let token;
-        if (!Device.isDevice) {
-            Alert.alert('Funcionalidad no disponible', 'Las notificaciones push solo funcionan en dispositivos físicos.');
-            return null;
-        }
-
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-
-        if (finalStatus !== 'granted') {
-            alert('No se pudo obtener el permiso para las notificaciones push.');
-            return null;
-        }
-
-        try {
-    // Este es el cambio crucial: obtener el projectId desde la configuración de Expo.
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) {
-        throw new Error('El projectId de Expo no se encontró. Asegúrate de que está en app.json.');
-    }
-    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  } catch (e) {
-    console.error("Error obteniendo el push token:", e);
-    return null;
-  }
-
-        if (Platform.OS === 'android') {
-            Notifications.setNotificationChannelAsync('default', {
-                name: 'default',
-                importance: Notifications.AndroidImportance.MAX,
-                vibrationPattern: [0, 250, 250, 250],
-                lightColor: '#FF231F7C',
-            });
-        }
-
-        if (token) {
-            try {
-                // Enviamos el token al backend para guardarlo
-                await apiClient.put('/users/profile/push-token', { token });
-            } catch (error) {
-                console.error('Error al enviar el push token al servidor:', error);
-            }
-        }
-
-        return token;
-    }
 };
+
+    
 
 export default notificationService;

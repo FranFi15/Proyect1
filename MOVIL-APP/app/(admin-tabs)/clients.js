@@ -702,7 +702,7 @@ const ManageClientsScreen = () => {
             <View style={styles.searchInputContainer}>
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Buscar socio por nombre..."
+                    placeholder="Buscar usuario por nombre..."
                     placeholderTextColor={Colors[colorScheme].icon}
                     value={searchTerm}
                     onChangeText={setSearchTerm}

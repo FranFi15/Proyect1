@@ -28,9 +28,10 @@ import FilterModal from '@/components/FilterModal';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5 , Ionicons} from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import classService from '../../services/classService';
+import QrModal from '../../components/client/QrModal';
 
 // --- CONFIGURACIÓN DE IDIOMA (SIN CAMBIOS) ---
 LocaleConfig.locales['es'] = {
@@ -107,6 +108,8 @@ const CalendarScreen = () => {
         buttons: [] 
     });
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+
+    const [isQrModalVisible, setQrModalVisible] = useState(false);
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
     const colorScheme = useColorScheme() ?? 'light';
@@ -416,6 +419,15 @@ const CalendarScreen = () => {
             markingType={'custom'} 
             theme={calendarTheme} 
         />
+        <View style={styles.headerActions}>
+                <TouchableOpacity 
+                    style={styles.qrButton} 
+                    onPress={() => setQrModalVisible(true)}
+                >
+                    <Ionicons name="qr-code" size={24} color={Colors[colorScheme].icon} />
+                    <ThemedText style={styles.qrButtonText}>Mi Credencial</ThemedText>
+                </TouchableOpacity>
+            </View>
         </ThemedView>
     );
 
@@ -484,13 +496,13 @@ const CalendarScreen = () => {
         );
     }
     
-    // El render principal ahora usa TabView
+    
     return (
         <View style={{ flex: 1 }}>
             <TabView
                 navigationState={{ index, routes }}
                 renderScene={renderScene}
-                onIndexChange={handleIndexChange} // Usamos el nuevo handler
+                onIndexChange={handleIndexChange} 
                 initialLayout={{ width: layout.width }}
                 renderTabBar={props => (
                     <TabBar
@@ -525,6 +537,12 @@ const CalendarScreen = () => {
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor} 
+            />
+            <QrModal
+                visible={isQrModalVisible}
+                onClose={() => setQrModalVisible(false)}
+                user={user}
+                gymColor={gymColor}
             />
         </View>
     );
@@ -649,6 +667,31 @@ const getStyles = (colorScheme, gymColor) => {
         },
         filterButtonText: {
             fontSize: 16,
+            color: Colors[colorScheme].text,
+        },
+        headerActions: {
+            backgroundColor: Colors[colorScheme].background,
+            paddingHorizontal: 15,
+            paddingVertical: 10,
+        },
+        qrButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: Colors[colorScheme].cardBackground,
+            paddingVertical: 18,
+            paddingHorizontal: 15,
+            borderRadius: 8,
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: 2,
+            marginTop: 10,
+        },
+        qrButtonText: {
+            marginLeft: 15,
+            fontSize: 16,
+            fontWeight: '500',
             color: Colors[colorScheme].text,
         },
     });

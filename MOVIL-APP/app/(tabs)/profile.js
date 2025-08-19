@@ -8,7 +8,9 @@ import {
     TouchableOpacity,
     useColorScheme,
     Modal,
-    Switch
+    Switch,
+    Linking,
+
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -61,19 +63,52 @@ const ProfileScreen = () => {
         checkNotificationStatus();
     }, []);
 
-    const handleToggleNotifications = async (value) => {
-        if (value) { 
-            const token = await registerForPushNotificationsAsync();
-            setNotificationsEnabled(token !== null);
-        } else {
+     const handleToggleNotifications = async (value) => {
+        if (value) { // Si se está activando
+            try {
+                await registerForPushNotificationsAsync();
+                setNotificationsEnabled(true);
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Listo!', 
+                    message: 'Has activado las notificaciones.' 
+                });
+            } catch (error) {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.message 
+                });
+                setNotificationsEnabled(false); // Revertimos el switch si hubo un error
+            }
+        } else { // Si se está desactivando
+            setNotificationsEnabled(false);
+            try {
+                await apiClient.put('/users/profile/push-token', { token: null });
+            } catch (error) {
+                console.error("Error al anular el token de push en el backend:", error);
+            }
+            
+            // Usamos CustomAlert en lugar de Alert.alert
             setAlertInfo({
                 visible: true,
-                title: 'Desactivar Notificaciones',
-                message: 'Para desactivar las notificaciones, debes hacerlo desde los ajustes de tu teléfono.',
-                buttons: [{ text: 'Entendido', onPress: () => setAlertInfo({ visible: false }) }]
+                title: "Notificaciones Desactivadas",
+                message: "Hemos guardado tu preferencia. Para dejar de recibir notificaciones por completo, también debes desactivarlas en los ajustes de tu teléfono.",
+                buttons: [
+                    { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                    { 
+                        text: "Ir a Ajustes", 
+                        style: "primary",
+                        onPress: () => {
+                            Linking.openSettings();
+                            setAlertInfo({ visible: false });
+                        }
+                    }
+                ]
             });
         }
     };
+
 
     const handleDeleteAccount = () => {
         setAlertInfo({
@@ -197,7 +232,7 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => handleToggleNotifications}>
                         <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Activar Notificaciones</ThemedText>
                         <Switch

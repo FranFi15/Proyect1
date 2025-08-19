@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, useColorScheme, Text, Modal, RefreshControl, SectionList } from 'react-native';
+import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, useColorScheme, Text, Modal, RefreshControl, SectionList, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,6 +10,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CustomAlert from '@/components/CustomAlert';
+import QrScannerModal from '../../components/profesor/QrScannerModal';
 
 const capitalize = (str) => {
     if (!str) return '';
@@ -41,6 +42,8 @@ const ProfessorMyClassesScreen = () => {
     
     // State to toggle between list and detail view INSIDE the modal
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [isScannerVisible, setScannerVisible] = useState(false);
+    const [selectedClassId, setSelectedClassId] = useState(null);
 
     // Alert state
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
@@ -118,6 +121,29 @@ const ProfessorMyClassesScreen = () => {
         setSelectedStudent(null); // Reset on close
     };
 
+    const handleBarcodeScanned = async ({ type, data }) => {
+        setScannerVisible(false); // Cierra el escáner
+        
+        try {
+            const response = await apiClient.post(`/classes/${selectedClassId}/check-in`, {
+                userId: data // 'data' contiene el ID del usuario del QR
+            });
+            // Muestra una alerta de éxito
+            setAlertInfo({
+                visible: true,
+                title: response.data.message,
+                message: `Cliente: ${response.data.userName}`,
+            });
+        } catch (error) {
+            // Muestra una alerta de error
+            setAlertInfo({
+                visible: true,
+                title: 'Acceso Denegado',
+                message: error.response?.data?.message || 'Error al verificar la inscripción.',
+            });
+        }
+    };
+
 
     // --- DATA STRUCTURING ---
     const sectionedClasses = useMemo(() => {
@@ -143,6 +169,10 @@ const ProfessorMyClassesScreen = () => {
                 <FontAwesome5 name="users" size={16} color="#fff" />
                 <Text style={styles.viewStudentsButtonText}>Ver Clientes</Text>
             </Pressable>
+            <TouchableOpacity style={styles.scanButton} onPress={() => setScannerVisible(true)}>
+                    <FontAwesome5 name="qrcode" size={18} color="#fff" />
+                    <Text style={styles.viewStudentsButtonText}>Escanear QR</Text>
+            </TouchableOpacity>
         </ThemedView>
     );
 
@@ -235,8 +265,6 @@ const ProfessorMyClassesScreen = () => {
                                 )}
                             </>
                         )}
-                        
-                        {/* Close button is always visible at the bottom */}
                         <Pressable
                             style={({ pressed }) => [styles.button, styles.buttonClose, { opacity: pressed ? 0.7 : 1 }]}
                             onPress={handleCloseModal}
@@ -245,6 +273,13 @@ const ProfessorMyClassesScreen = () => {
                         </Pressable>
                     </View>
                 </View>
+            </Modal>
+            <Modal visible={isScannerVisible} animationType="slide">
+                <QrScannerModal 
+                    visible={isScannerVisible}
+                    onClose={() => setScannerVisible(false)}
+                    onBarcodeScanned={handleBarcodeScanned}
+                />
             </Modal>
 
             <CustomAlert
@@ -298,7 +333,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     studentDetailContainer: { width: '100%', alignItems: 'center' }, // Centered content
     detailTitle: { fontSize: 22, fontWeight: 'bold', color: gymColor, textAlign: 'center', marginBottom: 15 },
     studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, // Align text left
-    infoLabel: { fontWeight: 'bold' }
+    infoLabel: { fontWeight: 'bold' },
+    scanButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: gymColor,
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginTop: 15,
+        width: '100%',
+    },
 });
 
 export default ProfessorMyClassesScreen;
