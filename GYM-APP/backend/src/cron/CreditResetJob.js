@@ -61,10 +61,11 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
             }
             
             if (userModified) {
+                user.markModified('creditosPorTipo');
                 await user.save();
             }
         }
-
+        console.log(`[CreditResetJob - ${clientId}] Créditos procesados para ${usersToUpdate.length} usuarios.`);
     } catch (error) {
         console.error(`[CreditResetJob - ${clientId}] Error al reiniciar créditos:`, error);
     }
