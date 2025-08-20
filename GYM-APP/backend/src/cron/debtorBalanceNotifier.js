@@ -5,7 +5,7 @@ import getModels from '../utils/getModels.js';
 import { sendExpoPushNotification } from '../utils/notificationSender.js';
 import { sendSingleNotification } from '../controllers/notificationController.js';
 
-const getAllActiveClientIds = async () => {
+const getAllActiveClients = async () => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
         const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY;
