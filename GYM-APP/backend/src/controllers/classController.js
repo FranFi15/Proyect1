@@ -765,11 +765,9 @@ const reactivateClassesByDate = asyncHandler(async (req, res) => {
     res.status(200).json({ message: `Se reactivaron ${result.modifiedCount} turnos.` });
 });
 
-// @desc    Encontrar los horarios únicos para un tipo de clase en días y fechas específicas
-// @route   GET /api/classes/available-slots
-// @access  Admin
 const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
-    const { Clase } = getModels(req.gymDBConnection);
+    // Necesitamos los modelos para hacer los lookups (populate)
+    const { Clase, TipoClase, User } = getModels(req.gymDBConnection);
     const { tipoClaseId, diasDeSemana, fechaInicio } = req.query;
     let { fechaFin } = req.query;
 
@@ -785,37 +783,59 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
 
     const availableSlots = await Clase.aggregate([
         {
+            // 1. ETAPA DE FILTRADO (Esta parte ya estaba correcta)
             $match: {
-                // 1. Filtros primarios que no fallan
                 tipoClase: new mongoose.Types.ObjectId(tipoClaseId),
                 fecha: {
                     $gte: new Date(`${fechaInicio}T00:00:00Z`),
                     $lte: new Date(`${fechaFin}T23:59:59Z`),
                 },
                 estado: 'activa',
-
-                // 2. Filtro complejo y seguro para 'diaDeSemana'
-                $expr: {
-                    $let: {
-                        vars: {
-                            // Se crea una variable 'safeDia' que SIEMPRE es un array
-                            safeDia: {
-                                $cond: {
-                                    if: { $isArray: "$diaDeSemana" },
-                                    then: "$diaDeSemana",
-                                    else: { $cond: { if: "$diaDeSemana", then: ["$diaDeSemana"], else: [] } }
-                                }
-                            }
-                        },
-                        // Se comprueba si hay intersección entre el array seguro y los días buscados
-                        in: { $gt: [{ $size: { $setIntersection: ["$$safeDia", diasArray] } }, 0] }
-                    }
-                }
+                // ... (tu filtro de diaDeSemana)
             }
         },
-        // 3. El resto de la consulta se mantiene igual
-        { $group: { _id: { horaInicio: '$horaInicio', horaFin: '$horaFin' } } },
-        { $project: { _id: 0, horaInicio: '$_id.horaInicio', horaFin: '$_id.horaFin' } },
+        // --- ¡CORRECCIÓN AQUÍ! ---
+        // 2. AGRUPAMOS por una combinación que hace a la clase única
+        { 
+            $group: { 
+                _id: { 
+                    nombre: '$nombre',
+                    tipoClase: '$tipoClase',
+                    horaInicio: '$horaInicio', 
+                    horaFin: '$horaFin',
+                    profesor: '$profesor'
+                } 
+            } 
+        },
+        // 3. HACEMOS LOOKUP para obtener los nombres (como un .populate)
+        {
+            $lookup: {
+                from: TipoClase.collection.name,
+                localField: '_id.tipoClase',
+                foreignField: '_id',
+                as: 'tipoClaseInfo'
+            }
+        },
+        {
+            $lookup: {
+                from: User.collection.name,
+                localField: '_id.profesor',
+                foreignField: '_id',
+                as: 'profesorInfo'
+            }
+        },
+        // 4. PROYECTAMOS el resultado final en un formato limpio
+        {
+            $project: {
+                _id: 0, // No necesitamos el _id de la agrupación
+                nombre: '$_id.nombre',
+                horaInicio: '$_id.horaInicio',
+                horaFin: '$_id.horaFin',
+                tipoClase: { $arrayElemAt: ['$tipoClaseInfo', 0] },
+                profesor: { $arrayElemAt: ['$profesorInfo', 0] }
+            }
+        },
+        // 5. Ordenamos por hora de inicio
         { $sort: { horaInicio: 1 } }
     ]);
     

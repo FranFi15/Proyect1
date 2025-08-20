@@ -948,18 +948,37 @@ const ManageClientsScreen = () => {
                                 </View>
                                 
                                 {availableSlots.length > 0 && (
-                                    <View style={{ marginTop: 20 }}>
-                                        <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
-                                        {availableSlots.map((slot, index) => (
-                                            <TouchableOpacity key={index} style={[styles.slotItem, selectedSlot?.horaInicio === slot.horaInicio && styles.slotItemSelected]} onPress={() => setSelectedSlot(slot)}>
-                                                <Text style={selectedSlot?.horaInicio === slot.horaInicio ? styles.slotTextSelected : styles.slotText}>{slot.horaInicio} - {slot.horaFin}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                        <View style={styles.buttonWrapper}>
-                                            <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
+                                        <View style={{ marginTop: 20 }}>
+                                            <ThemedText style={styles.inputLabel}>Paso 2: Seleccionar horario</ThemedText>
+                                            
+                                            {availableSlots.map((slot) => {
+                                                // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
+                                                // 1. Creamos un ID único combinando el tipo de clase y el horario.
+                                                const slotId = `${slot.tipoClase?._id}-${slot.horaInicio}-${slot.horaFin}`;
+                                                const isSelected = selectedSlot && `${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selectedSlot.horaFin}` === slotId;
+
+                                                return (
+                                                    <TouchableOpacity 
+                                                        key={slotId} 
+                                                        style={[
+                                                            styles.slotItem, 
+                                                            isSelected && styles.slotItemSelected
+                                                        ]} 
+                                                        onPress={() => setSelectedSlot(slot)}
+                                                    >
+                                                        {/* 2. Mostramos el nombre de la clase junto al horario */}
+                                                        <Text style={isSelected ? styles.slotTextSelected : styles.slotText}>
+                                                            {slot.nombre || 'Turno'} ({slot.horaInicio} - {slot.horaFin})
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                            
+                                            <View style={styles.buttonWrapper}>
+                                                <Button title="Inscribir en Plan" onPress={handleMassEnrollSubmit} disabled={!selectedSlot} color={'#005013ff'} />
+                                            </View>
                                         </View>
-                                    </View>
-                                )}
+                                    )}
                             </View>
                         </ScrollView>
                     </Pressable>
