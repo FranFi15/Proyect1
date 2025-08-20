@@ -21,6 +21,7 @@ import {
      unsubscribeFromWaitlist,
      getProfessorClasses,
     getClassStudents,
+    checkInUser
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
