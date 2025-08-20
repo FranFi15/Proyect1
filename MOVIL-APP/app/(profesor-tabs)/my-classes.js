@@ -1,5 +1,17 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, FlatList, View, ActivityIndicator, Pressable, useColorScheme, Text, Modal, RefreshControl, SectionList, TouchableOpacity } from 'react-native';
+import {
+    StyleSheet,
+    FlatList,
+    View,
+    ActivityIndicator,
+    Pressable,
+    useColorScheme,
+    Text,
+    Modal,
+    RefreshControl,
+    SectionList,
+    TouchableOpacity,
+} from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,8 +22,9 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CustomAlert from '@/components/CustomAlert';
-import QrScannerModal from '../../components/profesor/QrScannerModal';
+import QrScannerModal from '@/components/profesor/QrScannerModal'
 
+// --- Funciones Helper ---
 const capitalize = (str) => {
     if (!str) return '';
     const dateStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -28,54 +41,46 @@ const calculateAge = (birthDateString) => {
 };
 
 const ProfessorMyClassesScreen = () => {
-    // --- STATE MANAGEMENT ---
+    // --- Estados del Componente ---
     const [myClasses, setMyClasses] = useState([]);
     const [loading, setLoading] = useState(true);
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const [isRefreshing, setIsRefreshing] = useState(false);
-
-    // State for the single modal
+    
+    // Estados para Modales
     const [isListModalVisible, setListModalVisible] = useState(false);
+    const [isScannerVisible, setScannerVisible] = useState(false);
+    
+    
+    // Estados para Datos Seleccionados
+    const [selectedClassId, setSelectedClassId] = useState(null);
     const [selectedClassStudents, setSelectedClassStudents] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
-    
-    // State to toggle between list and detail view INSIDE the modal
     const [selectedStudent, setSelectedStudent] = useState(null);
-    const [isScannerVisible, setScannerVisible] = useState(false);
-    const [selectedClassId, setSelectedClassId] = useState(null);
 
-    // Alert state
-    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
-
+    const [alertInfo, setAlertInfo] = useState({ visible: false });
     const styles = getStyles(colorScheme, gymColor);
 
-    // --- DATA FETCHING ---
+    // --- Lógica de Datos ---
     const fetchMyClasses = useCallback(async () => {
         try {
             const response = await apiClient.get('/classes/profesor/me');
             const sorted = response.data.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
             setMyClasses(sorted);
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron cargar tus turnos asignados.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar tus turnos.' });
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            const loadData = async () => {
-                setLoading(true);
-                await fetchMyClasses();
-                setLoading(false);
-            };
-            loadData();
-        }, [fetchMyClasses])
-    );
+    useFocusEffect(useCallback(() => {
+        const loadData = async () => {
+            setLoading(true);
+            await fetchMyClasses();
+            setLoading(false);
+        };
+        loadData();
+    }, [fetchMyClasses]));
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
@@ -83,10 +88,9 @@ const ProfessorMyClassesScreen = () => {
         setIsRefreshing(false);
     }, [fetchMyClasses]);
     
-    // --- MODAL HANDLERS ---
-
-    // Opens the modal and fetches the student list
-    const handleViewStudents = async (classId) => {
+    // --- Manejadores de Eventos ---
+    const handleOpenClassModal = async (classId) => {
+        setSelectedClassId(classId); 
         setListModalVisible(true);
         setLoadingStudents(true);
         try {
@@ -94,48 +98,23 @@ const ProfessorMyClassesScreen = () => {
             setSelectedClassStudents(response.data);
         } catch (error) {
             setListModalVisible(false); 
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron cargar los alumnos del turno.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los alumnos.' });
         } finally {
             setLoadingStudents(false);
         }
     };
     
-    // Sets the selected student to show their details
-    const handleViewStudentDetails = (student) => {
-        setSelectedStudent(student);
-    };
-
-    // Resets selected student to go back to the list view
-    const handleBackToList = () => {
-        setSelectedStudent(null);
-    };
-
-    // Closes the modal and resets the student selection
-    const handleCloseModal = () => {
-        setListModalVisible(false);
-        setSelectedStudent(null); // Reset on close
-    };
-
-    const handleBarcodeScanned = async ({ type, data }) => {
+    const handleBarcodeScanned = async ({ data }) => {
         setScannerVisible(false); // Cierra el escáner
-        
         try {
-            const response = await apiClient.post(`/classes/${selectedClassId}/check-in`, {
-                userId: data // 'data' contiene el ID del usuario del QR
-            });
-            // Muestra una alerta de éxito
+            // 2. Usa el ID guardado para la llamada a la API
+            const response = await apiClient.post(`/classes/${selectedClassId}/check-in`, { userId: data });
             setAlertInfo({
                 visible: true,
                 title: response.data.message,
                 message: `Cliente: ${response.data.userName}`,
             });
         } catch (error) {
-            // Muestra una alerta de error
             setAlertInfo({
                 visible: true,
                 title: 'Acceso Denegado',
@@ -144,8 +123,21 @@ const ProfessorMyClassesScreen = () => {
         }
     };
 
+    const handleViewStudentDetails = (student) => {
+        setSelectedStudent(student);
+    };
 
-    // --- DATA STRUCTURING ---
+    const handleBackToList = () => {
+        setSelectedStudent(null);
+    };
+
+    const handleCloseModal = () => {
+        setListModalVisible(false);
+        setSelectedStudent(null);
+        setSelectedClassId(null); // Limpia el ID al cerrar
+    };
+    
+    // --- Lógica de Renderizado ---
     const sectionedClasses = useMemo(() => {
         const today = startOfDay(new Date());
         const futureClasses = myClasses.filter(clase => !isBefore(parseISO(clase.fecha), today));
@@ -158,21 +150,15 @@ const ProfessorMyClassesScreen = () => {
         return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
     }, [myClasses]);
 
-    // --- RENDER FUNCTIONS ---
-
     const renderClassItem = ({ item }) => (
         <ThemedView style={styles.classItem}>
             <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || 'General'}</ThemedText>
             <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
             <ThemedText style={styles.classInfoText}>Inscritos: {item.usuariosInscritos.length}/{item.capacidad}</ThemedText>
-            <Pressable style={styles.viewStudentsButton} onPress={() => handleViewStudents(item._id)}>
+            <Pressable style={styles.viewStudentsButton} onPress={() => handleOpenClassModal(item._id)}>
                 <FontAwesome5 name="users" size={16} color="#fff" />
                 <Text style={styles.viewStudentsButtonText}>Ver Clientes</Text>
             </Pressable>
-            <TouchableOpacity style={styles.scanButton} onPress={() => setScannerVisible(true)}>
-                    <FontAwesome5 name="qrcode" size={18} color="#fff" />
-                    <Text style={styles.viewStudentsButtonText}>Escanear QR</Text>
-            </TouchableOpacity>
         </ThemedView>
     );
 
@@ -213,13 +199,13 @@ const ProfessorMyClassesScreen = () => {
                     style={({ pressed }) => [styles.button, styles.buttonBack, { opacity: pressed ? 0.7 : 1 }]}
                     onPress={handleBackToList}
                 >
-                    <Text style={styles.textStyle}>Volver a la lista</Text>
+                    <Text style={styles.textStyle}>Volver</Text>
                 </Pressable>
             </View>
         );
     };
 
-    if (loading) {
+     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
 
@@ -229,14 +215,11 @@ const ProfessorMyClassesScreen = () => {
                 sections={sectionedClasses}
                 keyExtractor={(item) => item._id}
                 renderItem={renderClassItem}
-                renderSectionHeader={({ section: { title } }) => (
-                    <ThemedText style={styles.sectionHeader}>{title}</ThemedText>
-                )}
-                ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes turnos asignados en el futuro.</ThemedText>}
+                renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+                ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes turnos asignados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
             />
 
-            {/* --- THE ONLY MODAL --- */}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -245,13 +228,17 @@ const ProfessorMyClassesScreen = () => {
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
-                        
-                        {/* Conditional Rendering: Show details or list */}
                         {selectedStudent ? (
-                            <StudentDetailView />
+                            <StudentDetailView /> // Tu componente de detalle de alumno
                         ) : (
                             <>
-                                <ThemedText style={styles.modalTitle}>Clientes</ThemedText>
+                                <ThemedText style={styles.modalTitle}>Clientes Inscritos</ThemedText>
+                                
+                                <TouchableOpacity style={styles.scanButton} onPress={() => setScannerVisible(true)}>
+                                    <FontAwesome5 name="qrcode" size={18} color="#fff" />
+                                    <Text style={styles.scanButtonText}>Escanear Ingreso (QR)</Text>
+                                </TouchableOpacity>
+
                                 {loadingStudents ? (
                                     <ActivityIndicator size="large" color={gymColor} />
                                 ) : (
@@ -265,36 +252,31 @@ const ProfessorMyClassesScreen = () => {
                                 )}
                             </>
                         )}
-                        <Pressable
-                            style={({ pressed }) => [styles.button, styles.buttonClose, { opacity: pressed ? 0.7 : 1 }]}
-                            onPress={handleCloseModal}
-                        >
+                        <Pressable style={({ pressed }) => [styles.button, styles.buttonClose, { opacity: pressed ? 0.7 : 1 }]} onPress={handleCloseModal}>
                             <Text style={styles.textStyle}>Cerrar</Text>
                         </Pressable>
                     </View>
                 </View>
             </Modal>
-            <Modal visible={isScannerVisible} animationType="slide">
                 <QrScannerModal 
-                    visible={isScannerVisible}
-                    onClose={() => setScannerVisible(false)}
-                    onBarcodeScanned={handleBarcodeScanned}
-                />
-            </Modal>
+                visible={isScannerVisible}
+                onClose={() => setScannerVisible(false)}
+                onBarcodeScanned={handleBarcodeScanned}
+            />
+           
 
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                buttons={alertInfo.buttons || [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]}
+                onClose={() => setAlertInfo({ visible: false })}
                 gymColor={gymColor}
             />
         </ThemedView>
     );
 };
 
-// --- STYLES (con algunos ajustes para Pressable) ---
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -331,19 +313,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     studentListActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
     
     studentDetailContainer: { width: '100%', alignItems: 'center' }, // Centered content
-    detailTitle: { fontSize: 22, fontWeight: 'bold', color: gymColor, textAlign: 'center', marginBottom: 15 },
+    detailTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, textAlign: 'center', marginBottom: 15 },
     studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, // Align text left
     infoLabel: { fontWeight: 'bold' },
     scanButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: gymColor,
-        paddingVertical: 12,
-        borderRadius: 8,
-        marginTop: 15,
-        width: '100%',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor,
+        paddingVertical: 12, borderRadius: 8, marginBottom: 15, width: '100%',
     },
+    scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 16 }
 });
 
 export default ProfessorMyClassesScreen;

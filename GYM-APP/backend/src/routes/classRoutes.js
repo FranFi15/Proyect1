@@ -48,6 +48,8 @@ router.route('/:id')
     .put(protect, authorizeRoles('admin'), updateClass) 
     .delete(protect, authorizeRoles('admin'), deleteClass); 
 
+router.post('/:id/check-in', protect, authorizeRoles('profesor'), checkInUser);
+
 // Rutas para que los usuarios se inscriban/desinscriban
 router.post('/:id/enroll', protect, enrollUserInClass); 
 router.post('/:id/unenroll', protect, unenrollUserFromClass);

@@ -45,7 +45,7 @@ const registerUser = asyncHandler(async (req, res) => {
         const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
         if (!hasSpace) {
             res.status(403); 
-            throw new Error('El gimnasio ha alcanzado el límite de socios activos. Por favor, contacta al administrador.');
+            throw new Error('La institución ha alcanzado el límite de usuarios. Por favor, contacta al administrador.');
         }
     }
     
@@ -110,7 +110,7 @@ const loginUser = asyncHandler(async (req, res) => {
         });
     } else {
         res.status(401);
-        throw new Error('Email o contraseña inválidos.');
+        throw new Error('Email o contraseña incorrectos.');
     }
 });
 

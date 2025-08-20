@@ -180,7 +180,7 @@ const reactivateClass = asyncHandler(async (req, res) => {
 
     if (!classItem) {
         res.status(404);
-        throw new Error('Turno no encontrada.');
+        throw new Error('Turno no encontrado.');
     }
     if (classItem.estado === 'activa' || classItem.estado === 'llena') {
         res.status(400);
@@ -188,7 +188,7 @@ const reactivateClass = asyncHandler(async (req, res) => {
     }
     classItem.estado = 'activa';
     await classItem.save();
-    res.json({ message: 'Turno reactivada exitosamente.', class: classItem });
+    res.json({ message: 'Turno reactivado exitosamente.', class: classItem });
 });
 
 
@@ -212,7 +212,7 @@ const deleteClass = asyncHandler(async (req, res) => {
             });
         }
         
-        res.json({ message: 'Turno eliminada correctamente.' });
+        res.json({ message: 'Turno eliminado correctamente.' });
     } else {
         res.status(404);
         throw new Error('Turno no encontrado.');
@@ -234,7 +234,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
     if (!classItem.tipoClase) {
         res.status(500); // O 400, dependiendo de cómo quieras manejarlo
-        throw new Error('El turno no tiene un tipo de turno asociado, no se puede procesar la inscripción.');
+        throw new Error('El turno no tiene un tipo asociado, no se puede procesar la inscripción.');
     }
     
     if (classItem.estado !== 'activa') {
@@ -935,6 +935,42 @@ const getClassStudents = asyncHandler(async (req, res) => {
     res.status(200).json(classItem.usuariosInscritos);
 });
 
+const checkInUser = asyncHandler(async (req, res) => {
+    const { Clase } = getModels(req.gymDBConnection);
+    const { userId } = req.body; // Recibimos el ID del usuario escaneado del QR
+    const classId = req.params.id; // Recibimos el ID de la clase de la URL
+
+    if (!userId) {
+        res.status(400);
+        throw new Error('No se proporcionó un ID de usuario.');
+    }
+
+    const classItem = await Clase.findById(classId).populate('usuariosInscritos', 'nombre apellido');
+
+    if (!classItem) {
+        res.status(404);
+        throw new Error('Turno no encontrado.');
+    }
+
+    // Buscamos si el ID del usuario está en el array de inscriptos de la clase
+    const userIsEnrolled = classItem.usuariosInscritos.some(user => user._id.toString() === userId);
+    
+    if (userIsEnrolled) {
+        // Si está inscripto, encontramos sus datos para devolverlos y dar una buena UX
+        const enrolledUser = classItem.usuariosInscritos.find(user => user._id.toString() === userId);
+        res.status(200).json({
+            success: true,
+            message: 'Acceso Concedido',
+            userName: `${enrolledUser.nombre} ${enrolledUser.apellido}`,
+        });
+    } else {
+        res.status(403).json({ // 403 Forbidden es un buen código para "Acceso Denegado"
+            success: false,
+            message: 'Inscripción no encontrada para este Turno.',
+        });
+    }
+});
+
 export {
     createClass,
     getAllClasses,
@@ -957,4 +993,5 @@ export {
     subscribeToWaitlist,
     getProfessorClasses,
     getClassStudents,
+    checkInUser
 };
