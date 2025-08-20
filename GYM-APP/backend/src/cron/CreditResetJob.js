@@ -24,10 +24,15 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
 
         const usersToUpdate = await User.find({
             $or: [
-                { 'creditosPorTipo.0': { $exists: true } },
+                { 'creditosPorTipo': { $exists: true, $ne: {} } }, 
                 { 'monthlySubscriptions.0': { $exists: true } }
             ]
         });
+
+        if (usersToUpdate.length === 0) {
+            console.log(`[CreditResetJob - ${clientId}] No se encontraron usuarios con créditos para procesar.`);
+            return;
+        }
 
         for (const user of usersToUpdate) {
             let userModified = false;
