@@ -2,6 +2,7 @@
 import cron from 'node-cron';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
+import axios from 'axios';
 
 import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
@@ -71,43 +72,42 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
 
 
 
-
-
-
-
-
 const runCreditResetJob = async () => {
+    console.log('[CreditResetJob] Iniciando job de reinicio de créditos...');
     if (!SUPER_ADMIN_API_URL || !INTERNAL_ADMIN_API_KEY) {
-        console.error('[Cron Job: Monthly Credit Reset] Error: Variables de entorno no configuradas. El cron job no se ejecutará.');
+        console.error('[CreditResetJob] Error: Variables de entorno no configuradas.');
         return;
     }
     try {
-        const response = await fetch(`${SUPER_ADMIN_API_URL}/api/clients/internal/all-clients`, {
-             headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
+        const response = await axios.get(`${SUPER_ADMIN_API_URL}/api/clients/internal/all-clients`, {
+            headers: { 'x-internal-api-key': INTERNAL_ADMIN_API_KEY },
         });
-        const clients = await response.json();
-        if (!response.ok) {
-            throw new Error(clients.message || 'Error al obtener clientes.');
-        }
+
+        const clients = response.data;
         if (!Array.isArray(clients) || clients.length === 0) {
+            console.log('[CreditResetJob] No hay clientes activos para procesar.');
             return;
         }
 
         for (const client of clients) {
             if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
-                let gymDBConnection;
                 try {
-                    gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
-                    await resetCreditsForCurrentGym(gymDBConnection, client.clientId);
+                    // --- ¡CORRECCIÓN AQUÍ! ---
+                    // Destructuramos el objeto para obtener solo la 'connection'.
+                    const { connection } = await connectToGymDB(client.clientId); 
+                    
+                    // Pasamos la conexión correcta a la función worker.
+                    await resetCreditsForCurrentGym(connection, client.clientId);
                     
                 } catch (gymError) {
-                    console.error(`[Cron Job] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
+                    console.error(`[CreditResetJob] Error al procesar gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
             } 
         }
     } catch (error) {
-        console.error('[Cron Job] Error general en la tarea de reinicio de créditos:', error);
+        console.error('[CreditResetJob] Error general en la tarea:', error.message);
     }
+    console.log('[CreditResetJob] Job de reinicio de créditos finalizado.');
 };
 
 // --- La función scheduleMonthlyCreditReset ahora llama a la nueva función exportable ---
@@ -115,6 +115,7 @@ const scheduleMonthlyCreditReset = () => {
     cron.schedule('0 0 1 * *', runCreditResetJob, { // Ahora llama a la función runCreditResetJob
         timezone: "America/Argentina/Buenos_Aires"
     });
+    console.log('🕒 Cron Job de reinicio de créditos mensual programado.');
 };
 
 export { scheduleMonthlyCreditReset, runCreditResetJob, resetCreditsForCurrentGym };

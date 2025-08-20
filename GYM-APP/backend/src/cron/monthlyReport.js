@@ -11,16 +11,14 @@ import getModels from '../utils/getModels.js';
 const getAllActiveClients = async () => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
-        if (!adminApiUrl) {
-            throw new Error('La URL del ADMIN_PANEL_API_URL no está configurada en el .env');
-        }
         const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY;
-        if (!internalApiKey) {
-            throw new Error('La clave INTERNAL_ADMIN_API_KEY no está configurada en el .env');
+
+        if (!adminApiUrl || !internalApiKey) {
+            throw new Error('Variables de entorno del Admin Panel no configuradas.');
         }
 
         const response = await axios.get(`${adminApiUrl}/api/clients/internal/all-clients`, {
-             headers: { 'x-internal-api-key': internalApiKey }
+            headers: { 'x-internal-api-key': internalApiKey }
         });
 
         if (!response.data || !Array.isArray(response.data)) {
@@ -30,13 +28,12 @@ const getAllActiveClients = async () => {
         return response.data.filter(client => client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba');
     } catch (error) {
         console.error("Error crítico al obtener la lista de clientes activos:", error.response?.data || error.message);
-        throw new Error('No se pudo obtener la lista de clientes del panel de administración.');
+        throw error; // Relanzamos el error para que el runner principal lo maneje
     }
 };
 
-
-const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
-    const { Clase, User } = getModels(gymDB);
+const generateMonthlyReportAndCleanup = async (dbConnection, clientId) => {
+    const { Clase, User } = getModels(dbConnection);
 
     const now = new Date();
     const previousMonth = subMonths(now, 1);
@@ -58,7 +55,6 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         workbook.creator = 'GymApp Admin';
         workbook.created = new Date();
         
-        // ---> Se vuelve a crear una única hoja con el detalle
         const detailSheet = workbook.addWorksheet(`Reporte Clases ${format(previousMonth, 'MMMM-yyyy', { locale: es })}`);
 
         detailSheet.columns = [
@@ -128,6 +124,7 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
         const classIdsToDelete = classesToArchive.map(c => c._id);
         if (classIdsToDelete.length > 0) {
             await Clase.deleteMany({ _id: { $in: classIdsToDelete } });
+            console.log(`[MonthlyReport - ${clientId}] Se eliminaron ${classIdsToDelete.length} clases antiguas.`);
         }
 
     } catch (error) {
@@ -136,40 +133,39 @@ const generateMonthlyReportAndCleanup = async (gymDB, clientId) => {
 };
 
 const masterCronJob = async () => {
-    
-    // --- AJUSTE PARA PRUEBAS ---
-    // Para probar con un solo cliente, usa esta línea y asegúrate de que DEFAULT_CLIENT_ID esté en tu .env
-    const allClients = [{ clientId: process.env.DEFAULT_CLIENT_ID }]; 
-    
-    // --- CÓDIGO DE PRODUCCIÓN ---
-    // Cuando estés listo para producción, comenta la línea de arriba y descomenta la siguiente.
-    // const allClients = await getAllActiveClients(); 
+    console.log('[MonthlyReport] Iniciando job de reporte y limpieza mensual...');
+    try {
+        const allClients = await getAllActiveClients(); 
 
-    if (!allClients || allClients.length === 0) {
-        return;
-    }
-    
-    for (const client of allClients) {
-        if (!client.clientId) {
-            continue;
+        if (!allClients || allClients.length === 0) {
+            console.log('[MonthlyReport] No hay clientes activos para procesar.');
+            return;
         }
-        try {
-            const gymDB = await connectToGymDB(client.clientId);
-            await generateMonthlyReportAndCleanup(gymDB, client.clientId);
-        } catch (error) {
-            console.error(`Error procesando el gimnasio ${client.clientId}:`, error);
+        
+        for (const client of allClients) {
+            if (!client.clientId) continue;
+
+            try {
+                const { connection } = await connectToGymDB(client.clientId);            
+                console.log(`[MonthlyReport - ${client.clientId}] Procesando reporte...`);
+                await generateMonthlyReportAndCleanup(connection, client.clientId);
+
+            } catch (error) {
+                console.error(`[MonthlyReport] Error procesando el gimnasio ${client.clientId}:`, error.message);
+            }
         }
+    } catch (error) {
+        console.error('[MonthlyReport] Error fatal en la tarea principal:', error.message);
     }
+    console.log('[MonthlyReport] Job de reporte y limpieza finalizado.');
 };
 
-/**
- * Programa la tarea para que se ejecute a la 1 AM del primer día de cada mes.
- */
 const scheduleMonthlyCleanup = () => {
     cron.schedule('0 1 1 * *', masterCronJob, {
         scheduled: true,
         timezone: "America/Argentina/Buenos_Aires"
     });
+    console.log('🕒 Cron Job de reporte y limpieza mensual programado.');
 };
 
 export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob, getAllActiveClients };
