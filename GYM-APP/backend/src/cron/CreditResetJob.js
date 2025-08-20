@@ -14,11 +14,14 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
     try {
         const { User, TipoClase } = getModels(gymDBConnection);
 
-        // 1. Obtener todos los tipos de clase que SÍ deben reiniciarse mensualmente.
         const classTypesToReset = await TipoClase.find({ resetMensual: true });
         const classTypeIdsToReset = new Set(classTypesToReset.map(ct => ct._id.toString()));
 
-        // 2. Encontrar todos los usuarios que tengan créditos o suscripciones.
+        if (classTypeIdsToReset.size === 0) {
+            console.log(`[CreditResetJob - ${clientId}] No hay tipos de clase para reiniciar.`);
+            return;
+        }
+
         const usersToUpdate = await User.find({
             $or: [
                 { 'creditosPorTipo.0': { $exists: true } },
@@ -29,32 +32,20 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
         for (const user of usersToUpdate) {
             let userModified = false;
 
-            // 3. Reiniciar créditos solo para los tipos de clase marcados para reinicio.
             if (user.creditosPorTipo && user.creditosPorTipo.size > 0) {
-                const newCreditsMap = new Map(user.creditosPorTipo);
-                let creditsWereReset = false;
-
-                for (const [tipoClaseId, creditos] of newCreditsMap.entries()) {
+                for (const tipoClaseId of user.creditosPorTipo.keys()) {
                     if (classTypeIdsToReset.has(tipoClaseId)) {
-                        newCreditsMap.delete(tipoClaseId); // Elimina el crédito si debe reiniciarse
-                        creditsWereReset = true;
+                        user.creditosPorTipo.delete(tipoClaseId);
+                        userModified = true;
                     }
-                }
-
-                if (creditsWereReset) {
-                    user.creditosPorTipo = newCreditsMap;
-                    userModified = true;
                 }
             }
 
-            // 4. Procesar suscripciones mensuales para renovación automática (esto añade créditos nuevos).
             for (const sub of user.monthlySubscriptions) {
                 if (sub.status === 'automatica' && sub.autoRenewAmount > 0) {
                     const tipoClaseId = sub.tipoClase.toString();
-                 
                     const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
                     user.creditosPorTipo.set(tipoClaseId, currentCredits + sub.autoRenewAmount);
-                    
                     sub.lastRenewalDate = new Date();
                     userModified = true;
                 }
@@ -66,6 +57,7 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
             }
         }
         console.log(`[CreditResetJob - ${clientId}] Créditos procesados para ${usersToUpdate.length} usuarios.`);
+
     } catch (error) {
         console.error(`[CreditResetJob - ${clientId}] Error al reiniciar créditos:`, error);
     }
