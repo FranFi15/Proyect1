@@ -105,7 +105,7 @@ const ProfessorMyClassesScreen = () => {
     };
     
     const handleBarcodeScanned = async ({ data }) => {
-        setScannerVisible(false); // Cierra el escáner
+        setScannerVisible(false);
         try {
             // 2. Usa el ID guardado para la llamada a la API
             const response = await apiClient.post(`/classes/${selectedClassId}/check-in`, { userId: data });
@@ -229,12 +229,12 @@ const ProfessorMyClassesScreen = () => {
                 <View style={styles.modalContainer}>
                     <View style={styles.modalView}>
                         {selectedStudent ? (
-                            <StudentDetailView /> // Tu componente de detalle de alumno
+                            <StudentDetailView /> 
                         ) : (
                             <>
                                 <ThemedText style={styles.modalTitle}>Clientes Inscritos</ThemedText>
-                                
-                                <TouchableOpacity style={styles.scanButton} onPress={() => setScannerVisible(true)}>
+
+                                <TouchableOpacity style={styles.scanButton} onPress={() => {setListModalVisible(false); setScannerVisible(true);}}>
                                     <FontAwesome5 name="qrcode" size={18} color="#fff" />
                                     <Text style={styles.scanButtonText}>Escanear Ingreso (QR)</Text>
                                 </TouchableOpacity>
@@ -260,7 +260,7 @@ const ProfessorMyClassesScreen = () => {
             </Modal>
                 <QrScannerModal 
                 visible={isScannerVisible}
-                onClose={() => setScannerVisible(false)}
+                onClose={() => {setScannerVisible(false); setListModalVisible(true)} }
                 onBarcodeScanned={handleBarcodeScanned}
             />
            
@@ -311,8 +311,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     studentListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18,  width: '100%' },
     studentName: { fontSize: 18, color: Colors[colorScheme].text },
     studentListActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-    
-    studentDetailContainer: { width: '100%', alignItems: 'center' }, // Centered content
+
+    studentDetailContainer: { width: '100%', alignItems: 'center' }, 
     detailTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, textAlign: 'center', marginBottom: 15 },
     studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, // Align text left
     infoLabel: { fontWeight: 'bold' },
