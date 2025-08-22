@@ -980,13 +980,13 @@ const checkInUser = asyncHandler(async (req, res) => {
         const enrolledUser = classItem.usuariosInscritos.find(user => user._id.toString() === userId);
         res.status(200).json({
             success: true,
-            message: 'Acceso Concedido',
+            message: 'Habilitado',
             userName: `${enrolledUser.nombre} ${enrolledUser.apellido}`,
         });
     } else {
         res.status(403).json({ // 403 Forbidden es un buen código para "Acceso Denegado"
             success: false,
-            message: 'Inscripción no encontrada para este Turno.',
+            message: 'Usuario no inscripto.',
         });
     }
 });

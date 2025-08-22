@@ -13,7 +13,7 @@
       "bundleIdentifier": "com.franfi15.MOVILAPP",
       "buildNumber": "6",
       "infoPlist": {
-        "NSCameraUsageDescription": "Esta app necesita acceso a la cámara para escanear el código QR de los socios en el check-in.",
+        "NSCameraUsageDescription": "Esta app necesita acceso a la cámara para escanear el código QR de los socios en el ingreso al turno.",
         "NSUserNotificationsUsageDescription": "Usamos las notificaciones para avisarte sobre tus turnos, créditos, recordatorios importantes y novedades de la institución.",
         "ITSAppUsesNonExemptEncryption": false
       }
