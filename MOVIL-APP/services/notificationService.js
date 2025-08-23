@@ -1,68 +1,62 @@
 import apiClient from './apiClient';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Configuración inicial para cómo se deben manejar las notificaciones cuando la app está en primer plano.
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true, 
+        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
     }),
 });
 
-export async function registerForPushNotificationsAsync() {
-        let token;
-        if (!Device.isDevice) {
-           throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
-        }
-
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-
-        if (finalStatus !== 'granted') {
-            throw new Error('No has habilitado los permisos para recibir notificaciones.');
-        }
-
-        try {
-    // Este es el cambio crucial: obtener el projectId desde la configuración de Expo.
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) {
-        throw new Error('El projectId de Expo no se encontró. Asegúrate de que está en app.json.');
-    }
-    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  } catch (e) {
-    console.error("Error obteniendo el push token:", e);
-    throw new Error(`No se pudo obtener el token para notificaciones: ${e.message}`);
-  }
-
-        if (Platform.OS === 'android') {
-            Notifications.setNotificationChannelAsync('default', {
-                name: 'default',
-                importance: Notifications.AndroidImportance.MAX,
-                vibrationPattern: [0, 250, 250, 250],
-                lightColor: '#FF231F7C',
-            });
-        }
-
-        if (token) {
-            try {
-                // Enviamos el token al backend para guardarlo
-                await apiClient.put('/users/profile/push-token', { token });
-            } catch (error) {
-                console.error('Error al enviar el push token al servidor:', error);
-            }
-        }
-
+async function getExpoTokenAndSendToServer() {
+    try {
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) throw new Error("Falta el projectId en la configuración de Expo.");
+        
+        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        console.log('Expo Push Token:', token);
+        
+        await apiClient.put('/users/profile/push-token', { token });
+        
         return token;
+    } catch (e) {
+        console.error('Error obteniendo o enviando el Expo Push Token:', e);
+        throw new Error(`No se pudo obtener o enviar el token para notificaciones: ${e.message}`);
     }
+}
+
+export async function registerForPushNotificationsAsync() {
+    if (!Device.isDevice) {
+        throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
+    }
+    
+    let { status: existingStatus } = await Notifications.getPermissionsAsync();
+    
+    if (existingStatus === 'granted') {
+        const token = await getExpoTokenAndSendToServer();
+        return { status: 'granted', token };
+    }
+
+    if (existingStatus === 'denied') {
+        return { status: 'denied', token: null };
+    }
+
+    if (existingStatus === 'undetermined') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (newStatus === 'granted') {
+            const token = await getExpoTokenAndSendToServer();
+            return { status: 'granted', token };
+        } else {
+            return { status: 'denied', token: null };
+        }
+    }
+    
+    return { status: 'denied', token: null };
+}
 
 const notificationService = {
     getNotifications: async () => {

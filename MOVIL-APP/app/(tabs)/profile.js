@@ -8,9 +8,7 @@ import {
     TouchableOpacity,
     useColorScheme,
     Modal,
-    Switch,
     Linking,
-
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -63,49 +61,70 @@ const ProfileScreen = () => {
         checkNotificationStatus();
     }, []);
 
-     const handleToggleNotifications = async (value) => {
-        if (value) { // Si se está activando
-            try {
-                await registerForPushNotificationsAsync();
-                setNotificationsEnabled(true);
-                setAlertInfo({ 
-                    visible: true, 
-                    title: '¡Listo!', 
-                    message: 'Has activado las notificaciones.' 
-                });
-            } catch (error) {
-                setAlertInfo({ 
-                    visible: true, 
-                    title: 'Error', 
-                    message: error.message 
-                });
-                setNotificationsEnabled(false); // Revertimos el switch si hubo un error
-            }
-        } else { // Si se está desactivando
-            setNotificationsEnabled(false);
-            try {
-                await apiClient.put('/users/profile/push-token', { token: null });
-            } catch (error) {
-                console.error("Error al anular el token de push en el backend:", error);
-            }
-            
-            // Usamos CustomAlert en lugar de Alert.alert
+     const handleNotificationsPress = async () => {
+        if (notificationsEnabled) {
+            // INTENTO DE DESACTIVAR
             setAlertInfo({
                 visible: true,
-                title: "Notificaciones Desactivadas",
+                title: "Desactivar Notificaciones",
                 message: "Hemos guardado tu preferencia. Para dejar de recibir notificaciones por completo, también debes desactivarlas en los ajustes de tu teléfono.",
                 buttons: [
-                    { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                    { 
+                        text: "Cancelar", 
+                        style: "cancel",
+                        onPress: () => setAlertInfo({ visible: false })
+                    },
                     { 
                         text: "Ir a Ajustes", 
                         style: "primary",
-                        onPress: () => {
-                            Linking.openSettings();
-                            setAlertInfo({ visible: false });
+                        onPress: async () => {
+                            try {
+                                // Solo si el usuario confirma, actualizamos el backend y el estado
+                                await apiClient.put('/users/profile/push-token', { token: null });
+                                setNotificationsEnabled(false);
+                                Linking.openSettings();
+                                setAlertInfo({ visible: false })
+                            } catch (error) {
+                                console.error("Error al anular el token de push en el backend:", error);
+                            }
                         }
                     }
                 ]
             });
+        } else { 
+            // INTENTO DE ACTIVAR
+            try {
+                const result = await registerForPushNotificationsAsync();
+
+                if (result.status === 'granted') {
+                    setNotificationsEnabled(true);
+                    setAlertInfo({ 
+                        visible: true, 
+                        title: '¡Listo!', 
+                        message: 'Has activado las notificaciones.' 
+                    });
+                } else if (result.status === 'denied') {
+                    // El usuario ya había denegado el permiso. Lo guiamos a los ajustes.
+                    setAlertInfo({
+                        visible: true,
+                        title: "Permiso Requerido",
+                        message: "Para activar las notificaciones, necesitas conceder el permiso desde los ajustes de tu teléfono.",
+                        buttons: [
+                            { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                            { 
+                                text: "Ir a Ajustes", 
+                                style: "primary",
+                                onPress: () => {
+                                    Linking.openSettings();
+                                    setAlertInfo({ visible: false });
+                                }
+                            }
+                        ]
+                    });
+                }
+            } catch (error) {
+                setAlertInfo({ visible: true, title: 'Error', message: error.message });
+            }
         }
     };
 
@@ -232,15 +251,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuButton} onPress={() => handleToggleNotifications}>
-                        <Ionicons name="notifications" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.menuButtonText}>Activar Notificaciones</ThemedText>
-                        <Switch
-                            value={notificationsEnabled}
-                            onValueChange={handleToggleNotifications}
-                            trackColor={{ false: "#767577", true: gymColor }}
-                            thumbColor={"#f4f3f4"}
-                        />
+                     <TouchableOpacity style={styles.menuButton} onPress={handleNotificationsPress}>
+                        <Ionicons name={notificationsEnabled ? "notifications" : "notifications-off"} size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>
+                            {notificationsEnabled ? 'Desactivar Notificaciones' : 'Activar Notificaciones'}
+                        </ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={handleDeleteAccount}>
                         <Octicons name="trash" size={20} color={'#ff4040ff'} />
