@@ -33,6 +33,11 @@ const ClientSchema = new mongoose.Schema({
         required: true,
         default: 15000, // Precio por cada bloque de clientes adicional
     },
+    type: {
+        type: String,
+        enum: ['turno', 'restaurante'], 
+        default: 'turno' 
+    },
 
 }, { timestamps: true });
 

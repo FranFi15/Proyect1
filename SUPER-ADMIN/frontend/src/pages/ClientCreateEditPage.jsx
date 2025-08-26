@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import clientService from '../services/clientService';
-import authService from '../services/authService';
-import '../styles/ClientCreateEditPage.css'
+import '../styles/ClientCreateEditPage.css';
 
 // Función para convertir un string a un formato amigable para URL (slug)
 const generateUrlIdentifier = (name) => {
@@ -28,11 +27,10 @@ function ClientCreateEditPage() {
         logoUrl: '', 
         primaryColor: '#150224',
         estadoSuscripcion: 'periodo_prueba', 
-        clientLimit: 50, // Límite base, el admin puede ajustarlo
+        type: 'turno',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(false);
     const isEditing = Boolean(id);
 
     useEffect(() => {
@@ -47,7 +45,7 @@ function ClientCreateEditPage() {
                         logoUrl: data.logoUrl,
                         primaryColor: data.primaryColor,
                         estadoSuscripcion: data.estadoSuscripcion,
-                        clientLimit: data.clientLimit, // Mantenemos el límite individual
+                        type: data.type || 'turno',
                     });
                 })
                 .catch(err => setError(err.message))
@@ -82,20 +80,20 @@ function ClientCreateEditPage() {
             logoUrl: client.logoUrl,
             primaryColor: client.primaryColor,
             estadoSuscripcion: client.estadoSuscripcion,
-            clientLimit: Number(client.clientLimit),
+            type: client.type,
         };
 
         try {
             if (isEditing) {
                 await clientService.updateClient(id, payload);
-                alert('Gimnasio actualizado exitosamente.');
+                alert('Cliente actualizado exitosamente.');
             } else {
                 await clientService.createClient(payload);
-                alert('Gimnasio creado exitosamente.');
+                alert('Cliente creado exitosamente.');
             }
             navigate('/clients');
         } catch (err) {
-            setError(err.message || 'Error al guardar el gimnasio.');
+            setError(err.message || 'Error al guardar el cliente.');
         } finally {
             setLoading(false);
         }
@@ -105,33 +103,30 @@ function ClientCreateEditPage() {
 
     return (
         <div className="client-form-container">
-            <h1 className="client-form-title">{isEditing ? 'Editar Gimnasio' : 'Crear Nuevo Gimnasio'}</h1>
+            <h1 className="client-form-title">{isEditing ? 'Editar Cliente' : 'Crear Nuevo Cliente'}</h1>
             {error && <p className="client-error">{error}</p>}
-            {success && <p className="client-success">¡Operación exitosa!</p>}
             <form onSubmit={handleSubmit} className="client-form">
+                
                 <div className="client-form-group">
-                    <label htmlFor="nombre" className="client-label">Nombre del Gimnasio:</label>
+                    <label htmlFor="nombre" className="client-label">Nombre del Negocio:</label>
                     <input type="text" id="nombre" name="nombre" value={client.nombre} onChange={handleChange} required className="client-input" />
                 </div>
                 
                 <div className="client-form-group">
-                    <label htmlFor="urlIdentifier" className="client-label">Identificador para URL:</label>
-                    <input
-                        type="text"
-                        id="urlIdentifier"
-                        name="urlIdentifier"
-                        value={client.urlIdentifier}
-                        onChange={handleChange}
-                        required
-                        className="client-input"
-                        readOnly={!isEditing} 
-                    />
-                    <h2 className="client-form-subtitle">Plan</h2>
+                    <label htmlFor="type" className="client-label">Tipo de Negocio:</label>
+                    <select id="type" name="type" value={client.type} onChange={handleChange} className="client-input client-select">
+                        <option value="turno">Gimnasio (Turnos)</option>
+                        <option value="restaurante">Restaurante</option>
+                    </select>
+                </div>
+
                 <div className="client-form-group">
-                    <label htmlFor="clientLimit">Límite de Clientes (Plan Base):</label>
-                    <input type="number" id="clientLimit" name="clientLimit" value={client.clientLimit} onChange={handleChange} required />
+                    <label htmlFor="urlIdentifier" className="client-label">Identificador para URL:</label>
+                    <input type="text" id="urlIdentifier" name="urlIdentifier" value={client.urlIdentifier} onChange={handleChange} required className="client-input" readOnly={!isEditing} />
                 </div>
-                </div>
+                
+                <h2 className="client-form-subtitle">Configuración Adicional</h2>
+
                 <div className="client-form-group">
                     <label htmlFor="logoUrl" className="client-label">URL del Logo:</label>
                     <input type="text" id="logoUrl" name="logoUrl" value={client.logoUrl} onChange={handleChange} className="client-input" placeholder="https://ejemplo.com/logo.png" />
@@ -156,7 +151,7 @@ function ClientCreateEditPage() {
                     </div>
                 )}
                 <button type="submit" disabled={loading} className="client-button">
-                    {loading ? 'Guardando...' : (isEditing ? 'Actualizar Gimnasio' : 'Crear Gimnasio')}
+                    {loading ? 'Guardando...' : (isEditing ? 'Actualizar Cliente' : 'Crear Cliente')}
                 </button>
                 <button type="button" onClick={() => navigate('/clients')} className="client-button client-back-button">
                     Volver a la Lista
@@ -165,5 +160,5 @@ function ClientCreateEditPage() {
         </div>
     );
 }
-
+ 
 export default ClientCreateEditPage;

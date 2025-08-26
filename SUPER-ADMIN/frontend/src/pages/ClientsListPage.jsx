@@ -1,41 +1,44 @@
+// src/pages/ClientsListPage.jsx
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import clientService from '../services/clientService';
 import authService from '../services/authService';
-// --- ¡NUEVO IMPORT! ---
-import settingsService from '../services/settingsService'; 
+import settingsService from '../services/settingsService'; // Asumimos que este servicio existe
 import '../styles/ClientListPage.css';
 
-// --- ESTA FUNCIÓN AHORA ACEPTA LOS PRECIOS GLOBALES ---
-const calculateTotalPrice = (client, universalSettings) => {
-    const { clientCount = 0, clientLimit = 100 } = client;
-    const { basePrice = 0, pricePerBlock = 0 } = universalSettings;
-
-    if (clientCount <= clientLimit) {
-        return basePrice;
+// --- FUNCIÓN DE CÁLCULO DE PRECIO ACTUALIZADA ---
+const calculateTotalPrice = (client, universalPrices) => {
+    if (client.type === 'turno') {
+        const clientCount = client.clientCount || 0;
+        const pricePerClient = universalPrices.pricePerClient || 0;
+        return clientCount * pricePerClient;
+    }
+    
+    if (client.type === 'restaurante') {
+        return universalPrices.restaurantPrice || 0;
     }
 
-    const extraClients = clientCount - clientLimit;
-    const extraBlocks = Math.ceil(extraClients / 50); // Usamos 50 como mencionaste
-
-    return basePrice + (extraBlocks * pricePerBlock);
+    return 'N/A';
 };
 
 const formatCurrency = (amount) => {
+    if (typeof amount !== 'number') {
+        return amount;
+    }
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
 };
 
-// --- NUEVO COMPONENTE PARA GESTIONAR PRECIOS ---
-const UniversalPricingManager = ({ settings, onSave }) => {
+// --- NUEVO COMPONENTE PARA GESTIONAR PRECIOS GLOBALES ---
+const UniversalPricingManager = ({ prices, onSave }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [localSettings, setLocalSettings] = useState(settings);
+    const [localPrices, setLocalPrices] = useState(prices);
 
     useEffect(() => {
-        setLocalSettings(settings);
-    }, [settings]);
+        setLocalPrices(prices);
+    }, [prices]);
 
     const handleSave = () => {
-        onSave(localSettings);
+        onSave(localPrices);
         setIsEditing(false);
     };
 
@@ -44,29 +47,29 @@ const UniversalPricingManager = ({ settings, onSave }) => {
             <h2>Precios Universales</h2>
             <div className="pricing-display">
                 <div className="price-item">
-                    <span className="price-label">Precio Base Mensual:</span>
+                    <span className="price-label">Precio por Cliente (Gimnasios):</span>
                     {isEditing ? (
                         <input 
                             type="number" 
                             className="clients-filter-input"
-                            value={localSettings.basePrice}
-                            onChange={(e) => setLocalSettings({...localSettings, basePrice: Number(e.target.value)})}
+                            value={localPrices.pricePerClient}
+                            onChange={(e) => setLocalPrices({...localPrices, pricePerClient: Number(e.target.value)})}
                         />
                     ) : (
-                        <span className="price-value">{formatCurrency(settings.basePrice)}</span>
+                        <span className="price-value">{formatCurrency(prices.pricePerClient)}</span>
                     )}
                 </div>
                 <div className="price-item">
-                    <span className="price-label">Precio por Bloque (50 clientes):</span>
+                    <span className="price-label">Precio Fijo Mensual (Restaurantes):</span>
                      {isEditing ? (
                         <input 
                             type="number" 
                             className="clients-filter-input"
-                            value={localSettings.pricePerBlock}
-                            onChange={(e) => setLocalSettings({...localSettings, pricePerBlock: Number(e.target.value)})}
+                            value={localPrices.restaurantPrice}
+                            onChange={(e) => setLocalPrices({...localPrices, restaurantPrice: Number(e.target.value)})}
                         />
                     ) : (
-                        <span className="price-value">{formatCurrency(settings.pricePerBlock)}</span>
+                        <span className="price-value">{formatCurrency(prices.restaurantPrice)}</span>
                     )}
                 </div>
             </div>
@@ -76,12 +79,11 @@ const UniversalPricingManager = ({ settings, onSave }) => {
                     <button onClick={handleSave} className="clients-button">Guardar Precios</button>
                 </div>
             ) : (
-                 <button onClick={() => setIsEditing(true)} className="clients-button clients-edit-button">Editar Precios</button>
+                <button onClick={() => setIsEditing(true)} className="clients-button clients-edit-button">Editar Precios</button>
             )}
         </div>
     );
 };
-
 
 function ClientsListPage() {
     const [clients, setClients] = useState([]);
@@ -90,21 +92,20 @@ function ClientsListPage() {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('todos');
-    
-    // --- NUEVO ESTADO PARA PRECIOS UNIVERSALES ---
-    const [universalSettings, setUniversalSettings] = useState({ basePrice: 0, pricePerBlock: 0 });
+    const [typeFilter, setTypeFilter] = useState('todos');
+    const [universalPrices, setUniversalPrices] = useState({ pricePerClient: 0, restaurantPrice: 0 });
 
     const fetchData = async () => {
         try {
             const [clientsData, settingsData] = await Promise.all([
                 clientService.getClients(),
-                settingsService.getSettings()
+                settingsService.getSettings() // Asume que este endpoint existe
             ]);
             setClients(clientsData);
-            setUniversalSettings(settingsData);
+            setUniversalPrices(settingsData);
         } catch (err) {
-            setError(err || 'Error al cargar los datos.');
-            if (String(err).includes('No autorizado') || String(err).includes('Token')) {
+            setError(err.message || 'Error al cargar los datos.');
+            if (String(err.message).includes('No autorizado') || String(err.message).includes('Token')) {
                 authService.logout();
                 navigate('/login');
             }
@@ -121,24 +122,24 @@ function ClientsListPage() {
         }
     }, [navigate]);
 
-    const handleSaveSettings = async (newSettings) => {
+    const handleSavePrices = async (newPrices) => {
         try {
-            await settingsService.updateSettings(newSettings);
-            setUniversalSettings(newSettings);
+            await settingsService.updateSettings(newPrices); // Asume que este endpoint existe
+            setUniversalPrices(newPrices);
             alert('Precios actualizados exitosamente.');
         } catch (err) {
-            setError(err || 'No se pudieron guardar los precios.');
+            setError(err.message || 'No se pudieron guardar los precios.');
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de que quieres eliminar este gimnasio? Esto eliminará también su base de datos.')) {
+        if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
             try {
                 await clientService.deleteClient(id);
                 setClients(clients.filter(client => client._id !== id));
-                alert('Gimnasio eliminado exitosamente.');
+                alert('Cliente eliminado exitosamente.');
             } catch (err) {
-                setError(err || 'Error al eliminar el gimnasio.');
+                setError(err.message || 'Error al eliminar el cliente.');
             }
         }
     };
@@ -151,22 +152,25 @@ function ClientsListPage() {
     const filteredAndSortedClients = clients
         .filter(client => {
             const statusMatch = statusFilter === 'todos' || client.estadoSuscripcion === statusFilter;
+            const typeMatch = typeFilter === 'todos' || client.type === typeFilter;
             const searchMatch = client.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-            return statusMatch && searchMatch;
+            return statusMatch && searchMatch && typeMatch;
         })
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-    if (loading) return <p>Cargando gimnasios...</p>;
+    if (loading) return <p>Cargando clientes...</p>;
     if (error) return <p className="clients-error">Error: {error}</p>;
 
     return (
         <div className="clients-container">
             <h1 className="clients-title">Lista de Clientes</h1>
             <div className="clients-actions">
-                <Link to="/clients/new" className="clients-button">Añadir Nuevo Gimnasio</Link>
+                <Link to="/clients/new" className="clients-button">Añadir Nuevo Cliente</Link>
                 <button onClick={handleLogout} className="clients-button clients-logout-button">Cerrar Sesión</button>
             </div>
-            <UniversalPricingManager settings={universalSettings} onSave={handleSaveSettings} />
+            
+            <UniversalPricingManager prices={universalPrices} onSave={handleSavePrices} />
+            
             <div className="filters-container">
                 <input
                     type="text"
@@ -185,39 +189,49 @@ function ClientsListPage() {
                     <option value="inactivo">Inactivo</option>
                     <option value="periodo_prueba">Periodo de Prueba</option>
                 </select>
+                <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="clients-filter-select"
+                >
+                    <option value="todos">Todos los tipos</option>
+                    <option value="turno">Gimnasios</option>
+                    <option value="restaurante">Restaurantes</option>
+                </select>
             </div>
 
             {filteredAndSortedClients.length === 0 ? (
-                <p>No hay gimnasios que coincidan con los filtros.</p>
+                <p>No hay clientes que coincidan con los filtros.</p>
             ) : (
                 <table className="clients-table">
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>Tipo</th>
                             <th>Estado</th>
-                            <th>Clientes (Actual/Límite)</th>
+                            <th>Clientes (Actual)</th>
                             <th>Total a Facturar</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                     {filteredAndSortedClients.map((client) => {
-                        // --- EL CÁLCULO AHORA USA LOS PRECIOS UNIVERSALES ---
-                        const totalPrice = calculateTotalPrice(client, universalSettings);
+                        const totalPrice = calculateTotalPrice(client, universalPrices);
                         return (
                             <tr key={client._id}>
                                 <td>{client.nombre}</td>
+                                <td style={{textTransform: 'capitalize'}}>{client.type}</td>
                                 <td>{client.estadoSuscripcion}</td>
-                                <td>{client.clientCount || 0} / {client.clientLimit || 100}</td>
+                                <td>{client.type === 'turno' ? (client.clientCount || 0) : 'N/A'}</td>
                                 <td>{formatCurrency(totalPrice)}</td>
                                 <td className="actions-column">
                                     <Link to={`/clients/${client._id}/edit`} className="clients-button clients-edit-button">Editar</Link>
-                                    <button onClick={() => {/* ... tu delete ... */}} className="clients-button clients-delete-button">Eliminar</button>
+                                    <button onClick={() => handleDelete(client._id)} className="clients-button clients-delete-button">Eliminar</button>
                                 </td>
                             </tr>
                         );
                     })}
-                </tbody>
+                    </tbody>
                 </table>
             )}
         </div>

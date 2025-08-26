@@ -10,7 +10,8 @@ const registerClient = asyncHandler(async (req, res) => {
         primaryColor,
         clientLimit,
         basePrice,
-        pricePerBlock
+        pricePerBlock,
+        type
     } = req.body;
 
     if (!nombre || !emailContacto || !urlIdentifier) {
@@ -27,6 +28,7 @@ const registerClient = asyncHandler(async (req, res) => {
         clientLimit: clientLimit || 100,
         basePrice: basePrice || 40000,
         pricePerBlock: pricePerBlock || 15000,
+        type: type || 'turno',
     });
     
     const mongoHost = process.env.MONGO_DB_HOST;
@@ -51,7 +53,8 @@ const updateClient = asyncHandler(async (req, res) => {
         primaryColor,
         clientLimit,
         basePrice,
-        pricePerBlock
+        pricePerBlock,
+        type
     } = req.body;
 
     const client = await Client.findById(req.params.id);
@@ -69,7 +72,8 @@ const updateClient = asyncHandler(async (req, res) => {
     if (clientLimit !== undefined) client.clientLimit = clientLimit;
     if (basePrice !== undefined) client.basePrice = basePrice;
     if (pricePerBlock !== undefined) client.pricePerBlock = pricePerBlock;
-
+    if (type !== undefined) client.type = type;
+    
     const updatedClient = await client.save();
     res.json({ message: 'Gimnasio actualizado exitosamente.', client: updatedClient });
 });
