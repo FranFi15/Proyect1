@@ -3,7 +3,7 @@ import axios from 'axios';
 import authService from './authService';
 
 // La URL base de tu API. Debería estar en una variable de entorno.
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:3000/api';
 
 // Función para obtener la configuración del token de autenticación
 const getConfig = () => {
@@ -43,3 +43,5 @@ const settingsService = {
 };
 
 export default settingsService;
+
+
