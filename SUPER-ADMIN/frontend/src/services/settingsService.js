@@ -1,36 +1,39 @@
+// src/services/settingsService.js
 import axios from 'axios';
 import authService from './authService';
 
-const API_URL = import.meta.env.VITE_SUPERADMIN_API_URL || 'http://localhost:6001/api';
+// La URL base de tu API. Debería estar en una variable de entorno.
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
-const apiClient = axios.create({
-    baseURL: API_URL,
-    headers: { 'Content-Type': 'application/json' },
-});
-
-apiClient.interceptors.request.use(config => {
+// Función para obtener la configuración del token de autenticación
+const getConfig = () => {
     const token = authService.getToken();
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+    return {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    };
+};
 
+// Obtiene la configuración de precios desde el backend
 const getSettings = async () => {
     try {
-        const response = await apiClient.get('/settings');
+        const response = await axios.get(`${API_URL}/settings`, getConfig());
         return response.data;
     } catch (error) {
-        throw error.response?.data?.message || error.message;
+        console.error('Error al obtener la configuración de precios:', error.response?.data?.message || error.message);
+        throw new Error(error.response?.data?.message || 'Error al obtener la configuración');
     }
 };
 
+// Actualiza la configuración de precios en el backend
 const updateSettings = async (settingsData) => {
     try {
-        const response = await apiClient.put('/settings', settingsData);
+        const response = await axios.put(`${API_URL}/settings`, settingsData, getConfig());
         return response.data;
     } catch (error) {
-        throw error.response?.data?.message || error.message;
+        console.error('Error al actualizar la configuración de precios:', error.response?.data?.message || error.message);
+        throw new Error(error.response?.data?.message || 'Error al actualizar la configuración');
     }
 };
 
