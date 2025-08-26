@@ -1,24 +1,42 @@
 import asyncHandler from 'express-async-handler';
 import Settings from '../models/Settings.js';
 
-// Obtener la configuración (creándola si no existe)
+// Obtiene la configuración de precios.
+// Si no existe, la crea con valores por defecto.
 const getSettings = asyncHandler(async (req, res) => {
-    let settings = await Settings.findOne({ singleton: 'main_settings' });
+    let settings = await Settings.findOne();
+
     if (!settings) {
-        settings = await Settings.create({}); // Crea el documento con valores por defecto
+        // Si es la primera vez que se ejecuta, crea el documento de configuración.
+        settings = await Settings.create({ pricePerClient: 0, restaurantPrice: 0 });
     }
-    res.json(settings);
+
+    res.status(200).json(settings);
 });
 
-// Actualizar la configuración
+// Actualiza la configuración de precios.
 const updateSettings = asyncHandler(async (req, res) => {
-    const { basePrice, pricePerBlock } = req.body;
-    const settings = await Settings.findOneAndUpdate(
-        { singleton: 'main_settings' },
-        { basePrice, pricePerBlock },
-        { new: true, upsert: true } // upsert: true crea el documento si no existe
-    );
-    res.json(settings);
+    const { pricePerClient, restaurantPrice } = req.body;
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+        // Si por alguna razón no existiera, la crea.
+        settings = await Settings.create({ pricePerClient, restaurantPrice });
+    } else {
+        // Si ya existe, actualiza los valores.
+        settings.pricePerClient = pricePerClient ?? settings.pricePerClient;
+        settings.restaurantPrice = restaurantPrice ?? settings.restaurantPrice;
+        await settings.save();
+    }
+
+    res.status(200).json({
+        message: 'Configuración de precios actualizada exitosamente.',
+        settings,
+    });
 });
 
-export { getSettings, updateSettings };
+export {
+    getSettings,
+    updateSettings,
+};
