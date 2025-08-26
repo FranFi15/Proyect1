@@ -18,6 +18,18 @@
     font-size: 2em;
 }
 
+/* --- NUEVO ESTILO PARA SUBTÍTULOS --- */
+.client-form-subtitle {
+    width: 90%;
+    text-align: left;
+    color: #007e3d; /* Un color que resalte */
+    font-size: 1.4em;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #444;
+}
+
 .client-form {
     display: flex;
     flex-direction: column;
