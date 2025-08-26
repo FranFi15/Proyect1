@@ -115,7 +115,7 @@ function ClientCreateEditPage() {
                 <div className="client-form-group">
                     <label htmlFor="type" className="client-label">Tipo de Negocio:</label>
                     <select id="type" name="type" value={client.type} onChange={handleChange} className="client-input client-select">
-                        <option value="turno">Gimnasio (Turnos)</option>
+                        <option value="turno">Turnos</option>
                         <option value="restaurante">Restaurante</option>
                     </select>
                 </div>
