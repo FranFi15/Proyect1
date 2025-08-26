@@ -47,7 +47,7 @@ const UniversalPricingManager = ({ prices, onSave }) => {
             <h2>Precios Universales</h2>
             <div className="pricing-display">
                 <div className="price-item">
-                    <span className="price-label">Precio por Cliente (Gimnasios):</span>
+                    <span className="price-label">Precio por Cliente App Turnos:</span>
                     {isEditing ? (
                         <input 
                             type="number" 
@@ -60,7 +60,7 @@ const UniversalPricingManager = ({ prices, onSave }) => {
                     )}
                 </div>
                 <div className="price-item">
-                    <span className="price-label">Precio Fijo Mensual (Restaurantes):</span>
+                    <span className="price-label">Precio Fijo App Resto:</span>
                      {isEditing ? (
                         <input 
                             type="number" 
@@ -195,7 +195,7 @@ function ClientsListPage() {
                     className="clients-filter-select"
                 >
                     <option value="todos">Todos los tipos</option>
-                    <option value="turno">Gimnasios</option>
+                    <option value="turno">Turnos</option>
                     <option value="restaurante">Restaurantes</option>
                 </select>
             </div>
