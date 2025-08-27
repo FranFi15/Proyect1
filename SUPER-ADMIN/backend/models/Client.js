@@ -16,22 +16,12 @@ const ClientSchema = new mongoose.Schema({
     clientLimit: {
         type: Number,
         required: true,
-        default: 100, // Límite de clientes por defecto para un nuevo gimnasio
+        default: 100, 
     },
     clientCount: {
         type: Number,
         required: true,
-        default: 0, // Contador de clientes actuales, se actualizará desde GYM-APP
-    },
-    basePrice: {
-        type: Number,
-        required: true,
-        default: 40000, // Precio base por defecto en ARS
-    },
-    pricePerBlock: {
-        type: Number,
-        required: true,
-        default: 15000, // Precio por cada bloque de clientes adicional
+        default: 0, 
     },
     type: {
         type: String,
