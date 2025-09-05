@@ -15,6 +15,7 @@ import {
     RefreshControl,
     useWindowDimensions,
     KeyboardAvoidingView,
+    Modal,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -106,7 +107,12 @@ const ManageClassesScreen = () => {
     const [showDayPicker, setShowDayPicker] = useState(false);
 
     const [activeModal, setActiveModal] = useState(null);
-
+    const [datePickerConfig, setDatePickerConfig] = useState({
+        visible: false,
+        field: null, // 'fecha', 'fechaInicio', 'fechaFin', 'extendUntilDate', or 'dayToManage'
+        currentValue: new Date(),
+        onConfirm: () => {}
+    });
 
     const [formData, setFormData] = useState({
         tipoClase: '',
@@ -298,7 +304,62 @@ const ManageClassesScreen = () => {
             ]
         });
     };
+  
+    const showDatePickerFor = (field, initialDate, onConfirmCallback) => {
+        setDatePickerConfig({
+            visible: true,
+            field: field,
+            currentValue: initialDate || new Date(),
+            onConfirm: onConfirmCallback,
+        });
+    };
     
+    const handleDateChange = (event, selectedDate) => {
+        const newDate = selectedDate || datePickerConfig.currentValue;
+
+        if (Platform.OS === 'android') {
+            setDatePickerConfig({ visible: false }); // Close picker immediately on Android
+            if (event.type !== 'dismissed') {
+                datePickerConfig.onConfirm(newDate); // Confirm date on Android
+            }
+        } else { // iOS
+            setDatePickerConfig(prev => ({ ...prev, currentValue: newDate }));
+        }
+    };
+    
+    const confirmIosDate = () => {
+        datePickerConfig.onConfirm(datePickerConfig.currentValue);
+        setDatePickerConfig({ visible: false }); // Close modal
+    };
+
+    const renderDateField = (label, field, value, onConfirmCallback) => {
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
+        const initialDate = value ? parseISO(value) : new Date();
+
+        if (Platform.OS === 'web') {
+            return (
+                <DatePicker
+                    selected={value ? parseISO(value) : null}
+                    onChange={onConfirmCallback}
+                    dateFormat="dd/MM/yyyy"
+                    customInput={
+                        <View style={styles.dateInputTouchable}>
+                            <Text style={styles.dateInputText}>{displayValue}</Text>
+                        </View>
+                    }
+                />
+            );
+        }
+
+        return (
+            <TouchableOpacity onPress={() => showDatePickerFor(field, initialDate, onConfirmCallback)}>
+                <View style={styles.dateInputTouchable}>
+                    <Text style={styles.dateInputText}>{displayValue}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
     // 💡 PASO 2: Modificar los manejadores de fecha para que sean compatibles con web y nativo
     const showDatePickerForField = (field) => {
         setDateFieldToEdit(field);
@@ -481,11 +542,11 @@ const ManageClassesScreen = () => {
     }, [correctlyGroupedClasses, loading, notifiedGroups]);
 
     const handleExtendNotification = (group) => {
-        const message = `Se están terminando las clases de "${group.nombre} - ${group.tipoClase.nombre}" de los días ${group.diasDeSemana.join(', ')}. ¿Quieres extenderlos un mes más?`;
+        const message = `Se están terminando los turnos de "${group.nombre} - ${group.tipoClase.nombre}" de los días ${group.diasDeSemana.join(', ')}. ¿Quieres extenderlos un mes más?`;
 
         setAlertInfo({
             visible: true,
-            title: "Extender Clases Recurrentes",
+            title: "Extender Turnos",
             message: message,
             buttons: [
                 { text: "No, gracias", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
@@ -847,7 +908,32 @@ const ManageClassesScreen = () => {
             <TouchableOpacity style={styles.fab} onPress={() => { setEditingClass(null); setShowAddModal(true); }}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
+            {datePickerConfig.visible && Platform.OS === 'ios' && (
+                <Modal transparent={true} animationType="slide" visible={datePickerConfig.visible}>
+                    <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(p => ({...p, visible: false}))}>
+                        <Pressable style={styles.iosPickerContainer}>
+                            <DateTimePicker 
+                                value={datePickerConfig.currentValue} 
+                                mode="date" 
+                                display="inline" 
+                                onChange={handleDateChange} 
+                                themeVariant={colorScheme}
+                            />
+                            <Button title="Confirmar" onPress={confirmIosDate} color={gymColor} />
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+            )}
 
+            {/* --- DATE PICKER FOR ANDROID (INVISIBLE) --- */}
+            {datePickerConfig.visible && Platform.OS === 'android' && (
+                <DateTimePicker
+                    value={datePickerConfig.currentValue}
+                    mode="date"
+                    display="default"
+                    onChange={handleDateChange}
+                />
+            )}    
             {showAddModal && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
@@ -879,19 +965,7 @@ const ManageClassesScreen = () => {
                             {formData.tipoInscripcion === 'libre' ? (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Fecha</ThemedText>
-                                    {Platform.OS === 'web' ? (
-                                        // 💡 CORRECCIÓN: El onChange ahora actualiza el estado directamente.
-                                        <DatePicker
-                                            selected={formData.fecha && isValid(parseISO(formData.fecha)) ? parseISO(formData.fecha) : null}
-                                            onChange={(date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd'))}
-                                            dateFormat="yyyy-MM-dd"
-                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>}
-                                        />
-                                    ) : (
-                                        <TouchableOpacity onPress={() => showDatePickerForField('fecha')}>
-                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fecha || 'Seleccionar fecha...'}</Text></View>
-                                        </TouchableOpacity>
-                                    )}
+                                {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
                                     <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
                                     <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
@@ -900,31 +974,9 @@ const ManageClassesScreen = () => {
                             ) : (
                                 <>
                                     <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                    {Platform.OS === 'web' ? (
-                                        <DatePicker
-                                            selected={formData.fechaInicio && isValid(parseISO(formData.fechaInicio)) ? parseISO(formData.fechaInicio) : null}
-                                            onChange={(date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd'))}
-                                            dateFormat="yyyy-MM-dd"
-                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>}
-                                        />
-                                    ) : (
-                                        <TouchableOpacity onPress={() => showDatePickerForField('fechaInicio')}>
-                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaInicio || 'Seleccionar fecha...'}</Text></View>
-                                        </TouchableOpacity>
-                                    )}
-                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                    {Platform.OS === 'web' ? (
-                                        <DatePicker
-                                            selected={formData.fechaFin && isValid(parseISO(formData.fechaFin)) ? parseISO(formData.fechaFin) : null}
-                                            onChange={(date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd'))}
-                                            dateFormat="yyyy-MM-dd"
-                                            customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>}
-                                        />
-                                    ) : (
-                                        <TouchableOpacity onPress={() => showDatePickerForField('fechaFin')}>
-                                            <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{formData.fechaFin || 'Seleccionar fecha...'}</Text></View>
-                                        </TouchableOpacity>
-                                    )}
+                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
+                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
                                     <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
                                     <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
                                         <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
@@ -1161,6 +1213,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
+     iosPickerOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    iosPickerContainer: {
+        backgroundColor: Colors[colorScheme].background,
+        borderTopRightRadius: 20,
+        borderTopLeftRadius: 20,
+        padding: 20,
+    },
 });
 
 export default ManageClassesScreen;

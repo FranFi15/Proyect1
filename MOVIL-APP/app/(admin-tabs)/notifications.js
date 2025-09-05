@@ -180,7 +180,7 @@ const NotificationAdminScreen = () => {
                 confirmationMessage = `¿Enviar a todos los usuarios con el rol "${getDisplayName(selectedRoleId, 'role')}"?`;
                 break;
             case 'class':
-                if (!selectedClassId) { setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona una clase.', buttons: [{ text: 'OK' }] }); return; }
+                if (!selectedClassId) { setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un Turno.', buttons: [{ text: 'OK' }] }); return; }
                 payload.targetId = selectedClassId;
                 const cls = allClasses.find(c => c._id === selectedClassId);
                 confirmationMessage = `¿Enviar a todos los inscritos en "${cls?.nombre}"?`;
@@ -216,7 +216,7 @@ const NotificationAdminScreen = () => {
     };
     
     const getModalConfig = useMemo(() => {
-        const targetTypeOptions = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Clase Específica'}];
+        const targetTypeOptions = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}];
         const roleOptions = [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}];
         switch (activeModal) {
             case 'targetType': return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: handleTargetTypeSelect, selectedValue: targetType };
@@ -227,7 +227,7 @@ const NotificationAdminScreen = () => {
     
     const getDisplayName = (id, type) => {
         if (type === 'targetType') {
-            const options = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Clase Específica'}];
+            const options = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}];
             return options.find(o => o._id === id)?.nombre || 'Seleccionar';
         }
         if (type === 'role') {
@@ -324,7 +324,7 @@ const NotificationAdminScreen = () => {
                                 <ThemedText style={styles.label}>Clase Específica</ThemedText>
                                 <TouchableOpacity style={styles.filterButton} onPress={openSearchModal}>
                                     <ThemedText style={[styles.filterButtonText, !selectedClassId && styles.placeholderText]}>
-                                        {selectedClassId ? getSelectedItemDisplay() : 'Seleccionar una clase...'}
+                                        {selectedClassId ? getSelectedItemDisplay() : 'Seleccionar un Turno...'}
                                     </ThemedText>
                                     <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
@@ -393,7 +393,7 @@ const NotificationAdminScreen = () => {
                     }
                 }}
                 title={activeModal === 'targetType' ? 'Seleccionar Destinatario' : 'Seleccionar Rol'}
-                options={activeModal === 'targetType' ? [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Clase Específica'}] : [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}]}
+                options={activeModal === 'targetType' ? [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}] : [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}]}
                 selectedValue={activeModal === 'targetType' ? targetType : selectedRoleId}
                 theme={{ colors: Colors[colorScheme], gymColor }}
             />

@@ -49,7 +49,7 @@ const ProfessorClientsScreen = () => {
             setAlertInfo({
                 visible: true,
                 title: 'Error',
-                message: 'No se pudieron cargar los socios.',
+                message: 'No se pudieron cargar los clientes.',
                 buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
             });
         } finally {
@@ -103,7 +103,7 @@ const ProfessorClientsScreen = () => {
             <TextInput 
                 style={styles.searchInput}
                 placeholderTextColor={Colors[colorScheme].icon} 
-                placeholder="Buscar socio..." 
+                placeholder="Buscar Cliente..." 
                 value={searchTerm} 
                 onChangeText={setSearchTerm} 
             />
@@ -126,7 +126,7 @@ const ProfessorClientsScreen = () => {
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Text style={styles.emptyText}>
-                                {searchTerm ? "No se encontraron socios con ese nombre." : "Aún no tienes socios asignados."}
+                                {searchTerm ? "No se encontraron clientes con ese nombre." : "Aún no tienes clientes asignados."}
                             </Text>
                         </View>
                     }

@@ -112,7 +112,7 @@ const NotificationTeacherScreen = () => {
     };
     
     const getModalConfig = useMemo(() => {
-        const targetTypeOptions = [{ _id: 'class', nombre: 'Clase Específica' }, { _id: 'user', nombre: 'Alumno Específico' }];
+        const targetTypeOptions = [{ _id: 'class', nombre: 'Turno Específico' }, { _id: 'user', nombre: 'Cliente Específico' }];
         if (activeModal === 'targetType') {
             return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: handleTargetTypeSelect, selectedValue: targetType };
         }
@@ -120,8 +120,8 @@ const NotificationTeacherScreen = () => {
     }, [activeModal, targetType]);
 
     const getDisplayName = (id) => {
-        if (id === 'class') return 'Clase Específica';
-        if (id === 'user') return 'Alumno Específico';
+        if (id === 'class') return 'Turno Específico';
+        if (id === 'user') return 'Cliente Específico';
         return 'Seleccionar';
     };
 
@@ -169,8 +169,8 @@ const NotificationTeacherScreen = () => {
                 keyboardVerticalOffset={80}
             >
                 <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-                    <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Alumnos</ThemedText>
-                    
+                    <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Clientes</ThemedText>
+
                     <View style={styles.formContainer}>
                         <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].icon} />
                         <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} multiline placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].icon} />
@@ -186,7 +186,7 @@ const NotificationTeacherScreen = () => {
                                 <ThemedText style={styles.label}>Alumno Específico</ThemedText>
                                 <TouchableOpacity style={styles.filterButton} onPress={openSearchModal}>
                                     <ThemedText style={[styles.filterButtonText, !selectedUserId && styles.placeholderText]}>
-                                        {selectedUserId ? getSelectedItemDisplay() : 'Seleccionar un alumno...'}
+                                        {selectedUserId ? getSelectedItemDisplay() : 'Seleccionar un Cliente...'}
                                     </ThemedText>
                                     <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
@@ -198,7 +198,7 @@ const NotificationTeacherScreen = () => {
                                 <ThemedText style={styles.label}>Clase Específica</ThemedText>
                                 <TouchableOpacity style={styles.filterButton} onPress={openSearchModal}>
                                     <ThemedText style={[styles.filterButtonText, !selectedClassId && styles.placeholderText]}>
-                                        {selectedClassId ? getSelectedItemDisplay() : 'Seleccionar una clase...'}
+                                        {selectedClassId ? getSelectedItemDisplay() : 'Seleccionar un Turno...'}
                                     </ThemedText>
                                     <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
@@ -234,7 +234,7 @@ const NotificationTeacherScreen = () => {
                     >
                         <View style={styles.modalHeader}>
                             <ThemedText style={styles.modalTitle}>
-                                {targetType === 'user' ? 'Buscar Alumno' : 'Buscar Clase'}
+                                {targetType === 'user' ? 'Buscar Alumno' : 'Buscar Turno'}
                             </ThemedText>
                             <TouchableOpacity onPress={closeSearchModal}>
                                 <Ionicons name="close" size={28} color={Colors[colorScheme].text} />
@@ -243,7 +243,7 @@ const NotificationTeacherScreen = () => {
 
                         <TextInput
                             style={styles.input}
-                            placeholder={targetType === 'user' ? "Buscar por nombre..." : "Buscar por nombre de clase..."}
+                            placeholder={targetType === 'user' ? "Buscar por nombre..." : "Buscar por nombre de Turno..."}
                             value={targetType === 'user' ? userSearchTerm : classSearchTerm}
                             onChangeText={targetType === 'user' ? setUserSearchTerm : setClassSearchTerm}
                             placeholderTextColor={Colors[colorScheme].icon}

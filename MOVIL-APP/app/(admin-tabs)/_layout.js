@@ -39,7 +39,7 @@ export default function ProfessorTabsLayout() {
       <Tabs.Screen 
         name="clients" 
         options={{ 
-          title: 'Socios',
+          title: 'Usuarios',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'people' : 'people-outline'} 

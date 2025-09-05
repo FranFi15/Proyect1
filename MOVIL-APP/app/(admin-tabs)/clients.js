@@ -280,7 +280,7 @@ const ManageClientsScreen = () => {
 
     const handlePlanSubmit = async () => {
         if (!selectedClient || !planData.tipoClaseId) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, selecciona un tipo de clase.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, selecciona un tipo de Turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         const payload = {
@@ -304,7 +304,7 @@ const ManageClientsScreen = () => {
         setAlertInfo({
             visible: true,
             title: "Quitar Suscripción",
-            message: "¿Seguro que quieres eliminar la suscripción automática para esta clase?",
+            message: "¿Seguro que quieres eliminar la suscripción automática para este Turno?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
                 {
@@ -511,14 +511,14 @@ const ManageClientsScreen = () => {
                 };
             case 'creditsClassType':
                 return {
-                    title: 'Seleccionar Tipo de Clase',
+                    title: 'Seleccionar Tipo de Turno',
                     options: classTypeOptions,
                     onSelect: (id) => setPlanData(prev => ({ ...prev, tipoClaseId: id })),
                     selectedValue: planData.tipoClaseId,
                 };
             case 'massEnrollClassType':
                 return {
-                    title: 'Seleccionar Tipo de Clase',
+                    title: 'Seleccionar Tipo de Turno',
                     options: classTypeOptions,
                     onSelect: (id) => setMassEnrollFilters(prev => ({ ...prev, tipoClaseId: id, diasDeSemana: [] })),
                     selectedValue: massEnrollFilters.tipoClaseId,
@@ -876,7 +876,6 @@ const ManageClientsScreen = () => {
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
-                            {/* ... (el contenido del modal se mantiene, pero la lógica del date picker cambia) */}
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Planes Actuales</ThemedText>
