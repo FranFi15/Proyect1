@@ -9,12 +9,10 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
         return;
     }
 
-    // --- CORRECCIÓN CLAVE ---
-    // Limpiamos el identificador de espacios y lo pasamos a minúsculas.
     const trimmedIdentifier = gymIdentifier.trim().toLowerCase();
 
     const gym = await Client.findOne({ 
-        urlIdentifier: trimmedIdentifier // Usamos el identificador limpio
+        urlIdentifier: trimmedIdentifier 
     });
 
     if (gym) {
@@ -22,7 +20,8 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
             clientId: gym.clientId,
             gymName: gym.nombre,
             logoUrl: gym.logoUrl,
-            primaryColor: gym.primaryColor 
+            primaryColor: gym.primaryColor,
+            type: gym.type
         });
     } else {
         console.log(`No se encontró ningún gimnasio con el urlIdentifier: '${trimmedIdentifier}'`);
@@ -30,6 +29,35 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
     }
 });
 
-export { 
-    getGymClientIdByIdentifier 
+const getClientInfoByIdentifier = asyncHandler(async (req, res) => {
+    const { identifier } = req.params;
+
+    if (!identifier) {
+        res.status(400).json({ message: 'Error: No se proporcionó un identificador.' });
+        return;
+    }
+
+    const trimmedIdentifier = identifier.trim().toLowerCase();
+    
+    const client = await Client.findOne({ 
+        urlIdentifier: trimmedIdentifier 
+    });
+
+    if (client) {
+        res.status(200).json({ 
+            clientId: client.clientId,
+            clientName: client.nombre,
+            logoUrl: client.logoUrl,
+            primaryColor: client.primaryColor,
+            type: client.type
+        });
+    } else {
+        res.status(404).json({ message: 'Cliente no encontrado.' });
+    }
+});
+
+
+export {
+    getGymClientIdByIdentifier,
+    getClientInfoByIdentifier
 };
