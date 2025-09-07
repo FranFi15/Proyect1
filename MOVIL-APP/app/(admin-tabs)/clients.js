@@ -964,6 +964,11 @@ const ManageClientsScreen = () => {
         </TouchableOpacity>
     );
 })}
+                                {availableSlots.length > 0 && (
+                                    <View style={styles.buttonWrapper}>
+                                        <Button title="Inscribir a Plan" onPress={handleMassEnrollSubmit} color={gymColor || '#1a5276'} />
+                                    </View>
+                                )}
                             </View>
                         </ScrollView>
                     </Pressable>

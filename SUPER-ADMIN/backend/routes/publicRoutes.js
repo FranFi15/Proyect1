@@ -4,6 +4,7 @@ import { getGymClientIdByIdentifier, getClientInfoByIdentifier  } from '../contr
 const router = express.Router();
 
 router.get('/gym/:gymIdentifier', getGymClientIdByIdentifier);
+
 router.get('/client/:identifier', getClientInfoByIdentifier);
 
 export default router;
