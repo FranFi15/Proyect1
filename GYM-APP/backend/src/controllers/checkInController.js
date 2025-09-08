@@ -21,11 +21,11 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     }).populate('tipoClase', 'nombre');
 
     if (todayClasses.length === 0) {
-        res.status(404).json({ success: false, message: 'No hay clases programadas para hoy.' });
+        res.status(404).json({ success: false, message: 'No hay turnos programados para hoy.' });
         return;
     }
 
-    // 2. Buscamos la primera clase de hoy en la que el usuario esté inscripto
+    // 2. Buscamos el primer turno de hoy en el que el usuario esté inscripto
     const enrolledClass = todayClasses
         .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)) // Ordenamos por hora
         .find(clase => clase.usuariosInscritos.some(id => id.toString() === userId));
@@ -35,13 +35,13 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         res.status(200).json({
             success: true,
             message: '✅ Check-in Válido',
-            classInfo: `Clase: ${enrolledClass.tipoClase.nombre} a las ${enrolledClass.horaInicio}hs`,
+            classInfo: `Turno: ${enrolledClass.tipoClase.nombre} a las ${enrolledClass.horaInicio}hs`,
         });
     } else {
         // 4. Si no se encuentra en ninguna clase, respondemos con error
         res.status(403).json({
             success: false,
-            message: '❌ El cliente no está inscripto en ninguna clase hoy.',
+            message: '❌ El cliente no está inscripto en ningun turno hoy.',
         });
     }
 });

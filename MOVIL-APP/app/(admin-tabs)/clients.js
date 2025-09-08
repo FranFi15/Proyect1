@@ -600,24 +600,6 @@ const ManageClientsScreen = () => {
         setDatePickerConfig({ visible: false, field: null, currentValue: new Date(), minimumDate: undefined });
     };
 
-    const handleGeneralScan = async ({ data }) => {
-        setScannerVisible(false); // Cierra el escáner
-        try {
-            const response = await apiClient.post('/check-in/scan', { userId: data });
-            
-            setAlertInfo({
-                visible: true,
-                title: response.data.message, 
-                message: response.data.classInfo || '', 
-            });
-        } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error de Check-in',
-                message: error.response?.data?.message || 'No se pudo verificar al cliente.',
-            });
-        }
-    };
 
     const renderDateField = (field) => {
         const value = massEnrollFilters[field];
@@ -654,6 +636,25 @@ const ManageClientsScreen = () => {
         );
     };
 
+    const handleGeneralScan = async ({ data }) => {
+        setScannerVisible(false); // Close the scanner immediately
+        try {
+            // Call the new backend endpoint for general check-in
+            const response = await apiClient.post('/check-in/scan', { userId: data });
+            
+            setAlertInfo({
+                visible: true,
+                title: response.data.message, 
+                message: response.data.classInfo || 'El cliente fue verificado correctamente.',
+            });
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error de Check-in',
+                message: error.response?.data?.message || 'No se pudo verificar al cliente.',
+            });
+        }
+    };
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
@@ -1026,14 +1027,13 @@ const ManageClientsScreen = () => {
             )}
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
+            <QrScannerModal 
+                visible={isScannerVisible}
+                onClose={() => setScannerVisible(false)}
+                onBarcodeScanned={handleGeneralScan}
+            />    
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
-            <Modal visible={isScannerVisible} animationType="slide">
-                <QrScannerModal 
-                    visible={isScannerVisible}
-                    onClose={() => setScannerVisible(false)}
-                    onBarcodeScanned={handleGeneralScan}
-                />
-            </Modal>
+
         </ThemedView>
     );
 }
