@@ -16,7 +16,7 @@ import transactionRoutes from './routes/transactionRoutes.js';
 import trainingPlanRoutes from './routes/trainingPlanRoutes.js';
 import publicUserRoutes from './routes/publicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
-import checkInRoutes from './controllers/checkInController.js';
+import checkInRoutes from './routes/checkInRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';

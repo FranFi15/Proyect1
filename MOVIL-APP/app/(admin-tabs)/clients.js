@@ -32,6 +32,7 @@ import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
+import QrScannerModal from '../../components/profesor/QrScannerModal'
 
 const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) => {
     const styles = getStyles(colorScheme, gymColor);
@@ -97,6 +98,8 @@ const ManageClientsScreen = () => {
     const [editingClientYear, setEditingClientYear] = useState('');
 
     const [activeModal, setActiveModal] = useState(null);
+
+    const [isScannerVisible, setScannerVisible] = useState(false);
 
 
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
@@ -597,6 +600,25 @@ const ManageClientsScreen = () => {
         setDatePickerConfig({ visible: false, field: null, currentValue: new Date(), minimumDate: undefined });
     };
 
+    const handleGeneralScan = async ({ data }) => {
+        setScannerVisible(false); // Cierra el escáner
+        try {
+            const response = await apiClient.post('/check-in/scan', { userId: data });
+            
+            setAlertInfo({
+                visible: true,
+                title: response.data.message, 
+                message: response.data.classInfo || '', 
+            });
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error de Check-in',
+                message: error.response?.data?.message || 'No se pudo verificar al cliente.',
+            });
+        }
+    };
+
     const renderDateField = (field) => {
         const value = massEnrollFilters[field];
 
@@ -724,6 +746,9 @@ const ManageClientsScreen = () => {
                         />
                     }
             />
+            <TouchableOpacity style={styles.fabScanner} onPress={() => setScannerVisible(true)}>
+                <Ionicons name="qr-code" size={30} color="#fff" />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.fab} onPress={handleOpenAddModal}>
                 <Ionicons name="person-add" size={30} color="#fff" />
             </TouchableOpacity>
@@ -1002,6 +1027,13 @@ const ManageClientsScreen = () => {
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
+            <Modal visible={isScannerVisible} animationType="slide">
+                <QrScannerModal 
+                    visible={isScannerVisible}
+                    onClose={() => setScannerVisible(false)}
+                    onBarcodeScanned={handleGeneralScan}
+                />
+            </Modal>
         </ThemedView>
     );
 }
@@ -1115,7 +1147,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8,
     },
     upgradeButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-    
+    fabScanner: { 
+        position: 'absolute', width: 60, height: 60, alignItems: 'center',
+        justifyContent: 'center', right: 20, bottom: 90, 
+        backgroundColor: gymColor || '#3498db', 
+        borderRadius: 30, elevation: 8,
+    }
 
 });
 
