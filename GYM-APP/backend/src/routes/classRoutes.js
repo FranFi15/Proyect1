@@ -49,7 +49,7 @@ router.route('/:id')
     .put(protect, authorizeRoles('admin'), updateClass) 
     .delete(protect, authorizeRoles('admin'), deleteClass); 
 
-router.post('/:id/check-in', protect, authorizeRoles('profesor'), checkInUser);
+router.post('/:id/check-in', protect, authorizeRoles('profesor', 'admin'), checkInUser);
 
 // Rutas para que los usuarios se inscriban/desinscriban
 router.post('/:id/enroll', protect, enrollUserInClass); 
