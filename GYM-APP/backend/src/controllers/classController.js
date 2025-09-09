@@ -6,7 +6,6 @@ import getModels from '../utils/getModels.js';
 import { parse, subHours } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
-import { zonedTimeToUtc } from 'date-fns-tz';
 import { sendSingleNotification } from './notificationController.js'; 
 
 // --- NUEVA FUNCIÓN DE AYUDA ---
@@ -288,7 +287,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
 
 const unenrollUserFromClass = asyncHandler(async (req, res) => {
-    const { Clase, User } = getModels(req.gymDBConnection);
+    const { Clase, User, Notification } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
@@ -300,20 +299,28 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
-    const timeZone = 'America/Argentina/Buenos_Aires';
-    const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00`;
+    // --- ¡LÓGICA DE TIEMPO DEFINITIVA Y SIMPLIFICADA! ---
     
-    // La llamada a la función ahora es directa, sin prefijos.
-    const classStartDateTime = zonedTimeToUtc(dateTimeString, timeZone);
+    // 1. Creamos un string con la fecha, la hora Y la zona horaria de Argentina (-03:00).
+    const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00-03:00`;
+    
+    // 2. JavaScript ahora entiende perfectamente que esta es la hora de Argentina y la convierte
+    //    a la hora universal (UTC) correcta para poder compararla.
+    const classStartDateTime = new Date(dateTimeString);
+
+    // 3. Calculamos el límite de cancelación (1 hora antes).
     const cancellationDeadline = subHours(classStartDateTime, 1);
+    
+    // 4. Obtenemos la hora actual del servidor (que también está en UTC).
     const now = new Date();
 
+    // 5. La comparación ahora es 100% precisa.
     if (now > cancellationDeadline) {
         res.status(400);
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
-    // El resto de la lógica para devolver el crédito y actualizar los datos no cambia.
+    // El resto de la lógica para devolver el crédito y actualizar los datos se mantiene igual
     if (clase.tipoClase && clase.tipoClase._id) {
         const tipoClaseId = clase.tipoClase._id.toString();
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
