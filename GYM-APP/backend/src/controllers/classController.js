@@ -6,7 +6,7 @@ import getModels from '../utils/getModels.js';
 import { parse, subHours } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
-import { zonedTimeToUtc, utcToZonedTime, format } from 'date-fns-tz';
+import { zonedTimeToUtc, format } from 'date-fns-tz';
 import { sendSingleNotification } from './notificationController.js'; 
 
 // --- NUEVA FUNCIÓN DE AYUDA ---
