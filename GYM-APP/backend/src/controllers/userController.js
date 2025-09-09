@@ -713,6 +713,40 @@ const getSubscriptionInfo = asyncHandler(async (req, res) => {
     res.json(subInfo);
 });
 
+const updateUserStatus = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    const { isActive } = req.body; 
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+
+    const wasClient = user.roles.includes('cliente');
+    const isChangingStatus = user.isActive !== isActive;
+
+    user.isActive = isActive;
+    await user.save();
+
+    if (wasClient && isChangingStatus) {
+        if (isActive) {
+            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
+            if (!hasSpace) {
+                user.isActive = false; 
+                await user.save();
+                res.status(403);
+                throw new Error('No se puede reactivar al cliente, se ha alcanzado el límite del plan.');
+            }
+        }
+        const action = isActive ? 'increment' : 'decrement';
+        updateClientCount(req.gymId, req.apiSecretKey, action);
+    }
+
+    res.json({ message: 'Estado del usuario actualizado correctamente.' });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -735,4 +769,5 @@ export {
     handleResetLink,
     requestPlanUpgrade,
     getSubscriptionInfo,
+    updateUserStatus,
 };

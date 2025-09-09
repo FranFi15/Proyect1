@@ -493,7 +493,7 @@ const ManageClientsScreen = () => {
         const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes];
         const roleOptions = [
             { _id: 'cliente', nombre: 'Cliente' },
-            { _id: 'profesor', nombre: 'Profesor' },
+            { _id: 'profesor', nombre: 'Profesional' },
             { _id: 'admin', nombre: 'Admin' },
         ];
 
@@ -665,12 +665,27 @@ const ManageClientsScreen = () => {
             });
         }
     };
+    const handleToggleUserStatus = async (user, newStatus) => {
+    try {
+        await apiClient.put(`/users/${user._id}/status`, { isActive: newStatus });
+        setUsers(currentUsers =>
+            currentUsers.map(u =>
+                u._id === user._id ? { ...u, isActive: newStatus } : u
+            )
+        );
+        setEditingClientData(prev => ({ ...prev, isActive: newStatus }));
+
+        setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado del cliente ha sido actualizado.' });
+    } catch (error) {
+        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.' });
+    }
+};
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
 
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, !item.isActive && styles.inactiveCard]}>
                 <View style={styles.cardTopRow}>
                     <View style={styles.userInfo}>
                         <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
@@ -877,7 +892,17 @@ const ManageClientsScreen = () => {
                                         <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                     </View>
                                 )}
+                                <View style={styles.switchRow}>
+                                    <ThemedText style={styles.inputLabel}>Cuenta Activa</ThemedText>
+                                <Switch
+                                    value={editingClientData.isActive}
+                                    onValueChange={(value) => handleToggleUserStatus(editingClientData, value)}
+                                    trackColor={{ false: "#767577", true: gymColor }}
+                                    thumbColor={"#f4f3f4"}
+                                />
+                                </View>
                                 <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} /></View></View>
+                            
                             </ScrollView>
                         </Pressable>
                     )}
@@ -1105,6 +1130,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 16
     },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
+    inactiveCard: {
+        opacity: 0.5,
+        backgroundColor: Colors[colorScheme].cardBackground + '80',
+    },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, },
     userInfo: { flex: 1, marginRight: 10 },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },

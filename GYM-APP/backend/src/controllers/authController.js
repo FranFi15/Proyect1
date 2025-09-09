@@ -90,6 +90,10 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
 
     if (user && (await user.matchPassword(contraseña))) {
+         if (!user.isActive) {
+            res.status(403);
+            throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al administrador.');
+        }
         res.json({
             _id: user._id,
             nombre: user.nombre,

@@ -21,7 +21,8 @@ import {
     resetPassword,
     handleResetLink,
     requestPlanUpgrade,
-    getSubscriptionInfo
+    getSubscriptionInfo,
+    updateUserStatus,
 } from '../controllers/userController.js'; 
 
 
@@ -55,6 +56,8 @@ router.route('/:id/plan')
 
 router.route('/:id/credits/clear')
     .put(protect, authorizeRoles('admin'), clearUserCredits);
+
+router.put('/:id/status', protect, authorizeRoles('admin'), updateUserStatus);    
 
 router.route('/:userId/subscription/:tipoClaseId')
     .delete(protect, authorizeRoles('admin'), removeUserSubscription);
