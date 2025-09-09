@@ -6,7 +6,7 @@ import getModels from '../utils/getModels.js';
 import { parse, subHours } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
-import dateFnsTz from 'date-fns-tz';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { sendSingleNotification } from './notificationController.js'; 
 
 // --- NUEVA FUNCIÓN DE AYUDA ---
@@ -288,7 +288,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
 
 const unenrollUserFromClass = asyncHandler(async (req, res) => {
-    const { Clase, User, Notification } = getModels(req.gymDBConnection);
+    const { Clase, User } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
@@ -300,33 +300,25 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
-    // --- LÓGICA DE TIEMPO CON ZONA HORARIA ---
     const timeZone = 'America/Argentina/Buenos_Aires';
-    
-    // 1. Creamos un string con la fecha y hora del turno.
     const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00`;
     
-    // 2. Interpretamos ese string como si fuera hora de Argentina y lo convertimos a la hora universal (UTC).
-    const classStartDateTime = dateFnsTz.zonedTimeToUtc(dateTimeString, timeZone);
-
-    // 3. Calculamos el límite de cancelación (1 hora antes) en UTC.
+    // La llamada a la función ahora es directa, sin prefijos.
+    const classStartDateTime = zonedTimeToUtc(dateTimeString, timeZone);
     const cancellationDeadline = subHours(classStartDateTime, 1);
-    
-    // 4. Obtenemos la hora actual del servidor, que también está en UTC.
     const now = new Date();
 
-    // 5. La comparación ahora es precisa.
     if (now > cancellationDeadline) {
         res.status(400);
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
-    // El resto de la lógica para devolver el crédito y actualizar los datos
+    // El resto de la lógica para devolver el crédito y actualizar los datos no cambia.
     if (clase.tipoClase && clase.tipoClase._id) {
         const tipoClaseId = clase.tipoClase._id.toString();
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
         user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-        user.markModified('creditosPorTipo'); // Buena práctica para asegurar el guardado
+        user.markModified('creditosPorTipo');
     }
     
     user.clasesInscritas.pull(classId);
@@ -334,7 +326,6 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     
     if (clase.estado === 'llena') {
         clase.estado = 'activa';
-        // Aquí iría tu lógica para notificar a la lista de espera (waitlist) si la tienes.
     }
     
     await user.save();
@@ -342,6 +333,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
 
     res.json({ message: 'Anulación exitosa. Se ha devuelto 1 crédito a tu cuenta.' });
 });
+
 
 // @desc    Generar futuras instancias de clases fijas para un gimnasio específico
 // Esta función será llamada por el cron job para cada gimnasio activo.
