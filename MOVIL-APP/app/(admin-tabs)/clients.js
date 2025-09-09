@@ -443,14 +443,31 @@ const ManageClientsScreen = () => {
 
     const handleUpdateClientSubmit = async () => {
         if (!editingClientData) return;
+        
+        // Creamos un payload solo con los datos que se pueden editar en este formulario
+        const updatePayload = {
+            nombre: editingClientData.nombre,
+            apellido: editingClientData.apellido,
+            email: editingClientData.email,
+            dni: editingClientData.dni,
+            sexo: editingClientData.sexo,
+            fechaNacimiento: editingClientData.fechaNacimiento,
+            numeroTelefono: editingClientData.numeroTelefono,
+            telefonoEmergencia: editingClientData.telefonoEmergencia,
+            obraSocial: editingClientData.obraSocial,
+            roles: editingClientData.roles,
+            direccion: editingClientData.direccion,
+            ordenMedicaRequerida: editingClientData.ordenMedicaRequerida,
+            ordenMedicaEntregada: editingClientData.ordenMedicaEntregada,
+        };
+
         try {
-            const { contraseña, ...updatePayload } = editingClientData;
             await apiClient.put(`/users/${editingClientData._id}`, updatePayload);
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' });
             setShowEditFormModal(false);
             fetchAllData();
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' });
         }
     };
 
@@ -666,20 +683,26 @@ const ManageClientsScreen = () => {
         }
     };
     const handleToggleUserStatus = async (user, newStatus) => {
-    try {
-        await apiClient.put(`/users/${user._id}/status`, { isActive: newStatus });
-        setUsers(currentUsers =>
-            currentUsers.map(u =>
-                u._id === user._id ? { ...u, isActive: newStatus } : u
-            )
-        );
-        setEditingClientData(prev => ({ ...prev, isActive: newStatus }));
+        try {
+            // Llama a la ruta específica para cambiar el estado
+            await apiClient.put(`/users/${user._id}/status`, { isActive: newStatus });
 
-        setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado del cliente ha sido actualizado.' });
-    } catch (error) {
-        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.' });
-    }
-};
+            // Actualiza el estado local para que el cambio se vea al instante
+            setUsers(currentUsers =>
+                currentUsers.map(u =>
+                    u._id === user._id ? { ...u, isActive: newStatus } : u
+                )
+            );
+            setEditingClientData(prev => ({ ...prev, isActive: newStatus }));
+
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado del cliente ha sido actualizado.' });
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.' });
+            // Revertimos el cambio visual si la API falla
+            setEditingClientData(prev => ({ ...prev, isActive: !newStatus }));
+        }
+    };
+
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
@@ -892,15 +915,14 @@ const ManageClientsScreen = () => {
                                         <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                     </View>
                                 )}
-                                <View style={styles.switchRow}>
-                                    <ThemedText style={styles.inputLabel}>Cuenta Activa</ThemedText>
-                                <Switch
-                                    value={editingClientData.isActive}
-                                    onValueChange={(value) => handleToggleUserStatus(editingClientData, value)}
-                                    trackColor={{ false: "#767577", true: gymColor }}
-                                    thumbColor={"#f4f3f4"}
-                                />
-                                </View>
+                               <View style={styles.switchRow}>
+                            <ThemedText style={styles.inputLabel}>Cuenta Activa</ThemedText>
+                            <Switch
+                                value={editingClientData.isActive}
+                                onValueChange={(value) => handleToggleUserStatus(editingClientData, value)}
+                                trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"}
+                            />
+                        </View>
                                 <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} /></View></View>
                             
                             </ScrollView>
@@ -1073,9 +1095,7 @@ const ManageClientsScreen = () => {
     );
 }
 
-// 💡 PASO 5: Añade los estilos para el modal del picker en iOS
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    // ... (todos tus estilos existentes)
     dateInputTouchable: {
         height: 45,
         borderColor: Colors[colorScheme].border,
@@ -1089,7 +1109,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 14,
         color: Colors[colorScheme].text,
     },
-    // NUEVOS ESTILOS PARA EL PICKER DE IOS
     iosPickerOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
