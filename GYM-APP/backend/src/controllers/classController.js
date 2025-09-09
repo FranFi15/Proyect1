@@ -6,7 +6,7 @@ import getModels from '../utils/getModels.js';
 import { parse, subHours } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
-import * as dateFnsTz from 'date-fns-tz';
+import dateFnsTz from 'date-fns-tz';
 import { sendSingleNotification } from './notificationController.js'; 
 
 // --- NUEVA FUNCIÓN DE AYUDA ---
@@ -292,7 +292,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     const classId = req.params.id;
     const userId = req.user._id;
 
-    const clase = await Clase.findById(classId).populate('tipoClase');
+    const clase = await Clase.findById(classId).populate('tipoClase'); 
     const user = await User.findById(userId);
 
     if (!clase || !user) {
@@ -300,26 +300,33 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
+    // --- LÓGICA DE TIEMPO CON ZONA HORARIA ---
     const timeZone = 'America/Argentina/Buenos_Aires';
+    
+    // 1. Creamos un string con la fecha y hora del turno.
     const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00`;
-
-    // --- CORRECTED FUNCTION CALL ---
-    // Access the function from the 'dateFnsTz' object we imported
+    
+    // 2. Interpretamos ese string como si fuera hora de Argentina y lo convertimos a la hora universal (UTC).
     const classStartDateTime = dateFnsTz.zonedTimeToUtc(dateTimeString, timeZone);
+
+    // 3. Calculamos el límite de cancelación (1 hora antes) en UTC.
     const cancellationDeadline = subHours(classStartDateTime, 1);
+    
+    // 4. Obtenemos la hora actual del servidor, que también está en UTC.
     const now = new Date();
 
+    // 5. La comparación ahora es precisa.
     if (now > cancellationDeadline) {
         res.status(400);
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
-    // The rest of your logic remains the same
+    // El resto de la lógica para devolver el crédito y actualizar los datos
     if (clase.tipoClase && clase.tipoClase._id) {
         const tipoClaseId = clase.tipoClase._id.toString();
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
         user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-        user.markModified('creditosPorTipo');
+        user.markModified('creditosPorTipo'); // Buena práctica para asegurar el guardado
     }
     
     user.clasesInscritas.pull(classId);
@@ -327,6 +334,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     
     if (clase.estado === 'llena') {
         clase.estado = 'activa';
+        // Aquí iría tu lógica para notificar a la lista de espera (waitlist) si la tienes.
     }
     
     await user.save();
