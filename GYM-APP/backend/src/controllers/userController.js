@@ -41,8 +41,10 @@ const getAllUsers = asyncHandler(async (req, res) => {
         monthlySubscriptions: user.monthlySubscriptions || [],
         ordenMedicaRequerida: user.ordenMedicaRequerida,
         ordenMedicaEntregada: user.ordenMedicaEntregada,
+        isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        
     }));
     res.json(usersWithCalculatedAge);
 });
@@ -95,6 +97,7 @@ const getMe = asyncHandler(async (req, res) => {
             requestedSpotNotifications: user.requestedSpotNotifications || [], 
             adminPhoneNumber: adminPhoneNumber,
             unreadNotificationsCount: unreadNotificationsCount,
+            isActive: user.isActive
         };
         res.json(userProfile);
     } else {
