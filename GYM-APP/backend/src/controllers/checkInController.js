@@ -41,7 +41,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     if (upcomingClasses.length === 0) {
         return res.status(200).json({
             success: true, // Es éxito, pero sin clases activas
-            message: `✅ ${user.nombre} ${user.apellido} estuvo inscripto hoy, pero todos sus turnos ya finalizaron.`,
+            message: `✅ ${user.nombre} ${user.apellido} sus turnos ya finalizaron.`,
             classes: []
         });
     }
@@ -49,10 +49,10 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     // 3. Si se encuentran clases válidas, respondemos con la lista.
     res.status(200).json({
         success: true,
-        message: `✅ ${user.nombre} ${user.apellido} tiene ${upcomingClasses.length} turno(s) válido(s) hoy:`,
-        classes: upcomingClasses.map(c => ({ // Mapeamos a un formato más simple
+        message: `✅ ${user.nombre} ${user.apellido}:`,
+        classes: upcomingClasses.map(c => ({ 
             nombre: c.tipoClase?.nombre || 'General',
-            horario: `${c.horaInicio} - ${c.horaFin}`
+            horario: `${c.horaInicio}hs - ${c.horaFin}hs`
         }))
     });
 });

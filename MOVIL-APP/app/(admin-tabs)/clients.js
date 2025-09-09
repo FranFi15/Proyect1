@@ -645,7 +645,7 @@ const ManageClientsScreen = () => {
             if (response.data.classes && response.data.classes.length > 0) {
                 // Mapeamos la lista de clases a un string legible
                 messageDetail = response.data.classes
-                    .map(c => `• ${c.nombre} (${c.horario})`)
+                    .map(c => `${c.nombre} ${c.horario}`)
                     .join('\n');
             } else if (response.data.message.includes('finalizaron')) {
                 messageDetail = 'Todos sus turnos de hoy ya finalizaron.';
