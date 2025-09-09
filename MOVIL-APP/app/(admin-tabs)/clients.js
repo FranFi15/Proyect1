@@ -636,17 +636,27 @@ const ManageClientsScreen = () => {
         );
     };
 
-    const handleGeneralScan = async ({ data }) => {
-        setScannerVisible(false); // Close the scanner immediately
+   const handleGeneralScan = async ({ data }) => {
+        setScannerVisible(false);
         try {
-            // Call the new backend endpoint for general check-in
             const response = await apiClient.post('/check-in/scan', { userId: data });
             
+            let messageDetail = 'No hay turnos pendientes para hoy.';
+            if (response.data.classes && response.data.classes.length > 0) {
+                // Mapeamos la lista de clases a un string legible
+                messageDetail = response.data.classes
+                    .map(c => `• ${c.nombre} (${c.horario})`)
+                    .join('\n');
+            } else if (response.data.message.includes('finalizaron')) {
+                messageDetail = 'Todos sus turnos de hoy ya finalizaron.';
+            }
+
             setAlertInfo({
                 visible: true,
-                title: response.data.message, 
-                message: response.data.classInfo || 'El cliente fue verificado correctamente.',
+                title: response.data.message,
+                message: messageDetail,
             });
+
         } catch (error) {
             setAlertInfo({
                 visible: true,
