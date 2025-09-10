@@ -720,6 +720,11 @@ const updateUserStatus = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const { isActive } = req.body; 
 
+    if (typeof isActive !== 'boolean') {
+        res.status(400);
+        throw new Error("Se requiere un valor booleano para 'isActive'.");
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -731,23 +736,36 @@ const updateUserStatus = asyncHandler(async (req, res) => {
     const isChangingStatus = user.isActive !== isActive;
 
     user.isActive = isActive;
+
+    if (isActive === false) {
+        user.monthlySubscriptions = []; 
+        user.planesFijos = []; 
+    }
+
     await user.save();
 
     if (wasClient && isChangingStatus) {
-        if (isActive) {
+        if (isActive === true) {
             const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
             if (!hasSpace) {
                 user.isActive = false; 
                 await user.save();
                 res.status(403);
-                throw new Error('No se puede reactivar al cliente, se ha alcanzado el límite del plan.');
+                throw new Error('No se puede reactivar al cliente, el gimnasio ha alcanzado su límite del plan.');
             }
         }
+        // Determinamos si sumar o restar del contador
         const action = isActive ? 'increment' : 'decrement';
         updateClientCount(req.gymId, req.apiSecretKey, action);
     }
 
-    res.json({ message: 'Estado del usuario actualizado correctamente.' });
+    res.json({ 
+        message: 'Estado del usuario actualizado correctamente.',
+        user: { 
+            _id: user._id,
+            isActive: user.isActive,
+        }
+    });
 });
 
 export {
