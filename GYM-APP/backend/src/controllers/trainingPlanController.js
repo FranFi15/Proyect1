@@ -67,11 +67,21 @@ const deleteTemplate = asyncHandler(async (req, res) => {
 // --- CONTROLADORES DE PLANES ASIGNADOS ---
 
 const createPlanForUser = asyncHandler(async (req, res) => {
-    const { TrainingPlan, TrainingTemplate } = getModels(req.gymDBConnection);
+    const { TrainingPlan, TrainingTemplate, User } = getModels(req.gymDBConnection);
     const { userId, name, description, content, templateId, isVisibleToUser } = req.body;
 
     if (!userId) {
         res.status(400).throw(new Error('Se requiere el ID del usuario.'));
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        res.status(404);
+        throw new Error('El cliente especificado no fue encontrado.');
+    }
+    if (!user.isActive) {
+        res.status(403); 
+        throw new Error('No se pueden crear planes para un usuario que no está activo.');
     }
 
     let planData = {
@@ -102,8 +112,16 @@ const createPlanForUser = asyncHandler(async (req, res) => {
 });
 
 const getPlansForUser = asyncHandler(async (req, res) => {
-    const { TrainingPlan } = getModels(req.gymDBConnection);
-    const plans = await TrainingPlan.find({ user: req.params.userId })
+    const { TrainingPlan, User } = getModels(req.gymDBConnection);
+    const userId = req.params.userId;
+
+
+    const user = await User.findById(userId);
+    if (!user || !user.isActive) {
+        console.log(`Acceso denegado o usuario inactivo para ver planes: ${userId}`);
+        return res.json([]); 
+    }
+    const plans = await TrainingPlan.find({ user: userId })
         .populate('createdBy', 'nombre apellido')
         .sort({ createdAt: -1 });
     res.json(plans);
@@ -119,12 +137,19 @@ const getMyVisiblePlans = asyncHandler(async (req, res) => {
 });
 
 const updatePlan = asyncHandler(async (req, res) => {
-    const { TrainingPlan } = getModels(req.gymDBConnection);
+    const { TrainingPlan, User } = getModels(req.gymDBConnection);
     const { name, description, content, isVisibleToUser } = req.body;
     const plan = await TrainingPlan.findById(req.params.planId);
 
     if (!plan) {
-        res.status(404).throw(new Error('Plan no encontrado'));
+        res.status(404);
+        throw new Error('Plan no encontrado');
+    }
+
+    const user = await User.findById(plan.user);
+    if (!user || !user.isActive) {
+        res.status(403);
+        throw new Error('No se pueden modificar planes de un usuario inactivo.');
     }
 
     plan.name = name !== undefined ? name : plan.name;
@@ -139,15 +164,22 @@ const updatePlan = asyncHandler(async (req, res) => {
 });
 
 const deletePlan = asyncHandler(async (req, res) => {
-    const { TrainingPlan } = getModels(req.gymDBConnection);
+    const { TrainingPlan, User } = getModels(req.gymDBConnection);
     const plan = await TrainingPlan.findById(req.params.planId);
 
-    if (plan) {
-        await plan.deleteOne();
-        res.json({ message: 'Plan de entrenamiento eliminado' });
-    } else {
-        res.status(404).throw(new Error('Plan no encontrado'));
+    if (!plan) {
+        res.status(404);
+        throw new Error('Plan no encontrado');
     }
+
+    const user = await User.findById(plan.user);
+    if (!user || !user.isActive) {
+        res.status(403);
+        throw new Error('No se pueden eliminar planes de un usuario inactivo.');
+    }
+
+    await plan.deleteOne();
+    res.json({ message: 'Plan de entrenamiento eliminado' });
 });
 
 export {
