@@ -52,7 +52,7 @@ export default function ProfessorTabsLayout() {
        <Tabs.Screen 
         name="class-type" 
         options={{ 
-          title: 'Creditos',
+          title: 'Créditos',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
               name={focused ? 'list' : 'list-outline'} 

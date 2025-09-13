@@ -1,4 +1,3 @@
-// src/models/TrainingTemplate.js
 import mongoose from 'mongoose';
 
 const trainingTemplateSchema = new mongoose.Schema({
@@ -15,7 +14,6 @@ const trainingTemplateSchema = new mongoose.Schema({
     description: {
         type: String,
     },
-    // El contenido de la plantilla es un campo de texto libre para máxima flexibilidad.
     content: { 
         type: String, 
         required: true,

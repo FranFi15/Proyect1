@@ -1,20 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-    StyleSheet,
-    View,
-    Text,
-    FlatList,
-    TouchableOpacity,
-    TextInput,
-    useColorScheme,
-    ActivityIndicator,
-    RefreshControl,
-    Switch,
-    Pressable,
-    Button,
-    KeyboardAvoidingView,
-    ScrollView,
-    Platform
+    StyleSheet, View, Text, FlatList, TouchableOpacity, TextInput,
+    useColorScheme, ActivityIndicator, RefreshControl, Switch,
+    KeyboardAvoidingView, ScrollView, Platform, Button, Pressable
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -30,6 +18,7 @@ const ClassTypeManagementScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    // --- ESTADOS EXISTENTES ---
     const [classTypes, setClassTypes] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -37,21 +26,23 @@ const ClassTypeManagementScreen = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingClassType, setEditingClassType] = useState(null);
     const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
-    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
+    const [alertInfo, setAlertInfo] = useState({ visible: false });
 
+    // --- NUEVOS ESTADOS PARA LA CONFIGURACIÓN ---
     const [hasSecurityKey, setHasSecurityKey] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
     const [oldSecurityKey, setOldSecurityKey] = useState('');
     const [newSecurityKey, setNewSecurityKey] = useState('');
     const [accessToken, setAccessToken] = useState('');
     const [securityKeyForToken, setSecurityKeyForToken] = useState('');
-
+    
+    // --- LÓGICA DE DATOS ---
     const fetchData = useCallback(async () => {
-        setIsLoading(true);
         try {
+            // Hacemos las dos llamadas a la API en paralelo
             const [typesRes, settingsRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/settings/security-key') 
+                apiClient.get('/settings/security-key')
             ]);
 
             if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
@@ -68,9 +59,9 @@ const ClassTypeManagementScreen = () => {
     }, []);
 
     useFocusEffect(useCallback(() => { setIsLoading(true); fetchData(); }, [fetchData]));
-
     const onRefresh = useCallback(() => { setIsRefreshing(true); fetchData(); }, [fetchData]);
 
+    // --- NUEVAS FUNCIONES PARA MANEJAR LA CONFIGURACIÓN ---
     const handleUpdateKey = async () => {
         setIsLoading(true);
         try {
@@ -80,10 +71,11 @@ const ClassTypeManagementScreen = () => {
                 newSecurityKey,
             });
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Clave de seguridad actualizada.' });
+            // Limpiamos los campos y recargamos el estado
             setCurrentPassword('');
             setOldSecurityKey('');
             setNewSecurityKey('');
-            fetchData(); // Recargamos todo para actualizar el estado
+            await fetchData();
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar la clave.' });
         } finally {
@@ -216,23 +208,21 @@ const ClassTypeManagementScreen = () => {
             )}
             
             <View style={styles.listHeaderContainer}>
-                <ThemedText style={styles.listTitle}>Tipos de Turno</ThemedText>
+                <ThemedText style={styles.listTitle}>Créditos</ThemedText>
                 <View style={styles.searchInputContainer}>
-                    <TextInput style={styles.searchInput} placeholder="Buscar..." value={searchTerm} onChangeText={setSearchTerm} />
-                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} />
+                    <TextInput style={styles.searchInput} placeholder="Buscar..." value={searchTerm} onChangeText={setSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />
+                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
                 </View>
             </View>
         </>
     );
-
+    
     const renderClassType = ({ item }) => (
-        <View style={styles.card}>
+        <View style={styles.itemCard}>
             <View style={styles.cardContent}>
-                <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
-                <Text style={styles.priceText}>
-                    Precio: ${item.price?.toFixed(2) || '0.00'}
-                </Text>
-                <ThemedText style={[styles.cardDescription, { marginTop: 8, fontStyle: 'italic' }]}>
+                <ThemedText style={styles.itemTitle}>{item.nombre}</ThemedText>
+                <Text style={styles.priceText}>Precio: ${item.price?.toFixed(2) || '0.00'}</Text>
+                <ThemedText style={[styles.cardDescription, { fontStyle: 'italic' }]}>
                     Créditos: {item.resetMensual ? 'Vencimiento Mensual' : 'Sin Vencimiento'}
                 </ThemedText>
             </View>
@@ -246,7 +236,7 @@ const ClassTypeManagementScreen = () => {
             </View>
         </View>
     );
-    
+
     if (isLoading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
@@ -259,7 +249,7 @@ const ClassTypeManagementScreen = () => {
                 renderItem={renderClassType}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={<ThemedText>No hay tipos de turnos registrados.</ThemedText>}
+                ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay créditos registrados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
 
@@ -281,7 +271,7 @@ const ClassTypeManagementScreen = () => {
                         {/* 2. El contenido del modal se envuelve en un ScrollView */}
                         <ScrollView showsVerticalScrollIndicator={false}>
                             <ThemedText style={styles.modalTitle}>
-                                {editingClassType ? 'Editar Tipo de Turno' : 'Añadir Tipo de Turno'}
+                                {editingClassType ? 'Editar Crédito' : 'Añadir Crédito'}
                             </ThemedText>
                             
                             <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
@@ -329,120 +319,71 @@ const ClassTypeManagementScreen = () => {
                 title={alertInfo.title}
                 message={alertInfo.message}
                 onClose={() => setAlertInfo({ visible: false })}
-                buttons={[{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]}
+                buttons={alertInfo.buttons || [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]}
+                gymColor={gymColor}
             />
         </ThemedView>
     );
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    // ... Tus estilos de container, centered, listContainer, searchInput, card, etc. no cambian
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    listContainer: { padding: 10, paddingBottom: 80 },
-    searchInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        margin: 15,
-        height: 50,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        fontSize: 16
-    },
-    searchInput: {
-        height: 50,
-        color: Colors[colorScheme].text,
-        fontSize: 16
-    },
-    listHeaderContainer: { marginTop: 20, paddingHorizontal: 15, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 20 },
-    listTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
+    content: { padding: 20 },
+    listContainer: { paddingBottom: 80 },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
-        padding: 15,
-        marginVertical: 8,
-        marginHorizontal: 5,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        borderRadius: 12,
+        padding: 20,
+        marginHorizontal: 15,
+        marginBottom: 20,
         elevation: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
-        shadowRadius: 1.5,
+        shadowRadius: 2,
     },
-    cardContent: { flex: 1 },
-    cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
-    priceText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: gymColor,
-        marginTop: 8,
-    },
-    cardActions: { flexDirection: 'row', alignItems: 'center', marginLeft: 15 },
-    actionButton: { marginLeft: 8, padding: 1 },
-    fab: {
-        position: 'absolute',
-        width: 60,
-        height: 60,
-        alignItems: 'center',
-        justifyContent: 'center',
-        right: 20,
-        bottom: 20,
-        backgroundColor: gymColor || '#1a5276',
-        borderRadius: 30,
-        elevation: 8,
-    },
-    // --- ESTILOS DEL MODAL AJUSTADOS ---
-    modalOverlay: {
-        position: 'absolute',
-        top: 0, bottom: 0, left: 0, right: 0,
-        zIndex: 1000,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalBackdrop: { // Nuevo estilo para el fondo oscuro que cierra el modal
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    modalContainer: {
-        width: '90%',
-        maxHeight: '85%', // Límite para que no ocupe toda la pantalla
-        backgroundColor: Colors[colorScheme].background,
-        borderRadius: 12,
-        padding: 25,
-        elevation: 5
-    },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
+    cardTitle: { fontSize: 18, fontWeight: '600', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10 },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
         height: 50,
-        backgroundColor: Colors[colorScheme].cardBackground, // Un fondo ligeramente diferente
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 15,
         marginBottom: 20,
+        backgroundColor: Colors[colorScheme].background,
         color: Colors[colorScheme].text,
         fontSize: 16,
     },
-    switchContainer: {
+    listHeaderContainer: { borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 20, marginHorizontal: 15 },
+    listTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
+    searchIcon: { marginRight: 15 },
+    itemCard: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 8,
+        padding: 15,
+        marginVertical: 8,
+        marginHorizontal: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
-        paddingVertical: 10,
+        elevation: 2,
     },
-    modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-    button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 },
-    cancelButton: { backgroundColor: '#6c757d' },
-    buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    cardContent: { flex: 1 },
+    itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
+    cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
+    priceText: { fontSize: 16, fontWeight: '600', color: gymColor, marginTop: 8 },
+    cardActions: { flexDirection: 'row', alignItems: 'center' },
+    actionButton: { padding: 8, marginLeft: 10 },
+    fab: {
+        position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20,
+        backgroundColor: gymColor || '#1a5276', borderRadius: 30, elevation: 8,
+    },
+    emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
 });
 
 export default ClassTypeManagementScreen;
+

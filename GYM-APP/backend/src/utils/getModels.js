@@ -7,6 +7,7 @@ import getCreditLogModel from '../models/CreditLog.js';
 import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
+import getSettingsModel from '../models/Settings.js';
 
 
 const getModels = (dbConnection) => {
@@ -26,6 +27,7 @@ const getModels = (dbConnection) => {
         Transaction: getTransactionsModel(dbConnection),
         TrainingPlan: getTrainingPlanModel(dbConnection),
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
+        Settings: getSettingsModel(dbConnection),
     };
 
     return models;
