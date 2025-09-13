@@ -11,7 +11,7 @@ import {
     RefreshControl,
     Switch,
     Pressable,
-    // --- NUEVOS IMPORTS ---
+    Button,
     KeyboardAvoidingView,
     ScrollView,
     Platform
@@ -26,8 +26,6 @@ import { FontAwesome6, Ionicons, Octicons, FontAwesome5 } from '@expo/vector-ico
 import CustomAlert from '@/components/CustomAlert';
 
 const ClassTypeManagementScreen = () => {
-    // All your existing state and functions (fetchClassTypes, handleFormChange, etc.)
-    // do not need changes. They are correct.
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -41,39 +39,74 @@ const ClassTypeManagementScreen = () => {
     const [formData, setFormData] = useState({ nombre: '', descripcion: '', price: '0', resetMensual: true });
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
-    const fetchClassTypes = useCallback(async () => {
+    const [hasSecurityKey, setHasSecurityKey] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [oldSecurityKey, setOldSecurityKey] = useState('');
+    const [newSecurityKey, setNewSecurityKey] = useState('');
+    const [accessToken, setAccessToken] = useState('');
+    const [securityKeyForToken, setSecurityKeyForToken] = useState('');
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
         try {
-            const response = await apiClient.get('/tipos-clase');
-            if (response.data && Array.isArray(response.data.tiposClase)) {
-                setClassTypes(response.data.tiposClase);
-            } else {
-                setClassTypes([]);
+            const [typesRes, settingsRes] = await Promise.all([
+                apiClient.get('/tipos-clase'),
+                apiClient.get('/settings/security-key') 
+            ]);
+
+            if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
+                setClassTypes(typesRes.data.tiposClase);
             }
+            setHasSecurityKey(settingsRes.data.hasSecurityKey);
+
         } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudieron obtener los tipos de turno.',
-                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
-            });
-            setClassTypes([]);
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            setIsLoading(true);
-            fetchClassTypes();
-        }, [fetchClassTypes])
-    );
+    useFocusEffect(useCallback(() => { setIsLoading(true); fetchData(); }, [fetchData]));
 
-    const onRefresh = useCallback(() => {
-        setIsRefreshing(true);
-        fetchClassTypes();
-    }, [fetchClassTypes]);
+    const onRefresh = useCallback(() => { setIsRefreshing(true); fetchData(); }, [fetchData]);
+
+    const handleUpdateKey = async () => {
+        setIsLoading(true);
+        try {
+            await apiClient.put('/settings/security-key', {
+                currentPassword,
+                oldSecurityKey: hasSecurityKey ? oldSecurityKey : undefined,
+                newSecurityKey,
+            });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Clave de seguridad actualizada.' });
+            setCurrentPassword('');
+            setOldSecurityKey('');
+            setNewSecurityKey('');
+            fetchData(); // Recargamos todo para actualizar el estado
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar la clave.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleUpdateToken = async () => {
+        setIsLoading(true);
+        try {
+            await apiClient.put('/settings/mercadopago', {
+                accessToken,
+                securityKey: securityKeyForToken,
+            });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Token de Mercado Pago actualizado.' });
+            setAccessToken('');
+            setSecurityKeyForToken('');
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el token.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const filteredClassTypes = useMemo(() => {
         if (!searchTerm) {
@@ -118,7 +151,7 @@ const ClassTypeManagementScreen = () => {
             await apiCall;
             setAlertInfo({ visible: true, title: 'Éxito', message: `Tipo de Turno ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
             setIsModalVisible(false);
-            fetchClassTypes();
+            fetchData();
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
         }
@@ -139,7 +172,7 @@ const ClassTypeManagementScreen = () => {
                         try {
                             await apiClient.delete(`/tipos-clase/${type._id}`);
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'Tipo de turno eliminado.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
-                            fetchClassTypes();
+                            fetchData();
                         } catch (error) {
                             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'Error al eliminar.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
                         }
@@ -149,7 +182,48 @@ const ClassTypeManagementScreen = () => {
         });
     };
     
-    // Your renderClassType function and isLoading check are correct.
+     
+
+
+    const renderHeader = () => (
+        <>
+            <View style={styles.card}>
+                <ThemedText style={styles.cardTitle}>
+                    {hasSecurityKey ? 'Cambiar Clave de Seguridad' : 'Crear Clave de Seguridad'}
+                </ThemedText>
+                <ThemedText style={styles.inputLabel}>Tu Contraseña de Administrador</ThemedText>
+                <TextInput style={styles.input} placeholder="..." secureTextEntry value={currentPassword} onChangeText={setCurrentPassword} />
+                {hasSecurityKey && (
+                    <>
+                        <ThemedText style={styles.inputLabel}>Clave de Seguridad Actual</ThemedText>
+                        <TextInput style={styles.input} placeholder="..." secureTextEntry value={oldSecurityKey} onChangeText={setOldSecurityKey} />
+                    </>
+                )}
+                <ThemedText style={styles.inputLabel}>Nueva Clave de Seguridad</ThemedText>
+                <TextInput style={styles.input} placeholder="..." secureTextEntry value={newSecurityKey} onChangeText={setNewSecurityKey} />
+                <Button title={hasSecurityKey ? 'Cambiar Clave' : 'Crear Clave'} onPress={handleUpdateKey} color={gymColor} />
+            </View>
+
+            {hasSecurityKey && (
+                <View style={styles.card}>
+                    <ThemedText style={styles.cardTitle}>Integración con Mercado Pago</ThemedText>
+                    <ThemedText style={styles.inputLabel}>Tu Clave de Seguridad</ThemedText>
+                    <TextInput style={styles.input} placeholder="Ingresa tu clave para confirmar" secureTextEntry value={securityKeyForToken} onChangeText={setSecurityKeyForToken} />
+                    <ThemedText style={styles.inputLabel}>Access Token de Mercado Pago</ThemedText>
+                    <TextInput style={styles.input} placeholder="Pega aquí tu Access Token" value={accessToken} onChangeText={setAccessToken} />
+                    <Button title="Guardar Token" onPress={handleUpdateToken} color={gymColor} />
+                </View>
+            )}
+            
+            <View style={styles.listHeaderContainer}>
+                <ThemedText style={styles.listTitle}>Tipos de Turno</ThemedText>
+                <View style={styles.searchInputContainer}>
+                    <TextInput style={styles.searchInput} placeholder="Buscar..." value={searchTerm} onChangeText={setSearchTerm} />
+                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} />
+                </View>
+            </View>
+        </>
+    );
 
     const renderClassType = ({ item }) => (
         <View style={styles.card}>
@@ -174,46 +248,25 @@ const ClassTypeManagementScreen = () => {
     );
     
     if (isLoading) {
-        return (
-            <ThemedView style={styles.centered}>
-                <ActivityIndicator size="large" color={gymColor} />
-            </ThemedView>
-        );
+        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
     
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.searchInputContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Buscar por nombre..."
-                    placeholderTextColor={Colors[colorScheme].icon}
-                    value={searchTerm}
-                    onChangeText={setSearchTerm}
-                />
-                <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
-            </View>
-            
             <FlatList
+                ListHeaderComponent={renderHeader}
                 data={filteredClassTypes}
                 renderItem={renderClassType}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
-                ListEmptyComponent={
-                    <ThemedView style={styles.centered}>
-                        <ThemedText>No hay tipos de turnos registrados.</ThemedText>
-                    </ThemedView>
-                }
-                refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />
-                }
+                ListEmptyComponent={<ThemedText>No hay tipos de turnos registrados.</ThemedText>}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
 
             <TouchableOpacity style={styles.fab} onPress={handleAdd}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* --- MODAL CORREGIDO --- */}
             {isModalVisible && (
                 // 1. El overlay ahora es un KeyboardAvoidingView para mover todo el modal hacia arriba
                 <KeyboardAvoidingView
@@ -275,9 +328,8 @@ const ClassTypeManagementScreen = () => {
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor}
+                onClose={() => setAlertInfo({ visible: false })}
+                buttons={[{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]}
             />
         </ThemedView>
     );
@@ -307,6 +359,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors[colorScheme].text,
         fontSize: 16
     },
+    listHeaderContainer: { marginTop: 20, paddingHorizontal: 15, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 20 },
+    listTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
         borderRadius: 8,
