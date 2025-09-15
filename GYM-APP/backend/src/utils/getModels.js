@@ -8,6 +8,7 @@ import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getSettingsModel from '../models/Settings.js';
+import getPackageModel from '../models/Package.js';
 
 
 const getModels = (dbConnection) => {
@@ -28,6 +29,7 @@ const getModels = (dbConnection) => {
         TrainingPlan: getTrainingPlanModel(dbConnection),
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
+        Package: getPackageModel(dbConnection),
     };
 
     return models;
