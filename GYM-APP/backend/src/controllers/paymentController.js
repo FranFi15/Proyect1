@@ -1,10 +1,10 @@
-import mercadopago from 'mercadopago';
+import { MercadoPagoConfig, Preference } from 'mercadopago'; 
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 
 
 const createPaymentPreference = asyncHandler(async (req, res) => {
-    const { Settings, Package, TipoClase, Order } = getModels(req.gymDBConnection);
+    const { Settings, Package, TipoClase, Order, User } = getModels(req.gymDBConnection); // Añadimos User
     const { cartItems, platform } = req.body;
     const userId = req.user._id;
 
@@ -13,33 +13,48 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
         throw new Error('El carrito está vacío.');
     }
 
-    // 1. Buscamos el Access Token (esto no cambia)
     const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
     if (!settings || !settings.mercadoPagoAccessToken) {
         res.status(500);
-        throw new Error('La institución no ha configurado el pago por Mercado Pago.');
+        throw new Error('El administrador no ha configurado las credenciales de pago.');
     }
-    
-    // 2. LÓGICA INTELIGENTE: Buscamos el precio en el modelo correcto
+
     let totalAmount = 0;
     const orderItems = [];
 
-    // 2. Verificamos los precios en el servidor (¡Paso de seguridad clave!)
     for (const item of cartItems) {
+        let orderItemData;
         if (item.itemType === 'package') {
             const packageData = await Package.findById(item.itemId);
-            if (!packageData || !packageData.isActive) throw new Error(`El paquete "${item.name}" ya no está disponible.`);
-            totalAmount += packageData.price * item.quantity;
-            orderItems.push({ ...item, name: packageData.name, unitPrice: packageData.price });
+            if (!packageData || !packageData.isActive) throw new Error(`El paquete ya no está disponible.`);
+            orderItemData = {
+                itemType: 'package',
+                itemId: item.itemId,
+                name: packageData.name, // Tomamos el nombre desde la BD
+                quantity: item.quantity,
+                unitPrice: packageData.price, // Tomamos el precio desde la BD
+            };
         } else if (item.itemType === 'tipoClase') {
             const classTypeData = await TipoClase.findById(item.itemId);
-            if (!classTypeData) throw new Error(`El crédito para "${item.name}" ya no está disponible.`);
-            totalAmount += classTypeData.price * item.quantity;
-            orderItems.push({ ...item, name: classTypeData.name, unitPrice: classTypeData.price });
+            if (!classTypeData) throw new Error(`El tipo de crédito ya no está disponible.`);
+            orderItemData = {
+                itemType: 'tipoClase',
+                itemId: item.itemId,
+                name: classTypeData.nombre, // Tomamos el nombre desde la BD
+                quantity: item.quantity,
+                unitPrice: classTypeData.price, // Tomamos el precio desde la BD
+            };
+        } else {
+            continue; // Ignoramos items desconocidos
         }
+        totalAmount += orderItemData.unitPrice * orderItemData.quantity;
+        orderItems.push(orderItemData);
     }
 
-    // 3. Creamos la orden en nuestra base de datos con estado "pendiente"
+    if(orderItems.length === 0) {
+        throw new Error('No se encontraron productos válidos en el carrito.');
+    }
+    
     const order = await Order.create({
         user: userId,
         items: orderItems,
@@ -47,30 +62,35 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
         status: 'pending',
     });
 
-    mercadopago.configure({ access_token: settings.mercadoPagoAccessToken });
+    // 1. Creamos el cliente de configuración
+    const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
+    // 2. Creamos una instancia de Preference
+    const preference = new Preference(client);
+
     const baseUrl = platform === 'mobile' ? process.env.APP_DEEP_LINK_URL : process.env.WEB_APP_URL;
 
-    const preference = {
-        items: orderItems.map(item => ({
-            id: item.itemId,
-            title: item.name,
-            unit_price: Number(item.unitPrice),
-            quantity: Number(item.quantity),
-            currency_id: 'ARS',
-        })),
-        payer: { email: req.user.email },
-        back_urls: {
-            success: `${baseUrl}/payment-success`,
-            failure: `${baseUrl}/payment-failure`,
-        },
-        auto_return: 'approved',
-        notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
-        // 4. Usamos el ID de nuestra orden como referencia externa
-        external_reference: order._id.toString(),
-    };
-
-    const response = await mercadopago.preferences.create(preference);
-    res.json({ id: response.body.id, checkoutUrl: response.body.init_point });
+    // 3. Creamos la preferencia usando el método .create()
+    const response = await preference.create({
+        body: {
+            items: orderItems.map(item => ({
+                id: item.itemId,
+                title: item.name,
+                unit_price: Number(item.unitPrice),
+                quantity: Number(item.quantity),
+                currency_id: 'ARS',
+            })),
+            payer: { email: req.user.email },
+            back_urls: {
+                success: `${baseUrl}/payment-success`,
+                failure: `${baseUrl}/payment-failure`,
+            },
+            auto_return: 'approved',
+            notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
+            external_reference: order._id.toString(),
+        }
+    });
+    
+    res.json({ id: response.id, checkoutUrl: response.init_point });
 });
 
 
