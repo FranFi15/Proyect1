@@ -22,28 +22,28 @@ const updateSecurityKey = asyncHandler(async (req, res) => {
     }
 
     const admin = await User.findById(req.user._id);
-    const settings = await Settings.findById('main_settings').select('+securityKey');
-
-    // Verificación de seguridad: Se requiere la contraseña del admin
     if (!admin || !(await admin.matchPassword(currentPassword))) {
         res.status(401);
         throw new Error('La contraseña de administrador es incorrecta.');
     }
 
-    // Si ya existe una clave, se debe proporcionar la clave antigua para cambiarla
-    if (settings && settings.securityKey) {
+    // 1. Buscamos el documento de configuración o creamos una instancia nueva si no existe
+    let settings = await Settings.findById('main_settings').select('+securityKey');
+    if (!settings) {
+        settings = new Settings();
+    }
+
+    // 2. Verificamos la clave antigua si es necesario
+    if (settings.securityKey) {
         if (!oldSecurityKey || !(await settings.matchSecurityKey(oldSecurityKey))) {
             res.status(403);
             throw new Error('La clave de seguridad actual es incorrecta.');
         }
     }
     
-    // Guardamos la nueva clave (el hook del modelo la encriptará automáticamente)
-    const updatedSettings = await Settings.findByIdAndUpdate(
-        'main_settings',
-        { securityKey: newSecurityKey },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    // 3. Asignamos la nueva clave y usamos .save() para activar el hook de encriptación
+    settings.securityKey = newSecurityKey;
+    await settings.save();
 
     res.json({ message: 'La clave de seguridad ha sido actualizada correctamente.' });
 });
