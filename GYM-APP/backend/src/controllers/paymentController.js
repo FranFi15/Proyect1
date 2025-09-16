@@ -30,9 +30,9 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
             orderItemData = {
                 itemType: 'package',
                 itemId: item.itemId,
-                name: packageData.name, // Tomamos el nombre desde la BD
+                name: packageData.name,
                 quantity: item.quantity,
-                unitPrice: packageData.price, // Tomamos el precio desde la BD
+                unitPrice: packageData.price, 
             };
         } else if (item.itemType === 'tipoClase') {
             const classTypeData = await TipoClase.findById(item.itemId);
@@ -40,12 +40,12 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
             orderItemData = {
                 itemType: 'tipoClase',
                 itemId: item.itemId,
-                name: classTypeData.nombre, // Tomamos el nombre desde la BD
+                name: classTypeData.nombre, 
                 quantity: item.quantity,
-                unitPrice: classTypeData.price, // Tomamos el precio desde la BD
+                unitPrice: classTypeData.price, 
             };
         } else {
-            continue; // Ignoramos items desconocidos
+            continue; 
         }
         totalAmount += orderItemData.unitPrice * orderItemData.quantity;
         orderItems.push(orderItemData);
