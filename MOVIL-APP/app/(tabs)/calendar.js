@@ -13,7 +13,7 @@ import {
     Linking,
     useWindowDimensions,
     Modal,
-    Pressable
+    Pressable,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -258,11 +258,24 @@ const CalendarScreen = () => {
                 itemId: item._id,
                 itemType: item.type,
                 quantity: item.quantity,
-                name: item.name || item.nombre, // Asegura que el nombre vaya
+                name: item.name || item.nombre,
                 unitPrice: item.price,
             }));
-            const response = await apiClient.post('/payments/create-preference', { cartItems, platform: 'mobile' });
-            await WebBrowser.openBrowserAsync(response.data.checkoutUrl);
+            
+            // 2. DETECTAMOS LA PLATAFORMA ACTUAL
+            const platform = Platform.OS === 'web' ? 'web' : 'mobile';
+
+            // 3. ENVIAMOS LA PLATAFORMA CORRECTA AL BACKEND
+            const response = await apiClient.post('/payments/create-preference', { cartItems, platform });
+
+            if (Platform.OS === 'web') {
+                // En la web, simplemente redirigimos la ventana actual
+                window.location.href = response.data.checkoutUrl;
+            } else {
+                // En móvil, usamos el WebBrowser
+                await WebBrowser.openBrowserAsync(response.data.checkoutUrl);
+            }
+
             setCart([]); // Limpiamos el carrito
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar el pago.' });

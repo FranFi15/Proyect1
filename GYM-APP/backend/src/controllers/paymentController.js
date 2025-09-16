@@ -80,9 +80,9 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
         })),
         payer: { email: req.user.email },
         back_urls: {
-            success: `${baseUrl}/payment-success`, // Ejemplo: gain-wellness:///payment-success
-            failure: `${baseUrl}/payment-failure`, // Ejemplo: gain-wellness:///payment-failure
-            pending: `${baseUrl}/payment-pending`, // Es bueno tener este también
+            success: `${baseUrl}/payment-success`,
+            failure: `${baseUrl}/payment-failure`, 
+            pending: `${baseUrl}/payment-pending`, 
         },
         auto_return: 'approved',
         notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
