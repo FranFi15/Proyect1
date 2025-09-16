@@ -70,25 +70,30 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
     const baseUrl = platform === 'mobile' ? process.env.APP_DEEP_LINK_URL : process.env.WEB_APP_URL;
 
     // 3. Creamos la preferencia usando el método .create()
-    const response = await preference.create({
-        body: {
-            items: orderItems.map(item => ({
-                id: item.itemId,
-                title: item.name,
-                unit_price: Number(item.unitPrice),
-                quantity: Number(item.quantity),
-                currency_id: 'ARS',
-            })),
-            payer: { email: req.user.email },
-            back_urls: {
-                success: `${baseUrl}/payment-success`,
-                failure: `${baseUrl}/payment-failure`,
-            },
-            auto_return: 'approved',
-            notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
-            external_reference: order._id.toString(),
-        }
-    });
+   const preferenceBody = {
+        items: orderItems.map(item => ({
+            id: item.itemId,
+            title: item.name,
+            unit_price: Number(item.unitPrice),
+            quantity: Number(item.quantity),
+            currency_id: 'ARS',
+        })),
+        payer: { email: req.user.email },
+        back_urls: {
+            success: `${baseUrl}/payment-success`, // Ejemplo: gain-wellness:///payment-success
+            failure: `${baseUrl}/payment-failure`, // Ejemplo: gain-wellness:///payment-failure
+            pending: `${baseUrl}/payment-pending`, // Es bueno tener este también
+        },
+        auto_return: 'approved',
+        notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
+        external_reference: order._id.toString(),
+    };
+    
+    // --- CONSOLE.LOG PARA DEPURACIÓN ---
+    // Revisa en tu terminal de backend qué se está enviando.
+    console.log("Creando preferencia con el siguiente cuerpo:", JSON.stringify(preferenceBody, null, 2));
+
+    const response = await preference.create({ body: preferenceBody });
     
     res.json({ id: response.id, checkoutUrl: response.init_point });
 });
