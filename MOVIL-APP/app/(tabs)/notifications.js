@@ -271,7 +271,8 @@ const getStyles = (colorScheme, gymColor) => {
     noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
     listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
     sectionHeader: { fontSize: 16, fontWeight: 'bold', backgroundColor: Colors[colorScheme].background, paddingTop: 20, paddingBottom: 10, color: Colors[colorScheme].text },
-    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 8, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2},
+    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 8, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
     unreadNotification: {
         borderLeftWidth: 4,
         borderColor: gymColor || '#1a5276', // Un color para destacar las no leídas

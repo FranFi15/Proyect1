@@ -9,6 +9,7 @@ import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getSettingsModel from '../models/Settings.js';
 import getPackageModel from '../models/Package.js';
+import getOrderModel from '../models/Order.js';
 
 
 const getModels = (dbConnection) => {
@@ -30,6 +31,7 @@ const getModels = (dbConnection) => {
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
         Package: getPackageModel(dbConnection),
+        Order: getOrderModel(dbConnection),
     };
 
     return models;

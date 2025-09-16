@@ -12,6 +12,8 @@ import {
     RefreshControl,
     Linking,
     useWindowDimensions,
+    Modal,
+    Pressable
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -20,18 +22,16 @@ import apiClient from '../../services/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-// --- AÑADIDO: Importaciones para TabView ---
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import FilterModal from '@/components/FilterModal';
-// --- COMPONENTES Y CONSTANTES TEMÁTICAS ---
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome5 , Ionicons} from '@expo/vector-icons';
+import { FontAwesome5 , FontAwesome6, Ionicons, Octicons} from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import classService from '../../services/classService';
 import QrModal from '../../components/client/QrModal';
+import * as WebBrowser from 'expo-web-browser';
 
 // --- CONFIGURACIÓN DE IDIOMA (SIN CAMBIOS) ---
 LocaleConfig.locales['es'] = {
@@ -71,7 +71,6 @@ const getCalendarTheme = (colorScheme, gymColor) => ({
 });
 
 const CalendarScreen = () => {
-
     const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
     <TouchableOpacity
         style={[styles.actionButton, { backgroundColor: color }]}
@@ -82,8 +81,6 @@ const CalendarScreen = () => {
     </TouchableOpacity>
     );
 
-    // --- ESTADOS ---
-    // EL ESTADO 'activeView' SE REEMPLAZA POR EL SISTEMA DE 'react-native-tab-view'
     const layout = useWindowDimensions();
     const [index, setIndex] = useState(0);
     const [routes] = useState([
@@ -96,6 +93,9 @@ const CalendarScreen = () => {
     const [markedDates, setMarkedDates] = useState({});
     const [isLoading, setIsLoading] = useState(true);
     const { user, refreshUser , gymColor } = useAuth();
+    const colorScheme = useColorScheme() ?? 'light';
+    const styles = getStyles(colorScheme, gymColor);
+    const calendarTheme = getCalendarTheme(colorScheme, gymColor);
     const [classTypes, setClassTypes] = useState([]);
     const [selectedClassType, setSelectedClassType] = useState('all');
     const [error, setError] = useState(null)
@@ -111,12 +111,14 @@ const CalendarScreen = () => {
 
     const [isQrModalVisible, setQrModalVisible] = useState(false);
 
-    // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
-    const colorScheme = useColorScheme() ?? 'light';
-    const styles = getStyles(colorScheme, gymColor);
-    const calendarTheme = getCalendarTheme(colorScheme, gymColor);
+    const [packages, setPackages] = useState([]);
+
+     const [isPurchaseModalVisible, setIsPurchaseModalVisible] = useState(false);
+    const [purchaseViewMode, setPurchaseViewMode] = useState('packages'); 
+    const [cart, setCart] = useState([]); 
+
+ 
     
-    // --- LÓGICA DE FUNCIONES (la mayoría sin cambios) ---
 
     useEffect(() => {
         if (user && user.adminPhoneNumber) {
@@ -138,13 +140,15 @@ const CalendarScreen = () => {
         if (!user) return;
         try {
             await refreshUser();
-            const [classesResponse, typesResponse] = await Promise.all([
+            const [classesResponse, typesResponse, packagesResponse] = await Promise.all([
                 apiClient.get('/classes'),
-                apiClient.get('/tipos-clase')
+                apiClient.get('/tipos-clase'),
+                apiClient.get('/packages')
             ]);
             
             setAllClasses(classesResponse.data);
             setClassTypes(typesResponse.data.tiposClase || []);
+            setPackages(packagesResponse.data || []);
             
             const markers = {};
             classesResponse.data.forEach(cls => {
@@ -162,6 +166,9 @@ const CalendarScreen = () => {
             setMarkedDates(markers);
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudieron cargar los datos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+        }finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
         }
     }, [user, colorScheme, gymColor, refreshUser]);
 
@@ -208,7 +215,61 @@ const CalendarScreen = () => {
                 dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
             }))
             .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-    }, [allClasses, selectedDate, selectedClassType, index, user]); // <-- 'activeView' cambiado por 'index'
+    }, [allClasses, selectedDate, selectedClassType, index, user]); 
+
+     const handleAddToCart = (item, type) => {
+        setCart(prevCart => {
+            const existingItem = prevCart.find(cartItem => cartItem._id === item._id && cartItem.type === type);
+            if (existingItem) {
+                return prevCart.map(cartItem =>
+                    cartItem._id === item._id && cartItem.type === type
+                        ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                        : cartItem
+                );
+            }
+            return [...prevCart, { ...item, quantity: 1, type: type }];
+        });
+    };
+
+     const handleRemoveFromCart = (itemToRemove) => {
+        setCart(prevCart => prevCart.filter(item => 
+            !(item._id === itemToRemove._id && item.type === itemToRemove.type)
+        ));
+    };
+
+    const handleUpdateQuantity = (item, newQuantity) => {
+        setCart(prevCart => {
+            if (newQuantity <= 0) {
+                return prevCart.filter(cartItem => !(cartItem._id === item._id && cartItem.type === item.type));
+            }
+            return prevCart.map(cartItem =>
+                cartItem._id === item._id && cartItem.type === item.type
+                    ? { ...cartItem, quantity: newQuantity }
+                    : cartItem
+            );
+        });
+    };
+
+    const handleCheckout = async () => {
+        if (cart.length === 0) return;
+        setIsPurchaseModalVisible(false);
+        try {
+            const cartItems = cart.map(item => ({
+                itemId: item._id,
+                itemType: item.type,
+                quantity: item.quantity,
+                name: item.name || item.nombre, // Asegura que el nombre vaya
+                unitPrice: item.price,
+            }));
+            const response = await apiClient.post('/payments/create-preference', { cartItems, platform: 'mobile' });
+            await WebBrowser.openBrowserAsync(response.data.checkoutUrl);
+            setCart([]); // Limpiamos el carrito
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar el pago.' });
+        }
+    };
+    
+    const cartTotal = useMemo(() => cart.reduce((total, item) => total + (item.price * item.quantity), 0), [cart]);
 
     const handleEnroll = useCallback(async (classId) => {
         const performEnroll = async () => {
@@ -420,6 +481,12 @@ const CalendarScreen = () => {
             theme={calendarTheme} 
         />
         <View style={styles.headerActions}>
+                <TouchableOpacity style={styles.qrButton} onPress={() => setIsPurchaseModalVisible(true)}>
+                    <Ionicons name="cart" size={24} color={Colors[colorScheme].icon} />
+                    <Text style={styles.qrButtonText}>Comprar Créditos</Text>
+                </TouchableOpacity>
+            </View>
+        <View style={styles.headerActions}>
                 <TouchableOpacity 
                     style={styles.qrButton} 
                     onPress={() => setQrModalVisible(true)}
@@ -428,6 +495,7 @@ const CalendarScreen = () => {
                     <ThemedText style={styles.qrButtonText}>Mi Credencial</ThemedText>
                 </TouchableOpacity>
             </View>
+
         </ThemedView>
     );
 
@@ -487,6 +555,67 @@ const CalendarScreen = () => {
       list: ListScene,
     });
 
+    const renderPackageItem = ({ item }) => {
+        const itemInCart = cart.find(cartItem => cartItem._id === item._id && cartItem.type === 'package');
+
+        return (
+            <View style={styles.packageCard}>
+                <Ionicons name="pricetags" size={24} color={gymColor} />
+                <View style={styles.packageDetails}>
+                    <Text style={styles.packageName}>{item.name}</Text>
+                    <Text style={styles.packageDescription}>{item.creditsToReceive} créditos para {item.tipoClase.nombre}</Text>
+                    <Text style={styles.priceText}>${item.price}</Text>
+                </View>
+
+                {itemInCart ? (
+                    <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveFromCart(itemInCart)}>
+                        <Octicons name="trash" size={24} color="#e74c3c" />
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(item, 'package')}>
+                        <FontAwesome6 name="add" size={24} color='#2ecc71' />
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
+
+    const renderClassTypePurchaseItem = ({ item }) => {
+    // 1. Busca si este tipo de crédito ya está en el carrito y obtiene su cantidad
+    const itemInCart = cart.find(cartItem => cartItem._id === item._id && cartItem.type === 'tipoClase');
+    const quantity = itemInCart ? itemInCart.quantity : 0;
+
+    return (
+        <View style={styles.packageCard}>
+            <Ionicons name="pricetag" size={24} color={gymColor} />
+            <View style={styles.packageDetails}>
+                <Text style={styles.packageName}>Crédito: {item.nombre}</Text>
+                <Text style={styles.packageDescription}>Válido para un turno.</Text>
+                <Text style={styles.priceText}>${item.price} c/u</Text>
+            </View>
+
+            {/* --- LÓGICA CONDICIONAL --- */}
+            {quantity === 0 ? (
+                // 2. Si la cantidad es 0, muestra un simple botón para añadir
+                <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(item, 'tipoClase')}>
+                    <FontAwesome6 name="add" size={24} color='#2ecc71' />
+                </TouchableOpacity>
+            ) : (
+                // 3. Si la cantidad es mayor a 0, muestra el selector
+                <View style={styles.quantitySelector}>
+                    <TouchableOpacity onPress={() => handleUpdateQuantity(itemInCart, quantity - 1)}>
+                        <Ionicons name="remove-circle" size={24} color="#e74c3c" />
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{quantity}</Text>
+                    <TouchableOpacity onPress={() => handleUpdateQuantity(itemInCart, quantity + 1)}>
+                        <Ionicons name="add-circle" size={24} color='#2ecc71' />
+                    </TouchableOpacity>
+                </View>
+            )}
+        </View>
+    );
+};
+
     if (isLoading) {
         return (
             <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -513,6 +642,49 @@ const CalendarScreen = () => {
                     />
                 )}
             />
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isPurchaseModalVisible}
+                onRequestClose={() => setIsPurchaseModalVisible(false)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setIsPurchaseModalVisible(false)}>
+                    <Pressable style={styles.modalView}>
+                        <ThemedText style={styles.modalTitle}>Comprar Créditos</ThemedText>
+                        <TouchableOpacity onPress={() => setIsPurchaseModalVisible(false)} style={styles.closeButton}>
+                                                    <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
+                                                </TouchableOpacity>
+                        <View style={styles.filterContainer}>
+                            <TouchableOpacity style={[styles.filterButton, purchaseViewMode === 'packages' && styles.filterButtonActive]} onPress={() => setPurchaseViewMode('packages')}>
+                                <Text style={[styles.filterButtonText, purchaseViewMode === 'packages' && styles.filterButtonTextActive]}>Paquetes</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.filterButton, purchaseViewMode === 'types' && styles.filterButtonActive]} onPress={() => setPurchaseViewMode('types')}>
+                                <Text style={[styles.filterButtonText, purchaseViewMode === 'types' && styles.filterButtonTextActive]}>Créditos</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <FlatList
+                            data={purchaseViewMode === 'packages' ? packages : classTypes.filter(ct => ct.price > 0)}
+                            renderItem={purchaseViewMode === 'packages' ? renderPackageItem : renderClassTypePurchaseItem}
+                            keyExtractor={(item) => item._id}
+                            ListEmptyComponent={<Text style={styles.emptyText}>No hay productos disponibles.</Text>}
+                            style={{ width: '100%' }}
+                            contentContainerStyle={{ paddingBottom: 80 }} // Espacio para el resumen del carrito
+                        />
+                        
+                        {cart.length > 0 && (
+                            <View style={styles.cartSummary}>
+                                <Text style={styles.cartTotalText}>Total: ${cartTotal.toFixed(2)}</Text>
+                                <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
+                                    <Text style={styles.checkoutButtonText}>Ir a Pagar</Text>
+                                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
             {adminPhoneNumber && (
                 <TouchableOpacity
                     style={styles.fab}
@@ -544,6 +716,7 @@ const CalendarScreen = () => {
                 user={user}
                 gymColor={gymColor}
             />
+            
         </View>
     );
 };
@@ -575,7 +748,8 @@ const getStyles = (colorScheme, gymColor) => {
             borderRadius: 8,
             borderWidth: 0,
             elevation:2,
-            backgroundColor: Colors[colorScheme].background
+            backgroundColor: Colors[colorScheme].background,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, 
         },
         className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
         classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
@@ -694,6 +868,108 @@ const getStyles = (colorScheme, gymColor) => {
             fontWeight: '500',
             color: Colors[colorScheme].text,
         },
-    });
+        modalOverlay: { 
+            flex: 1, 
+            justifyContent: 'flex-end', 
+            backgroundColor: 'rgba(0,0,0,0.5)' 
+        },
+        modalView: {
+            height: '93%',
+            backgroundColor: Colors[colorScheme].background,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+            alignItems: 'center',
+        },
+        modalTitle: { 
+            fontSize: 22, 
+            fontWeight: 'bold', 
+            marginBottom: 20, 
+            color: Colors[colorScheme].text 
+        },
+        filterContainer: { 
+            flexDirection: 'row', 
+            justifyContent: 'space-around',
+            marginBottom: 15, 
+            borderRadius: 8, 
+            padding: 4, 
+            width: '100%',
+        },
+        filterButtonActive: { 
+            backgroundColor: gymColor,
+        },
+        filterButtonTextActive: { 
+            color: '#fff', 
+        },
+        packageCard: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: Colors[colorScheme].cardBackground,
+            padding: 15,
+            borderRadius: 10,
+            marginBottom: 10,
+            width: '100%',
+            elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        },
+        packageDetails: { 
+            flex: 1, 
+            marginLeft: 15 
+        },
+        packageName: { 
+            fontSize: 16, 
+            fontWeight: 'bold', 
+            color: Colors[colorScheme].text 
+        },
+        packageDescription: { 
+            fontSize: 14, 
+            color: Colors[colorScheme].icon, 
+            marginTop: 4 
+        },
+        priceText: { 
+            fontSize: 16, 
+            fontWeight: 'bold',
+            color: Colors[colorScheme].text,
+            marginTop: 4,
+        },
+        buyButton: { 
+            backgroundColor: gymColor, 
+            paddingVertical: 10, 
+            paddingHorizontal: 20, 
+            borderRadius: 8 
+        },
+        buyButtonText: { 
+            color: '#fff', 
+            fontWeight: 'bold', 
+            fontSize: 16 
+        },
+        closeButton: { 
+        position: 'absolute', 
+        top: 15, 
+        right: 15, 
+        zIndex: 10 
+    },
+    addToCartButton: { padding: 10, borderRadius: 100 },
+    removeButton: {  padding: 10, borderRadius: 100 },
+    quantitySelector: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    quantityText: { fontSize: 18, fontWeight: 'bold', minWidth: 20, textAlign: 'center', color: Colors[colorScheme].text },
+    cartSummary: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        padding: 20, paddingTop: 15,
+        borderTopWidth: 1, borderColor: Colors[colorScheme].border,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 4,
+    },
+    cartTotalText: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
+    checkoutButton: {
+        flexDirection: 'row', alignItems: 'center', backgroundColor: '#2ecc71',
+        paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, gap: 10,
+    },
+    checkoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+});
 };
 export default CalendarScreen
