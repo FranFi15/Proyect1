@@ -5,7 +5,7 @@ import getModels from '../utils/getModels.js';
 
 
 const createPaymentPreference = asyncHandler(async (req, res) => {
-    const { Settings, Package, TipoClase, Order, User } = getModels(req.gymDBConnection); // Añadimos User
+    const { Settings, Package, TipoClase, Order, User } = getModels(req.gymDBConnection); 
     const { cartItems, platform } = req.body;
     const userId = req.user._id;
 
