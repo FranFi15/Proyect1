@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, Preference, Payment, Signature } from 'mercadopago'; 
+import { MercadoPagoConfig, Preference, Payment,  } from 'mercadopago'; 
 import crypto from 'crypto';
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
