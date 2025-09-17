@@ -1,4 +1,5 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago'; 
+import { MercadoPagoConfig, Preference, Payment, Signature } from 'mercadopago'; 
+import crypto from 'crypto';
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 
@@ -101,85 +102,94 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
 
 
 const receiveWebhook = asyncHandler(async (req, res) => {
-    const { Settings, Package, TipoClase, Order, User } = getModels(req.gymDBConnection);
-    const paymentInfo = req.query;
-
-    console.log('Webhook recibido:', paymentInfo);
+    const { Settings, Package, Order, User } = getModels(req.gymDBConnection);
+    
+    console.log('--- INICIO WEBHOOK ---');
+    console.log('Webhook Query:', req.query);
 
     try {
-        if (paymentInfo.type === 'payment') {
-            const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
-            if (!settings || !settings.mercadoPagoAccessToken) {
-                throw new Error('Credenciales de pago no configuradas para este gimnasio.');
-            }
+        const signatureHeader = req.get('x-signature');
+        const paymentId = req.body.data?.id || req.query['data.id'];
+        
+        if (!signatureHeader || !paymentId) {
+            return res.sendStatus(400);
+        }
 
-            // Configuramos el cliente de MP para esta operación
-            const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
-            const payment = new Payment(client);
+        const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+        if (!webhookSecret) {
+            console.error('Webhook no configurado.');
+            return res.sendStatus(500);
+        }
 
-            // Con el ID del pago, le pedimos a Mercado Pago todos los detalles
-            const paymentDetails = await payment.get({ id: paymentInfo['data.id'] });
+       
+        const parts = signatureHeader.split(',').reduce((acc, part) => {
+            const [key, value] = part.split('=');
+            acc[key.trim()] = value.trim();
+            return acc;
+        }, {});
+
+        const ts = parts.ts;
+        const hash = parts.v1;
+
+        const manifest = `id:${paymentId};request-id:${req.get('x-request-id')};ts:${ts};`;
+        
+        const hmac = crypto.createHmac('sha256', webhookSecret);
+        hmac.update(manifest);
+        const generatedSignature = hmac.digest('hex');
+
+        if (generatedSignature !== hash) {
+            console.warn('Webhook Signature inválida. Posible intento de fraude.');
+            return res.sendStatus(403);
+        }
+        console.log('Webhook signature verificada correctamente.');
+
+       
+        const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
+        const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
+        const payment = new Payment(client);
+        const paymentDetails = await payment.get({ id: paymentId });
             
-            // 1. Verificamos que el pago esté APROBADO
-            if (paymentDetails.status === 'approved') {
-                const orderId = paymentDetails.external_reference;
-                
-                // 2. Buscamos nuestra orden 'pendiente' en la base de datos
-                const order = await Order.findById(orderId);
+        if (paymentDetails.status === 'approved' && paymentDetails.external_reference) {
+            const order = await Order.findById(paymentDetails.external_reference);
 
-                if (order && order.status === 'pending') {
-                    // 3. (Seguridad) Verificamos que el monto pagado coincida con nuestra orden
-                    const paidAmount = paymentDetails.transaction_amount;
-                    if (Number(paidAmount) < Number(order.totalAmount)) {
-                        console.error(`Alerta de seguridad: El monto pagado (${paidAmount}) es menor al total de la orden (${order.totalAmount}). Order ID: ${orderId}`);
-                        order.status = 'failed';
-                        await order.save();
-                        return res.sendStatus(200); // Respondemos OK para no recibir más notificaciones
-                    }
+            if (order && order.status === 'pending') {
+                order.status = 'completed';
+                order.paymentId = paymentDetails.id;
+                await order.save();
 
-                    // 4. Actualizamos la orden a 'completada'
-                    order.status = 'completed';
-                    order.paymentId = paymentDetails.id;
-                    await order.save();
-
-                    // 5. ¡ACREDITAMOS LOS CRÉDITOS AL USUARIO!
-                    const user = await User.findById(order.user);
-                    if (user) {
-                        for (const item of order.items) {
-                            let tipoClaseId;
-                            let creditsToAdd = 0;
-
-                            if (item.itemType === 'package') {
-                                const pkg = await Package.findById(item.itemId);
-                                if (pkg) {
-                                    tipoClaseId = pkg.tipoClase.toString();
-                                    creditsToAdd = item.quantity * pkg.creditsToReceive;
-                                }
-                            } else if (item.itemType === 'tipoClase') {
-                                tipoClaseId = item.itemId.toString();
-                                creditsToAdd = item.quantity;
+                const user = await User.findById(order.user);
+                if (user) {
+                    for (const item of order.items) {
+                        let tipoClaseId;
+                        let creditsToAdd = 0;
+                        if (item.itemType === 'package') {
+                            const pkg = await Package.findById(item.itemId);
+                            if (pkg) {
+                                tipoClaseId = pkg.tipoClase.toString();
+                                creditsToAdd = item.quantity * pkg.creditsToReceive;
                             }
-
-                            if (tipoClaseId && creditsToAdd > 0) {
-                                const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                                user.creditosPorTipo.set(tipoClaseId, currentCredits + creditsToAdd);
-                            }
+                        } else if (item.itemType === 'tipoClase') {
+                            tipoClaseId = item.itemId.toString();
+                            creditsToAdd = item.quantity;
                         }
-                        user.markModified('creditosPorTipo'); 
-                        await user.save();
-                        console.log(`Créditos acreditados al usuario ${user.email} por la orden ${orderId}`);
+                        if (tipoClaseId && creditsToAdd > 0) {
+                            const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
+                            user.creditosPorTipo.set(tipoClaseId, currentCredits + creditsToAdd);
+                        }
                     }
+                    user.markModified('creditosPorTipo');
+                    await user.save();
+                    console.log(`Créditos añadidos a ${user.email} para la orden ${order._id}`);
                 }
             }
         }
-        // Le decimos a Mercado Pago que recibimos la notificación correctamente
+        
         res.sendStatus(200);
 
     } catch (error) {
-        console.error('Error en el webhook de Mercado Pago:', error);
-        res.sendStatus(500); // Si algo falla, enviamos un error para que MP reintente
+        console.error('Error en Mercado Pago webhook:', error);
+        res.sendStatus(500);
     }
 });
-
 
 export { createPaymentPreference, receiveWebhook };

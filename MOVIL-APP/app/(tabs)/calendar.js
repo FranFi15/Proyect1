@@ -70,8 +70,7 @@ const getCalendarTheme = (colorScheme, gymColor) => ({
     textDayHeaderFontSize: 14,
 });
 
-const CalendarScreen = () => {
-    const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
+const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff', styles }) => (
     <TouchableOpacity
         style={[styles.actionButton, { backgroundColor: color }]}
         onPress={onPress}
@@ -81,10 +80,12 @@ const CalendarScreen = () => {
     </TouchableOpacity>
     );
 
+const CalendarScreen = () => {
+
     const layout = useWindowDimensions();
     const [index, setIndex] = useState(0);
     const [routes] = useState([
-        { key: 'calendar', title: 'Calendario' },
+        { key: 'calendar', title: 'Calendario' },   
         { key: 'list', title: 'Turnos' },
     ]);
 
