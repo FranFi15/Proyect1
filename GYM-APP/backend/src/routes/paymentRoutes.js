@@ -13,6 +13,6 @@ router.post('/create-preference', protect, createPaymentPreference);
 
 // --- Ruta para que Mercado Pago nos Envíe Notificaciones (Webhook) ---
 // Esta ruta NO debe estar protegida, ya que es Mercado Pago quien la llama, no un usuario.
-router.post('/webhook', receiveWebhook);
+router.post('/webhook/:clientId', receiveWebhook);
 
 export default router;

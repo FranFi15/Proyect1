@@ -86,7 +86,7 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
             pending: `${baseUrl}/payment-pending`, 
         },
         auto_return: 'approved',
-        notification_url: `${process.env.SERVER_URL}/api/payments/webhook?clientId=${req.gymId}`,
+        notification_url:`${process.env.SERVER_URL}/api/payments/webhook/${req.gymId}`,
         external_reference: order._id.toString(),
     };
     
@@ -102,6 +102,7 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
 
 
 const receiveWebhook = asyncHandler(async (req, res) => {
+    const { clientId } = req.params; 
     const { Settings, Package, Order, User } = getModels(req.gymDBConnection);
     
     console.log('--- INICIO WEBHOOK ---');
