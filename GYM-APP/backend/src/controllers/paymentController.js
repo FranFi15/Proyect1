@@ -101,20 +101,24 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
 
 
 const receiveWebhook = asyncHandler(async (req, res) => {
-    // El 'clientId' lo pasamos en la URL de notificación para saber a qué DB conectarnos
-    const { clientId } = req.query; 
-    const { User, Package, TipoClase, Order } = getModels(req.gymDBConnection);
-
-    // La información del pago viene en el 'query' de la notificación de MP
+    const { Settings, Package, TipoClase, Order, User } = getModels(req.gymDBConnection);
     const paymentInfo = req.query;
 
-    console.log('Webhook recibido para clientId:', clientId, 'Datos:', paymentInfo);
+    console.log('Webhook recibido:', paymentInfo);
 
     try {
         if (paymentInfo.type === 'payment') {
+            const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
+            if (!settings || !settings.mercadoPagoAccessToken) {
+                throw new Error('Credenciales de pago no configuradas para este gimnasio.');
+            }
+
+            // Configuramos el cliente de MP para esta operación
+            const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
+            const payment = new Payment(client);
+
             // Con el ID del pago, le pedimos a Mercado Pago todos los detalles
-            const payment = await mercadopago.payment.findById(paymentInfo['data.id']);
-            const paymentDetails = payment.body;
+            const paymentDetails = await payment.get({ id: paymentInfo['data.id'] });
             
             // 1. Verificamos que el pago esté APROBADO
             if (paymentDetails.status === 'approved') {
@@ -126,11 +130,11 @@ const receiveWebhook = asyncHandler(async (req, res) => {
                 if (order && order.status === 'pending') {
                     // 3. (Seguridad) Verificamos que el monto pagado coincida con nuestra orden
                     const paidAmount = paymentDetails.transaction_amount;
-                    if (Number(paidAmount) !== Number(order.totalAmount)) {
-                        console.error(`Alerta de seguridad: El monto pagado (${paidAmount}) no coincide con el total de la orden (${order.totalAmount}). Order ID: ${orderId}`);
+                    if (Number(paidAmount) < Number(order.totalAmount)) {
+                        console.error(`Alerta de seguridad: El monto pagado (${paidAmount}) es menor al total de la orden (${order.totalAmount}). Order ID: ${orderId}`);
                         order.status = 'failed';
                         await order.save();
-                        return res.sendStatus(200); 
+                        return res.sendStatus(200); // Respondemos OK para no recibir más notificaciones
                     }
 
                     // 4. Actualizamos la orden a 'completada'
@@ -142,17 +146,23 @@ const receiveWebhook = asyncHandler(async (req, res) => {
                     const user = await User.findById(order.user);
                     if (user) {
                         for (const item of order.items) {
+                            let tipoClaseId;
+                            let creditsToAdd = 0;
+
                             if (item.itemType === 'package') {
                                 const pkg = await Package.findById(item.itemId);
                                 if (pkg) {
-                                    const tipoClaseId = pkg.tipoClase.toString();
-                                    const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                                    user.creditosPorTipo.set(tipoClaseId, currentCredits + item.quantity * pkg.creditsToReceive);
+                                    tipoClaseId = pkg.tipoClase.toString();
+                                    creditsToAdd = item.quantity * pkg.creditsToReceive;
                                 }
                             } else if (item.itemType === 'tipoClase') {
-                                const tipoClaseId = item.itemId.toString();
+                                tipoClaseId = item.itemId.toString();
+                                creditsToAdd = item.quantity;
+                            }
+
+                            if (tipoClaseId && creditsToAdd > 0) {
                                 const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                                user.creditosPorTipo.set(tipoClaseId, currentCredits + item.quantity);
+                                user.creditosPorTipo.set(tipoClaseId, currentCredits + creditsToAdd);
                             }
                         }
                         user.markModified('creditosPorTipo'); 
