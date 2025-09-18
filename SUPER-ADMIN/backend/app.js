@@ -5,7 +5,6 @@ import clientRoutes from './routes/clientRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
-import mpConnectRoutes from './routes/mpConnectRoutes.js';
 import cors from 'cors';
 
 dotenv.config();
@@ -39,7 +38,6 @@ app.use('/api/public', publicRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/connect/mercadopago', mpConnectRoutes);
 
 
 app.get('/', (req, res) => {

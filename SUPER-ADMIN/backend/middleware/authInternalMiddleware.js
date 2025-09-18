@@ -21,7 +21,7 @@ const protectWithMasterKey = asyncHandler(async (req, res, next) => {
 // Middleware 2: Valida usando la apiSecretKey ÚNICA de cada cliente
 const protectWithClientKey = asyncHandler(async (req, res, next) => {
     const clientApiKey = req.headers['x-internal-api-key'];
-    const clientId = req.params.clientId; // El UUID del cliente
+    const clientId = req.params.clientId; 
 
     if (!clientApiKey) {
         res.status(401);
