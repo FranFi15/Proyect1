@@ -86,31 +86,28 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
             pending: `${baseUrl}/payment-pending`, 
         },
         auto_return: 'approved',
-        notification_url:`${process.env.SERVER_URL}/api/payments/webhook/${req.gymId}`,
-        external_reference: order._id.toString(),
+       notification_url: `${process.env.SERVER_URL}/api/payments/webhook`, 
+        external_reference: `${order._id.toString()}|${req.gymId}`,
     };
     
-    // --- CONSOLE.LOG PARA DEPURACIÓN ---
-    // Revisa en tu terminal de backend qué se está enviando.
     console.log("Creando preferencia con el siguiente cuerpo:", JSON.stringify(preferenceBody, null, 2));
 
     const response = await preference.create({ body: preferenceBody });
-    
     res.json({ id: response.id, checkoutUrl: response.init_point });
 });
 
 
 
 const receiveWebhook = asyncHandler(async (req, res) => {
-    const { clientId } = req.params; 
-    const { Settings, Package, Order, User } = getModels(req.gymDBConnection);
-    
     console.log('--- INICIO WEBHOOK ---');
     console.log('Webhook Query:', req.query);
+   const paymentInfo = req.body;
+    const { Settings, Package, Order, User } = getModels(req.gymDBConnection);
+    
 
     try {
         const signatureHeader = req.get('x-signature');
-        const paymentId = req.body.data?.id || req.query['data.id'];
+        const paymentId = paymentInfo.data?.id;
         
         if (!signatureHeader || !paymentId) {
             return res.sendStatus(400);
@@ -142,7 +139,7 @@ const receiveWebhook = asyncHandler(async (req, res) => {
             console.warn('Webhook Signature inválida. Posible intento de fraude.');
             return res.sendStatus(403);
         }
-        console.log('Webhook signature verificada correctamente.');
+        console.log('Firma del webhook validada correctamente.');
 
        
         const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');

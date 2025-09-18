@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     StyleSheet, View, Text, FlatList, TouchableOpacity, TextInput,
     useColorScheme, ActivityIndicator, RefreshControl, Switch,
-    KeyboardAvoidingView, ScrollView, Platform, Button, Pressable,Modal
+    KeyboardAvoidingView, ScrollView, Platform, Button, Pressable,Modal,Linking
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -35,31 +35,25 @@ const ClassTypeManagementScreen = () => {
     const [isPackageModalVisible, setIsPackageModalVisible] = useState(false);
     const [editingPackage, setEditingPackage] = useState(null);
     const [packageFormData, setPackageFormData] = useState({ name: '', tipoClase: '', price: '0', creditsToReceive: '0', isActive: true });
-
+    const [mpConnected, setMpConnected] = useState(false);
     const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
 
-    const [hasSecurityKey, setHasSecurityKey] = useState(false);
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [oldSecurityKey, setOldSecurityKey] = useState('');
-    const [newSecurityKey, setNewSecurityKey] = useState('');
-    const [accessToken, setAccessToken] = useState('');
-    const [securityKeyForToken, setSecurityKeyForToken] = useState('');
 
     const [isPickerModalVisible, setPickerModalVisible] = useState(false);
     
     const fetchData = useCallback(async () => {
         try {
             // Hacemos las dos llamadas a la API en paralelo
-            const [typesRes, settingsRes, packagesRes] = await Promise.all([
+            const [typesRes, statusRes, packagesRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/settings/security-key'),
+                apiClient.get('/clients/status'),
                 apiClient.get('/packages'),
             ]);
 
             if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
                 setClassTypes(typesRes.data.tiposClase);
             }
-            setHasSecurityKey(settingsRes.data.hasSecurityKey);
+            setMpConnected(statusRes.data.mpConnected);
             setPackages(packagesRes.data || []);
 
         } catch (error) {
@@ -128,41 +122,16 @@ const ClassTypeManagementScreen = () => {
         });
     };
    
-    const handleUpdateKey = async () => {
-        setIsLoading(true);
+    const handleConnectMercadoPago = async () => {
         try {
-            await apiClient.put('/settings/security-key', {
-                currentPassword,
-                oldSecurityKey: hasSecurityKey ? oldSecurityKey : undefined,
-                newSecurityKey,
-            });
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Clave de seguridad actualizada.' });
-            // Limpiamos los campos y recargamos el estado
-            setCurrentPassword('');
-            setOldSecurityKey('');
-            setNewSecurityKey('');
-            await fetchData();
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar la clave.' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+            const platform = Platform.OS === 'web' ? 'web' : 'mobile';
+            const { data } = await apiClient.post('/connect/mercadopago/url', { platform });
 
-    const handleUpdateToken = async () => {
-        setIsLoading(true);
-        try {
-            await apiClient.put('/settings/mercadopago', {
-                accessToken,
-                securityKey: securityKeyForToken,
-            });
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Token de Mercado Pago actualizado.' });
-            setAccessToken('');
-            setSecurityKeyForToken('');
+            if (data.authUrl) {
+                Linking.openURL(data.authUrl);
+            }
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el token.' });
-        } finally {
-            setIsLoading(false);
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo iniciar la conexión con Mercado Pago.' });
         }
     };
 
@@ -342,37 +311,28 @@ const ClassTypeManagementScreen = () => {
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
                     <Pressable style={styles.modalBackdrop} onPress={() => setIsSettingsModalVisible(false)} />
                     <View style={styles.modalContainer}>
-                        <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
+                         <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
-                            <ThemedText style={styles.modalTitle}>Configuración y Pagos</ThemedText>
+                            <ThemedText style={styles.modalTitle}>Configuración</ThemedText>
                             
-                                <ThemedText style={styles.cardTitle}>
-                                    {hasSecurityKey ? 'Cambiar Clave de Seguridad' : 'Crear Clave de Seguridad'}
-                                </ThemedText>
-                                <ThemedText style={styles.inputLabel}>Tu Contraseña de Administrador</ThemedText>
-                                <TextInput style={styles.input} placeholder="..." secureTextEntry value={currentPassword} onChangeText={setCurrentPassword} />
-                                {hasSecurityKey && (
+                            <View style={styles.card}>
+                                <ThemedText style={styles.cardTitle}>Integración con Mercado Pago</ThemedText>
+                                {mpConnected ? (
+                                    <View style={styles.connectedContainer}>
+                                        <Ionicons name="checkmark-circle" size={24} color="green" />
+                                        <Text style={styles.connectedText}>Tu cuenta de Mercado Pago está conectada.</Text>
+                                    </View>
+                                ) : (
                                     <>
-                                        <ThemedText style={styles.inputLabel}>Clave de Seguridad Actual</ThemedText>
-                                        <TextInput style={styles.input} placeholder="..." secureTextEntry value={oldSecurityKey} onChangeText={setOldSecurityKey} />
+                                        <ThemedText style={styles.cardDescription}>Conecta tu cuenta de Mercado Pago para recibir los pagos de tus clientes directamente.</ThemedText>
+                                        <TouchableOpacity style={styles.mpButton} onPress={handleConnectMercadoPago}>
+                                            <Text style={styles.mpButtonText}>Conectar con Mercado Pago</Text>
+                                        </TouchableOpacity>
                                     </>
                                 )}
-                                <ThemedText style={styles.inputLabel}>Nueva Clave de Seguridad</ThemedText>
-                                <TextInput style={styles.input} placeholder="..." secureTextEntry value={newSecurityKey} onChangeText={setNewSecurityKey} />
-                                <Button title={hasSecurityKey ? 'Cambiar Clave' : 'Crear Clave'} onPress={handleUpdateKey} color={gymColor} />
-
-                            {hasSecurityKey && (
-                                <View style={styles.card}>
-                                    <ThemedText style={styles.cardTitle}>Integración con Mercado Pago</ThemedText>
-                                    <ThemedText style={styles.inputLabel}>Tu Clave de Seguridad</ThemedText>
-                                    <TextInput style={styles.input} placeholder="Ingresa tu clave para confirmar" secureTextEntry value={securityKeyForToken} onChangeText={setSecurityKeyForToken} />
-                                    <ThemedText style={styles.inputLabel}>Access Token de Mercado Pago</ThemedText>
-                                    <TextInput style={styles.input} placeholder="Pega aquí tu Access Token" value={accessToken} onChangeText={setAccessToken} />
-                                    <Button title="Guardar Token" onPress={handleUpdateToken} color={gymColor} />
-                                </View>
-                            )}
+                            </View>
                         </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
@@ -743,10 +703,34 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cancelButton: { 
         backgroundColor: '#6c757d' 
     },
+    mpButton: {
+        backgroundColor: '#009EE3', 
+        paddingVertical: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
     buttonText: { 
         color: '#fff', 
         fontSize: 16, 
         fontWeight: 'bold' 
+    },
+    mpButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    connectedContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        gap: 10,
+    },
+    connectedText: {
+        fontSize: 16,
+        color: 'green',
+        fontWeight: '500',
+        flexShrink: 1,
     },
 });
 

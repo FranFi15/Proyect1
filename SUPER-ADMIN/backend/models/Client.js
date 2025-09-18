@@ -11,8 +11,6 @@ const ClientSchema = new mongoose.Schema({
     logoUrl: { type: String, default: '' },
     primaryColor: { type: String, default: '#150224' },
     connectionStringDB: { type: String, required: true, unique: true },
-
-    // --- NUEVOS CAMPOS PARA PRECIOS Y LÍMITES INDIVIDUALES ---
     clientLimit: {
         type: Number,
         required: true,
@@ -27,6 +25,21 @@ const ClientSchema = new mongoose.Schema({
         type: String,
         enum: ['turno', 'restaurante'], 
         default: 'turno' 
+    },
+    mpAccessToken: {
+        type: String, 
+        select: false, 
+    },
+    mpRefreshToken: {
+        type: String,
+        select: false,
+    },
+    mpUserId: {
+        type: String, 
+    },
+    mpConnected: {
+        type: Boolean, 
+        default: false,
     },
 
 }, { timestamps: true });

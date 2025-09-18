@@ -17,9 +17,9 @@ import trainingPlanRoutes from './routes/trainingPlanRoutes.js';
 import publicUserRoutes from './routes/publicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
-import settingsRoutes from './routes/settingsRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import packageRoutes from './routes/packageRoutes.js';
+import mpConnectRoutes from './routes/mpConnectRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -62,9 +62,9 @@ app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/auth', gymTenantMiddleware, authRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
-app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 app.use('/api/packages', gymTenantMiddleware, packageRoutes);
+app.use('/api/connect/mercadopago', gymTenantMiddleware, mpConnectRoutes);
 
 app.use('/api/public/users', publicUserRoutes);
 
