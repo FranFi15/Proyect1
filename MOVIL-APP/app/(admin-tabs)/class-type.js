@@ -46,14 +46,14 @@ const ClassTypeManagementScreen = () => {
             // Hacemos las dos llamadas a la API en paralelo
             const [typesRes, statusRes, packagesRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/clients/status'),
                 apiClient.get('/packages'),
+                apiClient.get('/settings/mercadopago') 
             ]);
 
             if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
                 setClassTypes(typesRes.data.tiposClase);
             }
-            setMpConnected(statusRes.data.mpConnected);
+            setMpConnected(statusRes.data.hasToken);
             setPackages(packagesRes.data || []);
 
         } catch (error) {
@@ -122,11 +122,10 @@ const ClassTypeManagementScreen = () => {
         });
     };
    
-    const handleConnectMercadoPago = async () => {
+   const handleConnectMercadoPago = async () => {
         try {
             const platform = Platform.OS === 'web' ? 'web' : 'mobile';
             const { data } = await apiClient.post('/connect/mercadopago/url', { platform });
-
             if (data.authUrl) {
                 Linking.openURL(data.authUrl);
             }
@@ -210,34 +209,26 @@ const ClassTypeManagementScreen = () => {
 
 
     const renderHeader = () => (
-        <>
-            <View style={styles.listHeaderContainer}>
-                <View style={styles.filterContainer}>
-                <TouchableOpacity
-                    style={[styles.filterButton, viewMode === 'types' && styles.filterButtonActive]}
-                    onPress={() => setViewMode('types')}
-                >
-                    <Text style={[styles.filterButtonText, viewMode === 'types' && styles.filterButtonTextActive]}>Tipos de Crédito</Text>
+        <View style={styles.headerContainer}>
+             <View style={styles.listTitleContainer}>
+                <ThemedText style={styles.listTitle}>Gestión de Ventas</ThemedText>
+                <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)} style={styles.settingsButton}>
+                    <FontAwesome5 name="cog" size={22} color={Colors[colorScheme].icon} />
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.filterButton, viewMode === 'packages' && styles.filterButtonActive]}
-                    onPress={() => setViewMode('packages')}
-                >
+            </View>
+            <View style={styles.filterContainer}>
+                <TouchableOpacity style={[styles.filterButton, viewMode === 'types' && styles.filterButtonActive]} onPress={() => setViewMode('types')}>
+                    <Text style={[styles.filterButtonText, viewMode === 'types' && styles.filterButtonTextActive]}>Créditos</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.filterButton, viewMode === 'packages' && styles.filterButtonActive]} onPress={() => setViewMode('packages')}>
                     <Text style={[styles.filterButtonText, viewMode === 'packages' && styles.filterButtonTextActive]}>Paquetes</Text>
                 </TouchableOpacity>
             </View>
-                <View style={styles.listTitleContainer}>
-                    <ThemedText style={styles.listTitle}>Créditos</ThemedText>
-                    <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)} style={styles.settingsButton}>
-                        <FontAwesome6 name="handshake-simple" size={22} color={Colors[colorScheme].icon} />
-                    </TouchableOpacity>
-                </View>
-                 <View style={styles.searchInputContainer}>
+            <View style={styles.searchInputContainer}>
                  <TextInput style={styles.searchInput} placeholder={`Buscar ${viewMode === 'types' ? 'créditos...' : 'paquetes...'}`} value={searchTerm} onChangeText={setSearchTerm} placeholderTextColor={Colors[colorScheme].icon} />
                  <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
-            </View>
-        </>
+        </View>
     );
     
     const renderPackageItem = ({ item }) => (

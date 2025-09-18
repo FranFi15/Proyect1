@@ -9,6 +9,7 @@ import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getPackageModel from '../models/Package.js';
 import getOrderModel from '../models/Order.js';
+import getSettingsModel from '../models/Settings.js';
 
 
 const getModels = (dbConnection) => {
@@ -16,8 +17,6 @@ const getModels = (dbConnection) => {
         throw new Error('La conexión a la base de datos no está disponible.');
     }
     
-    // Al llamar a cada factory, Mongoose registra el modelo en la conexión si no existe,
-    // o devuelve el ya existente. Esto prepara la conexión para cualquier consulta.
     const models = {
         User: getUserModel(dbConnection),
         Clase: getClassModel(dbConnection),
@@ -30,6 +29,7 @@ const getModels = (dbConnection) => {
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Package: getPackageModel(dbConnection),
         Order: getOrderModel(dbConnection),
+        Settings: getSettingsModel(dbConnection),
     };
 
     return models;
