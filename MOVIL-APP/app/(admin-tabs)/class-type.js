@@ -44,17 +44,18 @@ const ClassTypeManagementScreen = () => {
     const fetchData = useCallback(async () => {
         try {
             // Hacemos las dos llamadas a la API en paralelo
-            const [typesRes, statusRes, packagesRes] = await Promise.all([
+            const [typesRes, packagesRes,  statusRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/packages'),
-                apiClient.get('/settings/mercadopago') 
+                apiClient.get('/settings/mercadopago-status') 
             ]);
 
             if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
                 setClassTypes(typesRes.data.tiposClase);
             }
-            setMpConnected(statusRes.data.hasToken);
-            setPackages(packagesRes.data || []);
+             setPackages(packagesRes.data || []);
+             setMpConnected(statusRes.data.mpConnected); 
+            
 
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
