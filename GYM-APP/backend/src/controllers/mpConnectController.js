@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import { MercadoPagoConfig, OAuth } from 'mercadopago';
 import getModels from '../utils/getModels.js';
-import connectToGymDB from '../utils/mongoConnectionManager.js';
+import connectToGymDB from '../config/mongoConnectionManager';
 
 const generateConnectUrl = asyncHandler(async (req, res) => {
     const { platform } = req.body;
