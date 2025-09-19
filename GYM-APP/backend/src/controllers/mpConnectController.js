@@ -5,7 +5,8 @@ import getModels from '../utils/getModels.js';
 const generateConnectUrl = asyncHandler(async (req, res) => {
     const { platform } = req.body;
     const redirectUri = `${process.env.SERVER_URL}/api/connect/mercadopago/callback`;
-    const state = platform;
+    
+    const state = `${req.gymId}|${platform}`;
     
     const authUrl = `https://auth.mercadopago.com.ar/authorization?client_id=${process.env.MP_APP_ID}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${redirectUri}`;
     res.json({ authUrl });
@@ -13,32 +14,23 @@ const generateConnectUrl = asyncHandler(async (req, res) => {
 
 const handleConnectCallback = asyncHandler(async (req, res) => {
     const { code, state } = req.query;
-    const platform = state;
-
-    if (!code || !platform) {
-        throw new Error('Respuesta inválida de Mercado Pago.');
-    }
+    if (!code || !state) throw new Error('Respuesta inválida de Mercado Pago.');
     
-    const { Settings } = getModels(req.gymDBConnection);
+    const [clientId, platform] = state.split('|');
+    if (!clientId || !platform) throw new Error('El parámetro de estado tiene un formato inválido.');
+    
+    const gymDBConnection = await getDbConnectionByClientId(clientId);
+    const { Settings } = getModels(gymDBConnection);
     
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_SECRET_KEY, options: { clientId: process.env.MP_APP_ID }});
     const oauth = new OAuth(client);
 
-    const response = await oauth.create({
-        body: {
-            client_secret: process.env.MP_SECRET_KEY,
-            client_id: process.env.MP_APP_ID,
-            code,
-            redirect_uri: `${process.env.SERVER_URL}/api/connect/mercadopago/callback`,
-        }
-    });
-
-    const { access_token, refresh_token, user_id } = response;
-
+    const response = await oauth.create({ });
+    
     await Settings.findByIdAndUpdate('main_settings', {
-        mpAccessToken: access_token,
-        mpRefreshToken: refresh_token,
-        mpUserId: user_id,
+        mpAccessToken: response.access_token,
+        mpRefreshToken: response.refresh_token,
+        mpUserId: response.user_id,
         mpConnected: true,
     }, { upsert: true, new: true });
 
