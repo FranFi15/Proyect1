@@ -14,11 +14,12 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
         throw new Error('El carrito está vacío.');
     }
 
-    const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
-    if (!settings || !settings.mercadoPagoAccessToken) {
+     const settings = await Settings.findById('main_settings').select('+mpAccessToken');
+    if (!settings || !settings.mpAccessToken) {
         res.status(500);
         throw new Error('El administrador no ha configurado las credenciales de pago.');
     }
+    
 
     let totalAmount = 0;
     const orderItems = [];
@@ -64,7 +65,7 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
     });
 
     // 1. Creamos el cliente de configuración
-    const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
+    const client = new MercadoPagoConfig({ accessToken: settings.mpAccessToken });
     // 2. Creamos una instancia de Preference
     const preference = new Preference(client);
 

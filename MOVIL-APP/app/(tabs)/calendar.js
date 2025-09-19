@@ -33,7 +33,6 @@ import classService from '../../services/classService';
 import QrModal from '../../components/client/QrModal';
 import * as WebBrowser from 'expo-web-browser';
 
-// --- CONFIGURACIÓN DE IDIOMA (SIN CAMBIOS) ---
 LocaleConfig.locales['es'] = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
