@@ -6,7 +6,8 @@ import connectToGymDB from '../config/mongoConnectionManager.js';
 const generateConnectUrl = asyncHandler(async (req, res) => {
     const { platform } = req.body;
     const redirectUri = `${process.env.SERVER_URL}/api/connect/mercadopago/callback`;
-    const state = platform;
+    const state = `${req.gymId}|${platform}`;
+    
     const authUrl = `https://auth.mercadopago.com.ar/authorization?client_id=${process.env.MP_APP_ID}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${redirectUri}`;
     res.json({ authUrl });
 });
@@ -20,13 +21,12 @@ const handleConnectCallback = asyncHandler(async (req, res) => {
     }
     
     try {
-        // 1. Usamos la función para obtener el objeto de conexión
+        // 1. Usamos tu función para obtener el objeto de conexión
         const { connection: gymDBConnection } = await connectToGymDB(clientId);
         
         // 2. Ahora sí podemos obtener el modelo Settings
         const { Settings } = getModels(gymDBConnection);
 
-        // 3. El resto de la lógica funciona igual
         const client = new MercadoPagoConfig({ accessToken: process.env.MP_SECRET_KEY, options: { clientId: process.env.MP_APP_ID }});
         const oauth = new OAuth(client);
         
@@ -48,7 +48,7 @@ const handleConnectCallback = asyncHandler(async (req, res) => {
             mpConnected: true,
         }, { upsert: true, new: true });
 
-        const baseUrl = platform === 'mobile' ? process.env.ADMIN_PANEL_URL_MOBILE : process.env.WEB_APP_URL;
+        const baseUrl = platform === 'mobile' ? process.env.ADMIN_PANEL_URL_MOBILE : process.env.ADMIN_PANEL_URL_WEB;
         const finalRedirectUrl = `${baseUrl}/class-type?mp-status=success`;
 
         res.send(`<!DOCTYPE html><html><head><script>window.location.replace("${finalRedirectUrl}");</script></head></html>`);
@@ -60,3 +60,4 @@ const handleConnectCallback = asyncHandler(async (req, res) => {
 });
 
 export { generateConnectUrl, handleConnectCallback };
+
