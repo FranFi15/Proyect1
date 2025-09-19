@@ -1,8 +1,5 @@
 import mongoose from 'mongoose';
 
-// Ya no necesitamos bcrypt aquí
-// import bcrypt from 'bcryptjs'; 
-
 const settingsSchema = new mongoose.Schema({
     _id: {
         type: String,
