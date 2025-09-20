@@ -1,10 +1,11 @@
 import express from 'express';
-import { generateConnectUrl, handlePkceCallback} from '../controllers/mpConnectController.js';
+import { generateConnectUrl, handlePkceCallback } from '../controllers/mpConnectController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
-const router = express.Router();
+const connectRouter = express.Router();
+const callbackRouter = express.Router();
 
-router.post('/url', protect, authorizeRoles('admin'), generateConnectUrl);
-router.post('/callback-pkce', protect, authorizeRoles('admin'), handlePkceCallback);
+connectRouter.post('/url', protect, authorizeRoles('admin'), generateConnectUrl);
+callbackRouter.post('/callback-pkce', handlePkceCallback); 
 
-export default router;
+export { connectRouter, callbackRouter };

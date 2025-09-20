@@ -18,7 +18,7 @@ const generateConnectUrl = asyncHandler(async (req, res) => {
 
 
 const handlePkceCallback = asyncHandler(async (req, res) => {
-    const { code, code_verifier, redirect_uri, platform } = req.body;
+    const { code, code_verifier, redirect_uri } = req.body;
     const { Settings } = getModels(req.gymDBConnection);
 
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_SECRET_KEY, options: { clientId: process.env.MP_APP_ID }});
@@ -34,6 +34,14 @@ const handlePkceCallback = asyncHandler(async (req, res) => {
         }
     });
     
+    const { access_token, refresh_token, user_id } = response;
+
+    await Settings.findByIdAndUpdate('main_settings', {
+        mpAccessToken: access_token,
+        mpRefreshToken: refresh_token,
+        mpUserId: user_id,
+        mpConnected: true,
+    }, { upsert: true, new: true });
 
     res.json({ message: 'Conexión exitosa' });
 });
