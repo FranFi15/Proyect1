@@ -66,9 +66,10 @@ app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 app.use('/api/packages', gymTenantMiddleware, packageRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
-app.use('/api/connect/mercadopago', callbackRouter); //Ruta publica
-app.use('/api/connect/mercadopago', gymTenantMiddleware, connectRouter); 
+app.use('/api/connect/mercadopago', gymTenantMiddleware, connectRouter);
+
 app.use('/api/public/users', publicUserRoutes);//Ruta publica
+app.use('/api/connect/mercadopago', callbackRouter);//Ruta publica
 
 app.use('/api/debug', debugRoutes); 
 
