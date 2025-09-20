@@ -4,7 +4,6 @@ import {
     useColorScheme, ActivityIndicator, RefreshControl, Switch,
     KeyboardAvoidingView, ScrollView, Platform, Button, Pressable,Modal,Linking
 } from 'react-native';
-import * as AuthSession from 'expo-auth-session';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -124,64 +123,16 @@ const ClassTypeManagementScreen = () => {
         });
     };
    
-  const discovery = {
-        authorizationEndpoint: 'https://auth.mercadopago.com.ar/authorization',
-    };
-
-    // Obtenemos la URL de redirección específica para la plataforma actual
-    const redirectUri = AuthSession.makeRedirectUri({
-        // Para pruebas en web, puedes usar path: '/(admin-tabs)/class-type'
-        // Para móvil, Expo se encarga de generar la correcta con el scheme
-        path: Platform.OS === 'web' ? '/(admin-tabs)/class-type' : undefined,
-    });
-
-    // --- 2. EL HOOK useAuthRequest ---
-    // Este hook prepara todo lo necesario para el flujo PKCE.
-    const [request, response, promptAsync] = AuthSession.useAuthRequest(
-        {
-            clientId: process.env.EXPO_PUBLIC_MP_APP_ID, // Tu MP_APP_ID desde las variables de entorno
-            redirectUri: redirectUri,
-            scopes: ['offline_access'], // Permiso para obtener un refresh_token
-            responseType: 'code',
-            usePKCE: true, // ¡Activamos PKCE!
-            extraParams: {
-                platform_id: 'mp',
-            },
-        },
-        discovery
-    );
-
-    // --- 3. useEffect PARA MANEJAR LA RESPUESTA DE MERCADO PAGO ---
-    useEffect(() => {
-        const handleResponse = async () => {
-            if (response) {
-                if (response.type === 'success' && response.params.code) {
-                    setIsLoading(true);
-                    try {
-                        // Enviamos el código y el 'secreto' (codeVerifier) al backend
-                        await apiClient.post('/connect/mercadopago/callback-pkce', {
-                            code: response.params.code,
-                            code_verifier: request?.codeVerifier, // El hook nos da el verifier
-                            redirect_uri: redirectUri,
-                        });
-                        setAlertInfo({ visible: true, title: 'Éxito', message: '¡Cuenta de Mercado Pago conectada!' });
-                        fetchData(); // Recargamos los datos para mostrar el estado "Conectado"
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo completar la conexión.' });
-                    } finally {
-                        setIsLoading(false);
-                    }
-                } else if (response.type === 'error') {
-                    setAlertInfo({ visible: true, title: 'Error', message: 'La conexión fue cancelada o falló.' });
-                }
+   const handleConnectMercadoPago = async () => {
+        try {
+            const platform = Platform.OS === 'web' ? 'web' : 'mobile';
+            const { data } = await apiClient.post('/connect/mercadopago/url', { platform });
+            if (data.authUrl) {
+                Linking.openURL(data.authUrl);
             }
-        };
-        handleResponse();
-    }, [response]);
-
-    // --- 4. EL BOTÓN AHORA SOLO LLAMA A promptAsync ---
-    const handleConnectMercadoPago = () => {
-        promptAsync();
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo iniciar la conexión con Mercado Pago.' });
+        }
     };
 
     const filteredData = useMemo(() => {
