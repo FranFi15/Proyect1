@@ -2,6 +2,7 @@ import { MercadoPagoConfig, Preference, Payment,  } from 'mercadopago';
 import crypto from 'crypto';
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
+import connectToGymDB from '../config/mongoConnectionManager.js';
 
 
 const createPaymentPreference = asyncHandler(async (req, res) => {
@@ -129,10 +130,10 @@ const receiveWebhook = asyncHandler(async (req, res) => {
         }
 
         // Now, connect to the correct gym's database
-        const gymDBConnection = await getDbConnectionByClientId(clientId);
+        const { connection: gymDBConnection } = await connectToGymDB(clientId);
         const { Settings, User, Order, Package } = getModels(gymDBConnection);
 
-        const settings = await Settings.findById('main_settings').select('+mpWebhookSecret +mpAccessToken');
+        const settings = await Settings.findById('main_settings').select('+mpWebhookSecret');
         const webhookSecret = settings?.mpWebhookSecret;
         
         if (!webhookSecret) {
