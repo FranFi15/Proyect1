@@ -6,13 +6,13 @@ import {
 import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
+const publicRouter = express.Router(); // Un router separado para la ruta pública
 
-// --- Ruta para que el Cliente Cree una Orden de Pago ---
-// Se protege con 'protect' para asegurar que solo un usuario logueado pueda crear un pago.
+// Ruta protegida para que el cliente cree la orden
 router.post('/create-preference', protect, createPaymentPreference);
 
-// --- Ruta para que Mercado Pago nos Envíe Notificaciones (Webhook) ---
-// Esta ruta NO debe estar protegida, ya que es Mercado Pago quien la llama, no un usuario.
-router.post('/webhook/:clientId', receiveWebhook);
+// Ruta PÚBLICA para que Mercado Pago nos envíe notificaciones
+publicRouter.post('/webhook', receiveWebhook);
 
-export default router;
+// Exportamos ambos routers
+export { router as paymentRouter, publicRouter as webhookRouter };

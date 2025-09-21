@@ -17,7 +17,7 @@ import trainingPlanRoutes from './routes/trainingPlanRoutes.js';
 import publicUserRoutes from './routes/publicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
-import paymentRoutes from './routes/paymentRoutes.js';
+import { paymentRouter, webhookRouter } from './routes/paymentRoutes.js';
 import packageRoutes from './routes/packageRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import { connectRouter, callbackRouter } from './routes/mpConnectRoutes.js';
@@ -67,9 +67,10 @@ app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/auth', gymTenantMiddleware, authRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
-app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 app.use('/api/packages', gymTenantMiddleware, packageRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
+app.use('/api/payments', webhookRouter);// Ruta pública para recibir webhooks de Mercado Pago
+app.use('/api/payments', gymTenantMiddleware, paymentRouter); // Ruta protegida para crear preferencias de pago
 
 app.use('/api/public/users', publicUserRoutes);//Ruta publica
 
