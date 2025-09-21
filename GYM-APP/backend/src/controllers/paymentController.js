@@ -148,12 +148,14 @@ const receiveWebhook = asyncHandler(async (req, res) => {
             return acc;
         }, {});
 
-        const manifest = `id:${paymentId};request-id:${req.get('x-request-id')};ts:${parts.ts};`;
-        const hmac = crypto.createHmac('sha256', webhookSecret).update(manifest);
+        const manifest = `data-id:${paymentId};ts:${parts.ts};`;
+        const hmac = crypto.createHmac('sha256', webhookSecret);
+        hmac.update(manifest);
+        const generatedSignature = hmac.digest('hex');
 
-        if (hmac.digest('hex') !== parts.v1) {
-            console.warn('Invalid Webhook Signature. Possible fraud attempt.');
-            return res.sendStatus(403); // Forbidden
+        if (generatedSignature !== parts.v1) {
+            console.warn('Firma de Webhook inválida. Posible intento de fraude.');
+            return res.sendStatus(403); 
         }
         
         // If the signature is valid, proceed with the payment details we already have
