@@ -101,55 +101,64 @@ const createPaymentPreference = asyncHandler(async (req, res) => {
 
 const receiveWebhook = asyncHandler(async (req, res) => {
     console.log('--- INICIO WEBHOOK ---');
-    console.log('Webhook Query:', req.query);
-   const paymentInfo = req.body;
-    const { Settings, Package, Order, User } = getModels(req.gymDBConnection);
-    
+    const paymentInfo = req.body;
+    const paymentId = paymentInfo.data?.id;
+
+    if (paymentInfo.type !== 'payment' || !paymentId) {
+        // Not a payment notification we are interested in, so we respond OK.
+        return res.sendStatus(200);
+    }
 
     try {
-        const signatureHeader = req.get('x-signature');
-        const paymentId = paymentInfo.data?.id;
+        // Since we don't know which gym this is for yet, we can't get the
+        // specific access token. For this preliminary step, we must use a
+        // general platform token to get the payment details.
+        const preliminaryClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        const preliminaryPayment = new Payment(preliminaryClient);
+        const paymentDetails = await preliminaryPayment.get({ id: paymentId });
         
-        if (!signatureHeader || !paymentId) {
-            return res.sendStatus(400);
+        if (!paymentDetails.external_reference) {
+            throw new Error('La referencia externa no fue encontrada en el pago.');
         }
 
-        const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+        // Extract the orderId and clientId from the external_reference
+        const [orderId, clientId] = paymentDetails.external_reference.split('|');
+
+        if (!orderId || !clientId) {
+            throw new Error('La referencia externa tiene un formato inválido.');
+        }
+
+        // Now, connect to the correct gym's database
+        const gymDBConnection = await getDbConnectionByClientId(clientId);
+        const { Settings, User, Order, Package } = getModels(gymDBConnection);
+
+        const settings = await Settings.findById('main_settings').select('+mpWebhookSecret +mpAccessToken');
+        const webhookSecret = settings?.mpWebhookSecret;
+        
         if (!webhookSecret) {
-            console.error('Webhook no configurado.');
+            console.error(`Webhook secret not configured for clientId: ${clientId}`);
             return res.sendStatus(500);
         }
 
-       
+        // Validate the signature using the gym's specific secret
+        const signatureHeader = req.get('x-signature');
         const parts = signatureHeader.split(',').reduce((acc, part) => {
             const [key, value] = part.split('=');
             acc[key.trim()] = value.trim();
             return acc;
         }, {});
 
-        const ts = parts.ts;
-        const hash = parts.v1;
+        const manifest = `id:${paymentId};request-id:${req.get('x-request-id')};ts:${parts.ts};`;
+        const hmac = crypto.createHmac('sha256', webhookSecret).update(manifest);
 
-        const manifest = `id:${paymentId};request-id:${req.get('x-request-id')};ts:${ts};`;
-        
-        const hmac = crypto.createHmac('sha256', webhookSecret);
-        hmac.update(manifest);
-        const generatedSignature = hmac.digest('hex');
-
-        if (generatedSignature !== hash) {
-            console.warn('Webhook Signature inválida. Posible intento de fraude.');
-            return res.sendStatus(403);
+        if (hmac.digest('hex') !== parts.v1) {
+            console.warn('Invalid Webhook Signature. Possible fraud attempt.');
+            return res.sendStatus(403); // Forbidden
         }
-        console.log('Firma del webhook validada correctamente.');
-
-       
-        const settings = await Settings.findById('main_settings').select('+mercadoPagoAccessToken');
-        const client = new MercadoPagoConfig({ accessToken: settings.mercadoPagoAccessToken });
-        const payment = new Payment(client);
-        const paymentDetails = await payment.get({ id: paymentId });
-            
-        if (paymentDetails.status === 'approved' && paymentDetails.external_reference) {
-            const order = await Order.findById(paymentDetails.external_reference);
+        
+        // If the signature is valid, proceed with the payment details we already have
+        if (paymentDetails.status === 'approved') {
+            const order = await Order.findById(orderId);
 
             if (order && order.status === 'pending') {
                 order.status = 'completed';
@@ -161,6 +170,7 @@ const receiveWebhook = asyncHandler(async (req, res) => {
                     for (const item of order.items) {
                         let tipoClaseId;
                         let creditsToAdd = 0;
+
                         if (item.itemType === 'package') {
                             const pkg = await Package.findById(item.itemId);
                             if (pkg) {
@@ -171,6 +181,7 @@ const receiveWebhook = asyncHandler(async (req, res) => {
                             tipoClaseId = item.itemId.toString();
                             creditsToAdd = item.quantity;
                         }
+
                         if (tipoClaseId && creditsToAdd > 0) {
                             const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
                             user.creditosPorTipo.set(tipoClaseId, currentCredits + creditsToAdd);
@@ -178,7 +189,7 @@ const receiveWebhook = asyncHandler(async (req, res) => {
                     }
                     user.markModified('creditosPorTipo');
                     await user.save();
-                    console.log(`Créditos añadidos a ${user.email} para la orden ${order._id}`);
+                    console.log(`¡ÉXITO! Créditos acreditados para la orden ${orderId}`);
                 }
             }
         }
@@ -186,8 +197,8 @@ const receiveWebhook = asyncHandler(async (req, res) => {
         res.sendStatus(200);
 
     } catch (error) {
-        console.error('Error en Mercado Pago webhook:', error);
-        res.sendStatus(500);
+        console.error('Error en el webhook de Mercado Pago:', error);
+        res.sendStatus(500); // Respond with an error to have MP retry the notification
     }
 });
 
