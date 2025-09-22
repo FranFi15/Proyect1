@@ -1,11 +1,10 @@
 import express from 'express';
-import { generateConnectUrl, handleConnectCallback } from '../controllers/mpConnectController.js';
+import { getConnectUrl, getConnectStatus } from '../controllers/mpConnectController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
-const connectRouter = express.Router(); // Para la ruta protegida
-const callbackRouter = express.Router(); // Para la ruta pública
+const router = express.Router();
 
-connectRouter.post('/url', protect, authorizeRoles('admin'), generateConnectUrl);
-callbackRouter.get('/callback', handleConnectCallback);
+router.post('/url', protect, authorizeRoles('admin'), getConnectUrl);
+router.get('/status', protect, authorizeRoles('admin'), getConnectStatus);
 
-export { connectRouter, callbackRouter };
+export default router;

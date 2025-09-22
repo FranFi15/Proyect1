@@ -20,6 +20,10 @@ const settingsSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    mpWebhookSecret: { 
+        type: String, 
+        select: false 
+    },
 });
 
 export default (gymDBConnection) => {

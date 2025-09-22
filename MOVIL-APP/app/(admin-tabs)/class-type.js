@@ -42,21 +42,16 @@ const ClassTypeManagementScreen = () => {
     const [isPickerModalVisible, setPickerModalVisible] = useState(false);
     
     const fetchData = useCallback(async () => {
+        setIsLoading(true);
         try {
-            // Hacemos las dos llamadas a la API en paralelo
-            const [typesRes, packagesRes,  statusRes] = await Promise.all([
+            const [typesRes, packagesRes, statusRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/packages'),
-                apiClient.get('/settings/mercadopago-status') 
+                apiClient.get('/connect/mercadopago/status') // Llama a la nueva ruta del GYM-APP
             ]);
-
-            if (typesRes.data && Array.isArray(typesRes.data.tiposClase)) {
-                setClassTypes(typesRes.data.tiposClase);
-            }
-             setPackages(packagesRes.data || []);
-             setMpConnected(statusRes.data.mpConnected); 
-            
-
+            setClassTypes(typesRes.data?.tiposClase || []);
+            setPackages(packagesRes.data || []);
+            setMpConnected(statusRes.data.mpConnected); // Guardamos el estado de la conexión
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
@@ -123,11 +118,14 @@ const ClassTypeManagementScreen = () => {
         });
     };
    
-   const handleConnectMercadoPago = async () => {
+    const handleConnectMercadoPago = async () => {
         try {
             const platform = Platform.OS === 'web' ? 'web' : 'mobile';
+            // Llama a nuestro backend GYM-APP, que actuará como intermediario
             const { data } = await apiClient.post('/connect/mercadopago/url', { platform });
+
             if (data.authUrl) {
+                // Abre la URL de autorización de Mercado Pago
                 Linking.openURL(data.authUrl);
             }
         } catch (error) {
@@ -294,20 +292,14 @@ const ClassTypeManagementScreen = () => {
             <TouchableOpacity style={styles.fab} onPress={viewMode === 'types' ? handleAdd : handleAddPackage}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={isSettingsModalVisible}
-                onRequestClose={() => setIsSettingsModalVisible(false)}
-            >
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
-                    <Pressable style={styles.modalBackdrop} onPress={() => setIsSettingsModalVisible(false)} />
-                    <View style={styles.modalContainer}>
+            <Modal visible={isSettingsModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsSettingsModalVisible(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setIsSettingsModalVisible(false)}>
+                    <Pressable style={styles.modalView}>
                          <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                         </TouchableOpacity>
                         <ScrollView>
-                            <ThemedText style={styles.modalTitle}>Configuración</ThemedText>
+                            <ThemedText style={styles.modalTitle}>Configuración de Pagos</ThemedText>
                             
                             <View style={styles.card}>
                                 <ThemedText style={styles.cardTitle}>Integración con Mercado Pago</ThemedText>
@@ -318,7 +310,7 @@ const ClassTypeManagementScreen = () => {
                                     </View>
                                 ) : (
                                     <>
-                                        <ThemedText style={styles.cardDescription}>Conecta tu cuenta de Mercado Pago para recibir los pagos de tus clientes directamente.</ThemedText>
+                                        <ThemedText style={styles.cardDescription}>Conecta tu cuenta para recibir los pagos de tus clientes directamente.</ThemedText>
                                         <TouchableOpacity style={styles.mpButton} onPress={handleConnectMercadoPago}>
                                             <Text style={styles.mpButtonText}>Conectar con Mercado Pago</Text>
                                         </TouchableOpacity>
@@ -326,8 +318,8 @@ const ClassTypeManagementScreen = () => {
                                 )}
                             </View>
                         </ScrollView>
-                    </View>
-                </KeyboardAvoidingView>
+                    </Pressable>
+                </Pressable>
             </Modal>
             <Modal
                 animationType="slide"
@@ -724,6 +716,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: '500',
         flexShrink: 1,
     },
+   
 });
 
 export default ClassTypeManagementScreen;

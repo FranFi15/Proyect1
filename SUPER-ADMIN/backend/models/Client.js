@@ -26,6 +26,11 @@ const ClientSchema = new mongoose.Schema({
         enum: ['turno', 'restaurante'], 
         default: 'turno' 
     },
+    mpAccessToken: { type: String, select: false },
+    mpRefreshToken: { type: String, select: false },
+    mpUserId: { type: String },
+    mpConnected: { type: Boolean, default: false },
+    mpWebhookSecret: { type: String, select: false },
 }, { timestamps: true });
 
 const Client = mongoose.model('Client', ClientSchema);

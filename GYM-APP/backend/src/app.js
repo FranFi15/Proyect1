@@ -20,7 +20,7 @@ import checkInRoutes from './routes/checkInRoutes.js';
 import { paymentRouter, webhookRouter } from './routes/paymentRoutes.js';
 import packageRoutes from './routes/packageRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
-import { connectRouter, callbackRouter } from './routes/mpConnectRoutes.js';
+import mpConnectRoutes from './routes/mpConnectRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -53,9 +53,7 @@ app.use(cors({
 }));
 app.use(express.json()); 
 
-app.use('/api/connect/mercadopago', callbackRouter);//Ruta publica
 
-app.use('/api/connect/mercadopago', gymTenantMiddleware, connectRouter);
 
 // Definir las rutas de la API
 app.use('/api/users', gymTenantMiddleware, userRoutes); 
@@ -71,7 +69,7 @@ app.use('/api/packages', gymTenantMiddleware, packageRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/payments', webhookRouter);// Ruta pública para recibir webhooks de Mercado Pago
 app.use('/api/payments', gymTenantMiddleware, paymentRouter); // Ruta protegida para crear preferencias de pago
-
+app.use('/api/connect/mercadopago', gymTenantMiddleware, mpConnectRoutes); 
 app.use('/api/public/users', publicUserRoutes);//Ruta publica
 
 
