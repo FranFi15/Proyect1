@@ -223,11 +223,19 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
 });
 
 const getMyClientStatus = asyncHandler(async (req, res) => {
+    // req.user is attached by the 'protect' middleware
+    if (!req.user) {
+        res.status(401);
+        throw new Error('No autorizado, usuario no encontrado con ese token.');
+    }
+
     const client = await Client.findById(req.user._id);
+    
     if (!client) {
         res.status(404);
-        throw new Error('Cliente no encontrado.');
+        throw new Error('Cliente no encontrado en la base de datos.');
     }
+    
     res.json({
         mpConnected: client.mpConnected || false,
     });
