@@ -109,7 +109,7 @@ const loginUser = asyncHandler(async (req, res) => {
             direccion: user.direccion, 
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,
-            token: generateToken(user._id, user.roles, user.email, user.nombre, req.gymId),
+            token: generateToken(user._id),
             gymId: req.gymId 
         });
     } else {
