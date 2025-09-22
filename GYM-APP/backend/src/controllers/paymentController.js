@@ -114,7 +114,7 @@ const receiveWebhook = asyncHandler(async (req, res) => {
         // Since we don't know which gym this is for yet, we can't get the
         // specific access token. For this preliminary step, we must use a
         // general platform token to get the payment details.
-        const preliminaryClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        const preliminaryClient = new MercadoPagoConfig({ accessToken: process.env.MP_PLATFORM_ACCESS_TOKEN });
         const preliminaryPayment = new Payment(preliminaryClient);
         const paymentDetails = await preliminaryPayment.get({ id: paymentId });
         
