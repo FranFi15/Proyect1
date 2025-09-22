@@ -1,6 +1,6 @@
 import express from 'express';
 import { generateConnectUrl, handleConnectCallback } from '../controllers/mpConnectController.js';
-import { protect } from '../middlewares/authMiddleware.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
