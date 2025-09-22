@@ -222,6 +222,17 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
     });
 });
 
+const getMyClientStatus = asyncHandler(async (req, res) => {
+    const client = await Client.findById(req.user._id);
+    if (!client) {
+        res.status(404);
+        throw new Error('Cliente no encontrado.');
+    }
+    res.json({
+        mpConnected: client.mpConnected || false,
+    });
+});
+
 export {
     registerClient,
     getClientSubscriptionInfo,
@@ -234,4 +245,5 @@ export {
     updateClientStatus,
     getClientDbInfo,
     getClientInternalDbInfo,
+    getMyClientStatus,
 };
