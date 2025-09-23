@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             await authService.logout();
-            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user', 'gymColor', 'gymId']); // Limpiar color
+            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user', 'gymColor', 'gymId']); 
             
             setUser(null);
             setClientId(null);
