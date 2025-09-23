@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
 import Client from '../models/Client.js';
 
-// --- PARA USUARIOS LOGUEADOS (el que necesitamos ahora) ---
+
 const protect = asyncHandler(async (req, res, next) => {
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -10,7 +10,7 @@ const protect = asyncHandler(async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             // Adjuntamos al request el cliente que está logueado
-            req.user = await Client.findById(decoded.id).select('-password');
+            req.user = await Client.findOne({ urlIdentifier: decoded.gymId }).select('-password');
             next();
         } catch (error) {
             res.status(401);

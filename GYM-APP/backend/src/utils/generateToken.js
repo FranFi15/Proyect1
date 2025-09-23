@@ -1,9 +1,9 @@
 // gym-app-backend/utils/generateToken.js (Ejemplo)
 import jwt from 'jsonwebtoken';
 
-const generateToken = (id, roles, email, nombre) => { 
+const generateToken = (id, gymId, roles, email, nombre) => { 
     return jwt.sign(
-        { id, roles, email, nombre }, 
+        { id, gymId, roles, email, nombre }, 
         process.env.JWT_SECRET,
         {
             expiresIn: '30d',
