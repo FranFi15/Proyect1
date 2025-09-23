@@ -73,15 +73,21 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (credentials) => {
-        const userData = await authService.login(credentials);
-        if (userData && userData.token) {
-            const userWithGymId = { ...userData, gymId: gymId };
-            setUser(userWithGymId);
+        const userDataFromServer = await authService.login(credentials);
+        if (userDataFromServer && userDataFromServer.token) {
+            const completeUserData = {
+                ...userDataFromServer,
+                gymId: gymId, 
+            };
+            setUser(completeUserData);
+            
+            await AsyncStorage.setItem('user', JSON.stringify(completeUserData));
+            
             await notificationService.registerForPushNotificationsAsync();
         } else {
             throw new Error('La respuesta del servidor no fue válida.');
         }
-        return userData;
+        return userDataFromServer;
     };
 
     const logout = async () => {
