@@ -75,7 +75,8 @@ export const AuthProvider = ({ children }) => {
     const login = async (credentials) => {
         const userData = await authService.login(credentials);
         if (userData && userData.token) {
-            setUser(userData);
+            const userWithGymId = { ...userData, gymId: gymId };
+            setUser(userWithGymId);
             await notificationService.registerForPushNotificationsAsync();
         } else {
             throw new Error('La respuesta del servidor no fue válida.');
@@ -86,10 +87,11 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             await authService.logout();
-            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user', 'gymColor']); // Limpiar color
+            await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user', 'gymColor', 'gymId']); // Limpiar color
             
             setUser(null);
             setClientId(null);
+            setGymId(null);
             setGymName(null);
             setGymLogo(null);
             setGymColor('#150224'); // Resetear a color por defecto
