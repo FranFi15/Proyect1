@@ -56,13 +56,13 @@ export const AuthProvider = ({ children }) => {
             await AsyncStorage.setItem('gymId', data.urlIdentifier);
             await AsyncStorage.setItem('gymName', data.gymName);
             await AsyncStorage.setItem('gymLogo', data.logoUrl || '');
-            await AsyncStorage.setItem('gymColor', data.primaryColor || '#150224'); 
+            await AsyncStorage.setItem('gymColor', data.primaryColor || '#818181ff'); 
             
             setClientId(data.clientId);
             setGymId(data.urlIdentifier);
             setGymName(data.gymName);
             setGymLogo(data.logoUrl || '');
-            setGymColor(data.primaryColor || '#150224'); // Establecer color
+            setGymColor(data.primaryColor || '#818181ff'); 
 
             apiClient.defaults.headers.common['x-client-id'] = data.clientId;
             apiClient.defaults.headers.common['x-gym-domain'] = data.urlIdentifier;
