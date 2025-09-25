@@ -10,17 +10,14 @@ import {
     updateClientCount,
     updateClientStatus,
     upgradeClientPlan,
-    getMyClientStatus
-} from '../controllers/clientController.js'; 
+  } from '../controllers/clientController.js'; 
 import { protectWithMasterKey, protectWithClientKey } from '../middleware/authInternalMiddleware.js'; 
-import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // --- RUTAS PARA EL PANEL DE ADMIN (no cambian) ---
 router.route('/').get(getClients).post(registerClient);
 
-router.get('/status', protect, getMyClientStatus);
 
 router.route('/:id').get(getClientById).put(updateClient).delete(deleteClient); 
 

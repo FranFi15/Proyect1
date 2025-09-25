@@ -13,7 +13,6 @@ export const AuthProvider = ({ children }) => {
     const [gymLogo, setGymLogo] = useState(null);
     const [gymColor, setGymColor] = useState('#150224'); // Color por defecto
     const [loading, setLoading] = useState(true);
-    const [gymId, setGymId] = useState(null);
 
     useEffect(() => {
         const checkInitialState = async () => {
@@ -23,16 +22,11 @@ export const AuthProvider = ({ children }) => {
                 const storedGymLogo = await AsyncStorage.getItem('gymLogo');
                 const storedGymColor = await AsyncStorage.getItem('gymColor');
                 const storedUser = await authService.getCurrentUser();
-                 const storedGymId = await AsyncStorage.getItem('gymId'); 
 
                 if (storedGymName) setGymName(storedGymName);
                 if (storedGymLogo) setGymLogo(storedGymLogo);
                 if (storedGymColor) setGymColor(storedGymColor);
 
-                if (storedGymId) {
-                    setGymId(storedGymId); 
-                    apiClient.defaults.headers.common['x-gym-domain'] = storedGymId;
-                }
 
                 if (storedClientId) {
                     setClientId(storedClientId);
@@ -53,13 +47,11 @@ export const AuthProvider = ({ children }) => {
     const setGymContext = async (data) => {
         try {
             await AsyncStorage.setItem('clientId', data.clientId);
-            await AsyncStorage.setItem('gymId', data.urlIdentifier);
             await AsyncStorage.setItem('gymName', data.gymName);
             await AsyncStorage.setItem('gymLogo', data.logoUrl || '');
             await AsyncStorage.setItem('gymColor', data.primaryColor || '#4e4e4eff'); 
             
             setClientId(data.clientId);
-            setGymId(data.urlIdentifier);
             setGymName(data.gymName);
             setGymLogo(data.logoUrl || '');
             setGymColor(data.primaryColor || '#818181ff'); 
@@ -91,7 +83,6 @@ export const AuthProvider = ({ children }) => {
             
             setUser(null);
             setClientId(null);
-            setGymId(null);
             setGymName(null);
             setGymLogo(null);
             setGymColor('#150224');
@@ -139,7 +130,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, clientId, gymId, gymName, gymLogo, gymColor, loading, login, logout, refreshUser, register, setGymContext }}>
+        <AuthContext.Provider value={{ user, clientId, gymName, gymLogo, gymColor, loading, login, logout, refreshUser, register, setGymContext }}>
             {children}
         </AuthContext.Provider>
     );
