@@ -18,6 +18,7 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
     if (gym) {
         res.status(200).json({ 
             clientId: gym.clientId,
+            urlIdentifier: gym.urlIdentifier,
             gymName: gym.nombre,
             logoUrl: gym.logoUrl,
             primaryColor: gym.primaryColor,
@@ -46,6 +47,7 @@ const getClientInfoByIdentifier = asyncHandler(async (req, res) => {
     if (client) {
         res.status(200).json({ 
             clientId: client.clientId,
+            urlIdentifier: client.urlIdentifier,
             clientName: client.nombre,
             logoUrl: client.logoUrl,
             primaryColor: client.primaryColor,
