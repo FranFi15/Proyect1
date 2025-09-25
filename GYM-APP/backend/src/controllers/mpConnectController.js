@@ -1,11 +1,9 @@
 import asyncHandler from 'express-async-handler';
 import axios from 'axios';
 
-// Pide la URL de conexión al SUPER-ADMIN
 const getConnectUrl = asyncHandler(async (req, res) => {
     const { platform } = req.body;
     
-    // El SUPER-ADMIN necesita el token del admin logueado para identificarlo
     const response = await axios.post(
         `${process.env.SUPER_ADMIN_API_URL}/api/connect/mercadopago/url`,
         { platform },
@@ -14,7 +12,6 @@ const getConnectUrl = asyncHandler(async (req, res) => {
     
     res.json(response.data);
 });
-
 // Pide el estado de la conexión al SUPER-ADMIN
 const getConnectStatus = asyncHandler(async (req, res) => {
     const response = await axios.get(

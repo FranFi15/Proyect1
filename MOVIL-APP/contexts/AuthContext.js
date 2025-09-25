@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }) => {
             setGymId(null);
             setGymName(null);
             setGymLogo(null);
-            setGymColor('#150224'); // Resetear a color por defecto
+            setGymColor('#150224');
             
             delete apiClient.defaults.headers.common['Authorization'];
             delete apiClient.defaults.headers.common['x-client-id'];

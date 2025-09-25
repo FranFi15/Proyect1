@@ -33,7 +33,7 @@ const protectWithClientKey = asyncHandler(async (req, res, next) => {
         throw new Error('No se proporcionó un clientId en la ruta para la validación.');
     }
 
-    const client = await Client.findOne({ clientId: clientId });
+    const client = await Client.findOne({ clientId: clientId }).select('+apiSecretKey');
 
     if (!client) {
         res.status(404);
