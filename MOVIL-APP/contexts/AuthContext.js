@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }) => {
 
             apiClient.defaults.headers.common['x-client-id'] = data.clientId;
             apiClient.defaults.headers.common['x-gym-domain'] = data.urlIdentifier;
+            return data;
         } catch (error) {
             console.error("Error guardando el contexto del gym", error);
             throw error;
@@ -75,15 +76,8 @@ export const AuthProvider = ({ children }) => {
     const login = async (credentials) => {
         const userDataFromServer = await authService.login(credentials);
         if (userDataFromServer && userDataFromServer.token) {
-            const completeUserData = {
-                ...userDataFromServer,
-                gymId: gymId, 
-            };
-            setUser(completeUserData);
-            
-            await AsyncStorage.setItem('user', JSON.stringify(completeUserData));
-            
-            await notificationService.registerForPushNotificationsAsync();
+            setUser(userDataFromServer);
+            await AsyncStorage.setItem('user', JSON.stringify(userDataFromServer));
         } else {
             throw new Error('La respuesta del servidor no fue válida.');
         }
