@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
             await AsyncStorage.setItem('gymId', data.urlIdentifier);
             await AsyncStorage.setItem('gymName', data.gymName);
             await AsyncStorage.setItem('gymLogo', data.logoUrl || '');
-            await AsyncStorage.setItem('gymColor', data.primaryColor || '#818181ff'); 
+            await AsyncStorage.setItem('gymColor', data.primaryColor || '#4e4e4eff'); 
             
             setClientId(data.clientId);
             setGymId(data.urlIdentifier);
