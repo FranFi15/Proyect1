@@ -27,8 +27,7 @@ const ClassTypeManagementScreen = () => {
     const [formData, setFormData] = useState({ nombre: '', price: '0', resetMensual: true });
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
+    const performDataFetch = useCallback(async () => {
         try {
             const response = await apiClient.get('/tipos-clase');
             setClassTypes(response.data?.tiposClase || []);
@@ -38,10 +37,19 @@ const ClassTypeManagementScreen = () => {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, []);
+    }, []); // Empty dependency array as it doesn't depend on props or state
 
-    useFocusEffect(fetchData);
-    const onRefresh = useCallback(() => { setIsRefreshing(true); fetchData(); }, [fetchData]);
+    useFocusEffect(
+        useCallback(() => {
+            setIsLoading(true);
+            performDataFetch();
+        }, [performDataFetch])
+    );
+
+    const onRefresh = useCallback(() => {
+        setIsRefreshing(true);
+        performDataFetch();
+    }, [performDataFetch]);
     
     const handleFormChange = (name, value) => {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -77,7 +85,7 @@ const ClassTypeManagementScreen = () => {
             await apiCall;
             setAlertInfo({ visible: true, title: 'Éxito', message: `Crédito ${editingClassType ? 'actualizado' : 'añadido'} exitosamente.` });
             setIsModalVisible(false);
-            fetchData();
+            performDataFetch();
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || `Error al ${editingClassType ? 'actualizar' : 'añadir'}.` });
         }
@@ -94,7 +102,7 @@ const ClassTypeManagementScreen = () => {
                     try {
                         await apiClient.delete(`/tipos-clase/${type._id}`);
                         setAlertInfo({ visible: true, title: 'Éxito', message: 'Tipo de crédito eliminado.' });
-                        fetchData();
+                        performDataFetch();
                     } catch (error) {
                         setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar.' });
                     }
@@ -110,7 +118,7 @@ const ClassTypeManagementScreen = () => {
         );
     }, [classTypes, searchTerm]);
 
-    const renderHeader = () => (
+    const renderHeader = useCallback(() => (
         <View style={styles.headerContainer}>
             <ThemedText style={styles.listTitle}>Gestión de Créditos</ThemedText>
             <View style={styles.searchInputContainer}>
@@ -124,7 +132,7 @@ const ClassTypeManagementScreen = () => {
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
         </View>
-    );
+    ), [searchTerm, colorScheme, gymColor]);
 
     const renderClassTypeItem = ({ item }) => (
         <View style={styles.itemCard}>

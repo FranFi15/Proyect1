@@ -18,7 +18,7 @@ import { useFocusEffect } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import FilterModal from '@/components/FilterModal';
@@ -183,6 +183,9 @@ const CalendarScreen = () => {
 
         return allClasses
             .filter(cls => {
+                 if (!cls.fecha || !isValid(parseISO(cls.fecha))) {
+                    return false;
+                }
                 // Si estamos en la vista de lista y hay una fecha seleccionada, filtramos por esa fecha
                 if (index === 1 && selectedDate) {
                     return cls.fecha.substring(0, 10) === selectedDate;
@@ -366,6 +369,7 @@ const CalendarScreen = () => {
                             onPress={() => handleUnenroll(item._id)}
                             iconName="calendar-times"
                             color="#e74c3c"
+                            styles={styles} 
                         />
                     ) : isFull ? (
                         isWaiting ? (
@@ -374,6 +378,7 @@ const CalendarScreen = () => {
                                 onPress={() => handleUnsubscribe(item._id)}
                                 iconName="user-clock"
                                 color="#f0ad4e" 
+                                styles={styles} 
                             />
                         ) : (
                             <ActionButton
@@ -381,6 +386,7 @@ const CalendarScreen = () => {
                                 onPress={() => handleSubscribe(item._id)}
                                 iconName="bell"
                                 color="#1a5276" 
+                                styles={styles} 
                             />
                         )
                     ) : (
@@ -389,6 +395,7 @@ const CalendarScreen = () => {
                             onPress={() => handleEnroll(item._id)}
                             iconName="calendar-check"
                             color="#2ecc71" 
+                            styles={styles} 
                         />
                     )}
                 </View>
