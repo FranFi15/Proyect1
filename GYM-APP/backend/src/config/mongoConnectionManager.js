@@ -41,7 +41,7 @@ const getDbConfig = async (clientId) => {
         if (error.message.includes('Suscripción inactiva')) {
             throw error;
         }
-        throw new Error('No se pudo obtener la configuración de la base de datos para el cliente.');
+        throw new Error('Por favor vuelva a ingresar el Codigo de la institucion.');
     }
 };
 
