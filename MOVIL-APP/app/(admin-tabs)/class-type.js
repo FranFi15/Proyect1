@@ -27,10 +27,17 @@ const ClassTypeManagementScreen = () => {
     const [formData, setFormData] = useState({ nombre: '', price: '0', resetMensual: true });
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
+    const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
+    const [visibilityDays, setVisibilityDays] = useState('0');
+
     const performDataFetch = useCallback(async () => {
         try {
-            const response = await apiClient.get('/tipos-clase');
-            setClassTypes(response.data?.tiposClase || []);
+            const [typesRes, settingsRes] = await Promise.all([
+                apiClient.get('/tipos-clase'),
+                apiClient.get('/settings')
+            ]);
+            setClassTypes(typesRes.data?.tiposClase || []);
+            setVisibilityDays(settingsRes.data.classVisibilityDays.toString());
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los tipos de crédito.' });
         } finally {
@@ -111,6 +118,16 @@ const ClassTypeManagementScreen = () => {
         });
     };
 
+    const handleSaveSettings = async () => {
+        try {
+            await apiClient.put('/settings', { visibilityDays});
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Configuración guardada.' });
+            setIsSettingsModalVisible(false);
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar la configuración.' });
+        }
+    };
+
     const filteredClassTypes = useMemo(() => {
         if (!searchTerm) return classTypes;
         return classTypes.filter(type =>
@@ -160,6 +177,9 @@ const ClassTypeManagementScreen = () => {
     
     return (
         <ThemedView style={styles.container}>
+            <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)}>
+                <FontAwesome5 name="cog" size={22} />
+            </TouchableOpacity>
             <FlatList
                 ListHeaderComponent={renderHeader}
                 data={filteredClassTypes}
@@ -173,7 +193,23 @@ const ClassTypeManagementScreen = () => {
             <TouchableOpacity style={styles.fab} onPress={handleAdd}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
-
+            <Modal visible={isSettingsModalVisible} /* ... */>
+                <View style={styles.card}>
+                    <ThemedText style={styles.cardTitle}>Visibilidad del Calendario</ThemedText>
+                    <ThemedText style={styles.cardDescription}>
+                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes. (Pon 0 para no tener límite).
+                    </ThemedText>
+                    <ThemedText style={styles.inputLabel}>Mostrar turnos de los próximos (días):</ThemedText>
+                    <TextInput 
+                        style={styles.input} 
+                        value={visibilityDays} 
+                        onChangeText={setVisibilityDays} 
+                        keyboardType="number-pad"
+                        placeholder="0"
+                    />
+                    <Button title="Guardar Configuración" onPress={handleSaveSettings} color={gymColor} />
+                </View>
+            </Modal>
             <Modal 
                 visible={isModalVisible} 
                 transparent={true} 

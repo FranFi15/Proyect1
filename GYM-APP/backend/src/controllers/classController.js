@@ -75,8 +75,33 @@ const createClass = asyncHandler(async (req, res) => {
 
 
 const getAllClasses = asyncHandler(async (req, res) => {
-    const { Clase } = getModels(req.gymDBConnection);
-    const classes = await Clase.find({}).populate('tipoClase', 'nombre').populate('profesor', 'nombre apellido');
+    const { Clase, Settings } = getModels(req.gymDBConnection);
+
+    // 1. Obtenemos la configuración del gimnasio
+    const settings = await Settings.findById('main_settings');
+    const visibilityDays = settings?.classVisibilityDays;
+
+    let dateFilter = { fecha: { $gte: new Date() } };
+    
+    // 2. Si hay un límite de días, construimos el filtro de fecha
+    if (visibilityDays && visibilityDays > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Inicio del día de hoy
+
+        const limitDate = new Date(today);
+        limitDate.setDate(today.getDate() + visibilityDays);
+
+        dateFilter.fecha = {
+            $gte: today,    
+            $lt: limitDate 
+        };
+    }
+
+    // 3. Aplicamos el filtro y usamos tu populate optimizado
+    const classes = await Clase.find({ ...dateFilter })
+        .populate('tipoClase', 'nombre')
+        .populate('profesor', 'nombre apellido');
+        
     res.json(classes);
 });
 
