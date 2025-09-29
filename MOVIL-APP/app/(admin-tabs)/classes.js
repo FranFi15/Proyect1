@@ -138,7 +138,7 @@ const ManageClassesScreen = () => {
         try {
             const cacheBuster = `?t=${new Date().getTime()}`;
             const [classesRes, teachersRes, typesRes] = await Promise.all([
-                apiClient.get(`/classes${cacheBuster}`),
+                apiClient.get(`/classes/admin${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
                 apiClient.get('/tipos-clase')
             ]);

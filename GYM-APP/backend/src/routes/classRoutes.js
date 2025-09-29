@@ -21,7 +21,8 @@ import {
      unsubscribeFromWaitlist,
      getProfessorClasses,
     getClassStudents,
-    checkInUser
+    checkInUser,
+    getAllClassesAdmin
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -42,7 +43,9 @@ router.post('/bulk-delete', protect, authorizeRoles('admin'), bulkDeleteClasses)
 // Rutas para la gestión de clases 
 router.route('/')
     .post(protect, authorizeRoles('admin'), createClass) 
-    .get(getAllClasses); 
+    .get(getAllClasses);
+
+router.get('/admin', protect, authorizeRoles('admin'), getAllClassesAdmin);
 
 router.route('/:id')
     .get(getClassById) 

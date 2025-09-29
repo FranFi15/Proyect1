@@ -120,7 +120,7 @@ const ClassTypeManagementScreen = () => {
 
     const handleSaveSettings = async () => {
         try {
-            await apiClient.put('/settings', { visibilityDays});
+           await apiClient.put('/settings', { classVisibilityDays: Number(visibilityDays) || 0 });
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Configuración guardada.' });
             setIsSettingsModalVisible(false);
         } catch (error) {
@@ -148,6 +148,9 @@ const ClassTypeManagementScreen = () => {
                 />
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
+            <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)}>
+                <FontAwesome5 name="cog" size={22} color={Colors[colorScheme].icon} style={styles.settingsIcon} />
+            </TouchableOpacity>
         </View>
     ), [searchTerm, colorScheme, gymColor]);
 
@@ -177,9 +180,6 @@ const ClassTypeManagementScreen = () => {
     
     return (
         <ThemedView style={styles.container}>
-            <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)}>
-                <FontAwesome5 name="cog" size={22} />
-            </TouchableOpacity>
             <FlatList
                 ListHeaderComponent={renderHeader}
                 data={filteredClassTypes}
@@ -189,13 +189,26 @@ const ClassTypeManagementScreen = () => {
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay tipos de crédito registrados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
-
             <TouchableOpacity style={styles.fab} onPress={handleAdd}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
-            <Modal visible={isSettingsModalVisible} /* ... */>
-                <View style={styles.card}>
-                    <ThemedText style={styles.cardTitle}>Visibilidad del Calendario</ThemedText>
+
+            <Modal 
+                visible={isSettingsModalVisible}  
+                transparent={true} 
+                animationType="slide" 
+                onRequestClose={() => setIsSettingsModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlayWrapper}
+                >
+                <Pressable style={styles.modalBackdrop} onPress={() => setIsSettingsModalVisible(false)} />
+                <View style={styles.modalContainer}>
+                    <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
+                        </TouchableOpacity>
+                    <ThemedText style={styles.modalTitle}>Visibilidad del Calendario</ThemedText>
                     <ThemedText style={styles.cardDescription}>
                         Define cuántos días hacia el futuro podrán ver y reservar tus clientes. (Pon 0 para no tener límite).
                     </ThemedText>
@@ -209,6 +222,7 @@ const ClassTypeManagementScreen = () => {
                     />
                     <Button title="Guardar Configuración" onPress={handleSaveSettings} color={gymColor} />
                 </View>
+                </KeyboardAvoidingView>
             </Modal>
             <Modal 
                 visible={isModalVisible} 
@@ -361,6 +375,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    settingsIcon: {marginTop: 20, marginLeft: 10 }
+    
 });
 
 export default ClassTypeManagementScreen;

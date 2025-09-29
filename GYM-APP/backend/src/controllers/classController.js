@@ -73,6 +73,12 @@ const createClass = asyncHandler(async (req, res) => {
     res.status(201).json({ message: `Se crearon ${createdClassesData.length} turnos.`, data: createdClassesData });
 });
 
+const getAllClassesAdmin = asyncHandler(async (req, res) => {
+    const { Clase } = getModels(req.gymDBConnection);
+    const classes = await Clase.find({}).populate('tipoClase', 'nombre').populate('profesor', 'nombre apellido');
+
+     res.json(classes);
+});
 
 const getAllClasses = asyncHandler(async (req, res) => {
     const { Clase, Settings } = getModels(req.gymDBConnection);
@@ -1026,5 +1032,6 @@ export {
     subscribeToWaitlist,
     getProfessorClasses,
     getClassStudents,
-    checkInUser
+    checkInUser,
+    getAllClassesAdmin
 };
