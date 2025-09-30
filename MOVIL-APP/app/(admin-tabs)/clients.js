@@ -77,6 +77,8 @@ const ManageClientsScreen = () => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+    const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
+
     
     
     // 💡 PASO 2: Centraliza el estado del DatePicker en un objeto.
@@ -108,7 +110,7 @@ const ManageClientsScreen = () => {
             const [usersResponse, classTypesResponse, subInfoResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/users/subscription-info') // Ruta corregida
+                apiClient.get('/users/subscription-info') 
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
@@ -225,7 +227,28 @@ const ManageClientsScreen = () => {
         setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
         setAvailableSlots([]);
         setSelectedSlot(null);
+        setPaseLibreData({
+            desde: client.paseLibreDesde ? parseISO(client.paseLibreDesde) : null,
+            hasta: client.paseLibreHasta ? parseISO(client.paseLibreHasta) : null,
+        });
         setCreditsModalVisible(true);
+    };
+
+     const handleSavePaseLibre = async () => {
+        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
+            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
+        }
+        try {
+            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
+                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
+                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
+            });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado correctamente.' });
+            setCreditsModalVisible(false);
+            fetchAllData(); // Refrescamos los datos
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
+        }
     };
 
     const handleOpenEditModal = (client) => {
@@ -997,6 +1020,37 @@ const ManageClientsScreen = () => {
                                 )}
                                 <View style={styles.buttonWrapper}><Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
+                             <View style={styles.section}>
+                            <ThemedText style={styles.sectionTitle}>Asignar Pase Libre</ThemedText>
+                            <ThemedText style={styles.inputLabel}>Válido Desde:</ThemedText>
+                            <DatePicker
+                                selected={paseLibreData.desde}
+                                onChange={(date) => setPaseLibreData(prev => ({ ...prev, desde: date }))}
+                                dateFormat="dd/MM/yyyy"
+                                customInput={
+                                    <View style={styles.dateInputTouchable}>
+                                        <Text style={styles.dateInputText}>{paseLibreData.desde ? format(paseLibreData.desde, 'dd/MM/yyyy') : 'Seleccionar fecha'}</Text>
+                                    </View>
+                                }
+                            />
+
+                            <ThemedText style={styles.inputLabel}>Válido Hasta:</ThemedText>
+                            <DatePicker
+                                selected={paseLibreData.hasta}
+                                onChange={(date) => setPaseLibreData(prev => ({ ...prev, hasta: date }))}
+                                dateFormat="dd/MM/yyyy"
+                                minDate={paseLibreData.desde} 
+                                customInput={
+                                    <View style={styles.dateInputTouchable}>
+                                        <Text style={styles.dateInputText}>{paseLibreData.hasta ? format(paseLibreData.hasta, 'dd/MM/yyyy') : 'Seleccionar fecha'}</Text>
+                                    </View>
+                                }
+                            />
+                            
+                            <View style={styles.buttonWrapper}>
+                                <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                            </View>
+                        </View>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Inscripción a Horario Fijo</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Paso 1: Buscar horarios disponibles</ThemedText>

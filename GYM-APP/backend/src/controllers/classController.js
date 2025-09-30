@@ -258,6 +258,8 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(classId).populate('tipoClase');
     const user = await User.findById(userId);
 
+    
+
     if (!classItem || !user) {
         res.status(404);
         throw new Error('Turno o usuario no encontrados.');
@@ -281,28 +283,38 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         classItem.waitlist.pull(userId);
     }
     
-    const tipoClaseId = classItem.tipoClase._id.toString();
-    let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
-    let creditDeducted = false;
+   const hoy = new Date();
+    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
+                                 hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
-    if (creditosEspecificos > 0) {
-        user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
-        creditDeducted = true;
+    if (tienePaseLibreActivo) {
+        // Opción 1: Tiene Pase Libre. No se descuentan créditos.
+        console.log(`Usuario ${user.nombre} inscripto usando Pase Libre.`);
     } else {
-        const universalType = await TipoClase.findOne({ nombre: 'Crédito Universal' });
-        if (universalType) {
-            const universalTypeId = universalType._id.toString();
-            const creditosUniversales = user.creditosPorTipo.get(universalTypeId) || 0;
-            if (creditosUniversales > 0) {
-                user.creditosPorTipo.set(universalTypeId, creditosUniversales - 1);
-                creditDeducted = true;
+        // Opción 2: No tiene Pase Libre, usamos la lógica de créditos existente.
+        const tipoClaseId = classItem.tipoClase._id.toString();
+        let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
+        let creditDeducted = false;
+
+        if (creditosEspecificos > 0) {
+            user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
+            creditDeducted = true;
+        } else {
+            const universalType = await TipoClase.findOne({ nombre: 'Crédito Universal' });
+            if (universalType) {
+                const universalTypeId = universalType._id.toString();
+                const creditosUniversales = user.creditosPorTipo.get(universalTypeId) || 0;
+                if (creditosUniversales > 0) {
+                    user.creditosPorTipo.set(universalTypeId, creditosUniversales - 1);
+                    creditDeducted = true;
+                }
             }
         }
-    }
 
-    if (!creditDeducted) {
-        res.status(400);
-        throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}".`);
+        if (!creditDeducted) {
+            res.status(400);
+            throw new Error(`No tienes un Pase Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
+        }
     }
 
     classItem.usuariosInscritos.push(userId);
@@ -351,12 +363,20 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
+    const hoy = new Date();
+    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
+                                 hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+
+
     // El resto de la lógica para devolver el crédito y actualizar los datos se mantiene igual
-    if (clase.tipoClase && clase.tipoClase._id) {
-        const tipoClaseId = clase.tipoClase._id.toString();
-        const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-        user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-        user.markModified('creditosPorTipo');
+   if (!tienePaseLibreActivo) {
+        // Si NO tiene un pase libre activo, le devolvemos el crédito.
+        if (clase.tipoClase && clase.tipoClase._id) {
+            const tipoClaseId = clase.tipoClase._id.toString();
+            const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
+            user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
+            user.markModified('creditosPorTipo');
+        }
     }
     
     user.clasesInscritas.pull(classId);

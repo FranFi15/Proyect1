@@ -768,6 +768,33 @@ const updateUserStatus = asyncHandler(async (req, res) => {
     });
 });
 
+const updateUserPaseLibre = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    const { paseLibreDesde, paseLibreHasta } = req.body;
+    
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.paseLibreDesde = paseLibreDesde ? new Date(paseLibreDesde) : undefined;
+    user.paseLibreHasta = paseLibreHasta ? new Date(paseLibreHasta) : undefined;
+
+    await user.save();
+
+    res.json({
+        message: 'El Pase Libre del usuario ha sido actualizado.',
+        user: {
+            _id: user._id,
+            nombre: user.nombre,
+            paseLibreDesde: user.paseLibreDesde,
+            paseLibreHasta: user.paseLibreHasta,
+        }
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -791,4 +818,5 @@ export {
     requestPlanUpgrade,
     getSubscriptionInfo,
     updateUserStatus,
+    updateUserPaseLibre,
 };

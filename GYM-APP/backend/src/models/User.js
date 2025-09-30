@@ -94,6 +94,12 @@ const userSchema = mongoose.Schema({
         of: Number,
         default: {},
     },
+    paseLibreDesde: {
+        type: Date,
+    },
+    paseLibreHasta: {
+        type: Date,
+    },
     clasesInscritas: [
         {
             type: mongoose.Schema.Types.ObjectId,
