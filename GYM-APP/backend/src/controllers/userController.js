@@ -794,6 +794,23 @@ const updateUserPaseLibre = asyncHandler(async (req, res) => {
         }
     });
 });
+const removeUserPaseLibre = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.paseLibreDesde = null;
+    user.paseLibreHasta = null;
+
+    await user.save();
+
+    res.json({ message: 'El Pase Libre del usuario ha sido eliminado.' });
+});
 
 export {
     getAllUsers,
@@ -819,4 +836,5 @@ export {
     getSubscriptionInfo,
     updateUserStatus,
     updateUserPaseLibre,
+    removeUserPaseLibre,
 };

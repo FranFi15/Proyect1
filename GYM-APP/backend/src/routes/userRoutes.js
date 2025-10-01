@@ -24,6 +24,7 @@ import {
     getSubscriptionInfo,
     updateUserStatus,
     updateUserPaseLibre,
+    removeUserPaseLibre,
 } from '../controllers/userController.js'; 
 
 
@@ -66,7 +67,8 @@ router.route('/:userId/subscription/:tipoClaseId')
 router.route('/:id/subscribe-to-plan')
     .post(protect, authorizeRoles('admin'), subscribeUserToPlan);  
 
-router.put('/:id/pase-libre', protect, authorizeRoles('admin'), updateUserPaseLibre);    
+router.put('/:id/pase-libre', protect, authorizeRoles('admin'), updateUserPaseLibre);   
+router.delete('/:id/pase-libre', protect, authorizeRoles('admin'), removeUserPaseLibre);
 
 router.route('/:userId/fixed-plan/:planId')
     .delete(protect, authorizeRoles('admin'), removeFixedPlan);

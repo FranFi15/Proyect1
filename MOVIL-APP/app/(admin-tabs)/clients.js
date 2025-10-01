@@ -77,8 +77,6 @@ const ManageClientsScreen = () => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-    const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
-
     
     
     // 💡 PASO 2: Centraliza el estado del DatePicker en un objeto.
@@ -103,6 +101,12 @@ const ManageClientsScreen = () => {
 
     const [isScannerVisible, setScannerVisible] = useState(false);
 
+    const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
+    
+    const [isPaseLibrePickerVisible, setIsPaseLibrePickerVisible] = useState(false);
+    const [paseLibreFieldToEdit, setPaseLibreFieldToEdit] = useState(null); 
+
+
 
     // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
@@ -110,7 +114,7 @@ const ManageClientsScreen = () => {
             const [usersResponse, classTypesResponse, subInfoResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/users/subscription-info') 
+                apiClient.get('/users/subscription-info') // Ruta corregida
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
@@ -227,28 +231,7 @@ const ManageClientsScreen = () => {
         setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
         setAvailableSlots([]);
         setSelectedSlot(null);
-        setPaseLibreData({
-            desde: client.paseLibreDesde ? parseISO(client.paseLibreDesde) : null,
-            hasta: client.paseLibreHasta ? parseISO(client.paseLibreHasta) : null,
-        });
         setCreditsModalVisible(true);
-    };
-
-     const handleSavePaseLibre = async () => {
-        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
-            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
-        }
-        try {
-            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
-                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
-                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
-            });
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado correctamente.' });
-            setCreditsModalVisible(false);
-            fetchAllData(); // Refrescamos los datos
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
-        }
     };
 
     const handleOpenEditModal = (client) => {
@@ -778,6 +761,85 @@ const ManageClientsScreen = () => {
         );
     };
 
+    const handleSavePaseLibre = async () => {
+        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
+            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
+        }
+        try {
+            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
+                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
+                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
+            });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
+            setCreditsModalVisible(false);
+            fetchAllData();
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
+        }
+    };
+    const showPaseLibreDatePicker = (field) => {
+        setPaseLibreFieldToEdit(field);
+        setIsPaseLibrePickerVisible(true);
+    };
+
+    const handlePaseLibreDateChange = (event, selectedDate) => {
+        setIsPaseLibrePickerVisible(Platform.OS === 'ios');
+        if (selectedDate) {
+            setPaseLibreData(prev => ({
+                ...prev,
+                [paseLibreFieldToEdit]: selectedDate
+            }));
+        }
+    };
+    const handleRemovePaseLibre = (client) => {
+        if (!client) return;
+        setAlertInfo({
+            visible: true,
+            title: "Quitar Pase Libre",
+            message: `¿Seguro que quieres eliminar el Pase Libre de ${client.nombre}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Quitar", style: "destructive", onPress: async () => {
+                    try {
+                        await apiClient.delete(`/users/${client._id}/pase-libre`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado.' });
+                        setCreditsModalVisible(false);
+                        fetchAllData(); // Refrescamos los datos
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar el Pase Libre.' });
+                    }
+                }}
+            ]
+        });
+    };
+
+    const renderPaseLibreDateField = (label, field) => {
+        const dateValue = paseLibreData[field];
+        const displayValue = dateValue ? format(dateValue, 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
+
+        if (Platform.OS === 'web') {
+            return (
+                <DatePicker
+                    selected={dateValue}
+                    onChange={(date) => setPaseLibreData(prev => ({ ...prev, [field]: date }))}
+                    minDate={field === 'hasta' ? paseLibreData.desde : null}
+                    dateFormat="dd/MM/yyyy"
+                    customInput={
+                        <View style={styles.dateInputTouchable}>
+                            <Text style={styles.dateInputText}>{displayValue}</Text>
+                        </View>
+                    }
+                />
+            );
+        }
+        return (
+            <TouchableOpacity onPress={() => showPaseLibreDatePicker(field)}>
+                <View style={styles.dateInputTouchable}>
+                    <Text style={styles.dateInputText}>{displayValue}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
@@ -997,7 +1059,22 @@ const ManageClientsScreen = () => {
                                         <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
                                     </View>
                                 ))}
-                                {(selectedClient?.monthlySubscriptions?.length === 0 && selectedClient?.planesFijos?.length === 0) && (<Text style={styles.planText}>Este socio no tiene planes activos.</Text>)}
+                                {selectedClient?.paseLibreHasta && isValid(parseISO(selectedClient.paseLibreHasta)) && (
+                                <View style={styles.planItem}>
+                                    <Text style={styles.planText}>
+                                        Pase Libre (hasta {format(parseISO(selectedClient.paseLibreHasta), 'dd/MM/yyyy')})
+                                    </Text>
+                                    <TouchableOpacity onPress={() => handleRemovePaseLibre(selectedClient)}>
+                                        <Octicons name="trash" size={22} color={Colors.light.error} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                              {(selectedClient?.monthlySubscriptions?.length === 0 &&
+     selectedClient?.planesFijos?.length === 0 &&
+     (!selectedClient?.paseLibreHasta || !isValid(parseISO(selectedClient.paseLibreHasta)))
+    ) && (
+        <Text style={styles.planText}>Este socio no tiene planes activos.</Text>
+    )}
                             </View>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Carga de Créditos / Suscripción</ThemedText>
@@ -1020,32 +1097,13 @@ const ManageClientsScreen = () => {
                                 )}
                                 <View style={styles.buttonWrapper}><Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
-                             <View style={styles.section}>
+                            <View style={styles.section}>
                             <ThemedText style={styles.sectionTitle}>Asignar Pase Libre</ThemedText>
                             <ThemedText style={styles.inputLabel}>Válido Desde:</ThemedText>
-                            <DatePicker
-                                selected={paseLibreData.desde}
-                                onChange={(date) => setPaseLibreData(prev => ({ ...prev, desde: date }))}
-                                dateFormat="dd/MM/yyyy"
-                                customInput={
-                                    <View style={styles.dateInputTouchable}>
-                                        <Text style={styles.dateInputText}>{paseLibreData.desde ? format(paseLibreData.desde, 'dd/MM/yyyy') : 'Seleccionar fecha'}</Text>
-                                    </View>
-                                }
-                            />
+                            {renderPaseLibreDateField('Desde', 'desde')}
 
                             <ThemedText style={styles.inputLabel}>Válido Hasta:</ThemedText>
-                            <DatePicker
-                                selected={paseLibreData.hasta}
-                                onChange={(date) => setPaseLibreData(prev => ({ ...prev, hasta: date }))}
-                                dateFormat="dd/MM/yyyy"
-                                minDate={paseLibreData.desde} 
-                                customInput={
-                                    <View style={styles.dateInputTouchable}>
-                                        <Text style={styles.dateInputText}>{paseLibreData.hasta ? format(paseLibreData.hasta, 'dd/MM/yyyy') : 'Seleccionar fecha'}</Text>
-                                    </View>
-                                }
-                            />
+                            {renderPaseLibreDateField('Hasta', 'hasta')}
                             
                             <View style={styles.buttonWrapper}>
                                 <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
@@ -1135,6 +1193,14 @@ const ManageClientsScreen = () => {
                         </Modal>
                     )}
                 </>
+            )}
+            {isPaseLibrePickerVisible && Platform.OS !== 'web' && (
+                <DateTimePicker
+                    value={paseLibreData[paseLibreFieldToEdit] || new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={handlePaseLibreDateChange}
+                />
             )}
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
