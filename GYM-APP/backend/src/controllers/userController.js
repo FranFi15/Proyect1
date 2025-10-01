@@ -42,6 +42,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         ordenMedicaRequerida: user.ordenMedicaRequerida,
         ordenMedicaEntregada: user.ordenMedicaEntregada,
         isActive: user.isActive,
+        paseLibreDesde: user.paseLibreDesde,
+        paseLibreHasta: user.paseLibreHasta,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         
@@ -97,7 +99,9 @@ const getMe = asyncHandler(async (req, res) => {
             requestedSpotNotifications: user.requestedSpotNotifications || [], 
             adminPhoneNumber: adminPhoneNumber,
             unreadNotificationsCount: unreadNotificationsCount,
-            isActive: user.isActive
+            isActive: user.isActive,
+            paseLibreDesde: user.paseLibreDesde,
+            paseLibreHasta: user.paseLibreHasta,
         };
         res.json(userProfile);
     } else {

@@ -108,7 +108,6 @@ const ManageClientsScreen = () => {
 
 
 
-    // ... (todas tus funciones de fetch, useEffect y la mayoría de los handlers se mantienen igual) ...
     const fetchAllData = useCallback(async () => {
         try {
             const [usersResponse, classTypesResponse, subInfoResponse] = await Promise.all([
@@ -712,6 +711,7 @@ const ManageClientsScreen = () => {
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
+        const hasPaseLibre = item.paseLibreHasta && isValid(parseISO(item.paseLibreHasta));
 
         return (
             <View style={[styles.card, !item.isActive && styles.inactiveCard]}>
@@ -755,6 +755,14 @@ const ManageClientsScreen = () => {
                             }
                             return null;
                         })}
+                    </View>
+                )}
+                {hasPaseLibre && (
+                    <View style={styles.paseLibreContainer}>
+                        <Ionicons name="star" size={14} color={styles.paseLibreText.color} />
+                        <Text style={styles.paseLibreText}>
+                            Pase Libre hasta: {format(parseISO(item.paseLibreHasta), 'dd/MM/yyyy')}
+                        </Text>
                     </View>
                 )}
             </View>
@@ -1059,22 +1067,21 @@ const ManageClientsScreen = () => {
                                         <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
                                     </View>
                                 ))}
-                                {selectedClient?.paseLibreHasta && isValid(parseISO(selectedClient.paseLibreHasta)) && (
-                                <View style={styles.planItem}>
-                                    <Text style={styles.planText}>
-                                        Pase Libre (hasta {format(parseISO(selectedClient.paseLibreHasta), 'dd/MM/yyyy')})
-                                    </Text>
-                                    <TouchableOpacity onPress={() => handleRemovePaseLibre(selectedClient)}>
-                                        <Octicons name="trash" size={22} color={Colors.light.error} />
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                              {(selectedClient?.monthlySubscriptions?.length === 0 &&
-     selectedClient?.planesFijos?.length === 0 &&
-     (!selectedClient?.paseLibreHasta || !isValid(parseISO(selectedClient.paseLibreHasta)))
-    ) && (
-        <Text style={styles.planText}>Este socio no tiene planes activos.</Text>
+                              {selectedClient?.paseLibreHasta && isValid(parseISO(selectedClient.paseLibreHasta)) && (
+        <View style={styles.planItem}>
+            <Text style={styles.planText}>
+                Pase Libre (hasta {format(parseISO(selectedClient.paseLibreHasta), 'dd/MM/yyyy')})
+            </Text>
+            <TouchableOpacity onPress={() => handleRemovePaseLibre(selectedClient)}>
+                <Octicons name="trash" size={22} color={Colors.light.error} />
+            </TouchableOpacity>
+        </View>
     )}
+                              {(!selectedClient?.monthlySubscriptions || selectedClient.monthlySubscriptions.length === 0) &&
+     (!selectedClient?.planesFijos || selectedClient.planesFijos.length === 0) &&
+     (!selectedClient?.paseLibreHasta || !isValid(parseISO(selectedClient.paseLibreHasta))) &&
+        <Text style={styles.planText}>Este socio no tiene planes activos.</Text>
+    }
                             </View>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Carga de Créditos / Suscripción</ThemedText>
@@ -1330,7 +1337,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'center', right: 20, bottom: 90, 
         backgroundColor: gymColor || '#3498db', 
         borderRadius: 30, elevation: 8,
-    }
+    },
+    paseLibreContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f0ad4e', // Un color dorado/amarillo para destacarlo
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        marginTop: 10,
+        alignSelf: 'flex-start', // Para que no ocupe todo el ancho
+    },
+    paseLibreText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginLeft: 6,
+    },
 
 });
 
