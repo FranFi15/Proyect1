@@ -287,20 +287,13 @@ const ManageClassesScreen = () => {
         try {
             await apiClient.post(`/classes/${classId}/add-user`, { userId: userToAdd._id });
             
-            // 1. Actualizamos el estado del modal localmente para un cambio instantáneo
             setViewingClassRoster(prevRoster => ({
                 ...prevRoster,
                 usuariosInscritos: [...prevRoster.usuariosInscritos, userToAdd]
             }));
-
-            // 2. Limpiamos el buscador
+            
             setRosterSearchTerm('');
 
-            // 3. Mostramos el mensaje de éxito
-           
-            
-            
-            // 4. Refrescamos la lista principal en segundo plano
             fetchAllData();
 
         } catch (error) {
@@ -312,14 +305,11 @@ const ManageClassesScreen = () => {
         try {
             await apiClient.post(`/classes/${classId}/remove-user`, { userId: userToRemove._id });
 
-            // 1. Actualizamos el estado del modal localmente
             setViewingClassRoster(prevRoster => ({
                 ...prevRoster,
                 usuariosInscritos: prevRoster.usuariosInscritos.filter(user => user._id !== userToRemove._id)
             }));
-            
 
-            // 3. Refrescamos la lista principal en segundo plano
             fetchAllData();
 
         } catch (error) {

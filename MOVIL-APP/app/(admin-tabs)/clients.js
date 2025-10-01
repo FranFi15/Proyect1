@@ -142,6 +142,15 @@ const ManageClientsScreen = () => {
     );
 
     useEffect(() => {
+        if (selectedClient) {
+            const updatedClient = users.find(u => u._id === selectedClient._id);
+            if (updatedClient && JSON.stringify(updatedClient) !== JSON.stringify(selectedClient)) {
+                setSelectedClient(updatedClient);
+            }
+        }
+    }, [users]);
+
+    useEffect(() => {
         if (newClientDay.length === 2 && newClientMonth.length === 2 && newClientYear.length === 4) {
             const dateString = `${newClientYear}-${newClientMonth.padStart(2, '0')}-${newClientDay.padStart(2, '0')}`;
             setNewClientData(prev => ({ ...prev, fechaNacimiento: dateString }));
@@ -511,6 +520,86 @@ const ManageClientsScreen = () => {
         });
     };
 
+    const handleSavePaseLibre = async () => {
+        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
+            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
+        }
+        try {
+            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
+                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
+                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
+            });
+             fetchAllData();
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
+            setCreditsModalVisible(false);
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
+        }
+    };
+    const showPaseLibreDatePicker = (field) => {
+        setPaseLibreFieldToEdit(field);
+        setIsPaseLibrePickerVisible(true);
+    };
+
+    const handlePaseLibreDateChange = (event, selectedDate) => {
+        setIsPaseLibrePickerVisible(Platform.OS === 'ios');
+        if (selectedDate) {
+            setPaseLibreData(prev => ({
+                ...prev,
+                [paseLibreFieldToEdit]: selectedDate
+            }));
+        }
+    };
+    const handleRemovePaseLibre = (client) => {
+        if (!client) return;
+        setAlertInfo({
+            visible: true,
+            title: "Quitar Pase Libre",
+            message: `¿Seguro que quieres eliminar el Pase Libre de ${client.nombre}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Quitar", style: "destructive", onPress: async () => {
+                    try {
+                        await apiClient.delete(`/users/${client._id}/pase-libre`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado.' });
+                        setCreditsModalVisible(false);
+                        fetchAllData(); // Refrescamos los datos
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar el Pase Libre.' });
+                    }
+                }}
+            ]
+        });
+    };
+
+    const renderPaseLibreDateField = (label, field) => {
+        const dateValue = paseLibreData[field];
+        const displayValue = dateValue ? format(dateValue, 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
+
+        if (Platform.OS === 'web') {
+            return (
+                <DatePicker
+                    selected={dateValue}
+                    onChange={(date) => setPaseLibreData(prev => ({ ...prev, [field]: date }))}
+                    minDate={field === 'hasta' ? paseLibreData.desde : null}
+                    dateFormat="dd/MM/yyyy"
+                    customInput={
+                        <View style={styles.dateInputTouchable}>
+                            <Text style={styles.dateInputText}>{displayValue}</Text>
+                        </View>
+                    }
+                />
+            );
+        }
+        return (
+            <TouchableOpacity onPress={() => showPaseLibreDatePicker(field)}>
+                <View style={styles.dateInputTouchable}>
+                    <Text style={styles.dateInputText}>{displayValue}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
     const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes];
         const roleOptions = [
@@ -769,85 +858,7 @@ const ManageClientsScreen = () => {
         );
     };
 
-    const handleSavePaseLibre = async () => {
-        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
-            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
-        }
-        try {
-            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
-                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
-                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
-            });
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
-            setCreditsModalVisible(false);
-            fetchAllData();
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
-        }
-    };
-    const showPaseLibreDatePicker = (field) => {
-        setPaseLibreFieldToEdit(field);
-        setIsPaseLibrePickerVisible(true);
-    };
-
-    const handlePaseLibreDateChange = (event, selectedDate) => {
-        setIsPaseLibrePickerVisible(Platform.OS === 'ios');
-        if (selectedDate) {
-            setPaseLibreData(prev => ({
-                ...prev,
-                [paseLibreFieldToEdit]: selectedDate
-            }));
-        }
-    };
-    const handleRemovePaseLibre = (client) => {
-        if (!client) return;
-        setAlertInfo({
-            visible: true,
-            title: "Quitar Pase Libre",
-            message: `¿Seguro que quieres eliminar el Pase Libre de ${client.nombre}?`,
-            buttons: [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Quitar", style: "destructive", onPress: async () => {
-                    try {
-                        await apiClient.delete(`/users/${client._id}/pase-libre`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado.' });
-                        setCreditsModalVisible(false);
-                        fetchAllData(); // Refrescamos los datos
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar el Pase Libre.' });
-                    }
-                }}
-            ]
-        });
-    };
-
-    const renderPaseLibreDateField = (label, field) => {
-        const dateValue = paseLibreData[field];
-        const displayValue = dateValue ? format(dateValue, 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
-
-        if (Platform.OS === 'web') {
-            return (
-                <DatePicker
-                    selected={dateValue}
-                    onChange={(date) => setPaseLibreData(prev => ({ ...prev, [field]: date }))}
-                    minDate={field === 'hasta' ? paseLibreData.desde : null}
-                    dateFormat="dd/MM/yyyy"
-                    customInput={
-                        <View style={styles.dateInputTouchable}>
-                            <Text style={styles.dateInputText}>{displayValue}</Text>
-                        </View>
-                    }
-                />
-            );
-        }
-        return (
-            <TouchableOpacity onPress={() => showPaseLibreDatePicker(field)}>
-                <View style={styles.dateInputTouchable}>
-                    <Text style={styles.dateInputText}>{displayValue}</Text>
-                </View>
-            </TouchableOpacity>
-        );
-    };
+    
 
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
