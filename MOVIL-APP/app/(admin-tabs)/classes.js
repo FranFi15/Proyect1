@@ -23,7 +23,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome6, Octicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome6, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, parseISO, isBefore, startOfDay, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -134,6 +134,8 @@ const ManageClassesScreen = () => {
     const [dateFieldToEdit, setDateFieldToEdit] = useState(null);
 
     const daysOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+    const [searchTerm, setSearchTerm] = useState('');
 
     // ... (fetchAllData, useFocusEffect, onRefresh, etc. se mantienen igual)
     const fetchAllData = useCallback(async () => {
@@ -295,7 +297,7 @@ const ManageClassesScreen = () => {
             setRosterSearchTerm('');
 
             // 3. Mostramos el mensaje de éxito
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Usuario añadido a la clase.' });
+           
             
             
             // 4. Refrescamos la lista principal en segundo plano
@@ -316,8 +318,6 @@ const ManageClassesScreen = () => {
                 usuariosInscritos: prevRoster.usuariosInscritos.filter(user => user._id !== userToRemove._id)
             }));
             
-            // 2. Mostramos el mensaje de éxito
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Usuario eliminado de la clase.' });
 
             // 3. Refrescamos la lista principal en segundo plano
             fetchAllData();
@@ -548,6 +548,23 @@ const ManageClassesScreen = () => {
             .filter(cls => selectedClassTypeFilter === 'all' || cls.tipoClase?._id === selectedClassTypeFilter)
             .filter(cls => selectedProfessorFilter === 'all' || cls.profesor?._id === selectedProfessorFilter);
     }, [classesForSelectedDate, selectedClassTypeFilter, selectedProfessorFilter]);
+
+    const filteredClasses = useMemo(() => {
+        if (!searchTerm) {
+            return classesForSelectedDate; // Si no hay búsqueda, muestra todo lo del día
+        }
+
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return classesForSelectedDate.filter(cls => {
+            const className = cls.nombre?.toLowerCase() || '';
+            const typeName = cls.tipoClase?.nombre?.toLowerCase() || '';
+            const professorName = cls.profesor ? `${cls.profesor.nombre} ${cls.profesor.apellido}`.toLowerCase() : '';
+
+            return className.includes(lowercasedTerm) ||
+                   typeName.includes(lowercasedTerm) ||
+                   professorName.includes(lowercasedTerm);
+        });
+    }, [classesForSelectedDate, searchTerm]);
 
     const correctlyGroupedClasses = useMemo(() => {
         const today = startOfDay(new Date());
@@ -851,6 +868,8 @@ const ManageClassesScreen = () => {
                 return (
                     <FlatList
                         ListHeaderComponent={
+                            <>
+
                             <Calendar
                                 onDayPress={(day) => setSelectedDate(day.dateString)}
                                 markedDates={markedDates}
@@ -865,12 +884,28 @@ const ManageClassesScreen = () => {
                                     arrowColor: gymColor,
                                 }}
                             />
+                            <View style={styles.searchInputContainer}>
+                                    <TextInput
+                                        style={styles.searchInput}
+                                        placeholder="Buscar por nombre, tipo o profesor..."
+                                        placeholderTextColor={Colors[colorScheme].icon}
+                                        value={searchTerm}
+                                        onChangeText={setSearchTerm}
+                                    />
+                                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
+                                </View>
+                                </>
                         }
-                        data={filteredClassesForSelectedDate}
+                        data={filteredClasses}
                         renderItem={renderClassItem}
                         keyExtractor={(item) => item._id}
                         ListEmptyComponent={
-                            <ThemedText style={styles.placeholderText}>No hay turnos para este día.</ThemedText>
+                            <ThemedText style={styles.placeholderText}>
+                                {searchTerm 
+                                    ? 'No se encontraron turnos para tu búsqueda.'
+                                    : 'No hay turnos para este día.'
+                                }
+                            </ThemedText>
                         }
                         refreshControl={
                             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />
@@ -1305,6 +1340,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderTopRightRadius: 20,
         borderTopLeftRadius: 20,
         padding: 20,
+    },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 15,
+        marginTop: 15,
+        marginBottom: 10,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    searchInput: {
+        flex: 1,
+        height: 50,
+        paddingHorizontal: 15,
+        color: Colors[colorScheme].text,
+        fontSize: 16,
+    },
+    searchIcon: {
+        marginRight: 15,
     },
 });
 
