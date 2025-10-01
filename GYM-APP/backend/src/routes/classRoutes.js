@@ -22,7 +22,9 @@ import {
      getProfessorClasses,
     getClassStudents,
     checkInUser,
-    getAllClassesAdmin
+    getAllClassesAdmin,
+    addUserToClass,
+    removeUserFromClass
 } from '../controllers/classController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -59,6 +61,8 @@ router.post('/:id/enroll', protect, enrollUserInClass);
 router.post('/:id/unenroll', protect, unenrollUserFromClass);
 router.route('/:id/waitlist/subscribe').post(protect, subscribeToWaitlist);
 router.route('/:id/waitlist/unsubscribe').post(protect, unsubscribeFromWaitlist);
+router.post('/:id/add-user', protect, authorizeRoles('admin'), addUserToClass);
+router.post('/:id/remove-user', protect, authorizeRoles('admin'), removeUserFromClass);
 
 router.put('/:id/cancel', protect, authorizeRoles('admin', 'teacher'), cancelClassInstance);
 router.put('/:id/reactivate', protect, authorizeRoles('admin'), reactivateClass); 

@@ -1058,13 +1058,13 @@ const ManageClientsScreen = () => {
                                 {selectedClient?.monthlySubscriptions?.length > 0 && selectedClient.monthlySubscriptions.map(sub => (
                                     <View key={sub._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase)} ({sub.autoRenewAmount} créditos/mes)</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
                                     </View>
                                 ))}
                                 {selectedClient?.planesFijos?.length > 0 && selectedClient.planesFijos.map(plan => (
                                     <View key={plan._id} style={styles.planItem}>
                                         <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase)} ({plan.diasDeSemana.join(', ')})</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors.light.error} /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
                                     </View>
                                 ))}
                               {selectedClient?.paseLibreHasta && isValid(parseISO(selectedClient.paseLibreHasta)) && (
@@ -1073,7 +1073,7 @@ const ManageClientsScreen = () => {
                 Pase Libre (hasta {format(parseISO(selectedClient.paseLibreHasta), 'dd/MM/yyyy')})
             </Text>
             <TouchableOpacity onPress={() => handleRemovePaseLibre(selectedClient)}>
-                <Octicons name="trash" size={22} color={Colors.light.error} />
+                <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
             </TouchableOpacity>
         </View>
     )}
@@ -1341,7 +1341,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     paseLibreContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f0ad4e', // Un color dorado/amarillo para destacarlo
+        backgroundColor: '#00ce9bff', // Un color dorado/amarillo para destacarlo
         borderRadius: 12,
         paddingHorizontal: 10,
         paddingVertical: 5,

@@ -94,7 +94,9 @@ const ManageClassesScreen = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
     const [showRosterModal, setShowRosterModal] = useState(false);
+    const [allUsers, setAllUsers] = useState([]);
     const [viewingClassRoster, setViewingClassRoster] = useState(null);
+    const [rosterSearchTerm, setRosterSearchTerm] = useState('');
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [classToCancel, setClassToCancel] = useState(null);
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
@@ -137,13 +139,15 @@ const ManageClassesScreen = () => {
     const fetchAllData = useCallback(async () => {
         try {
             const cacheBuster = `?t=${new Date().getTime()}`;
-            const [classesRes, teachersRes, typesRes] = await Promise.all([
+            const [classesRes, teachersRes, usersRes, typesRes] = await Promise.all([
                 apiClient.get(`/classes/admin${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
+                apiClient.get('/users'),
                 apiClient.get('/tipos-clase')
             ]);
             setClasses(classesRes?.data || []);
             setTeachers(teachersRes?.data || []);
+            setAllUsers(usersRes?.data || []);
             setClassTypes(typesRes?.data?.tiposClase || []);
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos de gestión de turnos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -259,8 +263,39 @@ const ManageClassesScreen = () => {
 
             setViewingClassRoster(classData);
             setShowRosterModal(true);
+            setRosterSearchTerm('');
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo obtener la lista de inscriptos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+        }
+    };
+
+    const usersNotInClass = useMemo(() => {
+        if (!viewingClassRoster || !rosterSearchTerm) {
+            return []; // No mostrar a nadie si no hay búsqueda
+        }
+        const lowercasedSearch = rosterSearchTerm.toLowerCase();
+        return allUsers.filter(u => 
+            u.roles.includes('cliente') &&
+            !viewingClassRoster.usuariosInscritos.some(inscribed => inscribed._id === u._id) &&
+            (`${u.nombre} ${u.apellido}`.toLowerCase().includes(lowercasedSearch) || u.dni.includes(rosterSearchTerm))
+        );
+    }, [allUsers, viewingClassRoster, rosterSearchTerm]);
+
+    const handleAddUser = async (classId, userId) => {
+        try {
+            await apiClient.post(`/classes/${classId}/add-user`, { userId });
+            await fetchAllData(); // Recargamos todo para ver el cambio
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo añadir al usuario.' });
+        }
+    };
+    
+    const handleRemoveUser = async (classId, userId) => {
+        try {
+            await apiClient.post(`/classes/${classId}/remove-user`, { userId });
+            await fetchAllData(); // Recargamos todo para ver el cambio
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar al usuario.' });
         }
     };
 
@@ -998,34 +1033,49 @@ const ManageClassesScreen = () => {
                 </KeyboardAvoidingView>
             )}
 
-            {showRosterModal && (
-                <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>
-                    <Pressable style={styles.modalView}>
-                        <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ThemedText style={styles.modalTitle}>Inscriptos en {viewingClassRoster?.nombre}</ThemedText>
-                        <FlatList
-                            data={viewingClassRoster?.usuariosInscritos || []}
-                            keyExtractor={item => item._id || Math.random().toString()}
-                            renderItem={({item}) => item ? (
-                            <View style={styles.rosterItem}>
+           {showRosterModal && viewingClassRoster && (
+                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)}>
+                    <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>
+                        <Pressable style={styles.modalView}>
+                            <ThemedText style={styles.modalTitle}>Gestionar Inscriptos</ThemedText>
+                            <ThemedText style={styles.modalSubtitle}>{viewingClassRoster.nombre} - {viewingClassRoster.horaInicio}hs</ThemedText>
 
-                            <Text style={styles.rosterText}>{item.nombre} {item.apellido}</Text>
-
-                             <Text style={styles.rosterSubtext}>DNI: {item.dni}</Text>
-
-                             <Text style={styles.rosterSubtext}>Teléfono: {item.numeroTelefono}</Text>
-
-                             <Text style={styles.rosterSubtext}>Teléfono de Emergencia: {item.telefonoEmergencia}</Text>
-
-                             <Text style={styles.rosterSubtext}>Obra Social: {item.obraSocial}</Text>
-                            </View>) : null}
-                            ListEmptyComponent={<Text style={styles.placeholderText}>No hay nadie inscripto.</Text>}
-                            style={{width: '100%'}}
-                        />
+                            <ScrollView>
+                                <View style={styles.rosterSection}>
+                                    <ThemedText style={styles.sectionTitle}>Inscriptos ({viewingClassRoster.usuariosInscritos.length})</ThemedText>
+                                    {viewingClassRoster.usuariosInscritos.map(user => (
+                                        <View key={user._id} style={styles.rosterItem}>
+                                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
+                                            <Text style={styles.rosterText}>DNI : {user.dni}</Text>
+                                            <TouchableOpacity onPress={() => handleRemoveUser(viewingClassRoster._id, user._id)}>
+                                                <Ionicons name="remove-circle" size={24} color="#e74c3c" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                </View>
+                                
+                                <View style={styles.rosterSection}>
+                                    <ThemedText style={styles.sectionTitle}>Añadir Socio</ThemedText>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Buscar por nombre o DNI..."
+                                        value={rosterSearchTerm}
+                                        onChangeText={setRosterSearchTerm}
+                                    />
+                                    {usersNotInClass.map(user => (
+                                        <View key={user._id} style={styles.rosterItem}>
+                                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
+                                            <Text style={styles.rosterText}>DNI : {user.dni}</Text>
+                                            <TouchableOpacity onPress={() => handleAddUser(viewingClassRoster._id, user._id)}>
+                                                <Ionicons name="add-circle" size={24} color="#2ecc71" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </Pressable>
                     </Pressable>
-                </Pressable>
+                </Modal>
             )}
 
             {showCancelModal && (

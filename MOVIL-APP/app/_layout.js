@@ -31,6 +31,30 @@ const findMostRecentImportantUnread = (notifications) => {
 
 
 export default function RootLayout() {
+     useEffect(() => {
+        // Este código solo se ejecutará en la plataforma web.
+        if (Platform.OS === 'web') {
+            // Creamos el CSS para ocultar la barra de scroll en diferentes navegadores.
+            const style = document.createElement('style');
+            style.textContent = `
+                /* Para Chrome, Safari y otros navegadores WebKit */
+                ::-webkit-scrollbar {
+                    display: none;
+                }
+                /* Para Firefox */
+                body {
+                    scrollbar-width: none;
+                }
+                /* Para Internet Explorer y Edge (versiones viejas) */
+                body {
+                    -ms-overflow-style: none;
+                }
+            `;
+            // Lo añadimos al <head> del documento.
+            document.head.appendChild(style);
+        }
+    }, []);
+    
     return (
          <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
