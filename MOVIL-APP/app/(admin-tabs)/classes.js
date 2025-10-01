@@ -293,6 +293,10 @@ const ManageClassesScreen = () => {
 
             // 2. Limpiamos el buscador
             setRosterSearchTerm('');
+
+            // 3. Mostramos el mensaje de éxito
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Usuario añadido a la clase.' });
+            
             
             // 4. Refrescamos la lista principal en segundo plano
             fetchAllData();
@@ -313,6 +317,7 @@ const ManageClassesScreen = () => {
             }));
             
             // 2. Mostramos el mensaje de éxito
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Usuario eliminado de la clase.' });
 
             // 3. Refrescamos la lista principal en segundo plano
             fetchAllData();

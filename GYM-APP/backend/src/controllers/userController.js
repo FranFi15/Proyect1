@@ -803,7 +803,7 @@ const updateUserPaseLibre = asyncHandler(async (req, res) => {
     });
 });
 const removeUserPaseLibre = asyncHandler(async (req, res) => {
-    const { User, Notification } = getModels(req.gymDBConnection);
+    const { User, } = getModels(req.gymDBConnection);
     
     const user = await User.findById(req.params.id);
 
@@ -817,9 +817,6 @@ const removeUserPaseLibre = asyncHandler(async (req, res) => {
 
     await user.save();
 
-    const title = "Tu Pase Libre ha finalizado";
-    const message = "Se ha dado de baja tu Pase Libre.";
-    await sendSingleNotification(Notification, User, user._id, title, message, 'pase_libre_delete');
 
     res.json({ message: 'El Pase Libre del usuario ha sido eliminado.' });
 });
