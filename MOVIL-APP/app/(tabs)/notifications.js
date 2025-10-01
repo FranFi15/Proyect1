@@ -59,6 +59,22 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'hourglass';
             baseColor = Colors[colorScheme].icon; 
             break;
+        case 'manual_enrollment':
+            iconName = 'user-plus';
+            baseColor = colors.success;
+            break;
+        case 'manual_unenrollment':
+            iconName = 'user-minus';
+            baseColor = colors.error;
+            break;
+        case 'pase_libre_update':
+            iconName = 'star';
+            baseColor = colors.warning;
+            break;
+        case 'pase_libre_delete':
+            iconName = 'star';
+            baseColor = colors.error;
+            break;
         default:
             iconName = 'info';
             baseColor = Colors[colorScheme].icon; // Color neutro por defecto

@@ -912,7 +912,7 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
 
     try {
         const title = `Confirmación de lista de espera`;
-        const message = `Te has apuntado a la lista de espera para el turno de "${clase.nombre}" del día ${new Date(clase.fecha).toLocaleDateString('es-AR')}. ¡Te avisaremos si se libera un lugar!`;
+        const message = `Te has apuntado a la lista de espera para el turno de "${clase.nombre}" del día ${format(new Date(clase.fecha), 'dd/MM')}. ¡Te avisaremos si se libera un lugar!`;
 
         await sendSingleNotification(
             Notification,
@@ -1030,7 +1030,7 @@ const checkInUser = asyncHandler(async (req, res) => {
     }
 });
 const addUserToClass = asyncHandler(async (req, res) => {
-    const { Clase, User } = getModels(req.gymDBConnection);
+    const { Clase, User, Notification } = getModels(req.gymDBConnection);
     const { userId } = req.body;
 
     const clase = await Clase.findById(req.params.id);
@@ -1054,11 +1054,16 @@ const addUserToClass = asyncHandler(async (req, res) => {
 
     await clase.save();
     await user.save();
+
+    const title = "Te han inscripto a un turno";
+    const message = `Se te ha añadido al turno de "${clase.tipoClase}" el día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs.`;
+    await sendSingleNotification(Notification, User, userId, title, message, 'manual_enrollment');
+
     res.status(200).json({ message: 'Usuario añadido a la clase.' });
 });
 
 const removeUserFromClass = asyncHandler(async (req, res) => {
-    const { Clase, User } = getModels(req.gymDBConnection);
+    const { Clase, User, Notification } = getModels(req.gymDBConnection);
     const { userId } = req.body;
 
     const clase = await Clase.findById(req.params.id);
@@ -1074,6 +1079,11 @@ const removeUserFromClass = asyncHandler(async (req, res) => {
 
     await clase.save();
     await user.save();
+
+    const title = "Anulación de turno";
+    const message = `Se te ha dado de baja del turno de "${clase.tipoClase}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs.`;
+    await sendSingleNotification(Notification, User, userId, title, message, 'manual_unenrollment');
+
     res.status(200).json({ message: 'Usuario eliminado de la clase.' });
 });
 

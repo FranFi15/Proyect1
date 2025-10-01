@@ -491,7 +491,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     // 4. Notificar al usuario sobre su nuevo plan.
     const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${fechaFin}.`;
+    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${format(new Date(fechaFin), 'dd/MM/yyyy')}.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
 
     res.status(200).json({
@@ -773,7 +773,7 @@ const updateUserStatus = asyncHandler(async (req, res) => {
 });
 
 const updateUserPaseLibre = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Notification } = getModels(req.gymDBConnection);
     const { paseLibreDesde, paseLibreHasta } = req.body;
     
     const user = await User.findById(req.params.id);
@@ -788,6 +788,10 @@ const updateUserPaseLibre = asyncHandler(async (req, res) => {
 
     await user.save();
 
+    const title = "¡Tienes un Pase Libre!";
+    const message = `Tu nuevo Pase Libre es válido desde el ${format(new Date(paseLibreDesde), 'dd/MM/yyyy')} hasta el ${format(new Date(paseLibreHasta), 'dd/MM/yyyy')}.`;
+    await sendSingleNotification(Notification, User, user._id, title, message, 'pase_libre_update');
+
     res.json({
         message: 'El Pase Libre del usuario ha sido actualizado.',
         user: {
@@ -799,7 +803,7 @@ const updateUserPaseLibre = asyncHandler(async (req, res) => {
     });
 });
 const removeUserPaseLibre = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Notification } = getModels(req.gymDBConnection);
     
     const user = await User.findById(req.params.id);
 
@@ -812,6 +816,10 @@ const removeUserPaseLibre = asyncHandler(async (req, res) => {
     user.paseLibreHasta = null;
 
     await user.save();
+
+    const title = "Tu Pase Libre ha finalizado";
+    const message = "Se ha dado de baja tu Pase Libre.";
+    await sendSingleNotification(Notification, User, user._id, title, message, 'pase_libre_delete');
 
     res.json({ message: 'El Pase Libre del usuario ha sido eliminado.' });
 });

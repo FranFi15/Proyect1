@@ -271,7 +271,7 @@ const ManageClassesScreen = () => {
 
     const usersNotInClass = useMemo(() => {
         if (!viewingClassRoster || !rosterSearchTerm) {
-            return []; // No mostrar a nadie si no hay búsqueda
+            return []; 
         }
         const lowercasedSearch = rosterSearchTerm.toLowerCase();
         return allUsers.filter(u => 
@@ -281,21 +281,44 @@ const ManageClassesScreen = () => {
         );
     }, [allUsers, viewingClassRoster, rosterSearchTerm]);
 
-    const handleAddUser = async (classId, userId) => {
+    const handleAddUser = async (classId, userToAdd) => {
         try {
-            await apiClient.post(`/classes/${classId}/add-user`, { userId });
-            await fetchAllData(); // Recargamos todo para ver el cambio
+            await apiClient.post(`/classes/${classId}/add-user`, { userId: userToAdd._id });
+            
+            // 1. Actualizamos el estado del modal localmente para un cambio instantáneo
+            setViewingClassRoster(prevRoster => ({
+                ...prevRoster,
+                usuariosInscritos: [...prevRoster.usuariosInscritos, userToAdd]
+            }));
+
+            // 2. Limpiamos el buscador
+            setRosterSearchTerm('');
+            
+            // 4. Refrescamos la lista principal en segundo plano
+            fetchAllData();
+
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo añadir al usuario.' });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo añadir al usuario.' });
         }
     };
     
-    const handleRemoveUser = async (classId, userId) => {
+    const handleRemoveUser = async (classId, userToRemove) => {
         try {
-            await apiClient.post(`/classes/${classId}/remove-user`, { userId });
-            await fetchAllData(); // Recargamos todo para ver el cambio
+            await apiClient.post(`/classes/${classId}/remove-user`, { userId: userToRemove._id });
+
+            // 1. Actualizamos el estado del modal localmente
+            setViewingClassRoster(prevRoster => ({
+                ...prevRoster,
+                usuariosInscritos: prevRoster.usuariosInscritos.filter(user => user._id !== userToRemove._id)
+            }));
+            
+            // 2. Mostramos el mensaje de éxito
+
+            // 3. Refrescamos la lista principal en segundo plano
+            fetchAllData();
+
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar al usuario.' });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al usuario.' });
         }
     };
 
@@ -1034,9 +1057,12 @@ const ManageClassesScreen = () => {
             )}
 
            {showRosterModal && viewingClassRoster && (
-                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)}>
-                    <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>
+                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)} animationType='slide'>
+                    <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>  
                         <Pressable style={styles.modalView}>
+                             <TouchableOpacity onPress={() =>  setShowRosterModal(false)} style={styles.closeButton}>
+                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
+                        </TouchableOpacity>
                             <ThemedText style={styles.modalTitle}>Gestionar Inscriptos</ThemedText>
                             <ThemedText style={styles.modalSubtitle}>{viewingClassRoster.nombre} - {viewingClassRoster.horaInicio}hs</ThemedText>
 
@@ -1044,14 +1070,14 @@ const ManageClassesScreen = () => {
                                 <View style={styles.rosterSection}>
                                     <ThemedText style={styles.sectionTitle}>Inscriptos ({viewingClassRoster.usuariosInscritos.length})</ThemedText>
                                     {viewingClassRoster.usuariosInscritos.map(user => (
-                                        <View key={user._id} style={styles.rosterItem}>
-                                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
-                                            <Text style={styles.rosterText}>DNI : {user.dni}</Text>
-                                            <TouchableOpacity onPress={() => handleRemoveUser(viewingClassRoster._id, user._id)}>
-                                                <Ionicons name="remove-circle" size={24} color="#e74c3c" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
+                        <View key={user._id} style={styles.rosterItem}>
+                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
+                            <Text style={styles.rosterSubtext}>DNI : {user.dni}</Text>
+                            <TouchableOpacity onPress={() => handleRemoveUser(viewingClassRoster._id, user)}>
+                                <Ionicons name="remove-circle" size={24} color="#e74c3c" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
                                 </View>
                                 
                                 <View style={styles.rosterSection}>
@@ -1062,15 +1088,15 @@ const ManageClassesScreen = () => {
                                         value={rosterSearchTerm}
                                         onChangeText={setRosterSearchTerm}
                                     />
-                                    {usersNotInClass.map(user => (
-                                        <View key={user._id} style={styles.rosterItem}>
-                                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
-                                            <Text style={styles.rosterText}>DNI : {user.dni}</Text>
-                                            <TouchableOpacity onPress={() => handleAddUser(viewingClassRoster._id, user._id)}>
-                                                <Ionicons name="add-circle" size={24} color="#2ecc71" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
+                                   {usersNotInClass.map(user => (
+                        <View key={user._id} style={styles.rosterItem}>
+                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
+                            <Text style={styles.rosterSubtext}>DNI : {user.dni}</Text>
+                            <TouchableOpacity onPress={() => handleAddUser(viewingClassRoster._id, user)}>
+                                <Ionicons name="add-circle" size={24} color="#2ecc71" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
                                 </View>
                             </ScrollView>
                         </Pressable>
@@ -1079,7 +1105,7 @@ const ManageClassesScreen = () => {
             )}
 
             {showCancelModal && (
-                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)} animationType='slide'>
                     <Pressable style={[styles.modalView, styles.confirmationModal]}>
                         <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
@@ -1230,6 +1256,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     modalContent: { paddingBottom: 40 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
+    modalSubtitle: { fontSize: 16, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
     modalActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
     confirmationModal: { height: 'auto', width: '90%', borderRadius: 12, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
     inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500', marginTop: 15 },
@@ -1242,10 +1269,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dayChipText: { color :Colors[colorScheme].text, fontSize: 14 },
     dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
     rosterItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
-    rosterText: { fontSize: 16, color: Colors[colorScheme].text },
-    rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon },
+    rosterText: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 3 },
+    rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon,  marginBottom: 5 },
     dayManagementContainer: { flex: 1, alignItems: 'center', padding: 20 },
-    sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 20, marginTop: 10, color: Colors[colorScheme].text },
     dayActions: { marginTop: 20, width: '100%', gap: 15 },
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10 },
     filterButton:{ 
