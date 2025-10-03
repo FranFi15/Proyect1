@@ -1,6 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
-import { sendSingleNotification } from '../utils/notificationSender.js';
+import { sendSingleNotification } from './notificationController.js';
 
 
 const createPlan = asyncHandler(async (req, res) => {
