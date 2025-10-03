@@ -130,6 +130,10 @@ const userSchema = mongoose.Schema({
     type: Boolean,
     default: true, 
 },
+puedeGestionarEjercicios: {
+        type: Boolean,
+        default: false
+    },
 }, {
     timestamps: true,
 });

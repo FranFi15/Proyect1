@@ -309,7 +309,6 @@ const ManageClientsScreen = () => {
         try {
             await apiClient.put(`/users/${selectedClient._id}/plan`, payload);
             setAlertInfo({ visible: true, title: 'Éxito', message: 'El plan del socio ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-            setCreditsModalVisible(false);
             fetchAllData();
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -331,7 +330,6 @@ const ManageClientsScreen = () => {
                             await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'Suscripción eliminada.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                             fetchAllData();
-                            setCreditsModalVisible(false);
                         } catch (error) {
                             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la suscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                         }
@@ -356,7 +354,6 @@ const ManageClientsScreen = () => {
                             await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'Plan de horario fijo eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                             fetchAllData();
-                            setCreditsModalVisible(false);
                         } catch (error) {
                             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo quitar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
                         }
@@ -427,7 +424,6 @@ const ManageClientsScreen = () => {
                         try {
                             await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, payload);
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                            setCreditsModalVisible(false);
                             fetchAllData();
                         } catch (error) {
                             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -531,7 +527,6 @@ const ManageClientsScreen = () => {
             });
              fetchAllData();
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
-            setCreditsModalVisible(false);
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
         }
@@ -562,7 +557,6 @@ const ManageClientsScreen = () => {
                     try {
                         await apiClient.delete(`/users/${client._id}/pase-libre`);
                         setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado.' });
-                        setCreditsModalVisible(false);
                         fetchAllData(); // Refrescamos los datos
                     } catch (error) {
                         setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar el Pase Libre.' });
@@ -1068,13 +1062,13 @@ const ManageClientsScreen = () => {
                                 <ThemedText style={styles.sectionTitle}>Planes Actuales</ThemedText>
                                 {selectedClient?.monthlySubscriptions?.length > 0 && selectedClient.monthlySubscriptions.map(sub => (
                                     <View key={sub._id} style={styles.planItem}>
-                                        <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase)} ({sub.autoRenewAmount} créditos/mes)</Text>
+                                        <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase.nombre)} ({sub.autoRenewAmount} créditos/mes)</Text>
                                         <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
                                     </View>
                                 ))}
                                 {selectedClient?.planesFijos?.length > 0 && selectedClient.planesFijos.map(plan => (
                                     <View key={plan._id} style={styles.planItem}>
-                                        <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase)} ({plan.diasDeSemana.join(', ')})</Text>
+                                        <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase.nombre)} ({plan.diasDeSemana.join(', ')})</Text>
                                         <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
                                     </View>
                                 ))}

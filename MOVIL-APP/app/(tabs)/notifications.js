@@ -75,6 +75,10 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'star';
             baseColor = colors.error;
             break;
+            case 'new_plan':
+            iconName = 'dumbbell';
+            baseColor = Colors[colorScheme].text;
+            break;
         default:
             iconName = 'info';
             baseColor = Colors[colorScheme].icon; // Color neutro por defecto
