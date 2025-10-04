@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Image, View, Text, useColorScheme, Platform } from 'react-native';
-import { Ionicons,} from '@expo/vector-icons';
+import { Ionicons, FontAwesome6} from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 
@@ -50,7 +50,7 @@ export default function ProfessorTabsLayout() {
         }} 
       />
       
-      {/* --- NUEVA PESTAÑA --- */}
+      
       <Tabs.Screen 
         name="clients" 
         options={{ 
