@@ -20,6 +20,7 @@ import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import ejercicioRoutes from './routes/ejercicioRoutes.js';
 import planRoutes from './routes/planRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 
 // Importación de Middlewares
@@ -68,6 +69,7 @@ app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/ejercicios', gymTenantMiddleware, ejercicioRoutes);
 app.use('/api/planes', gymTenantMiddleware, planRoutes);
+app.use('/api/upload', gymTenantMiddleware, uploadRoutes);
 
 app.use('/api/public/users', publicUserRoutes);//Ruta publica
 
