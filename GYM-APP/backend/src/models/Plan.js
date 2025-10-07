@@ -7,8 +7,10 @@ const ejercicioEnPlanSchema = new Schema({
         ref: 'Ejercicio',
         required: true 
     },
-    series: { type: String }, // String para permitir rangos como "3-4"
-    repeticiones: { type: String }, // String para permitir rangos como "8-12"
+    series: { type: String }, 
+    repeticiones: { type: String }, 
+    pesoSugerido: { type: String },
+    duracion: { type: String },
 });
 
 const diaDeEntrenamientoSchema = new Schema({
@@ -25,15 +27,23 @@ const planSchema = new mongoose.Schema({
         type: String, 
         required: [true, 'El título del plan es obligatorio.'],
     },
-    creadoPor: { // El profesional que lo creó
+    creadoPor: { 
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    asignadoA: { // El cliente al que se le asigna
+    asignadoA: { 
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
+    },
+    descripcion: { 
+        type: String,
+        trim: true
+    },
+    isVisibleToUser: { 
+        type: Boolean,
+        default: false
     },
     diasDeEntrenamiento: [diaDeEntrenamientoSchema],
 }, { timestamps: true });
