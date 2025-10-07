@@ -18,6 +18,7 @@ const createPlan = asyncHandler(async (req, res) => {
         asignadoA,
         diasDeEntrenamiento,
         creadoPor: req.user._id, 
+        isVisibleToUser: true,
     });
 
     if (plan) {
@@ -47,6 +48,26 @@ const getPlanesForUser = asyncHandler(async (req, res) => {
     res.json(planes);
 });
 
+const updatePlan = asyncHandler(async (req, res) => {
+    const { titulo, descripcion, isVisibleToUser, diasDeEntrenamiento } = req.body;
+    const { Plan } = getModels(req.gymDBConnection);
+
+    const plan = await Plan.findById(req.params.id);
+
+    if (!plan) {
+        res.status(404);
+        throw new Error('Plan no encontrado.');
+    }
+
+    plan.titulo = titulo || plan.titulo;
+    plan.descripcion = descripcion;
+    plan.isVisibleToUser = isVisibleToUser;
+    plan.diasDeEntrenamiento = diasDeEntrenamiento || plan.diasDeEntrenamiento;
+
+    const updatedPlan = await plan.save();
+    res.json(updatedPlan);
+});
+
 
 const deletePlan = asyncHandler(async (req, res) => {
     const { Plan } = getModels(req.gymDBConnection);
@@ -61,4 +82,4 @@ const deletePlan = asyncHandler(async (req, res) => {
     }
 });
 
-export { createPlan, getPlanesForUser, deletePlan };
+export { createPlan, getPlanesForUser, deletePlan, updatePlan };

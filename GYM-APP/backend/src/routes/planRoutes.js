@@ -2,7 +2,8 @@ import express from 'express';
 import {
     createPlan,
     getPlanesForUser,
-    deletePlan
+    deletePlan,
+    updatePlan
 } from '../controllers/planController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -16,5 +17,7 @@ router.get('/usuario/:userId', protect, authorizeRoles('profesor', 'admin'), get
 
 // Ruta para eliminar un plan por su ID
 router.delete('/:id', protect, authorizeRoles('profesor', 'admin'), deletePlan);
+
+router.put('/:id', protect, authorizeRoles('profesor', 'admin'), updatePlan);
 
 export default router;
