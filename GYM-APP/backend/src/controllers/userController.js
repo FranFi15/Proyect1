@@ -45,6 +45,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         isActive: user.isActive,
         paseLibreDesde: user.paseLibreDesde,
         paseLibreHasta: user.paseLibreHasta,
+        puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         
@@ -103,6 +104,7 @@ const getMe = asyncHandler(async (req, res) => {
             isActive: user.isActive,
             paseLibreDesde: user.paseLibreDesde,
             paseLibreHasta: user.paseLibreHasta,
+            puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
         };
         res.json(userProfile);
     } else {
@@ -142,6 +144,9 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         user.numeroTelefono = req.body.numeroTelefono !== undefined ? req.body.numeroTelefono : user.numeroTelefono;
         user.obraSocial = req.body.obraSocial !== undefined ? req.body.obraSocial : user.obraSocial;
 
+        if (req.body.puedeGestionarEjercicios !== undefined) {
+            user.puedeGestionarEjercicios = req.body.puedeGestionarEjercicios;
+        }
 
         if (req.body.ordenMedicaRequerida !== undefined) {
             user.ordenMedicaRequerida = req.body.ordenMedicaRequerida;
