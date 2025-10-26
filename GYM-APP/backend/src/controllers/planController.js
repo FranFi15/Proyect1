@@ -68,6 +68,25 @@ const updatePlan = asyncHandler(async (req, res) => {
     res.json(updatedPlan);
 });
 
+const getPlanById = asyncHandler(async (req, res) => {
+    const { Plan } = getModels(req.gymDBConnection);
+
+    const plan = await Plan.findById(req.params.id)
+        .populate('diasDeEntrenamiento.ejercicios.ejercicio', 'nombre videoUrl descripcion');
+
+    if (plan) {
+        if (plan.isVisibleToUser || req.user.roles.includes('admin') || req.user.roles.includes('profesor')) {
+            res.json(plan);
+        } else {
+            res.status(403);
+            throw new Error('No tienes permiso para ver este plan.');
+        }
+    } else {
+        res.status(404);
+        throw new Error('Plan no encontrado.');
+    }
+});
+
 
 const deletePlan = asyncHandler(async (req, res) => {
     const { Plan } = getModels(req.gymDBConnection);

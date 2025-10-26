@@ -12,10 +12,11 @@ const router = express.Router();
 // Ruta para crear un nuevo plan
 router.post('/', protect, authorizeRoles('profesor', 'admin'), createPlan);
 
-// Ruta para obtener todos los planes de un usuario
+
 router.get('/usuario/:userId', protect, authorizeRoles('profesor', 'admin'), getPlanesForUser);
 
-// Ruta para eliminar un plan por su ID
+router.get('/:id', protect, authorizeRoles('cliente', 'profesor', 'admin'), getPlanById);
+
 router.delete('/:id', protect, authorizeRoles('profesor', 'admin'), deletePlan);
 
 router.put('/:id', protect, authorizeRoles('profesor', 'admin'), updatePlan);

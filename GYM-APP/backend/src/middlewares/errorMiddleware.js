@@ -1,7 +1,7 @@
 const notFound = (req, res, next) => {
     const error = new Error(`No Encontrado - ${req.originalUrl}`);
     res.status(404);
-    next(error); // Pasa el error al siguiente middleware (errorHandler)
+    next(error); 
 };
 
 const errorHandler = (err, req, res, next) => {
