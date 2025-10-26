@@ -101,4 +101,4 @@ const deletePlan = asyncHandler(async (req, res) => {
     }
 });
 
-export { createPlan, getPlanesForUser, deletePlan, updatePlan };
+export { createPlan, getPlanesForUser, deletePlan, updatePlan, getPlanById };

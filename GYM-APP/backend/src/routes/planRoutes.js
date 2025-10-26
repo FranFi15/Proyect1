@@ -3,7 +3,8 @@ import {
     createPlan,
     getPlanesForUser,
     deletePlan,
-    updatePlan
+    updatePlan,
+    getPlanById
 } from '../controllers/planController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
