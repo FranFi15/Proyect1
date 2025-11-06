@@ -31,6 +31,7 @@ import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
 import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; 
 import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
+import { scheduleClassReminders } from './cron/ClassReminderJob.js';
 
 
 dotenv.config();
@@ -85,6 +86,7 @@ scheduleMonthlyClassGeneration();
 scheduleMonthlyCreditReset();
 scheduleDebtorNotifications(); 
 scheduleMonthlyCleanup();
+scheduleClassReminders();
 
 // Middlewares de manejo de errores
 app.use(notFound);

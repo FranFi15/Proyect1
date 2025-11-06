@@ -273,23 +273,6 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         
         user.creditosPorTipo.set(tipoClaseId, newTotal);
         
-        // --- CORRECCIÓN DE LÓGICA DE CARGO AUTOMÁTICO ---
-        if (creditsToAddNum > 0 && tipoClase.price > 0) {
-            const chargeAmount = tipoClase.price * creditsToAddNum; 
-            // RESTAMOS el cargo para que la deuda sea negativa
-            user.balance -= chargeAmount;
-
-            await Transaction.create({
-                user: userId,
-                type: 'charge',
-                amount: chargeAmount,
-                description: `Cargo por ${creditsToAddNum} crédito(s) de ${tipoClase.nombre}`,
-                createdBy: adminId,
-            });
-            console.log(`Cargo de $${chargeAmount} generado para ${user.email} por ${creditsToAddNum} crédito(s).`);
-        }
-        // --- FIN DE LA CORRECCIÓN ---
-
         await CreditLog.create({
             user: userId, admin: adminId, amount: creditsToAddNum,
             tipoClase: tipoClaseId, newBalance: newTotal,
@@ -304,7 +287,6 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         await sendSingleNotification(Notification, User, userId, title, message, 'credit_update', false);
     }
 
-    // --- LÓGICA PARA SUSCRIPCIONES (sin cambios en el cargo, ya que es un precio fijo) ---
     const subscriptionIndex = user.monthlySubscriptions.findIndex(sub => sub.tipoClase.toString() === tipoClaseId);
     if (isSubscription) {
         const newSubscriptionData = { tipoClase: tipoClaseId, status: 'automatica', autoRenewAmount: autoRenewAmount || 8, lastRenewalDate: subscriptionIndex > -1 ? user.monthlySubscriptions[subscriptionIndex].lastRenewalDate : null };
@@ -573,7 +555,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             nombre: updatedUser.nombre,
             apellido: updatedUser.apellido,
             email: updatedUser.email,
-            // Devuelve todos los datos actualizados que necesites en el frontend
         });
     } else {
         res.status(404);
