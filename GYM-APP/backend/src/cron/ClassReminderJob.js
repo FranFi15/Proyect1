@@ -32,7 +32,7 @@ const checkUpcomingClasses = asyncHandler(async () => {
     const activeClients = await getAllActiveClients();
 
     for (const client of activeClients) {
-        const clientId = client._id;
+        const clientId = client.clientId;
         let gymDBConnection; 
         
         try {
