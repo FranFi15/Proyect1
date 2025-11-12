@@ -164,40 +164,6 @@ const ManageClientsScreen = () => {
         }
     }, [editingClientDay, editingClientMonth, editingClientYear]);
 
-    const handleTogglePermission = async (user) => {
-        const newPermissionStatus = !user.puedeGestionarEjercicios;
-        const actionText = newPermissionStatus ? "otorgar" : "revocar";
-        const userName = `${user.nombre} ${user.apellido}`;
-
-        setAlertInfo({
-            visible: true,
-            title: "Confirmar Permiso",
-            message: `¿Estás seguro de que quieres ${actionText} el permiso para gestionar ejercicios a ${userName}?`,
-            buttons: [
-                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Confirmar", style: "primary", onPress: async () => {
-                    try {
-                        // Usamos la misma ruta de actualización, pero solo enviamos el campo que cambia
-                        await apiClient.put(`/users/${user._id}`, {
-                            puedeGestionarEjercicios: newPermissionStatus
-                        });
-
-                        // Actualizamos el estado local para ver el cambio al instante
-                        setUsers(currentUsers =>
-                            currentUsers.map(u =>
-                                u._id === user._id
-                                    ? { ...u, puedeGestionarEjercicios: newPermissionStatus }
-                                    : u
-                            )
-                        );
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Permiso actualizado.' });
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo actualizar el permiso.' });
-                    }
-                }}
-            ]
-        });
-    };
 
     const handleUpgradePlan = async () => {
         setIsSubmitting(true);
@@ -851,11 +817,6 @@ const ManageClientsScreen = () => {
                         {item.roles.includes('cliente') && (
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                         )}
-                          {item.roles.includes('profesor') && (
-                        <TouchableOpacity style={styles.actionButton} onPress={() =>handleTogglePermission(item)}>
-                            <Ionicons name="accessibility" size={24} color={item.puedeGestionarEjercicios ? '#28a745' : '#dc3545'} />
                         </TouchableOpacity>
                          )}
                         {item?.ordenMedicaRequerida && (
