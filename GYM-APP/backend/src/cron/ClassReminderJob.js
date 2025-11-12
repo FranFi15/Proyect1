@@ -3,6 +3,8 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import connectToGymDB from '../config/mongoConnectionManager.js'; 
 import { format } from 'date-fns';
+import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { addHours, format as formatTz } from 'date-fns-tz';
 import { sendSingleNotification } from '../controllers/notificationController.js';
 import axios from 'axios';
 
@@ -30,6 +32,7 @@ const checkUpcomingClasses = asyncHandler(async () => {
     console.log('⏰ Ejecutando tarea horaria: Verificación de recordatorios de turnos...');
     
     const activeClients = await getAllActiveClients();
+    const timeZone = 'America/Argentina/Buenos_Aires';
 
     for (const client of activeClients) {
         const clientId = client.clientId;
@@ -37,32 +40,38 @@ const checkUpcomingClasses = asyncHandler(async () => {
         
         try {
             const { connection } = await connectToGymDB(clientId);
-            if (!connection) {
-                console.error(`No se pudo obtener la conexión DB para el cliente ${clientId}`);
-                continue;
-            }
-            gymDBConnection = connection; // Asignamos la conexión a la variable
+            if (!connection) continue;
+            gymDBConnection = connection;
             
-            // 2. Pasamos la conexión a getModels
             const { Clase, Notification, User } = getModels(gymDBConnection);
 
             
-            const now = new Date();
-            const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+            // 1. Obtenemos la hora actual en Argentina (ej: 10:30 AM)
+            const nowInArgentina = utcToZonedTime(new Date(), timeZone);
             
-            const startOfWindow = new Date(twoHoursFromNow);
-            startOfWindow.setMinutes(0, 0, 0);
-            const endOfWindow = new Date(startOfWindow);
-            endOfWindow.setMinutes(59, 59, 999);
+            // 2. Calculamos la hora de la ventana de búsqueda (ej: 12:30 PM)
+            const twoHoursFromNowInArgentina = addHours(nowInArgentina, 2);
+            
+            // 3. Formateamos la hora de inicio de la ventana (ej: "12:00")
+            const startOfWindowStr = formatTz(twoHoursFromNowInArgentina, 'HH:00', { timeZone });
+            // 4. Formateamos la hora de fin de la ventana (ej: "12:59")
+            const endOfWindowStr = formatTz(twoHoursFromNowInArgentina, 'HH:59', { timeZone });
+            
+            // 5. Obtenemos la fecha de hoy en formato UTC para comparar con la BD
+            // Usamos la fecha de la ventana por si el cron corre justo a medianoche
+            const targetDate = formatTz(twoHoursFromNowInArgentina, 'yyyy-MM-dd', { timeZone });
+            const startOfDayUTC = zonedTimeToUtc(`${targetDate}T00:00:00`, timeZone);
+            const endOfDayUTC = zonedTimeToUtc(`${targetDate}T23:59:59`, timeZone);
 
+            // 6. Buscamos clases activas
             const classesInWindow = await Clase.find({
                 fecha: { 
-                    $gte: startOfWindow.toISOString().split('T')[0],
-                    $lte: endOfWindow.toISOString().split('T')[0]
+                    $gte: startOfDayUTC,
+                    $lte: endOfDayUTC
                 },
                 horaInicio: {
-                    $gte: format(startOfWindow, 'HH:mm'),
-                    $lte: format(endOfWindow, 'HH:mm')
+                    $gte: startOfWindowStr, 
+                    $lte: endOfWindowStr   
                 },
                 estado: 'activa'
             }).populate('tipoClase', 'nombre');
