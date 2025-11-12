@@ -2,9 +2,9 @@ import cron from 'node-cron';
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import connectToGymDB from '../config/mongoConnectionManager.js'; 
-import { format } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
-import { addHours, format as formatTz } from 'date-fns-tz';
+import { format as formatTz } from 'date-fns-tz';
 import { sendSingleNotification } from '../controllers/notificationController.js';
 import axios from 'axios';
 
