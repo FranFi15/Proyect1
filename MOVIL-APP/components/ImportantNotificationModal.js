@@ -62,7 +62,7 @@ const getStyles = (colorScheme) => StyleSheet.create({
     modalView: {
         margin: 20,
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 2, // Bordes más redondeados
+        borderRadius: 5, 
         padding: 25,
         paddingTop: 30,
         alignItems: 'center',
@@ -96,7 +96,7 @@ const getStyles = (colorScheme) => StyleSheet.create({
     },
     closeButton: {
         backgroundColor: '#1a5276',
-        borderRadius: 2, // Botón con forma de píldora
+        borderRadius: 5, // Botón con forma de píldora
         paddingVertical: 14,
         paddingHorizontal: 30,
         elevation: 2,

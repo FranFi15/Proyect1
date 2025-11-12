@@ -304,7 +304,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 8,
+            borderRadius: 5,
             elevation: 2,
             shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, 
         },
@@ -342,7 +342,7 @@ const getStyles = (colorScheme, gymColor) => {
             justifyContent: 'center',
             paddingVertical: 10,
             paddingHorizontal: 15,
-            borderRadius: 8,
+            borderRadius: 5,
             elevation: 2,
         },
         actionButtonText: {

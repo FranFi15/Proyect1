@@ -306,7 +306,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row', 
         alignItems: 'center', 
         backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border 
     },
@@ -320,14 +320,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     searchIcon: { marginRight: 15 },
     itemCard: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
+        borderRadius: 5,
         padding: 15,
         marginVertical: 8,
         marginHorizontal: 15,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 2,
+        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 
     },
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -346,7 +346,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         width: '90%',
         maxHeight: '85%',
         backgroundColor: Colors[colorScheme].background,
-        borderRadius: 12,
+        borderRadius: 5,
         padding: 25,
         elevation: 5
     },
@@ -357,7 +357,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 50,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 5,
         paddingHorizontal: 15,
         marginBottom: 20,
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -372,7 +372,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10,
     },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 10 },
-    button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    button: { flex: 1, paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     settingsIcon: {marginTop: 20, marginLeft: 10 }

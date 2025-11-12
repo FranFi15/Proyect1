@@ -281,19 +281,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, },
-    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
+    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
-    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a5276', paddingVertical: 10, borderRadius: 8, marginTop: 12 },
+    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor || '#1a5276', paddingVertical: 10, borderRadius: 5, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
     modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5, width: '100%', height: '90%' },
+    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 25, alignItems: 'center', elevation: 5, width: '100%', height: '90%' },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
-    
-    // Generic button style
     button: {
-        borderRadius: 8,
+        borderRadius: 5,
         paddingVertical: 12,
         paddingHorizontal: 20,
         elevation: 2,
@@ -314,11 +312,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
 
     studentDetailContainer: { width: '100%', alignItems: 'center' }, 
     detailTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, textAlign: 'center', marginBottom: 15 },
-    studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, // Align text left
+    studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, 
     infoLabel: { fontWeight: 'bold' },
     scanButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor,
-        paddingVertical: 12, borderRadius: 8, marginBottom: 15, width: '100%',
+        paddingVertical: 12, borderRadius: 5, marginBottom: 15, width: '100%',
     },
     scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 16 }
 });

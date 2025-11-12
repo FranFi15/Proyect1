@@ -144,7 +144,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center',},
-    modalView: {  width: '100%',height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 2, padding: 20, elevation: 5 },
+    modalView: {  width: '100%',height: '90%', backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 10, right: 10, zIndex: 1},
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
     summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
@@ -152,12 +152,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     summaryBalance: { fontSize: 28, fontWeight: 'bold' },
     formContainer: { borderBottomWidth: 1, borderColor: Colors[colorScheme].border, paddingBottom: 20, marginBottom: 15 },
     formTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text, marginBottom: 10 },
-    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
+    input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
     buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5, gap: 10 },
     styledButton: {
         flex: 1,
         paddingVertical: 12,
-        borderRadius: 8, // Borde redondeado
+        borderRadius: 5,
         alignItems: 'center',
         justifyContent: 'center',
     },

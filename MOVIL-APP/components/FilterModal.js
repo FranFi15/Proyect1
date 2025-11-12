@@ -71,7 +71,7 @@ const getStyles = (theme) => StyleSheet.create({
         width: '85%',
         maxHeight: '100%',
         backgroundColor: theme.colors.background,
-        borderRadius: 12,
+        borderRadius: 5,
         padding: 20,
         elevation: 10,
         shadowColor: '#000',

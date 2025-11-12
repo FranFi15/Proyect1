@@ -54,7 +54,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         width: '90%',
         maxWidth: 340,
         backgroundColor: Colors[colorScheme].background,
-        borderRadius: 12,
+        borderRadius: 5,
         padding: 25,
         alignItems: 'center',
         shadowColor: '#000',
@@ -82,7 +82,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     qrContainer: {
         padding: 20,
         backgroundColor: 'white',
-        borderRadius: 12,
+        borderRadius: 5,
     },
     userName: {
         fontSize: 20,

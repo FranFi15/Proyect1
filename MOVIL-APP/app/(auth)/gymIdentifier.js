@@ -168,7 +168,7 @@ const getStyles = (colorScheme) => StyleSheet.create({
         height: 50,
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
-        borderRadius: 8,
+        borderRadius: 5,
         paddingHorizontal: 15,
         marginBottom: 20,
         fontSize: 16,
@@ -179,7 +179,7 @@ const getStyles = (colorScheme) => StyleSheet.create({
         width: '100%',
         height: 50,
         backgroundColor: '#000000',
-        borderRadius: 8,
+        borderRadius: 5,
         alignItems: 'center',
         justifyContent: 'center'
     },

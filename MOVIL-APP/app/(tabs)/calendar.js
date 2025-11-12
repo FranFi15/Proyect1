@@ -507,7 +507,7 @@ const CalendarScreen = () => {
     
     
     return (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,   }}>
             <TabView
                 navigationState={{ index, routes }}
                 renderScene={renderScene}
@@ -569,7 +569,7 @@ const getStyles = (colorScheme, gymColor) => {
             justifyContent: 'center',
             paddingVertical: 10,
             paddingHorizontal: 15,
-            borderRadius: 8,
+            borderRadius: 5,
         },
         actionButtonText: {
             color: '#fff',
@@ -584,7 +584,7 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 8,
+            borderRadius: 5,
             borderWidth: 0,
             elevation:2,
             backgroundColor: Colors[colorScheme].background,
@@ -604,7 +604,7 @@ const getStyles = (colorScheme, gymColor) => {
             color: 'white',
             paddingVertical: 5,
             paddingHorizontal: 10,
-            borderRadius: 8,
+            borderRadius: 5,
             fontWeight: 'bold',
             fontSize: 12
         },
@@ -613,7 +613,7 @@ const getStyles = (colorScheme, gymColor) => {
             color: 'white',
             paddingVertical: 5,
             paddingHorizontal: 10,
-            borderRadius: 8,
+            borderRadius: 5,
             fontWeight: 'bold',
             fontSize: 12
         },
@@ -658,7 +658,7 @@ const getStyles = (colorScheme, gymColor) => {
             backgroundColor: gymColor,
             paddingVertical: 10,
             paddingHorizontal: 20,
-            borderRadius: 8
+            borderRadius: 5
         },
         retryButtonText: {
             color: '#fff',
@@ -673,7 +673,7 @@ const getStyles = (colorScheme, gymColor) => {
             marginHorizontal: 15,
             marginVertical: 10,
             paddingHorizontal: 15,
-            borderRadius: 8,
+            borderRadius: 5,
             borderWidth: 1,
             borderColor: Colors[colorScheme].border,
             backgroundColor: Colors[colorScheme].background,
@@ -693,7 +693,7 @@ const getStyles = (colorScheme, gymColor) => {
             backgroundColor: Colors[colorScheme].cardBackground,
             paddingVertical: 18,
             paddingHorizontal: 15,
-            borderRadius: 8,
+            borderRadius: 5,
             elevation: 2,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 1 },
@@ -715,8 +715,8 @@ const getStyles = (colorScheme, gymColor) => {
         modalView: {
             height: '93%',
             backgroundColor: Colors[colorScheme].background,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
+            borderTopLeftRadius: 5,
+            borderTopRightRadius: 5,
             padding: 20,
             alignItems: 'center',
         },
@@ -730,7 +730,7 @@ const getStyles = (colorScheme, gymColor) => {
             flexDirection: 'row', 
             justifyContent: 'space-around',
             marginBottom: 15, 
-            borderRadius: 8, 
+            borderRadius: 5, 
             padding: 4, 
             width: '100%',
         },
@@ -806,7 +806,7 @@ const getStyles = (colorScheme, gymColor) => {
     cartTotalText: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     checkoutButton: {
         flexDirection: 'row', alignItems: 'center', backgroundColor: '#2ecc71',
-        paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, gap: 10,
+        paddingVertical: 12, paddingHorizontal: 20, borderRadius: 5, gap: 10,
     },
     checkoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

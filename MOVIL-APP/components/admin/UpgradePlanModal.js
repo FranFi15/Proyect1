@@ -51,7 +51,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         width: '90%', 
         maxWidth: 400, 
         backgroundColor: Colors[colorScheme].background, 
-        borderRadius: 12, 
+        borderRadius: 5, 
         padding: 25, 
         alignItems: 'center',
         elevation: 5,
@@ -67,7 +67,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     planInfoBox: { 
         width: '100%',    
-        borderRadius: 8, 
+        borderRadius: 5, 
         marginVertical: 20 
     },
     planInfoText: { 
@@ -86,7 +86,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalButton: { 
         flex: 1, 
         paddingVertical: 12, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         alignItems: 'center', 
         marginHorizontal: 5 
     },

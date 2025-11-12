@@ -75,7 +75,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         width: '90%',
         maxWidth: 400,
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 12,
+        borderRadius: 5,
         padding: 20,
         elevation: 10,
         shadowColor: '#000',
@@ -93,7 +93,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: Colors[colorScheme].text,
-        flex: 1, // Permite que el título ocupe el espacio disponible
+        flex: 1, 
     },
     closeButton: {
         padding: 5,
@@ -108,12 +108,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     buttonsContainer: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        gap: 10, // Espacio entre botones
+        gap: 10, 
     },
     button: {
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderRadius: 8,
+        borderRadius: 5,
         minWidth: 80,
         alignItems: 'center',
     },

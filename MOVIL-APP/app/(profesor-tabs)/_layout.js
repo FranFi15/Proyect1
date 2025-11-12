@@ -64,6 +64,7 @@ export default function ProfessorTabsLayout() {
           ),
         }} 
       />
+     
        <Tabs.Screen 
         name="notificar" 
         options={{ 

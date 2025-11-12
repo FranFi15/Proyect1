@@ -164,6 +164,41 @@ const ManageClientsScreen = () => {
         }
     }, [editingClientDay, editingClientMonth, editingClientYear]);
 
+    const handleTogglePermission = async (user) => {
+        const newPermissionStatus = !user.puedeGestionarEjercicios;
+        const actionText = newPermissionStatus ? "otorgar" : "revocar";
+        const userName = `${user.nombre} ${user.apellido}`;
+
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Permiso",
+            message: `¿Estás seguro de que quieres ${actionText} el permiso para gestionar ejercicios a ${userName}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { text: "Confirmar", style: "primary", onPress: async () => {
+                    try {
+                        // Usamos la misma ruta de actualización, pero solo enviamos el campo que cambia
+                        await apiClient.put(`/users/${user._id}`, {
+                            puedeGestionarEjercicios: newPermissionStatus
+                        });
+
+                        // Actualizamos el estado local para ver el cambio al instante
+                        setUsers(currentUsers =>
+                            currentUsers.map(u =>
+                                u._id === user._id
+                                    ? { ...u, puedeGestionarEjercicios: newPermissionStatus }
+                                    : u
+                            )
+                        );
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Permiso actualizado.' });
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo actualizar el permiso.' });
+                    }
+                }}
+            ]
+        });
+    };
+
     const handleUpgradePlan = async () => {
         setIsSubmitting(true);
         try {
@@ -265,7 +300,7 @@ const ManageClientsScreen = () => {
     };
 
     const handleOpenAddModal = () => {
-        setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
+        setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false });
         setNewClientDay('');
         setNewClientMonth('');
         setNewClientYear('');
@@ -469,6 +504,7 @@ const ManageClientsScreen = () => {
             direccion: editingClientData.direccion,
             ordenMedicaRequerida: editingClientData.ordenMedicaRequerida,
             ordenMedicaEntregada: editingClientData.ordenMedicaEntregada,
+            puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios,
         };
 
         try {
@@ -807,12 +843,21 @@ const ManageClientsScreen = () => {
                         </Text>
                     </View>
                     <View style={styles.actionsContainer}>
+                        {item.roles.includes('cliente') && (
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBillingModal(item)}>
                             <Ionicons name="logo-usd" size={24} color='#28a745' />
                         </TouchableOpacity>
+                         )}
+                        {item.roles.includes('cliente') && (
                         <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
+                         )}
+                          {item.roles.includes('profesor') && (
+                        <TouchableOpacity style={styles.actionButton} onPress={() =>handleTogglePermission(item)}>
+                            <Ionicons name="accessibility" size={24} color={item.puedeGestionarEjercicios ? '#28a745' : '#dc3545'} />
+                        </TouchableOpacity>
+                         )}
                         {item?.ordenMedicaRequerida && (
                             <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
                                 <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'} />
@@ -1003,16 +1048,29 @@ const ManageClientsScreen = () => {
                                     <ThemedText style={styles.filterButtonText}>{getDisplayName(editingClientData.roles[0], 'role')}</ThemedText>
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
+                                {editingClientData.roles.includes('cliente') && (
                                 <View style={styles.switchRow}>
                                     <ThemedText style={styles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
                                     <Switch value={editingClientData.ordenMedicaRequerida} onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                 </View>
+                                  )}
                                 {editingClientData.ordenMedicaRequerida && (
                                     <View style={styles.switchRow}>
                                         <ThemedText style={styles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
                                         <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                     </View>
                                 )}
+                                {editingClientData.roles.includes('profesor') && (
+                            <View style={styles.switchRow}>
+                                <ThemedText style={styles.inputLabel}>Permitir gestionar ejercicios</ThemedText>
+                                <Switch
+                                    value={editingClientData.puedeGestionarEjercicios}
+                                    onValueChange={(value) => handleEditingClientChange('puedeGestionarEjercicios', value)}
+                                    trackColor={{ false: "#767577", true: gymColor }}
+                                    thumbColor={"#f4f3f4"}
+                                />
+                            </View>
+                        )}
                                <View style={styles.switchRow}>
                             <ThemedText style={styles.inputLabel}>Cuenta Activa</ThemedText>
                             <Switch
@@ -1232,7 +1290,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 5,
         paddingHorizontal: 15,
         marginBottom: 15,
         justifyContent: 'center',
@@ -1248,8 +1306,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     iosPickerContainer: {
         backgroundColor: Colors[colorScheme].background,
-        borderTopRightRadius: 20,
-        borderTopLeftRadius: 20,
+        borderTopRightRadius: 5,
+        borderTopLeftRadius: 5,
         padding: 20,
         height: '50%',
         justifyContent: 'space-evenly',
@@ -1269,7 +1327,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 50,
         borderColor: Colors[colorScheme].border,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 5,
         paddingHorizontal: 15,
         backgroundColor: Colors[colorScheme].cardBackground,
         color: Colors[colorScheme].text,
@@ -1280,7 +1338,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors[colorScheme].text,
         fontSize: 16
     },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, },
     inactiveCard: {
         opacity: 0.5,
         backgroundColor: Colors[colorScheme].cardBackground + '80',
@@ -1293,39 +1351,39 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     actionButton: { marginLeft: 10, },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: gymColor || '#1a5276', borderRadius: 30, elevation: 8,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
-    roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, fontSize: 12, fontWeight: 'bold', overflow: 'hidden', textTransform: 'capitalize', alignSelf: 'flex-start', },
+    roleBadge: { marginTop: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, fontSize: 12, fontWeight: 'bold', overflow: 'hidden', textTransform: 'capitalize', alignSelf: 'flex-start', },
     clienteBadge: { backgroundColor: '#e0f3ffff', color: '#0561daff' },
     profesorBadge: { backgroundColor: '#d1e7dd', color: '#0f5132' },
     adminBadge: { backgroundColor: '#eff7d3ff', color: '#b6df00ff' },
     creditsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 10, },
-    creditChip: { backgroundColor: gymColor + '20', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 6, },
+    creditChip: { backgroundColor: gymColor + '20', borderRadius: 5, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 6, },
     creditText: { color: Colors[colorScheme].text, fontSize: 12, fontWeight: '600', },
     modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 20, elevation: 5 },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10, },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text, paddingTop: 10 },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.8 },
-    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
+    input: { height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 10, marginBottom: 15, color: Colors[colorScheme].text, fontSize: 14 },
     modalActions: { marginTop: 20, flexDirection: 'row', justifyContent: 'center' },
     dateInputContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-    dateInput: { borderWidth: 1, borderColor: Colors[colorScheme].border, padding: 12, borderRadius: 8, fontSize: 16, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background, textAlign: 'center', flex: 1, marginHorizontal: 4, },
+    dateInput: { borderWidth: 1, borderColor: Colors[colorScheme].border, padding: 12, borderRadius: 5, fontSize: 16, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background, textAlign: 'center', flex: 1, marginHorizontal: 4, },
     section: { marginBottom: 15, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 15 },
     sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 15, color: Colors[colorScheme].text },
     planItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, },
     planText: { fontSize: 14, color: Colors[colorScheme].text, flex: 1 },
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 8, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4, },
+    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 5, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4, },
     dayChipSelected: { backgroundColor: gymColor || '#1a5276' },
     dayChipText: { fontSize: 14, color: Colors[colorScheme].text },
     dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
-    slotItem: { padding: 12, marginVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    slotItem: { padding: 12, marginVertical: 5, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border },
     slotItemSelected: { borderColor: gymColor, backgroundColor: gymColor + '20' },
     slotText: { textAlign: 'center', fontSize: 14, color: Colors[colorScheme].text },
     slotTextSelected: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: gymColor },
     switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 10, },
-    buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
-    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
+    buttonWrapper: { borderRadius: 5, overflow: 'hidden', marginTop: 10, },
+    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 10, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
     counterContainer: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15,paddingBottom:0, marginBottom:0},
@@ -1334,7 +1392,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     overLimitText: { color: '#e74c3c' },
     upgradeButton: {
         flexDirection: 'row', alignItems: 'center', backgroundColor: gymColor,
-        paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8,
+        paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5,
     },
     upgradeButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
     fabScanner: { 
@@ -1347,7 +1405,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#00ce9bff', // Un color dorado/amarillo para destacarlo
-        borderRadius: 12,
+        borderRadius: 5,
         paddingHorizontal: 10,
         paddingVertical: 5,
         marginTop: 10,

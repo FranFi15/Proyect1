@@ -324,7 +324,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 18,
         paddingHorizontal: 15,
-        borderRadius: 8, // Borde redondeado
+        borderRadius: 5,
         marginBottom: 12,
         elevation: 2,
         shadowColor: '#000',
@@ -340,7 +340,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     card: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8, // Borde redondeado
+        borderRadius: 5,
         padding: 20,
         marginHorizontal: 15,
         marginVertical: 10,

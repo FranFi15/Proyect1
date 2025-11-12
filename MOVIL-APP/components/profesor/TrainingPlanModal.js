@@ -214,7 +214,7 @@ const TemplateSelector = ({ templates, onSelect, onCancel, colorScheme }) => {
 // 4. Estilos actualizados para ser dinámicos
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 15 },
+    modalContainer: { height: '90%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 15 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text },
     planCard: { 
@@ -223,7 +223,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center', 
         padding: 20, 
         backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         marginVertical: 8,
         elevation: 2,
         shadowColor: '#000',
@@ -237,7 +237,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     planDate: { fontSize: 12, opacity: 0.6, marginTop: 4, color: Colors[colorScheme].text },
     planActions: { flexDirection: 'row', gap: 15 },
     footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 10 },
-    button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', backgroundColor: gymColor },
+    button: { flex: 1, padding: 15, borderRadius: 5, alignItems: 'center', backgroundColor: gymColor },
     buttonText: { color: '#fff', fontWeight: 'bold' },
     buttonSecondary: { backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border },
     buttonTextSecondary: { color: Colors[colorScheme].text, fontWeight: 'bold' },
@@ -246,7 +246,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     input: { 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         paddingHorizontal: 15, 
         backgroundColor: Colors[colorScheme].inputBackground, 
         fontSize: 16,

@@ -18,6 +18,7 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import TrainingPlanModal from '../../components/profesor/TrainingPlanModal';
 import CustomAlert from '@/components/CustomAlert';
+import { FontAwesome5 } from '@expo/vector-icons';
 
 const ProfessorClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -99,15 +100,16 @@ const ProfessorClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
-            {/* --- 4. Search input is always visible --- */}
-            <TextInput 
-                style={styles.searchInput}
-                placeholderTextColor={Colors[colorScheme].icon} 
-                placeholder="Buscar Cliente..." 
-                value={searchTerm} 
-                onChangeText={setSearchTerm} 
-            />
-            
+            <View style={styles.searchInputContainer}>
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Buscar cliente por nombre o DNI..."
+                                placeholderTextColor={Colors[colorScheme].icon}
+                                value={searchTerm}
+                                onChangeText={setSearchTerm}
+                            />
+                            <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
+            </View>
             {/* --- 5. Loading indicator only replaces the list --- */}
             {loading ? <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} /> : (
                 <FlatList
@@ -154,12 +156,13 @@ const ProfessorClientsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    searchInput: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, margin: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2,
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
+    searchIcon: { marginRight: 15 },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2,
             shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
-    // --- 7. New styles for the empty message ---
     emptyContainer: {
         flex: 1,
         marginTop: 50,

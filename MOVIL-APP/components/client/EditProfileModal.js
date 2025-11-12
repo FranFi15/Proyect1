@@ -173,7 +173,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalView: { 
         height: '90%', 
         backgroundColor: Colors[colorScheme].background, 
-        borderRadius: 12,  
+        borderRadius: 5,  
         padding: 20, 
         elevation: 5,
     },
@@ -200,7 +200,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 50, 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         paddingHorizontal: 15, 
         marginBottom: 15, 
         color: Colors[colorScheme].text, 
@@ -215,7 +215,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 50, 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         paddingHorizontal: 15, 
         marginBottom: 15, 
         textAlign: 'center', 
@@ -233,7 +233,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
-        borderRadius: 8 
+        borderRadius: 5 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 
@@ -258,7 +258,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors[colorScheme].text 
     },
     buttonWrapper: {
-        borderRadius: 8,
+        borderRadius: 5,
         overflow: 'hidden',
         marginTop: 20,
     }

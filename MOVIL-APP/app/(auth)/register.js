@@ -179,7 +179,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].border,
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         marginBottom: 12, 
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background,
@@ -191,7 +191,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 45, 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 8, 
+        borderRadius: 5, 
         paddingHorizontal: 8, 
         textAlign: 'center', 
         flex: 1, 
@@ -206,7 +206,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 20, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
-        borderRadius: 8 
+        borderRadius: 5 
     },
     genderButtonSelected: { 
         backgroundColor: gymColor || '#00177d', 
@@ -219,7 +219,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold'
     },
-    registerButtonContainer: { backgroundColor: gymColor || '#00177d', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10, height: 50 },
+    registerButtonContainer: { backgroundColor: gymColor || '#00177d', paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center', marginTop: 10, height: 50 },
     registerButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     loginContainer: { marginTop: 30, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
     loginText: { fontSize: 14 },

@@ -154,7 +154,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
     planButton: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
+        borderRadius: 5,
         paddingVertical: 20,
         paddingHorizontal: 15,
         marginVertical: 8,
