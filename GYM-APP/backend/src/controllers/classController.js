@@ -31,11 +31,18 @@ const getDayName = (date) => {
 
 const createClass = asyncHandler(async (req, res) => {
     const { Clase, TipoClase } = getModels(req.gymDBConnection);
-    const { nombre, tipoClase: tipoClaseId, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
+    const { nombre, tipoClase: tipoClaseId, profesores, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
     
     const capacidadNum = Number(capacidad) || 0;
     let totalCapacityCreated = 0;
     let createdClassesData = [];
+
+    let profesoresIds = [];
+    if (Array.isArray(profesores)) {
+        profesoresIds = profesores;
+    } else if (profesores) {
+        profesoresIds = [profesores];
+    }
 
     if (tipoInscripcion === 'fijo') {
         const rule = new RRule({
@@ -49,14 +56,14 @@ const createClass = asyncHandler(async (req, res) => {
             return res.status(400).json({ message: "La configuración no generó ningun turno." });
         }
         const classCreationPromises = allDates.map(dateInstance => {
-            const newClassData = { nombre, tipoClase: tipoClaseId, profesor, capacidad: capacidadNum, horaInicio, horaFin, fecha: dateInstance, diaDeSemana: [getDayName(dateInstance)], tipoInscripcion: 'fijo', rrule: rule.toString() };
+            const newClassData = { nombre, tipoClase: tipoClaseId,profesores: profesoresIds, capacidad: capacidadNum, horaInicio, horaFin, fecha: dateInstance, diaDeSemana: [getDayName(dateInstance)], tipoInscripcion: 'fijo', rrule: rule.toString() };
             return Clase.create(newClassData);
         });
         createdClassesData = await Promise.all(classCreationPromises);
         totalCapacityCreated = capacidadNum * createdClassesData.length;
     } else {
         const safeDate = new Date(`${fecha}T12:00:00.000Z`);
-        const newClass = new Clase({ nombre, tipoClase: tipoClaseId, profesor, capacidad: capacidadNum, horaInicio, horaFin, fecha: safeDate, diaDeSemana: [getDayName(safeDate)], tipoInscripcion: 'libre' });
+        const newClass = new Clase({ nombre, tipoClase: tipoClaseId, profesores: profesoresIds, capacidad: capacidadNum, horaInicio, horaFin, fecha: safeDate, diaDeSemana: [getDayName(safeDate)], tipoInscripcion: 'libre' });
         createdClassesData = [await newClass.save()];
         totalCapacityCreated = capacidadNum;
     }
@@ -75,7 +82,10 @@ const createClass = asyncHandler(async (req, res) => {
 
 const getAllClassesAdmin = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
-    const classes = await Clase.find({}).populate('tipoClase', 'nombre').populate('profesor', 'nombre apellido');
+    const classes = await Clase.find({})
+    .populate('tipoClase', 'nombre')
+    .populate('profesores', 'nombre apellido')
+    .populate('profesor', 'nombre apellido');
 
      res.json(classes);
 });
@@ -106,6 +116,7 @@ const getAllClasses = asyncHandler(async (req, res) => {
     // 3. Aplicamos el filtro y usamos tu populate optimizado
     const classes = await Clase.find({ ...dateFilter })
         .populate('tipoClase', 'nombre')
+        .populate('profesores', 'nombre apellido')
         .populate('profesor', 'nombre apellido');
         
     res.json(classes);
@@ -116,8 +127,9 @@ const getClassById = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
     const classItem = await Clase.findById(req.params.id)
         .populate('tipoClase', 'nombre')
-        .populate('profesor', 'nombre apellido')
-        .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial');
+        .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial')
+        .populate('profesores', 'nombre apellido')
+         .populate('profesor', 'nombre apellido');
 
     if (classItem) {
         const classWithAge = classItem.toObject();
@@ -136,7 +148,7 @@ const getClassById = asyncHandler(async (req, res) => {
 
 const updateClass = asyncHandler(async (req, res) => {
     const { Clase, TipoClase } = getModels(req.gymDBConnection);
-    const { capacidad, ...otherUpdates } = req.body;
+    const { capacidad,profesores, ...otherUpdates } = req.body;
     const classItem = await Clase.findById(req.params.id);
 
     if (!classItem) {
@@ -154,6 +166,11 @@ const updateClass = asyncHandler(async (req, res) => {
 
     Object.assign(classItem, otherUpdates);
     classItem.capacidad = newCapacity;
+
+    if (profesores) {
+         classItem.profesores = Array.isArray(profesores) ? profesores : [profesores];
+    }
+
     const updatedClass = await classItem.save();
 
     if (capacityDifference !== 0) {
@@ -424,7 +441,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     tipoClase: "$tipoClase",
                     horaInicio: "$horaInicio",
                     horaFin: "$horaFin",
-                    profesor: "$profesor"
+                    profesores: "$profesores"
                 },
                 // Nos quedamos con los datos del documento más reciente de cada grupo
                 lastInstance: { $first: "$$ROOT" }
@@ -472,7 +489,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     nombre: pattern.nombre,
                     tipoClase: pattern.tipoClase,
                     capacidad: pattern.capacidad,
-                    profesor: pattern.profesor,
+                    profesores: pattern.profesores,
                     fecha: classDate,
                     horaInicio: pattern.horaInicio,
                     horaFin: pattern.horaFin,
@@ -518,7 +535,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         
         await Clase.deleteMany({ _id: { $in: idsToDelete } });
 
-        if (updates.profesor) template.profesor = updates.profesor;
+        if (updates.profesores) template.profesores = updates.profesores;
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
         if (updates.horaInicio && updates.horaFin) {
@@ -539,7 +556,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                 ...template,
                 _id: new mongoose.Types.ObjectId(),
                 fecha: date,
-                diaDeSemana: [getDayName(date)], // CORRECCIÓN
+                diaDeSemana: [getDayName(date)], 
                 usuariosInscritos: [],
                 estado: 'activa',
             });
@@ -548,7 +565,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     }
     
     const updateData = { $set: {} };
-    if (updates.profesor) updateData.$set.profesor = updates.profesor;
+    if (updates.profesores) updateData.$set.profesores = updates.profesores;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
     if (updates.horaInicio && updates.horaFin) {
@@ -574,10 +591,9 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
     const query = {};
     if (filters.nombre) query.nombre = { $regex: filters.nombre, $options: 'i' };
     if (filters.tipoClase) query.tipoClase = filters.tipoClase;
-    if (filters.profesor) query.profesor = filters.profesor;
     if (filters.horaInicio) query.horaInicio = filters.horaInicio;
 
-    // MUY IMPORTANTE: Solo eliminar clases futuras
+    
     query.fecha = { $gte: new Date(filters.fechaDesde || new Date()) };
 
     const result = await Clase.deleteMany(query);
@@ -606,7 +622,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
                 horaInicio: { $first: "$horaInicio" },
                 horaFin: { $first: "$horaFin" },
                 tipoClase: { $first: "$tipoClase" },
-                profesorId: { $first: "$profesor" },
+                profesoresIds: { $first: "$profesores" }, 
                 diasDeSemana: { $addToSet: {
                     // --- LÓGICA A PRUEBA DE ERRORES ---
                     // Si 'diaDeSemana' es un array, toma el primer elemento. Si no (es texto o nulo), ignóralo.
@@ -623,7 +639,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
         { $addFields: { diasDeSemana: { $filter: { input: "$diasDeSemana", as: "day", cond: { $ne: ["$$day", null] } } } } },
         
         // El resto de la consulta para poblar los datos
-        { $lookup: { from: User.collection.name, localField: 'profesorId', foreignField: '_id', as: 'profesorInfo' } },
+        { $lookup: { from: User.collection.name, localField: 'profesoresIds', foreignField: '_id', as: 'profesoresInfo'} },
         { $lookup: { from: TipoClase.collection.name, localField: 'tipoClase', foreignField: '_id', as: 'tipoClaseInfo' } },
         {
             $project: {
@@ -633,7 +649,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
                 horaInicio: '$horaInicio',
                 horaFin: '$horaFin',
                 tipoClase: { $arrayElemAt: ['$tipoClaseInfo', 0] },
-                profesor: { $arrayElemAt: ['$profesorInfo', 0] },
+                profesores: '$profesoresInfo',
                 diasDeSemana: '$diasDeSemana',
                 cantidadDeInstancias: '$cantidadDeInstancias'
             }
@@ -694,10 +710,10 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             nombre: lastInstance.nombre,
             tipoClase: lastInstance.tipoClase,
             horarioFijo: lastInstance.horarioFijo,
-            diaDeSemana: [classDayName], // Guarda el día específico de esta instancia
+            diaDeSemana: [classDayName], 
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
-            profesor: lastInstance.profesor,
+            profesores: lastInstance.profesores,
             fecha: date,
             horaInicio: lastInstance.horaInicio,
             horaFin: lastInstance.horaFin,
@@ -842,7 +858,7 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
                     tipoClase: '$tipoClase',
                     horaInicio: '$horaInicio', 
                     horaFin: '$horaFin',
-                    profesor: '$profesor'
+                    profesoresIds: '$profesores'
                 } 
             } 
         },
@@ -858,9 +874,9 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
         {
             $lookup: {
                 from: User.collection.name,
-                localField: '_id.profesor',
+                localField: '_id.profesoresIds',
                 foreignField: '_id',
-                as: 'profesorInfo'
+                as: 'profesoresInfo'
             }
         },
         // 4. PROYECTAMOS el resultado final en un formato limpio
@@ -871,7 +887,7 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
                 horaInicio: '$_id.horaInicio',
                 horaFin: '$_id.horaFin',
                 tipoClase: { $arrayElemAt: ['$tipoClaseInfo', 0] },
-                profesor: { $arrayElemAt: ['$profesorInfo', 0] }
+                profesores: '$profesoresInfo' 
             }
         },
         // 5. Ordenamos por hora de inicio
@@ -957,8 +973,14 @@ const getProfessorClasses = asyncHandler(async (req, res) => {
     // req.user._id viene del middleware 'protect'
     const professorId = req.user._id;
 
-    const classes = await Clase.find({ profesor: professorId })
+    const classes = await Clase.find({ 
+        $or: [
+            { profesores: professorId },
+            { profesor: professorId }
+        ]
+    })
         .populate('tipoClase', 'nombre' )
+        .populate('profesores', 'nombre apellido') 
         .populate('usuariosInscritos', 'nombre apellido dni email ')
         .sort({ fecha: 'asc' }); 
 
@@ -974,7 +996,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
             path: 'usuariosInscritos',
             select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocial ordenMedicaRequerida ordenMedicaEntregada', // Seleccionamos los campos que necesita el profesor
         })
-        .select('profesor usuariosInscritos'); // Solo traemos los campos necesarios para la lógica
+        .select('profesores profesor usuariosInscritos'); // Solo traemos los campos necesarios para la lógica
 
     if (!classItem) {
         res.status(404);
@@ -983,7 +1005,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
 
     // --- Lógica de Autorización ---
     // Un usuario puede ver los alumnos si es el profesor de la clase O si es un admin.
-    const isTheProfessor = classItem.profesor?.toString() === req.user._id.toString();
+    const isTheProfessor = (classItem.profesores && classItem.profesores.includes(req.user._id)) || classItem.profesor?.toString() === req.user._id.toString();
     const isAdmin = req.user.roles.includes('admin');
 
     if (!isTheProfessor && !isAdmin) {

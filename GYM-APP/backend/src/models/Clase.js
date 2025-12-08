@@ -30,6 +30,10 @@ const classSchema = new mongoose.Schema({
         ref: 'User',
         required: false,
     },
+    profesores: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
     tipoInscripcion: {
         type: String,
         enum: ['libre', 'fijo'],
