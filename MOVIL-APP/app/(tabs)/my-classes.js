@@ -31,6 +31,24 @@ const capitalize = (str) => {
     return formattedStr.replace(' De ', ' de ');
 };
 
+const formatTeachers = (clase) => {
+    // 1. Prioridad: Array de profesores (Nueva estructura)
+    if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
+        return clase.profesores
+            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
+            .filter(name => name !== '')
+            .join(', ');
+    }
+    
+    // 2. Fallback: Profesor único (Estructura antigua)
+    if (clase.profesor && clase.profesor.nombre) {
+        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
+    }
+
+    // 3. Default
+    return 'Sin profesor asignado';
+};
+
 const MyClassesScreen = () => {
     // --- STATE MANAGEMENT ---
     const layout = useWindowDimensions();
@@ -190,11 +208,9 @@ const MyClassesScreen = () => {
         return (
             <ThemedView style={styles.classItem}>
                 <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
-                {item.profesor ? (
-                    <ThemedText style={styles.classInfoText}>A cargo de : {item.profesor.nombre} {item.profesor.apellido}</ThemedText>
-                ) : (
-                    <ThemedText style={styles.classInfoText}>A cargo de : A confirmar</ThemedText>
-                )}
+                <ThemedText style={styles.classInfoText}>
+                                    A cargo de: {formatTeachers(item)}
+                                </ThemedText>
                 <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                 
                 <View style={styles.buttonContainer}>

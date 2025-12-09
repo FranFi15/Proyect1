@@ -39,6 +39,19 @@ import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import { TabView, TabBar } from 'react-native-tab-view';
 
+const formatTeachers = (clase) => {
+    if (clase.profesores && clase.profesores.length > 0) {
+        return clase.profesores
+            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
+            .filter(name => name !== '')
+            .join(', ');
+    } else if (clase.profesor && clase.profesor.nombre) {
+        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
+    } else {
+        return 'Sin profesor asignado';
+    }
+};
+
 // ... (configuración de LocaleConfig se mantiene igual)
 LocaleConfig.locales['es'] = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -101,7 +114,7 @@ const ManageClassesScreen = () => {
     const [classToCancel, setClassToCancel] = useState(null);
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState(null);
-    const [bulkUpdates, setBulkUpdates] = useState({ profesor: '', horaInicio: '', horaFin: '', diasDeSemana: [] });
+    const [bulkUpdates, setBulkUpdates] = useState({ profesores: [], horaInicio: '', horaFin: '', diasDeSemana: [] });
     const [showExtendModal, setShowExtendModal] = useState(false);
     const [extendingGroup, setExtendingGroup] = useState(null);
     const [extendUntilDate, setExtendUntilDate] = useState('');
@@ -123,7 +136,7 @@ const ManageClassesScreen = () => {
         horaInicio: '',
         horaFin: '',
         capacidad: '10',
-        profesor: '',
+        profesores: [],
         tipoInscripcion: 'libre',
         diaDeSemana: [],
         fechaInicio: '',
@@ -177,6 +190,24 @@ const ManageClassesScreen = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // --- NUEVO: Manejador para selección múltiple de profesores ---
+    const handleProfessorSelection = (teacherId) => {
+        const currentTeachers = formData.profesores || [];
+        const newTeachers = currentTeachers.includes(teacherId)
+            ? currentTeachers.filter(id => id !== teacherId)
+            : [...currentTeachers, teacherId];
+        handleFormChange('profesores', newTeachers);
+    };
+
+    // --- NUEVO: Manejador para selección múltiple en edición masiva ---
+    const handleBulkProfessorSelection = (teacherId) => {
+        const currentTeachers = bulkUpdates.profesores || [];
+        const newTeachers = currentTeachers.includes(teacherId)
+            ? currentTeachers.filter(id => id !== teacherId)
+            : [...currentTeachers, teacherId];
+        setBulkUpdates(p => ({ ...p, profesores: newTeachers }));
+    };
+
     const handleTimeInputChange = (text, name, setStateFunction) => {
         const cleanedText = text.replace(/[^0-9]/g, '');
         let formattedText = cleanedText;
@@ -213,7 +244,6 @@ const ManageClassesScreen = () => {
                     text: 'Guardar', style: 'primary', onPress: async () => {
                         setAlertInfo({ visible: false });
                         const payload = { ...formData };
-                        if (!payload.profesor) delete payload.profesor;
 
                         try {
                             if (editingClass) {
@@ -238,6 +268,14 @@ const ManageClassesScreen = () => {
     const handleEdit = (classItem) => {
         setEditingClass(classItem);
         const dateString = classItem.fecha.substring(0, 10);
+
+        let profesoresIds = [];
+        if (classItem.profesores && classItem.profesores.length > 0) {
+            profesoresIds = classItem.profesores.map(p => p._id);
+        } else if (classItem.profesor) {
+            profesoresIds = [classItem.profesor._id];
+        }
+
         setFormData({
             tipoClase: classItem.tipoClase?._id || '',
             nombre: classItem.nombre,
@@ -245,7 +283,7 @@ const ManageClassesScreen = () => {
             horaInicio: classItem.horaInicio,
             horaFin: classItem.horaFin,
             capacidad: classItem.capacidad.toString(),
-            profesor: classItem.profesor?._id || '',
+            profesores: profesoresIds,
             tipoInscripcion: classItem.tipoInscripcion,
             diaDeSemana: classItem.diaDeSemana || [],
             fechaInicio: '',
@@ -453,7 +491,6 @@ const ManageClassesScreen = () => {
     // ... (getModalConfig y el resto de la lógica de negocio se mantienen igual)
     const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: 'all', nombre: 'Todos los Tipos' }, ...classTypes];
-        const teacherOptions = [{ _id: '', nombre: '-- Seleccionar --' }, ...teachers.map(t => ({ _id: t._id, nombre: `${t.nombre} ${t.apellido}` }))];
         const inscriptionTypeOptions = [
             { _id: 'libre', nombre: 'Fecha Única' },
             { _id: 'fijo', nombre: 'Recurrente' },
@@ -474,26 +511,12 @@ const ManageClassesScreen = () => {
                     onSelect: (id) => handleFormChange('tipoClase', id),
                     selectedValue: formData.tipoClase,
                 };
-            case 'formTeacher':
-                return {
-                    title: 'Seleccionar Encargado',
-                    options: teacherOptions,
-                    onSelect: (id) => handleFormChange('profesor', id),
-                    selectedValue: formData.profesor,
-                };
             case 'formInscriptionType':
                 return {
                     title: 'Seleccionar Tipo de Inscripción',
                     options: inscriptionTypeOptions,
                     onSelect: (id) => handleFormChange('tipoInscripcion', id),
                     selectedValue: formData.tipoInscripcion,
-                };
-            case 'bulkEditTeacher':
-                return {
-                    title: 'Seleccionar Encargado',
-                    options: [{ _id: '', nombre: '-- No cambiar --' }, ...teacherOptions.slice(1)], // Reusa teacherOptions pero cambia el default
-                    onSelect: (id) => setBulkUpdates(p => ({ ...p, profesor: id })),
-                    selectedValue: bulkUpdates.profesor,
                 };
             default:
                 return null;
@@ -504,10 +527,6 @@ const ManageClassesScreen = () => {
 
     const getDisplayName = (id, type) => {
         if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || '-- Seleccionar --';
-        if (type === 'teacher') {
-            const teacher = teachers.find(t => t._id === id);
-            return teacher ? `${teacher.nombre} ${teacher.apellido}` : '-- Seleccionar --';
-        }
         if (type === 'inscription') return id === 'fijo' ? 'Recurrente' : 'Fecha Única';
         return 'Seleccionar';
     };
@@ -541,18 +560,24 @@ const ManageClassesScreen = () => {
 
     const filteredClasses = useMemo(() => {
         if (!searchTerm) {
-            return classesForSelectedDate; // Si no hay búsqueda, muestra todo lo del día
+            return classesForSelectedDate; 
         }
 
         const lowercasedTerm = searchTerm.toLowerCase();
         return classesForSelectedDate.filter(cls => {
             const className = cls.nombre?.toLowerCase() || '';
             const typeName = cls.tipoClase?.nombre?.toLowerCase() || '';
-            const professorName = cls.profesor ? `${cls.profesor.nombre} ${cls.profesor.apellido}`.toLowerCase() : '';
+            
+            // Lógica para buscar en el array de profesores
+            const professorsNames = cls.profesores 
+                ? cls.profesores.map(p => `${p.nombre} ${p.apellido}`.toLowerCase()).join(' ') 
+                : '';
+            const oldProfessorName = cls.profesor ? `${cls.profesor.nombre} ${cls.profesor.apellido}`.toLowerCase() : '';
 
             return className.includes(lowercasedTerm) ||
                    typeName.includes(lowercasedTerm) ||
-                   professorName.includes(lowercasedTerm);
+                   professorsNames.includes(lowercasedTerm) ||
+                   oldProfessorName.includes(lowercasedTerm);
         });
     }, [classesForSelectedDate, searchTerm]);
 
@@ -576,6 +601,7 @@ const ManageClassesScreen = () => {
                     horaInicio: cls.horaInicio,
                     horaFin: cls.horaFin,
                     profesor: cls.profesor,
+                    profesores: cls.profesores,
                     diasDeSemana: new Set(),
                     cantidadDeInstancias: 0,
                     _id: groupKey,
@@ -643,7 +669,7 @@ const ManageClassesScreen = () => {
             <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
             <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre}</ThemedText>
             <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-            <ThemedText style={styles.cardInfo}>A cargo de: {item.profesor ? `${item.profesor.nombre} ${item.profesor.apellido}` : 'No asignado'}</ThemedText>
+            <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
             <ThemedText style={styles.cardInfo}>Cupos: {item.usuariosInscritos.length} / {item.capacidad}</ThemedText>
 
             <View style={styles.actionsContainer}>
@@ -673,8 +699,14 @@ const ManageClassesScreen = () => {
 
     const handleOpenBulkEditModal = (group) => {
         setEditingGroup(group);
+        let profesoresIds = [];
+        if (group.profesores && group.profesores.length > 0) {
+            profesoresIds = group.profesores.map(p => p._id);
+        } else if (group.profesor) {
+            profesoresIds = [group.profesor._id];
+        }
         setBulkUpdates({
-            profesor: group.profesor?._id || '',
+            profesores: profesoresIds,
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
             diasDeSemana: [...group.diasDeSemana]
@@ -821,7 +853,7 @@ const ManageClassesScreen = () => {
             <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
             <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
             <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
-            <ThemedText style={styles.cardInfo}>A cargo de: {item.profesor ? `${item.profesor.nombre} ${item.profesor.apellido}` : 'No asignado'}</ThemedText>
+            <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
             <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
             <View style={styles.actionsContainer}>
                 <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
@@ -1038,11 +1070,27 @@ const ManageClassesScreen = () => {
                                 <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
                                 <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
-                            <ThemedText style={styles.inputLabel}>A cargo de</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formTeacher')}>
-                                <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.profesor, 'teacher')}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
+                            <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
+                            <View style={styles.weekDayContainer}> 
+                                {teachers.map(teacher => (
+                                    <TouchableOpacity 
+                                        key={teacher._id} 
+                                        onPress={() => handleProfessorSelection(teacher._id)} 
+                                        style={[
+                                            styles.dayChip, 
+                                            formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
+                                        ]}
+                                    >
+                                        <Text style={
+                                            formData.profesores && formData.profesores.includes(teacher._id) 
+                                            ? styles.dayChipTextSelected 
+                                            : styles.dayChipText
+                                        }>
+                                            {teacher.nombre} {teacher.apellido}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                             <ThemedText style={styles.inputLabel}>Capacidad</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} />
                             <ThemedText style={styles.inputLabel}>Tipo de Inscripción</ThemedText>
@@ -1165,11 +1213,27 @@ const ManageClassesScreen = () => {
                             <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
                             <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
-                            <ThemedText style={styles.inputLabel}>A cargo de:</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('bulkEditTeacher')}>
-                                <ThemedText style={styles.filterButtonText}>{bulkUpdates.profesor ? getDisplayName(bulkUpdates.profesor, 'teacher') : '-- No cambiar --'}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
+                            <ThemedText style={styles.inputLabel}>A cargo de (Seleccionar para cambiar)</ThemedText>
+                            <View style={styles.weekDayContainer}> 
+                                {teachers.map(teacher => (
+                                    <TouchableOpacity 
+                                        key={teacher._id} 
+                                        onPress={() => handleBulkProfessorSelection(teacher._id)} 
+                                        style={[
+                                            styles.dayChip, 
+                                            bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id) && styles.dayChipSelected
+                                        ]}
+                                    >
+                                        <Text style={
+                                            bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id) 
+                                            ? styles.dayChipTextSelected 
+                                            : styles.dayChipText
+                                        }>
+                                            {teacher.nombre} {teacher.apellido}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                             <ThemedText style={styles.inputLabel}>Nuevos Días de la Semana:</ThemedText>
                             <View style={styles.weekDayContainer}>
                                 {daysOfWeekOptions.map(day => (

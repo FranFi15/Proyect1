@@ -46,6 +46,24 @@ const capitalize = (str) => {
     return formattedStr.replace(' De ', ' de ');
 };
 
+const formatTeachers = (clase) => {
+    // 1. Prioridad: Array de profesores (Nueva estructura)
+    if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
+        return clase.profesores
+            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
+            .filter(name => name !== '')
+            .join(', ');
+    }
+    
+    // 2. Fallback: Profesor único (Estructura antigua)
+    if (clase.profesor && clase.profesor.nombre) {
+        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
+    }
+
+    // 3. Default
+    return 'Sin profesor asignado';
+};
+
 const getCalendarTheme = (colorScheme, gymColor) => ({
     calendarBackground: Colors[colorScheme].background,
     textSectionTitleColor: Colors[colorScheme].text,
@@ -133,11 +151,13 @@ const CalendarScreen = () => {
         if (!user) return;
         try {
             await refreshUser();
-            const [classesResponse] = await Promise.all([
+            const [classesResponse, typesResponse] = await Promise.all([
                 apiClient.get('/classes'),
+                apiClient.get('/tipos-clase')
             ]);
             
             setAllClasses(classesResponse.data);
+            setClassTypes(typesResponse.data.tiposClase || []);
 
             
             const markers = {};
@@ -272,7 +292,7 @@ const CalendarScreen = () => {
         });
     }, [refreshUser, fetchData]);
 
-    // ... (handleSubscribe y handleUnsubscribe se mantienen igual)
+    
     const handleSubscribe = useCallback(async (classId) => {
         try {
             const response = await classService.subscribeToWaitlist(classId);
@@ -293,10 +313,10 @@ const CalendarScreen = () => {
         }
     }, [fetchData]);
 
-    // --- MANEJADORES DE EVENTOS (MODIFICADOS) ---
+
     const handleDayPress = (day) => {
         setSelectedDate(day.dateString);
-        setIndex(1); // Cambia al tab de "Turnos"
+        setIndex(1); 
     };
 
     const handleIndexChange = (newIndex) => {
@@ -322,11 +342,11 @@ const CalendarScreen = () => {
 
     const handleSelectClassType = (typeId) => {
         setSelectedClassType(typeId);
-        setFilterModalVisible(false); // La lógica se mantiene aquí
+        setFilterModalVisible(false); 
     };
 
     const sectionedClasses = useMemo(() => {
-        if (selectedDate) return []; // SectionList solo se usa para la vista general
+        if (selectedDate) return []; 
 
         const grouped = visibleClasses.reduce((acc, clase) => {
             const dateKey = clase.fecha.substring(0, 10);
@@ -355,7 +375,9 @@ const CalendarScreen = () => {
                     {item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}
                 </ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de : {item.profesor?.nombre || 'A confirmar'} {item.profesor?.apellido || ''}</ThemedText>
+                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>
+                    A cargo de: {formatTeachers(item)}
+                </ThemedText>
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
 
                 <View style={styles.buttonContainer}>
