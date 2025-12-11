@@ -404,6 +404,25 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     }
     
     await user.save();
+    if (clase.waitlist && clase.waitlist.length > 0) {
+        const title = "¡Lugar Disponible!";
+        const message = `Se ha liberado un lugar en el turno de "${clase.nombre || clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs. ¡Corre a inscribirte!`;
+
+        // Notificamos a TODOS los de la lista (o podrías hacerlo solo al primero, como prefieras)
+        for (const waitingUserId of clase.waitlist) {
+            await sendSingleNotification(
+                Notification,
+                User,
+                waitingUserId,
+                title,
+                message,
+                'spot_available', // Tipo especial para identificarlo
+                true, // Importante
+                clase._id
+            );
+        }
+        console.log(`[Clase ${classId}] Notificados ${clase.waitlist.length} usuarios en lista de espera.`);
+    }
     await clase.save();
 
     res.json({ message: 'Anulación exitosa.' });
