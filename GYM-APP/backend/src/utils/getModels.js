@@ -8,9 +8,7 @@ import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getSettingsModel from '../models/Settings.js';
-import getEjercicioModel from '../models/Ejercicio.js';
-import getPlanModel from '../models/Plan.js';
-import getFeedbackEjercicioModel from '../models/FeedbackEjercicio.js';
+
 
 
 
@@ -30,9 +28,7 @@ const getModels = (dbConnection) => {
         TrainingPlan: getTrainingPlanModel(dbConnection),
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
-        Ejercicio: getEjercicioModel(dbConnection),
-        Plan: getPlanModel(dbConnection),
-        FeedbackEjercicio: getFeedbackEjercicioModel(dbConnection),
+        
     };
 
     return models;
