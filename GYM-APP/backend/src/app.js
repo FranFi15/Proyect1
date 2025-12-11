@@ -30,6 +30,7 @@ import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
 import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; 
 import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
+import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 
 
 
@@ -84,6 +85,7 @@ scheduleMonthlyClassGeneration();
 scheduleMonthlyCreditReset();
 scheduleDebtorNotifications(); 
 scheduleMonthlyCleanup();
+schedulePaseLibreExpirationCheck();
 
 
 // Middlewares de manejo de errores

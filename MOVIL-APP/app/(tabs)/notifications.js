@@ -79,6 +79,10 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'dumbbell';
             baseColor = Colors[colorScheme].text;
             break;
+            case 'pase_libre_expiration':
+            iconName = 'alert-circle';
+            baseColor = colors.error;
+            break;
         default:
             iconName = 'info';
             baseColor = Colors[colorScheme].icon; // Color neutro por defecto

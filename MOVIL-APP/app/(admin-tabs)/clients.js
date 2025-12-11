@@ -27,7 +27,7 @@ import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@ex
 import DateTimePicker from '@react-native-community/datetimepicker';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { format, parseISO, isValid, isAfter } from 'date-fns';
+import { format, parseISO, isValid, isAfter, isBefore, startOfDay } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
@@ -340,29 +340,7 @@ const ManageClientsScreen = () => {
         });
     };
 
-    const handleRemoveFixedPlan = (planId) => {
-        if (!selectedClient) return;
-        setAlertInfo({
-            visible: true,
-            title: "Quitar Plan Fijo",
-            message: "¿Seguro que quieres quitar este plan de horario fijo?",
-            buttons: [
-                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                {
-                    text: "Quitar", style: "destructive", onPress: async () => {
-                        setAlertInfo({ visible: false });
-                        try {
-                            await apiClient.delete(`/users/${selectedClient._id}/fixed-plan/${planId}`);
-                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Plan de horario fijo eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                            fetchAllData();
-                        } catch (error) {
-                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo quitar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        }
-                    }
-                }
-            ]
-        });
-    };
+    
 
     const findAvailableSlots = async () => {
         const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters;
@@ -547,26 +525,7 @@ const ManageClientsScreen = () => {
             }));
         }
     };
-    const handleRemovePaseLibre = (client) => {
-        if (!client) return;
-        setAlertInfo({
-            visible: true,
-            title: "Quitar Pase Libre",
-            message: `¿Seguro que quieres eliminar el Pase Libre de ${client.nombre}?`,
-            buttons: [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Quitar", style: "destructive", onPress: async () => {
-                    try {
-                        await apiClient.delete(`/users/${client._id}/pase-libre`);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado.' });
-                        fetchAllData(); // Refrescamos los datos
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar el Pase Libre.' });
-                    }
-                }}
-            ]
-        });
-    };
+    
 
     const renderPaseLibreDateField = (label, field) => {
         const dateValue = paseLibreData[field];
@@ -796,7 +755,13 @@ const ManageClientsScreen = () => {
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
-        const hasPaseLibre = item.paseLibreHasta && isValid(parseISO(item.paseLibreHasta));
+        
+        const today = startOfDay(new Date()); // Obtenemos el inicio del día de hoy para comparar
+        const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
+
+        const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
+
+        const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
 
         return (
             <View style={[styles.card, !item.isActive && styles.inactiveCard]}>
@@ -846,11 +811,19 @@ const ManageClientsScreen = () => {
                         })}
                     </View>
                 )}
-                {hasPaseLibre && (
+                {isPaseLibreActive && (
                     <View style={styles.paseLibreContainer}>
                         <Ionicons name="star" size={14} color={styles.paseLibreText.color} />
                         <Text style={styles.paseLibreText}>
-                            Pase Libre hasta: {format(parseISO(item.paseLibreHasta), 'dd/MM/yyyy')}
+                            Pase Libre hasta: {format(paseLibreDate, 'dd/MM/yyyy')}
+                        </Text>
+                    </View>
+                )}
+                {isPaseLibreExpired && (
+                    <View style={[styles.paseLibreContainer, { backgroundColor: '#e74c3c' }]}> 
+                        <Ionicons name="alert-circle" size={14} color="#fff" />
+                        <Text style={styles.paseLibreText}>
+                            Pase Libre Vencido ({format(paseLibreDate, 'dd/MM/yyyy')})
                         </Text>
                     </View>
                 )}
@@ -1077,38 +1050,9 @@ const ManageClientsScreen = () => {
                         </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
+                            
                             <View style={styles.section}>
-                                <ThemedText style={styles.sectionTitle}>Planes Actuales</ThemedText>
-                                {selectedClient?.monthlySubscriptions?.length > 0 && selectedClient.monthlySubscriptions.map(sub => (
-                                    <View key={sub._id} style={styles.planItem}>
-                                        <Text style={styles.planText}>Suscripción: {getTypeName(sub.tipoClase.nombre)} ({sub.autoRenewAmount} créditos/mes)</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveSubscription(sub.tipoClase)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
-                                    </View>
-                                ))}
-                                {selectedClient?.planesFijos?.length > 0 && selectedClient.planesFijos.map(plan => (
-                                    <View key={plan._id} style={styles.planItem}>
-                                        <Text style={styles.planText}>Plan Fijo: {getTypeName(plan.tipoClase.nombre)} ({plan.diasDeSemana.join(', ')})</Text>
-                                        <TouchableOpacity onPress={() => handleRemoveFixedPlan(plan._id)}><Octicons name="trash" size={22} color={Colors[colorScheme].text} /></TouchableOpacity>
-                                    </View>
-                                ))}
-                              {selectedClient?.paseLibreHasta && isValid(parseISO(selectedClient.paseLibreHasta)) && (
-        <View style={styles.planItem}>
-            <Text style={styles.planText}>
-                Pase Libre (hasta {format(parseISO(selectedClient.paseLibreHasta), 'dd/MM/yyyy')})
-            </Text>
-            <TouchableOpacity onPress={() => handleRemovePaseLibre(selectedClient)}>
-                <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-            </TouchableOpacity>
-        </View>
-    )}
-                              {(!selectedClient?.monthlySubscriptions || selectedClient.monthlySubscriptions.length === 0) &&
-     (!selectedClient?.planesFijos || selectedClient.planesFijos.length === 0) &&
-     (!selectedClient?.paseLibreHasta || !isValid(parseISO(selectedClient.paseLibreHasta))) &&
-        <Text style={styles.planText}>Este socio no tiene planes activos.</Text>
-    }
-                            </View>
-                            <View style={styles.section}>
-                                <ThemedText style={styles.sectionTitle}>Carga de Créditos / Suscripción</ThemedText>
+                                <ThemedText style={styles.sectionTitle}>Carga de Créditos </ThemedText>
                                 <ThemedText style={styles.inputLabel}>Tipo de Clase</ThemedText>
                                 <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('creditsClassType')}>
                                     <ThemedText style={styles.filterButtonText}>{getDisplayName(planData.tipoClaseId, 'classType')}</ThemedText>
@@ -1116,17 +1060,8 @@ const ManageClientsScreen = () => {
                                 </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
                                 <TextInput style={styles.input} keyboardType="numeric" value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
-                                <View style={styles.switchContainer}>
-                                    <ThemedText>¿Renovación automática mensual?</ThemedText>
-                                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={value => setPlanData(prev => ({ ...prev, isSubscription: value }))} value={planData.isSubscription} />
-                                </View>
-                                {planData.isSubscription && (
-                                    <>
-                                        <ThemedText style={styles.inputLabel}>Créditos a renovar por mes</ThemedText>
-                                        <TextInput style={styles.input} keyboardType="numeric" value={planData.autoRenewAmount} onChangeText={text => setPlanData(prev => ({ ...prev, autoRenewAmount: text }))} />
-                                    </>
-                                )}
-                                <View style={styles.buttonWrapper}><Button title="Aplicar Créditos/Suscripción" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
+                                
+                                <View style={styles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
                             <View style={styles.section}>
                             <ThemedText style={styles.sectionTitle}>Asignar Pase Libre</ThemedText>

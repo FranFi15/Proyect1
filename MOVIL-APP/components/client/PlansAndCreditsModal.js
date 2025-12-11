@@ -71,8 +71,10 @@ const PlansAndCreditsModal = ({ onClose }) => {
         .filter(Boolean)
         : [];
 
-    const monthlySubscriptions = profile.monthlySubscriptions || [];
+    
     const fixedPlans = profile.planesFijos || [];
+
+    const hasPaseLibre = profile.paseLibreHasta && isValid(parseISO(profile.paseLibreHasta));
 
     return (
         <View style={styles.modalContainer}>
@@ -81,17 +83,17 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     <Ionicons name="close-circle" size={30} color="#ccc" />
                 </TouchableOpacity>
                 <ScrollView>
-                    <Text style={styles.modalTitle}>Mis Planes y Créditos</Text>
+                    <Text style={styles.modalTitle}>Pase y Créditos</Text>
 
-                    {monthlySubscriptions.length > 0 && (
-                        <ThemedView style={styles.card}>
-                            <ThemedText style={styles.cardTitle}>Suscripciones</ThemedText>
-                            {monthlySubscriptions.map((sub, index) => (
-                                <View key={index} style={styles.infoRow}>
-                                    <ThemedText style={styles.infoLabelBold}>{sub.tipoClase?.nombre || 'Clase'}</ThemedText>
-                                    <ThemedText style={styles.infoValue}>{sub.autoRenewAmount} créditos/mes</ThemedText>
-                                </View>
-                            ))}
+                    {hasPaseLibre && (
+                        <ThemedView style={[styles.card,]}>
+                            <ThemedText style={[styles.cardTitle]}>Pase Libre </ThemedText>
+                            <View style={styles.infoRow}>
+                                <ThemedText style={[styles.infoLabelBold]}>Válido hasta:</ThemedText>
+                                <ThemedText style={styles.infoValue}>
+                                    {format(parseISO(profile.paseLibreHasta), 'dd/MM/yyyy')}
+                                </ThemedText>
+                            </View>
                         </ThemedView>
                     )}
                     {fixedPlans.length > 0 && (
@@ -110,11 +112,16 @@ const PlansAndCreditsModal = ({ onClose }) => {
                             <ThemedText style={styles.cardTitle}>Créditos Disponibles</ThemedText>
                             {creditosDisponibles.map((credito, index) => (
                                 <View key={index} style={styles.infoRow}>
-                                    <ThemedText style={styles.infoLabel}>{credito.name}:</ThemedText>
+                                    <ThemedText style={styles.infoLabelBold}>{credito.name}:</ThemedText>
                                     <ThemedText style={styles.infoValue}>{credito.amount}</ThemedText>
                                 </View>
                             ))}
                         </ThemedView>
+                    )}
+                    {!hasPaseLibre && fixedPlans.length === 0 && creditosDisponibles.length === 0 && (
+                        <ThemedText style={{ textAlign: 'center', marginTop: 20, opacity: 0.6 }}>
+                            No ttenes plan, ni créditos.
+                        </ThemedText>
                     )}
                 </ScrollView>
             </View>
