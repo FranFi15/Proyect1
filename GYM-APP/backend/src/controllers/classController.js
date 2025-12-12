@@ -425,7 +425,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     }
     await clase.save();
 
-    res.json({ message: 'Anulación exitosa.' });
+    res.json({ message: 'Anulación exitosa. Se te devolvio 1 crédito.' });
 });
 
 
