@@ -29,6 +29,12 @@ const getDayName = (date) => {
     return days[date.getUTCDay()];
 };
 
+const setNoonUTC = (date) => {
+    const newDate = new Date(date);
+    newDate.setUTCHours(12, 0, 0, 0);
+    return newDate;
+};
+
 const createClass = asyncHandler(async (req, res) => {
     const { Clase, TipoClase } = getModels(req.gymDBConnection);
     const { nombre, tipoClase: tipoClaseId, profesores, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
@@ -535,6 +541,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     }
 
     const fechaDesdeFiltro = new Date(`${filters.fechaDesde || new Date().toISOString().substring(0,10)}T00:00:00Z`);
+
     const query = {
         nombre: filters.nombre,
         tipoClase: filters.tipoClase,
@@ -561,21 +568,30 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
             template.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
         }
         
+       const ruleStart = new Date(fechaDesdeFiltro);
+        ruleStart.setUTCHours(12, 0, 0, 0); // <-- FORZAR MEDIODÍA
+
         const lastDate = futureInstances[futureInstances.length - 1].fecha;
+        const ruleUntil = new Date(lastDate);
+        ruleUntil.setUTCHours(23, 59, 59, 999); // Asegurar final del día
+
         const rule = new RRule({
             freq: RRule.WEEKLY,
             byweekday: updates.diasDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
-            dtstart: fechaDesdeFiltro,
-            until: new Date(`${lastDate.toISOString().substring(0, 10)}T23:59:59Z`)
+            dtstart: ruleStart, // Usamos la fecha corregida a las 12:00
+            until: ruleUntil
         });
         
         const newDates = rule.all();
         for (const date of newDates) {
+            // 3. Asegurar que las nuevas fechas también estén a las 12:00 UTC (RRule hereda dtstart, así que debería estar bien, pero por seguridad:)
+            const dateAtNoon = setNoonUTC(date);
+
             await Clase.create({
                 ...template,
                 _id: new mongoose.Types.ObjectId(),
-                fecha: date,
-                diaDeSemana: [getDayName(date)], 
+                fecha: dateAtNoon,
+                diaDeSemana: [getDayName(dateAtNoon)], 
                 usuariosInscritos: [],
                 estado: 'activa',
             });
