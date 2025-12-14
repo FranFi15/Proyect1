@@ -120,7 +120,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     )}
                     {!hasPaseLibre && fixedPlans.length === 0 && creditosDisponibles.length === 0 && (
                         <ThemedText style={{ textAlign: 'center', marginTop: 20, opacity: 0.6 }}>
-                            No ttenes plan, ni créditos.
+                            No tenes plan, ni créditos.
                         </ThemedText>
                     )}
                 </ScrollView>

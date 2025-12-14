@@ -158,7 +158,6 @@ const ClassTypeManagementScreen = () => {
         <View style={styles.itemCard}>
             <View style={styles.cardContent}>
                 <ThemedText style={styles.itemTitle}>{item.nombre}</ThemedText>
-                <Text style={styles.priceText}>Precio: ${item.price?.toFixed(2) || '0.00'}</Text>
                 <ThemedText style={styles.cardDescription}>
                     {item.resetMensual ? 'Vencimiento Mensual' : 'Sin Vencimiento'}
                 </ThemedText>
@@ -250,15 +249,6 @@ const ClassTypeManagementScreen = () => {
                                 placeholder="Ej: Crossfit"
                                 value={formData.nombre}
                                 onChangeText={(text) => handleFormChange('nombre', text)}
-                            />
-
-                            <ThemedText style={styles.inputLabel}>Precio</ThemedText>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="0.00"
-                                value={formData.price}
-                                onChangeText={(text) => handleFormChange('price', text)}
-                                keyboardType="numeric"
                             />
                             <View style={styles.switchContainer}>
                                 <ThemedText style={styles.inputLabel}>¿Reiniciar mensualmente?</ThemedText>

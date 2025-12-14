@@ -1,14 +1,17 @@
 import React from 'react';
-import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, TouchableOpacity, View, Image} from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Ionicons } from '@expo/vector-icons'; // Se importa Ionicons
+import { Ionicons } from '@expo/vector-icons'; 
+import { useAuth } from '../contexts/AuthContext';
 
 const ImportantNotificationModal = ({ visible, notification, onClose }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme);
+    const { gymLogo, gymColor } = useAuth();
+    
 
     if (!visible || !notification) {
         return null;
@@ -16,24 +19,33 @@ const ImportantNotificationModal = ({ visible, notification, onClose }) => {
 
     return (
         <Modal
-            animationType="slide" // Animación más suave
+            animationType="fade" 
             transparent={true}
             visible={visible}
             onRequestClose={onClose}
         >
             <View style={styles.centeredView}>
                 <ThemedView style={styles.modalView}>
-                    {/* Ícono de alerta añadido */}
-                    <Ionicons 
-                        name="alert-circle-outline" 
-                        size={50} 
-                        color={'#f9a825'} // Un color amarillo para la advertencia
-                        style={styles.modalIcon} 
-                    />
+                   {gymLogo ? (
+                        <View style={styles.logoContainer}>
+                            <Image 
+                                source={{ uri: gymLogo }} 
+                                style={styles.gymLogo} 
+                                resizeMode="contain" 
+                            />
+                        </View>
+                    ) : (
+                        // Fallback si no hay logo: Ícono genérico
+                        <Ionicons 
+                            name="notifications" 
+                            size={50} 
+                            color={gymColor || '#f9a825'} 
+                            style={styles.modalIcon} 
+                        />
+                    )}
                     
-                    {/* Título dinámico */}
                     <ThemedText style={styles.modalTitle}>
-                        {notification.title || '¡Noticia Importante!'}
+                        {notification.title || '¡Aviso Importante!'}
                     </ThemedText>
                     
                     <ThemedText style={styles.modalMessage}>
@@ -52,19 +64,20 @@ const ImportantNotificationModal = ({ visible, notification, onClose }) => {
     );
 };
 
-const getStyles = (colorScheme) => StyleSheet.create({
+const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centeredView: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.8)', // Fondo más oscuro para mayor enfoque
+        backgroundColor: 'rgba(0,0,0,0.8)', 
     },
     modalView: {
         margin: 20,
         backgroundColor: Colors[colorScheme].cardBackground,
         borderRadius: 5, 
-        padding: 25,
-        paddingTop: 30,
+        borderColor:  gymColor,
+        paddingHorizontal: 25,
+        paddingBottom: 30,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: {
@@ -74,29 +87,42 @@ const getStyles = (colorScheme) => StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 6,
         elevation: 8,
-        width: '85%',
-        maxWidth: 400,
+        width: '90%',
+    },
+    logoContainer: {
+        width: 150,
+        height: 150,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 5,
+        overflow: 'hidden',
+        elevation: 2,
+    },
+    gymLogo: {
+        width: '100%',
+        height: '100%',
     },
     modalIcon: {
         marginBottom: 15,
     },
     modalTitle: {
-        fontSize: 30, // Título más grande
+        marginTop: 1,
+        fontSize: 20, 
         fontWeight: 'bold',
         marginBottom: 15,
         color: Colors[colorScheme].text,
         textAlign: 'center',
     },
     modalMessage: {
-        fontSize: 16,
-        marginBottom: 30, // Más espacio antes del botón
+        fontSize: 15,
+        marginBottom: 30, 
         color: Colors[colorScheme].text,
         textAlign: 'center',
         lineHeight: 24,
     },
     closeButton: {
-        backgroundColor: '#1a5276',
-        borderRadius: 5, // Botón con forma de píldora
+        backgroundColor:  gymColor || '#1a5276',
+        borderRadius: 5, 
         paddingVertical: 14,
         paddingHorizontal: 30,
         elevation: 2,

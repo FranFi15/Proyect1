@@ -726,11 +726,18 @@ const ManageClassesScreen = () => {
             return setAlertInfo({ visible: true, title: 'Sin cambios', message: 'No has modificado ningún campo.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
 
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const fechaDesdeLocal = `${year}-${month}-${day}`;
+
+
         const filters = {
             nombre: editingGroup.nombre,
             tipoClase: editingGroup.tipoClase._id,
             horaInicio: editingGroup.horaInicio,
-            fechaDesde: new Date().toISOString().split('T')[0],
+            fechaDesde: fechaDesdeLocal,
         };
 
         try {
@@ -1340,7 +1347,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
     cancelledText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: 'bold', marginRight: 'auto' },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    cardSubtitle: { fontSize: 16, color: gymColor, marginBottom: 10 },
+    cardSubtitle: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 10 },
     cardInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 4 },
     actionButton: { padding: 8, marginLeft: 15 },
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,},

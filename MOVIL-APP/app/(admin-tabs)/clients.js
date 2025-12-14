@@ -752,6 +752,41 @@ const ManageClientsScreen = () => {
         }
     };
 
+    const handleQuickRemovePaseLibre = (client) => {
+        setAlertInfo({
+            visible: true,
+            title: "Quitar Pase Libre",
+            message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { 
+                    text: "Quitar", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        setAlertInfo({ visible: false }); // Cerrar alerta primero
+                        try {
+                            await apiClient.delete(`/users/${client._id}/pase-libre`);
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Éxito', 
+                                message: 'Pase Libre eliminado correctamente.',
+                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
+                            });
+                            fetchAllData(); // Refrescar la lista
+                        } catch (error) {
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Error', 
+                                message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.',
+                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
+                            });
+                        }
+                    }
+                }
+            ]
+        });
+    };
+
 
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
@@ -784,6 +819,14 @@ const ManageClientsScreen = () => {
                             <Ionicons name="card" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                          )}
+                         {(isPaseLibreActive || isPaseLibreExpired) && (
+                            <TouchableOpacity 
+                                style={styles.actionButton} 
+                                onPress={() => handleQuickRemovePaseLibre(item)}
+                            >
+                                <Ionicons name="star" size={24} color="#e74c3c" />
+                            </TouchableOpacity>
+                        )}
                         {item?.ordenMedicaRequerida && (
                             <TouchableOpacity style={styles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
                                 <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={24} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'} />
