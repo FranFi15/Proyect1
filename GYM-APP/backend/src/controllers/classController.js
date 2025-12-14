@@ -8,8 +8,7 @@ const {RRule} = rrule
 import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
 
-// --- NUEVA FUNCIÓN DE AYUDA ---
-// Mapea los nombres de los días en español a las constantes de la librería RRule
+
 const mapDayToRRule = (day) => {
     const map = {
         'Lunes': RRule.MO,
@@ -23,7 +22,6 @@ const mapDayToRRule = (day) => {
     return map[day];
 };
 
-// --- FUNCIÓN DE AYUDA (EXISTENTE) ---
 const getDayName = (date) => {
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return days[date.getUTCDay()];
@@ -37,39 +35,105 @@ const setNoonUTC = (date) => {
 
 const createClass = asyncHandler(async (req, res) => {
     const { Clase, TipoClase } = getModels(req.gymDBConnection);
-    const { nombre, tipoClase: tipoClaseId, profesores, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
+    const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
+    
+    if (!tipoClaseId) {
+        res.status(400);
+        throw new Error('Debes seleccionar un tipo de turno. Si no hay tipos creados, crea uno primero.');
+    }
+    if (!capacidad) {
+        res.status(400);
+        throw new Error('La capacidad del turno es obligatoria.');
+    }
+    if (!horaInicio || !horaFin) {
+        res.status(400);
+        throw new Error('El horario de inicio y fin es obligatorio.');
+    }
+
+
+    if (tipoInscripcion === 'fijo') {
+        if (!fechaInicio || !fechaFin) {
+            res.status(400);
+            throw new Error('Para turnos Recurrentes, debes especificar fecha de inicio y fin.');
+        }
+        if (!diaDeSemana || diaDeSemana.length === 0) {
+            res.status(400);
+            throw new Error('Debes seleccionar al menos un día de la semana para turnos.');
+        }
+    } else {
+        // Tipo libre (fecha única)
+        if (!fecha) {
+            res.status(400);
+            throw new Error('La fecha del turno es obligatoria.');
+        }
+    }
+
     
     const capacidadNum = Number(capacidad) || 0;
     let totalCapacityCreated = 0;
     let createdClassesData = [];
 
+ 
     let profesoresIds = [];
-    if (Array.isArray(profesores)) {
+    if (profesores && Array.isArray(profesores)) {
         profesoresIds = profesores;
-    } else if (profesores) {
-        profesoresIds = [profesores];
+    } else if (profesor) {
+        profesoresIds = [profesor];
     }
 
     if (tipoInscripcion === 'fijo') {
-        const rule = new RRule({
-            freq: RRule.WEEKLY,
-            byweekday: diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
-            dtstart: new Date(`${fechaInicio}T12:00:00.000Z`),
-            until: new Date(`${fechaFin}T12:00:00.000Z`),
-        });
-        const allDates = rule.all();
-        if (allDates.length === 0) {
-            return res.status(400).json({ message: "La configuración no generó ningun turno." });
+        try {
+            const rule = new RRule({
+                freq: RRule.WEEKLY,
+                byweekday: diaDeSemana.map(day => mapDayToRRule(day)).filter(Boolean),
+                dtstart: new Date(`${fechaInicio}T12:00:00.000Z`),
+                until: new Date(`${fechaFin}T12:00:00.000Z`),
+            });
+            const allDates = rule.all();
+            
+            if (allDates.length === 0) {
+                return res.status(400).json({ message: "La configuración de fechas y días no generó ningún turno válido. Verifica el rango y los días seleccionados." });
+            }
+            
+            const classCreationPromises = allDates.map(dateInstance => {
+                const newClassData = { 
+                    nombre, 
+                    tipoClase: tipoClaseId, 
+                    profesores: profesoresIds,
+                    profesor: profesoresIds[0], 
+                    capacidad: capacidadNum, 
+                    horaInicio, 
+                    horaFin, 
+                    fecha: dateInstance, 
+                    diaDeSemana: [getDayName(dateInstance)], 
+                    tipoInscripcion: 'fijo', 
+                    rrule: rule.toString() 
+                };
+                return Clase.create(newClassData);
+            });
+            createdClassesData = await Promise.all(classCreationPromises);
+            totalCapacityCreated = capacidadNum * createdClassesData.length;
+            
+        } catch (rruleError) {
+            console.error("Error al generar fechas recurrentes:", rruleError);
+            res.status(400);
+            throw new Error('Error al generar los turnos recurrentes. Verifica las fechas.');
         }
-        const classCreationPromises = allDates.map(dateInstance => {
-            const newClassData = { nombre, tipoClase: tipoClaseId,profesores: profesoresIds, capacidad: capacidadNum, horaInicio, horaFin, fecha: dateInstance, diaDeSemana: [getDayName(dateInstance)], tipoInscripcion: 'fijo', rrule: rule.toString() };
-            return Clase.create(newClassData);
-        });
-        createdClassesData = await Promise.all(classCreationPromises);
-        totalCapacityCreated = capacidadNum * createdClassesData.length;
+
     } else {
         const safeDate = new Date(`${fecha}T12:00:00.000Z`);
-        const newClass = new Clase({ nombre, tipoClase: tipoClaseId, profesores: profesoresIds, capacidad: capacidadNum, horaInicio, horaFin, fecha: safeDate, diaDeSemana: [getDayName(safeDate)], tipoInscripcion: 'libre' });
+        const newClass = new Clase({ 
+            nombre, 
+            tipoClase: tipoClaseId, 
+            profesores: profesoresIds,
+            profesor: profesoresIds[0], 
+            capacidad: capacidadNum, 
+            horaInicio, 
+            horaFin, 
+            fecha: safeDate, 
+            diaDeSemana: [getDayName(safeDate)], 
+            tipoInscripcion: 'libre' 
+        });
         createdClassesData = [await newClass.save()];
         totalCapacityCreated = capacidadNum;
     }
@@ -83,7 +147,7 @@ const createClass = asyncHandler(async (req, res) => {
         });
     }
 
-    res.status(201).json({ message: `Se crearon ${createdClassesData.length} turnos.`, data: createdClassesData });
+    res.status(201).json({ message: `Se crearon ${createdClassesData.length} turnos exitosamente.`, data: createdClassesData });
 });
 
 const getAllClassesAdmin = asyncHandler(async (req, res) => {
@@ -108,8 +172,7 @@ const getAllClasses = asyncHandler(async (req, res) => {
     // 2. Si hay un límite de días, construimos el filtro de fecha
     if (visibilityDays && visibilityDays > 0) {
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Inicio del día de hoy
-
+        today.setHours(0, 0, 0, 0); 
         const limitDate = new Date(today);
         limitDate.setDate(today.getDate() + visibilityDays);
 
@@ -206,20 +269,38 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
     }
     classItem.estado = 'cancelada';
 
-    if (refundCredits) {
+   if (refundCredits) {
         for (const userId of classItem.usuariosInscritos) {
             const user = await User.findById(userId);
             if (user) {
-                const tipoClaseId = classItem.tipoClase._id.toString();
-                const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-                await user.save();
-                await Notification.create({
-                    user: user._id,
-                    message: `Se te ha reembolsado 1 crédito para el turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
-                    type: 'class_cancellation_refund',
-                    class: classItem._id
-                });
+                // --- LÓGICA DE PASE LIBRE AÑADIDA ---
+                const hoy = new Date();
+                const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
+                                             hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+
+                // Solo devolvemos el crédito si NO tiene pase libre activo
+                if (!tienePaseLibreActivo) {
+                    const tipoClaseId = classItem.tipoClase._id.toString();
+                    const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
+                    user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
+                    await user.save();
+                    
+                    // Notificación de reembolso
+                    await Notification.create({
+                        user: user._id,
+                        message: `Se te ha reembolsado 1 crédito para el turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
+                        type: 'class_cancellation_refund',
+                        class: classItem._id
+                    });
+                } else {
+                    // Si tiene pase libre, solo notificamos la cancelación sin mencionar reembolso
+                    await Notification.create({
+                        user: user._id,
+                        message: `El turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} ha sido cancelado.`,
+                        type:'class_cancellation_refund',
+                        class: classItem._id
+                    });
+                }
             }
         }
     }
