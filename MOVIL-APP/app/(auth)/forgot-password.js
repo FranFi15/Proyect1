@@ -187,7 +187,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    loginLink: { fontSize: 14, color: gymColor || '#00177d', fontWeight: 'bold', marginLeft: 5, alignSelf: 'center', marginTop: 30 },
+    loginLink: { fontSize: 14, color: Colors[colorScheme].icon, fontWeight: 'bold', marginLeft: 5, alignSelf: 'center', marginTop: 30 },
 });
 
 export default ForgotPasswordScreen;

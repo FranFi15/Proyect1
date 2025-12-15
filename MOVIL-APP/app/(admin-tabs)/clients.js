@@ -84,6 +84,8 @@ const ManageClientsScreen = () => {
         visible: false,
         field: null, // 'fechaInicio' o 'fechaFin'
         currentValue: new Date(),
+        onConfirm: () => {}, 
+        onChange: () => {}
     });
 
     const [newClientData, setNewClientData] = useState({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false });
@@ -496,35 +498,11 @@ const ManageClientsScreen = () => {
         });
     };
 
-    const handleSavePaseLibre = async () => {
-        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
-            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
-        }
-        try {
-            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
-                paseLibreDesde: format(paseLibreData.desde, 'yyyy-MM-dd'),
-                paseLibreHasta: format(paseLibreData.hasta, 'yyyy-MM-dd'),
-            });
-             fetchAllData();
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
-        }
-    };
     const showPaseLibreDatePicker = (field) => {
         setPaseLibreFieldToEdit(field);
         setIsPaseLibrePickerVisible(true);
     };
 
-    const handlePaseLibreDateChange = (event, selectedDate) => {
-        setIsPaseLibrePickerVisible(Platform.OS === 'ios');
-        if (selectedDate) {
-            setPaseLibreData(prev => ({
-                ...prev,
-                [paseLibreFieldToEdit]: selectedDate
-            }));
-        }
-    };
     
 
     const renderPaseLibreDateField = (label, field) => {
@@ -617,89 +595,92 @@ const ManageClientsScreen = () => {
         return classType?.nombre || 'Desconocido';
     };
 
-    const showDatePickerFor = (field) => {
-        let initialDate = new Date();
-        let minDate;
+    const showDatePickerFor = (field, initialDateString, onChangeCallback) => {
+        const initialDate = initialDateString ? parseISO(initialDateString) : new Date();
+        
+        const handleDateChange = (event, selectedDate) => {
+            const currentDate = selectedDate || initialDate;
+            if (Platform.OS === 'android') {
+                setDatePickerConfig(prev => ({ ...prev, visible: false }));
+                if (event.type !== 'dismissed') {
+                    onChangeCallback(format(currentDate, 'yyyy-MM-dd'));
+                }
+            } else {
+                 setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate }));
+            }
+        };
 
-        if (field === 'fechaFin' && massEnrollFilters.fechaInicio) {
-            const startDate = parseISO(massEnrollFilters.fechaInicio);
-            minDate = startDate;
-            initialDate = (massEnrollFilters.fechaFin && isAfter(parseISO(massEnrollFilters.fechaFin), startDate))
-                ? parseISO(massEnrollFilters.fechaFin)
-                : startDate;
-        } else if (massEnrollFilters[field]) {
-            initialDate = parseISO(massEnrollFilters[field]);
-        }
+        const handleConfirmIos = (dateToConfirm) => {
+             onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd'));
+             setDatePickerConfig(prev => ({ ...prev, visible: false }));
+        };
 
         setDatePickerConfig({
             visible: true,
             field: field,
             currentValue: initialDate,
-            minimumDate: minDate,
+            onChange: handleDateChange,
+            onConfirm: handleConfirmIos
         });
     };
 
-    const handleDateChange = (event, selectedDate) => {
-        if (Platform.OS === 'android') {
-            setDatePickerConfig(prev => ({ ...prev, visible: false }));
-        }
-        if (event.type === 'dismissed') {
-            if (Platform.OS === 'ios') setDatePickerConfig(prev => ({...prev, visible: false}));
-            return;
-        }
-
-        const newDate = selectedDate || datePickerConfig.currentValue;
-
-        if (Platform.OS === 'ios') {
-            setDatePickerConfig(prev => ({ ...prev, currentValue: newDate }));
-            return;
-        }
-        
-        const formattedDate = format(newDate, 'yyyy-MM-dd');
-        setMassEnrollFilters(prev => ({ ...prev, [datePickerConfig.field]: formattedDate }));
-    };
-    
-    const confirmIosDate = () => {
-        const { field, currentValue } = datePickerConfig;
-        const formattedDate = format(currentValue, 'yyyy-MM-dd');
-        setMassEnrollFilters(prev => ({ ...prev, [field]: formattedDate }));
-        setDatePickerConfig({ visible: false, field: null, currentValue: new Date(), minimumDate: undefined });
-    };
-
-
-    const renderDateField = (field) => {
-        const value = massEnrollFilters[field];
+    const renderDateField = (label, value, onChange) => {
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`;
 
         if (Platform.OS === 'web') {
-            const startDate = massEnrollFilters.fechaInicio ? parseISO(massEnrollFilters.fechaInicio) : null;
-            
             return (
-                <DatePicker
-                    selected={value ? parseISO(value) : null}
-                    onChange={(date) => {
-                        if (date) {
-                            setMassEnrollFilters(prev => ({ ...prev, [field]: format(date, 'yyyy-MM-dd') }));
+                <View style={styles.dateFieldContainer}>
+                    <ThemedText style={styles.inputLabel}>{label}</ThemedText>
+                    <DatePicker
+                        selected={value ? parseISO(value) : null}
+                        onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))}
+                        dateFormat="dd/MM/yyyy"
+                        popperPlacement="top-start"
+                        customInput={
+                            <TouchableOpacity style={styles.dateInputTouchable}>
+                                <Text style={styles.dateInputText}>{displayValue}</Text>
+                            </TouchableOpacity>
                         }
-                    }}
-                    minDate={field === 'fechaFin' ? startDate : null}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="YYYY-MM-DD"
-                    customInput={
-                        <View style={styles.dateInputTouchable}>
-                            <Text style={styles.dateInputText}>{value || 'Seleccionar fecha'}</Text>
-                        </View>
-                    }
-                />
+                    />
+                </View>
             );
         }
 
         return (
-            <Pressable onPress={() => showDatePickerFor(field)}>
-                <View style={styles.dateInputTouchable}>
-                    <Text style={styles.dateInputText}>{value || 'Seleccionar fecha'}</Text>
-                </View>
-            </Pressable>
+            <View style={styles.dateFieldContainer}>
+                <ThemedText style={styles.inputLabel}>{label}</ThemedText>
+                <TouchableOpacity 
+                    onPress={() => showDatePickerFor(label, value, onChange)}
+                    style={styles.dateInputTouchable}
+                >
+                    <Text style={styles.dateInputText}>{displayValue}</Text>
+                </TouchableOpacity>
+            </View>
         );
+    };
+
+    const handlePaseLibreDateChange = (field, dateString) => {
+        setPaseLibreData(prev => ({ ...prev, [field]: dateString }));
+    };
+
+    const handleSavePaseLibre = async () => {
+        if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) {
+            return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' });
+        }
+        try {
+            await apiClient.put(`/users/${selectedClient._id}/pase-libre`, {
+                paseLibreDesde: paseLibreData.desde,
+                paseLibreHasta: paseLibreData.hasta,
+            });
+            fetchAllData();
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' });
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' });
+        }
+    };
+
+    const handleMassEnrollDateChange = (field, dateString) => {
+        setMassEnrollFilters(prev => ({ ...prev, [field]: dateString }));
     };
 
    const handleGeneralScan = async ({ data }) => {
@@ -824,6 +805,7 @@ const ManageClientsScreen = () => {
                                 style={styles.actionButton} 
                                 onPress={() => handleQuickRemovePaseLibre(item)}
                             >
+
                                 <Ionicons name="star" size={24} color="#e74c3c" />
                             </TouchableOpacity>
                         )}
@@ -1107,17 +1089,19 @@ const ManageClientsScreen = () => {
                                 <View style={styles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
                             <View style={styles.section}>
-                            <ThemedText style={styles.sectionTitle}>Asignar Pase Libre</ThemedText>
-                            <ThemedText style={styles.inputLabel}>Válido Desde:</ThemedText>
-                            {renderPaseLibreDateField('Desde', 'desde')}
-
-                            <ThemedText style={styles.inputLabel}>Válido Hasta:</ThemedText>
-                            {renderPaseLibreDateField('Hasta', 'hasta')}
-                            
-                            <View style={styles.buttonWrapper}>
-                                <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                                <ThemedText style={styles.sectionTitle}>Asignar Pase Libre</ThemedText>
+                                <View style={styles.row}>
+                                    <View style={{flex: 1, marginRight: 5}}>
+                                        {renderDateField('Desde', paseLibreData.desde, (val) => handlePaseLibreDateChange('desde', val))}
+                                    </View>
+                                    <View style={{flex: 1, marginLeft: 5}}>
+                                        {renderDateField('Hasta', paseLibreData.hasta, (val) => handlePaseLibreDateChange('hasta', val))}
+                                    </View>
+                                </View>
+                                <View style={styles.buttonWrapper}>
+                                    <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                                </View>
                             </View>
-                        </View>
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Inscripción a Horario Fijo</ThemedText>
                                 <ThemedText style={styles.inputLabel}>Paso 1: Buscar horarios disponibles</ThemedText>
@@ -1135,11 +1119,14 @@ const ManageClientsScreen = () => {
                                     ))}
                                 </View>
 
-                                <ThemedText style={styles.inputLabel}>Desde</ThemedText>
-                                {renderDateField('fechaInicio')}
-                                
-                                <ThemedText style={styles.inputLabel}>Hasta (Opcional)</ThemedText>
-                                {renderDateField('fechaFin')}
+                               <View style={styles.row}>
+                                    <View style={{flex: 1, marginRight: 5}}>
+                                         {renderDateField('Desde', massEnrollFilters.fechaInicio, (val) => handleMassEnrollDateChange('fechaInicio', val))}
+                                    </View>
+                                    <View style={{flex: 1, marginLeft: 5}}>
+                                         {renderDateField('Hasta', massEnrollFilters.fechaFin, (val) => handleMassEnrollDateChange('fechaFin', val))}
+                                    </View>
+                                </View>
                                 
                                 <View style={styles.buttonWrapper}>
                                     <Button 
@@ -1180,35 +1167,39 @@ const ManageClientsScreen = () => {
                 </KeyboardAvoidingView>
             )}
 
-            {datePickerConfig.visible && Platform.OS !== 'web' && (
-                <>
-                    {Platform.OS === 'android' && (
-                        <DateTimePicker
-                            value={datePickerConfig.currentValue}
-                            mode="date"
-                            display="default"
-                            minimumDate={datePickerConfig.minimumDate}
-                            onChange={handleDateChange}
-                        />
-                    )}
-                    {Platform.OS === 'ios' && (
-                        <Modal transparent={true} animationType="slide" visible={datePickerConfig.visible}>
-                            <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(p => ({...p, visible: false}))}>
-                                <Pressable style={styles.iosPickerContainer} onPress={() => {}}>
-                                    <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="inline" minimumDate={datePickerConfig.minimumDate} onChange={handleDateChange} themeVariant={colorScheme} />
-                                    <Button title="Confirmar" onPress={confirmIosDate} color={gymColor} />
-                                </Pressable>
-                            </Pressable>
-                        </Modal>
-                    )}
-                </>
+           {datePickerConfig.visible && Platform.OS === 'ios' && (
+                <Modal transparent={true} animationType="fade" visible={datePickerConfig.visible}>
+                    <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(prev => ({...prev, visible: false}))}>
+                        <Pressable style={styles.iosPickerContainer}>
+                            <View style={styles.iosPickerHeader}>
+                                <TouchableOpacity onPress={() => setDatePickerConfig(prev => ({...prev, visible: false}))}>
+                                    <Text style={{color: Colors[colorScheme].text}}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <Text style={{fontWeight: 'bold', color: Colors[colorScheme].text}}>Seleccionar Fecha</Text>
+                                <TouchableOpacity onPress={() => datePickerConfig.onConfirm(datePickerConfig.currentValue)}>
+                                    <Text style={{color: gymColor, fontWeight: 'bold'}}>Confirmar</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <DateTimePicker
+                                value={datePickerConfig.currentValue}
+                                mode="date"
+                                display="inline" 
+                                onChange={datePickerConfig.onChange}
+                                themeVariant={colorScheme}
+                                style={{backgroundColor: Colors[colorScheme].background}}
+                            />
+                        </Pressable>
+                    </Pressable>
+                </Modal>
             )}
-            {isPaseLibrePickerVisible && Platform.OS !== 'web' && (
+
+            {/* --- PICKER DE FECHA PARA ANDROID --- */}
+            {datePickerConfig.visible && Platform.OS === 'android' && (
                 <DateTimePicker
-                    value={paseLibreData[paseLibreFieldToEdit] || new Date()}
+                    value={datePickerConfig.currentValue}
                     mode="date"
                     display="default"
-                    onChange={handlePaseLibreDateChange}
+                    onChange={datePickerConfig.onChange}
                 />
             )}
 
@@ -1225,33 +1216,7 @@ const ManageClientsScreen = () => {
 }
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    dateInputTouchable: {
-        height: 45,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 15,
-        marginBottom: 15,
-        justifyContent: 'center',
-    },
-    dateInputText: {
-        fontSize: 14,
-        color: Colors[colorScheme].text,
-    },
-    iosPickerOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    iosPickerContainer: {
-        backgroundColor: Colors[colorScheme].background,
-        borderTopRightRadius: 5,
-        borderTopLeftRadius: 5,
-        padding: 20,
-        height: '50%',
-        justifyContent: 'space-evenly',
-        alignItems: 'center',
-    },
+    
     modalOverlayWrapper: {
         ...StyleSheet.absoluteFillObject, 
         zIndex: 1000, 
@@ -1355,6 +1320,49 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
         marginLeft: 6,
+    },
+    dateFieldContainer: {
+        marginBottom: 15,
+    },
+    dateInputTouchable: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        height: 50,
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 5,
+        paddingHorizontal: 15,
+    },
+    dateInputText: {
+        fontSize: 16,
+        color: Colors[colorScheme].text,
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    iosPickerOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    iosPickerContainer: {
+        backgroundColor: Colors[colorScheme].background, 
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
+        paddingBottom: 20, 
+        paddingHorizontal: 10,
+    },
+    iosPickerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+        marginBottom: 10,
     },
 
 });
