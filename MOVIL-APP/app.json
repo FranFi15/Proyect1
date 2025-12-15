@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gain Wellness",
     "slug": "MOVIL-APP",
-    "version": "1.0.20",
+    "version": "1.0.21",
     "orientation": "portrait",
     "icon": "./assets/images/apple.png",
     "scheme": "gain-wellness",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.franfi15.MOVILAPP",
-      "buildNumber": "16",
+      "buildNumber": "17",
       "infoPlist": {
         "NSCameraUsageDescription": "Esta app necesita acceso a la cámara para escanear el código QR de los socios en el ingreso al turno.",
         "NSUserNotificationsUsageDescription": "Usamos las notificaciones para avisarte sobre tus turnos, créditos, recordatorios importantes y novedades de la institución.",
@@ -25,16 +25,12 @@
       },
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.franfi15.MOVILAPP",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 20
+      "versionCode": 21
     },
     "web": {
       "bundler": "metro",
