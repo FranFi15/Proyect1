@@ -78,27 +78,13 @@ export default function ProfessorTabsLayout() {
       <Tabs.Screen 
         name="notifications" 
         options={{ 
-          title: 'Notificaciones',
+          title: 'Notificar',
           tabBarIcon: ({ color, size, focused }) => (
-            <View>
-              <Ionicons
-                name={focused ? 'notifications' : 'notifications-outline'} 
-                size={size} 
-                color={color} 
-              />
-              {user?.unreadNotificationsCount > 0 && (
-                <View style={{
-                  position: 'absolute', right: -6, top: -3,
-                  backgroundColor: 'red', borderRadius: 8,
-                  width: 16, height: 16,
-                  justifyContent: 'center', alignItems: 'center',
-                }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
-                    {user.unreadNotificationsCount}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <Ionicons 
+              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} 
+              size={size} 
+              color={color} 
+            />
           ),
         }} 
       />

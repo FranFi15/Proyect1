@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
     TouchableOpacity,
@@ -27,6 +27,7 @@ const LoginPage = () => {
     const { login, logout, gymName, gymLogo, gymColor } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
+    const [isReady, setIsReady] = useState(false);
 
     
     const [alertInfo, setAlertInfo] = useState({
@@ -35,6 +36,13 @@ const LoginPage = () => {
         message: '',
         buttons: [],
     });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleLogin = async () => {
         setIsLoading(true);
@@ -67,6 +75,7 @@ const LoginPage = () => {
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
+                enabled={isReady}
             >
                 <ScrollView contentContainerStyle={styles.container}>
                     {gymLogo ? (
@@ -77,7 +86,6 @@ const LoginPage = () => {
 
                     <ThemedText type="title" style={styles.title}>Iniciar Sesión</ThemedText>
                     
-                    {/* El Text de error se elimina de aquí */}
 
                     <TextInput
                         style={styles.input}

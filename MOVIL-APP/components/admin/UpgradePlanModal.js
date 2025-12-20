@@ -23,8 +23,7 @@ const UpgradePlanModal = ({ visible, onClose, onConfirm, currentCount, currentLi
                         Tu límite es de {currentLimit} clientes. Para registrar más clientes, necesitas ampliarlo.
                     </ThemedText>
                     <View style={styles.planInfoBox}>
-                        <ThemedText style={styles.modalTitle}>Próximo Límite: {currentLimit + 50} clientes</ThemedText>
-                        <ThemedText style={styles.planInfoText}>Se añadirá el costo a tu próxima factura.</ThemedText>
+                        <ThemedText style={styles.modalTitle}>Próximo Límite: {currentLimit + 100} clientes</ThemedText>
                     </View>
                     <View style={styles.modalActions}>
                         <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={onClose}>

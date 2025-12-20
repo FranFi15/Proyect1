@@ -437,7 +437,6 @@ const CalendarScreen = () => {
         return {}; 
     };
     
-    // --- RENDERIZADO DE ESCENAS PARA TABVIEW ---
     const CalendarScene = () => (
            <ThemedView style={{ flex: 1 }}>
         <Calendar 
@@ -540,7 +539,7 @@ const CalendarScreen = () => {
                         {...props}
                         style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
-                        labelStyle={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}
+                        labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none'  }}
                     />
                 )}
             />

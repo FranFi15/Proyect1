@@ -299,14 +299,15 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 30,
+        paddingVertical: 10,
         paddingHorizontal: 20,
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 24,
+        fontSize: 18,
         fontWeight: 'bold',
         color: '#fff',
+        
     },
     headerSubtitle: {
         fontSize: 16,

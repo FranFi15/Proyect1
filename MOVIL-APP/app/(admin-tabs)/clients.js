@@ -25,14 +25,13 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO, isValid, isAfter, isBefore, startOfDay } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal'
+import WebDatePicker from '@/components/WebDatePicker';
 
 const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) => {
     const styles = getStyles(colorScheme, gymColor);
@@ -511,7 +510,7 @@ const ManageClientsScreen = () => {
 
         if (Platform.OS === 'web') {
             return (
-                <DatePicker
+                <WebDatePicker
                     selected={dateValue}
                     onChange={(date) => setPaseLibreData(prev => ({ ...prev, [field]: date }))}
                     minDate={field === 'hasta' ? paseLibreData.desde : null}
@@ -631,7 +630,7 @@ const ManageClientsScreen = () => {
             return (
                 <View style={styles.dateFieldContainer}>
                     <ThemedText style={styles.inputLabel}>{label}</ThemedText>
-                    <DatePicker
+                    <WebDatePicker
                         selected={value ? parseISO(value) : null}
                         onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))}
                         dateFormat="dd/MM/yyyy"
@@ -864,6 +863,9 @@ const ManageClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container} >
+            <View style={styles.headerContainer}>
+                                <ThemedText style={styles.headerTitle}>Usuarios</ThemedText>
+                            </View>
             <ClientCounter 
                 count={subscriptionInfo.clientCount}
                 limit={subscriptionInfo.clientLimit}
@@ -1061,7 +1063,6 @@ const ManageClientsScreen = () => {
                 </KeyboardAvoidingView>
             )}
 
-            {/* Este es el modal principal que se modifica */}
             {creditsModalVisible && (
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1137,21 +1138,54 @@ const ManageClientsScreen = () => {
                                     />
                                 </View>
                                 
-                                {availableSlots.map((slot) => {
-    // Creamos un ID único usando todos los datos
-    const slotId = `${slot.nombre}-${slot.tipoClase?._id}-${slot.horaInicio}-${slot.profesor?._id}`;
-    const isSelected = selectedSlot && `${selectedSlot.nombre}-${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selectedSlot.profesor?._id}` === slotId;
+                                {availableSlots.map((slot, index) => {
+    // --- 1. PREPARAR DATOS (Usando tu lógica de formatTeachers) ---
+    let teacherText = 'Sin profesor asignado';
+    let teacherIdForKey = 'sin-profe';
+
+    // Verificamos si es el formato nuevo (Array)
+    if (slot.profesores && slot.profesores.length > 0) {
+        teacherText = slot.profesores
+            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
+            .join(', ');
+        // Usamos los IDs unidos para generar una clave única
+        teacherIdForKey = slot.profesores.map(p => p._id).join('_');
+    } 
+    // Verificamos si es el formato viejo (Objeto único)
+    else if (slot.profesor && slot.profesor.nombre) {
+        teacherText = `${slot.profesor.nombre} ${slot.profesor.apellido || ''}`.trim();
+        teacherIdForKey = slot.profesor._id;
+    }
+
+    // --- 2. GENERAR ID COMPUESTO ---
+    const dataId = `${slot.nombre}-${slot.tipoClase?._id}-${slot.horaInicio}-${teacherIdForKey}`;
+
+    // --- 3. VERIFICAR SI ESTÁ SELECCIONADO ---
+    let isSelected = false;
+    if (selectedSlot) {
+        // Hacemos la misma lógica para el slot seleccionado actualmente
+        let selTeacherId = 'sin-profe';
+        if (selectedSlot.profesores?.length > 0) {
+            selTeacherId = selectedSlot.profesores.map(p => p._id).join('_');
+        } else if (selectedSlot.profesor?._id) {
+            selTeacherId = selectedSlot.profesor._id;
+        }
+        const selDataId = `${selectedSlot.nombre}-${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selTeacherId}`;
+        isSelected = dataId === selDataId;
+    }
 
     return (
         <TouchableOpacity 
-            key={slotId} 
+            // SOLUCIÓN AL ERROR: Combinamos dataId + index para unicidad absoluta
+            key={`slot_${index}_${dataId}`} 
             style={[styles.slotItem, isSelected && styles.slotItemSelected]} 
             onPress={() => setSelectedSlot(slot)}
         >
             <Text style={isSelected ? styles.slotTextSelected : styles.slotText}>
-                {/* Mostramos el nombre de la clase, el profesor y el horario */}
-                {slot.nombre || 'Turno'} - { (slot.profesor?.nombre || '') + ' ' + (slot.profesor?.apellido || '') } - {slot.horaInicio}hs - {slot.horaFin}hs
+                {/* Aquí mostramos el texto limpio que generamos arriba */}
+                {slot.nombre || 'Turno'} - {teacherText} - {slot.horaInicio}hs - {slot.horaFin}hs
             </Text>
+
         </TouchableOpacity>
     );
 })}
@@ -1220,8 +1254,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlayWrapper: {
         ...StyleSheet.absoluteFillObject, 
         zIndex: 1000, 
+        
     },
     container: { flex: 1 },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     searchInputContainer: {
         flexDirection: 'row',
@@ -1262,7 +1308,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     creditsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 10, },
     creditChip: { backgroundColor: gymColor + '20', borderRadius: 5, paddingHorizontal: 8, paddingVertical: 4, marginRight: 6, marginBottom: 6, },
     creditText: { color: Colors[colorScheme].text, fontSize: 12, fontWeight: '600', },
-    modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalOverlay: {  position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 20, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10, },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text, paddingTop: 10 },

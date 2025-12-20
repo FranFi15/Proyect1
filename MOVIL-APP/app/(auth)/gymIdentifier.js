@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     View,
     TextInput,
@@ -29,7 +29,8 @@ export default function GymIdentifierScreen() {
     const router = useRouter();
     const { setGymContext } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
-    
+    const [isReady, setIsReady] = useState(false);
+
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -37,8 +38,14 @@ export default function GymIdentifierScreen() {
         buttons: [],
     });
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsReady(true);
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
     const handleContinue = async () => {
-        // --- CORRECCIÓN 1: Limpiamos el identificador de espacios ---
         const trimmedIdentifier = identifier.trim();
 
         if (!trimmedIdentifier) {
@@ -99,6 +106,7 @@ export default function GymIdentifierScreen() {
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
+                enabled={isReady}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
                     <Image

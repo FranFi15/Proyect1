@@ -234,7 +234,7 @@ const NotificationsScreen = () => {
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
                 <View style={styles.iconContainer}>
-                <NotificationIcon type={item.type} size={24} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme}/>
+                <NotificationIcon type={item.type} size={20} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme}/>
                 </View>
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
@@ -242,7 +242,7 @@ const NotificationsScreen = () => {
                     <ThemedText style={styles.notificationTime}>{new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                 </View>
                 <TouchableOpacity onPress={() => handleDeleteNotification(item._id)} style={styles.deleteButton}>
-                    <Octicons name="trash" size={24} color={Colors[colorScheme].icon} />
+                    <Octicons name="trash" size={20} color={Colors[colorScheme].icon} />
                 </TouchableOpacity>
             </TouchableOpacity>
         );
@@ -250,8 +250,10 @@ const NotificationsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            <View style={styles.headerContainer}>
+                                            <Text style={styles.headerTitle}>   Notificaciones</Text>
+                                        </View>
             <View style={styles.header}>
-                <ThemedText type="title" style={styles.title}>Notificaciones</ThemedText>
                 {notifications.length > 0 && (
                     <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
                         <Octicons name="trash" size={16} color={Colors[colorScheme].text}/>
@@ -287,10 +289,24 @@ const NotificationsScreen = () => {
 const getStyles = (colorScheme, gymColor) => {
     return StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingTop: 15, paddingBottom: 10 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+        textAlign: 'center',
+    },
+    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 1, paddingTop: 10, paddingBottom: 0},
     title: { fontSize: 20, fontWeight: 'bold' },
-    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 5 },
+    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
     deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 10,},
     noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
     listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
@@ -304,7 +320,7 @@ const getStyles = (colorScheme, gymColor) => {
     icon: { marginRight: 15 },
     notificationContent: { flex: 1 },
     notificationTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-    notificationMessage: { fontSize: 14, opacity: 0.9 },
+    notificationMessage: { fontSize: 12, opacity: 0.9 },
     notificationTime: { fontSize: 12, opacity: 0.6, marginTop: 8, alignSelf: 'flex-end' },
     deleteButton: { padding: 10, marginLeft: 10 },
     errorText: { color: Colors.light.error },

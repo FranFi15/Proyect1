@@ -74,7 +74,7 @@ const ManageClassesScreen = () => {
     const [routes] = useState([
         { key: 'calendar', title: 'Calendario' },
         { key: 'bulk', title: 'Recurrentes' },
-        { key: 'day-management', title: 'Gestión por Día' },
+        { key: 'day-management', title: 'Gestión Día' },
     ]);
 
 
@@ -664,38 +664,63 @@ const ManageClassesScreen = () => {
             .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
     }, [correctlyGroupedClasses, selectedRecurrentClassTypeFilter]);
 
-    const renderClassItem = ({ item }) => (
-        <View style={[styles.card, item.estado === 'cancelada' && styles.cancelledCard]}>
-            <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
-            <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre}</ThemedText>
-            <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-            <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
-            <ThemedText style={styles.cardInfo}>Cupos: {item.usuariosInscritos.length} / {item.capacidad}</ThemedText>
+    const getClassStyle = (clase) => {
+        if (clase.estado === 'cancelada') {
+            return styles.cancelledClass;
+        }
+        const fillRatio = clase.capacidad > 0 ? (clase.usuariosInscritos || []).length / clase.capacidad : 0;
+        if (fillRatio === 1) return styles.fullClass;
+        if (fillRatio >= 0.8) return styles.almostFullClass;
+        if (fillRatio < 0.4) return styles.emptyClass;
+        if (fillRatio < 0.7) return styles.almostEmptyClass;
+        return {}; 
+    };
 
-            <View style={styles.actionsContainer}>
-                {item.estado === 'cancelada' ? (
-                    <>
-                        <Text style={styles.cancelledText}>CANCELADA</Text>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
-                            <Ionicons name="checkmark-circle" size={24} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
-                            <Ionicons name="people" size={24} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
-                            <Ionicons name="close-circle" size={24} color={'#a72828ff'} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
-                            <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                    </>
-                )}
-            </View>
-        </View>
-    );
+    const renderClassItem = ({ item }) => {
+        const dynamicStyle = getClassStyle(item);
+        const isCancelled = item.estado === 'cancelada';
+
+        return (
+            <ThemedView style={[styles.classItem, dynamicStyle]}>
+                <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
+                   {item.nombre || "Turno"} - {item.tipoClase?.nombre}
+                </ThemedText>
+                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                    Horario: {item.horaInicio}hs - {item.horaFin}hs
+                </ThemedText>
+                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                    A cargo de: {formatTeachers(item)}
+                </ThemedText>
+                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                    Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}
+                </ThemedText>
+
+                <View style={styles.buttonContainer}>
+                    {isCancelled ? (
+                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+                             <Text style={styles.badgeCancelled}>CANCELADO</Text>
+                             <TouchableOpacity style={styles.iconButton} onPress={() => handleReactivateClass(item)}>
+                                <ThemedText style={{fontSize: 12, marginRight: 5}}>Reactivar</ThemedText>
+                                <Ionicons name="refresh-circle" size={24} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.adminActionsRow}>
+                            <TouchableOpacity style={styles.iconButton} onPress={() => handleViewRoster(item._id)}>
+                                <Ionicons name="people" size={22} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>
+                                <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconButton} onPress={() => handleCancelClass(item)}>
+                                <Ionicons name="close-circle" size={24} color={'#e74c3c'} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </ThemedView>
+        );
+    };
 
     const handleOpenBulkEditModal = (group) => {
         setEditingGroup(group);
@@ -1025,7 +1050,7 @@ const ManageClassesScreen = () => {
                 initialLayout={{ width: layout.width }}
                 renderTabBar={props => (
                     <TabBar {...props} style={{ backgroundColor: gymColor }}
-                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3, }}
                         labelStyle={styles.tabLabel}
                         tabStyle={styles.tabStyle}
                     />
@@ -1358,7 +1383,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContent: { paddingBottom: 40 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
     modalSubtitle: { fontSize: 16, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
-    modalActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
+    modalActions: { width: '100%', flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
     confirmationModal: { height: 'auto', width: '90%', borderRadius: 5, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
     inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500', marginTop: 15 },
     input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16, marginTop:10 },
@@ -1377,6 +1402,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dayActions: { marginTop: 20, width: '100%', gap: 15 },
     buttonWrapper: { borderRadius: 5, overflow: 'hidden', marginTop: 10 },
     filterButton:{ 
+        marginTop: 15,
+        alignSelf: 'center',
         flexDirection: 'row', 
         alignItems: 'center', 
         justifyContent: 'space-between', 
@@ -1387,7 +1414,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 15,  
         backgroundColor: Colors[colorScheme].cardBackground, 
         color: Colors[colorScheme].text, 
-        fontSize: 16 
+        fontSize: 16, 
+        width: '95%',
     },
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
@@ -1423,6 +1451,32 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     searchIcon: {
         marginRight: 15,
     },
+    tabLabel: { fontSize: 12, fontWeight: 'bold', textTransform: 'none' }, 
+    classItem: {
+        padding: 20,
+        marginHorizontal: 16,
+        marginVertical: 8,
+        borderRadius: 5,
+        borderWidth: 0,
+        elevation: 2,
+        backgroundColor: Colors[colorScheme].background,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,
+    },
+    className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
+    classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
+    cancelledClass: { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5', borderColor: colorScheme === 'dark' ? '#555' : '#e0e0e0', borderLeftWidth: 0, borderWidth: 1 },
+    finishedClass: { opacity: 0.6 },
+    
+    badgeCancelled: { color: Colors.light.error, fontStyle: 'italic', fontWeight: 'bold' },
+    
+    emptyClass: { borderLeftWidth: 15, borderColor: '#006400', backgroundColor: colorScheme === 'dark' ? 'rgba(76, 175, 80, 0.2)' : '#e8f5e9' },
+    almostEmptyClass: { borderLeftWidth: 15, borderColor: '#FFC107', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 193, 7, 0.2)' : '#fffde7' },
+    almostFullClass: { borderLeftWidth: 15, borderColor: '#ff7707', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 119, 7, 0.2)' : '#fff3e0' },
+    fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
+    
+    buttonContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
+    adminActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
+    iconButton: { padding: 5, flexDirection: 'row', alignItems: 'center' },                                                                                 
 });
 
 export default ManageClassesScreen;

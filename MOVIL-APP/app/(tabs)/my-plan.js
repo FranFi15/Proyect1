@@ -7,7 +7,8 @@ import {
     useColorScheme, 
     View, 
     TouchableOpacity,
-    Modal // Volvemos a importar Modal
+    Modal,
+    Text
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -109,6 +110,9 @@ const MyPlanScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            <View style={styles.headerContainer}>
+                                <Text style={styles.headerTitle}>Planes</Text>
+                            </View>
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
@@ -152,6 +156,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     contentContainer: { flexGrow: 1, padding: 15 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+        textAlign: 'center',
+    },
     planButton: {
         backgroundColor: Colors[colorScheme].cardBackground,
         borderRadius: 5,

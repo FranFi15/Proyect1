@@ -1,8 +1,10 @@
-// Archivo: MOVIL-APP/app/index.js
-import { Redirect } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
 
-// El layout principal se encargará de decidir a dónde ir.
-// Este archivo solo sirve como punto de entrada inicial.
+
 export default function StartPage() {
-    return <Redirect href="/calendar" />;
+    return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+            <ActivityIndicator size="large" />
+        </View>
+    );
 }

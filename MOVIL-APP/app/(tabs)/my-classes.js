@@ -54,7 +54,7 @@ const MyClassesScreen = () => {
     const layout = useWindowDimensions();
     const [index, setIndex] = useState(0); // <-- NUEVO ESTADO PARA TABVIEW
     const [routes] = useState([        // <-- NUEVO ESTADO PARA TABVIEW
-        { key: 'upcoming', title: 'Próximas' },
+        { key: 'upcoming', title: 'Próximo Turnos' },
         { key: 'past', title: 'Historial' },
     ]);
     
@@ -277,7 +277,7 @@ const MyClassesScreen = () => {
                         {...props}
                         style={{ backgroundColor: gymColor, paddingTop: 10 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
-                        labelStyle={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}
+                         labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none'  }}
                     />
                 )}
             />

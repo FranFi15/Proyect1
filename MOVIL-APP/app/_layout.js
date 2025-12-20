@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -73,6 +73,8 @@ function AppContent() {
     const notificationListener = useRef();
     const responseListener = useRef();
 
+    const navigationState = useRootNavigationState();
+
     const updatePushTokenBackend = useCallback(async (token) => {
         try {
             await userService.updateUserPushToken(token); 
@@ -96,9 +98,11 @@ function AppContent() {
     }, [currentImportantNotification, refreshUser]);
 
     useEffect(() => {
-        if (loading) return;
+        if (loading || !navigationState?.key) return;
 
-        SplashScreen.hideAsync();
+        SplashScreen.hideAsync().catch((err) => {
+            console.log("Splash Screen ya oculto"); 
+        });
 
         const inAuthGroup = segments[0] === '(auth)';
         
@@ -129,7 +133,7 @@ function AppContent() {
                 }
             }
         }
-    }, [loading, user, clientId, segments, router]); 
+    }, [loading, user, clientId, segments, router, navigationState?.key]); 
 
     useEffect(() => {
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -194,9 +198,6 @@ function AppContent() {
 
     return (
         <>
-            {/* ---> CORRECCIÓN: Se reemplaza el <Stack> por <Slot />.
-                 Slot renderizará el layout hijo correcto ((auth), (tabs), etc.)
-                 basado en la URL, que es manejada por la lógica de redirección de arriba. */}
             <Slot />
             
             <ImportantNotificationModal

@@ -136,8 +136,8 @@ const ClassTypeManagementScreen = () => {
     }, [classTypes, searchTerm]);
 
     const renderHeader = useCallback(() => (
-        <View style={styles.headerContainer}>
-            <ThemedText style={styles.listTitle}>Gestión de Créditos</ThemedText>
+        <View >   
+            <ThemedText style={styles.listTitle}>Créditos</ThemedText>
             <View style={styles.searchInputContainer}>
                 <TextInput 
                     style={styles.searchInput} 
@@ -290,15 +290,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     listContainer: { paddingBottom: 80 },
-    headerContainer: { padding: 15 },
-    listTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 15, color: Colors[colorScheme].text },
+    headerContainer: { padding: 15, alignItems: 'center' },
+    listTitle: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+       alignSelf: 'center',
+       width: '100%',
+       textAlign: 'center',
+       fontWeight: 'bold',
+         color: '#fff',
+       fontSize: 18,
+    },
     searchInputContainer: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         backgroundColor: Colors[colorScheme].cardBackground, 
         borderRadius: 5, 
         borderWidth: 1, 
-        borderColor: Colors[colorScheme].border 
+        borderColor: Colors[colorScheme].border,
+        marginTop: 15,
     },
     searchInput: { 
         flex: 1, 

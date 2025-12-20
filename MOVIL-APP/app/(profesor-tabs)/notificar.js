@@ -169,7 +169,7 @@ const NotificationTeacherScreen = () => {
                 keyboardVerticalOffset={80}
             >
                 <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-                    <ThemedText type="title" style={styles.pageTitle}>Enviar Notificación a Clientes</ThemedText>
+                    <ThemedText type="title" style={styles.pageTitle}>Notificar</ThemedText>
 
                     <View style={styles.formContainer}>
                         <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].icon} />
@@ -285,8 +285,17 @@ const NotificationTeacherScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { marginBottom: 15, fontSize: 21, paddingHorizontal: 20, paddingTop: 20 },
-    formContainer: { paddingHorizontal: 20, paddingTop: 10 },
+    pageTitle: { backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+       alignSelf: 'center',
+       width: '100%',
+       textAlign: 'center',
+       fontWeight: 'bold',
+       color: '#fff',
+       fontSize: 18,  },
+    formContainer: { paddingHorizontal: 20, paddingTop: 10 , marginTop: 20},
     label: { fontSize: 14, color: Colors[colorScheme].icon, marginBottom: 8 },
     input: {
         backgroundColor: Colors[colorScheme].cardBackground,

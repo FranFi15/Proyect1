@@ -8,7 +8,7 @@ import {
     TouchableOpacity, 
     useColorScheme, 
     Text,
-    // --- 1. Import RefreshControl ---
+   ThemedText,
     RefreshControl 
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -100,7 +100,13 @@ const ProfessorClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.searchInputContainer}>
+            <View style={styles.headerContainer}>
+                <Text style={styles.headerTitle}>Planes</Text>
+            </View>
+            {loading ? <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} /> : (
+                
+                <ThemedView>
+                    <View style={styles.searchInputContainer}>
                             <TextInput
                                 style={styles.searchInput}
                                 placeholder="Buscar cliente por nombre o DNI..."
@@ -110,14 +116,12 @@ const ProfessorClientsScreen = () => {
                             />
                             <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
-            {/* --- 5. Loading indicator only replaces the list --- */}
-            {loading ? <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} /> : (
+            
                 <FlatList
                     data={filteredData}
                     renderItem={renderUserCard}
                     keyExtractor={(item) => item._id}
                     contentContainerStyle={{ paddingBottom: 20 }}
-                    // --- 6. Add RefreshControl and Empty State message ---
                     refreshControl={
                         <RefreshControl
                             refreshing={isRefreshing}
@@ -133,6 +137,7 @@ const ProfessorClientsScreen = () => {
                         </View>
                     }
                 />
+                </ThemedView>
             )}
             
             {selectedClient && (
@@ -156,6 +161,20 @@ const ProfessorClientsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+        textAlign: 'center',
+    },
     searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border },
     searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15 },

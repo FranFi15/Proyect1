@@ -211,6 +211,9 @@ const ProfessorMyClassesScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            <View style={styles.headerContainer}>
+                                <ThemedText style={styles.headerTitle}>Mis Turnos</ThemedText>
+                            </View>
             <SectionList
                 sections={sectionedClasses}
                 keyExtractor={(item) => item._id}
@@ -279,8 +282,23 @@ const ProfessorMyClassesScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+    },
+    headerTitle: {backgroundColor: gymColor,
+        
+        alignItems: 'center',
+       alignSelf: 'center',
+       width: '100%',
+       textAlign: 'center',
+       fontWeight: 'bold',
+       color: '#fff',
+       fontSize: 18,},
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' , },
+    sectionHeader: { marginTop: 15,fontSize: 18, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, },
     classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41 },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
