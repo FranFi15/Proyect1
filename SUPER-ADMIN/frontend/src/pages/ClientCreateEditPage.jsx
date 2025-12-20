@@ -10,11 +10,11 @@ const generateUrlIdentifier = (name) => {
         .toString()
         .toLowerCase()
         .trim()
-        .normalize('NFD') // Normaliza para separar acentos de las letras
-        .replace(/[\u0300-\u036f]/g, '') // Elimina los acentos
-        .replace(/\s+/g, '-') // Reemplaza espacios con -
-        .replace(/[^\w-]+/g, '') // Elimina todos los caracteres no alfanuméricos excepto -
-        .replace(/--+/g, '-'); // Reemplaza múltiples - con uno solo
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]+/g, '')
+        .replace(/--+/g, '-');
 };
 
 function ClientCreateEditPage() {
@@ -27,7 +27,7 @@ function ClientCreateEditPage() {
         logoUrl: '', 
         primaryColor: '#150224',
         estadoSuscripcion: 'periodo_prueba', 
-        type: 'turno',
+        type: 'turno', // Valor por defecto fijo
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -45,7 +45,7 @@ function ClientCreateEditPage() {
                         logoUrl: data.logoUrl,
                         primaryColor: data.primaryColor,
                         estadoSuscripcion: data.estadoSuscripcion,
-                        type: data.type || 'turno',
+                        type: 'turno', // Forzamos turno aunque venga otra cosa, para estandarizar
                     });
                 })
                 .catch(err => setError(err.message))
@@ -80,7 +80,7 @@ function ClientCreateEditPage() {
             logoUrl: client.logoUrl,
             primaryColor: client.primaryColor,
             estadoSuscripcion: client.estadoSuscripcion,
-            type: client.type,
+            type: 'turno', // Siempre enviamos 'turno'
         };
 
         try {
@@ -112,13 +112,7 @@ function ClientCreateEditPage() {
                     <input type="text" id="nombre" name="nombre" value={client.nombre} onChange={handleChange} required className="client-input" />
                 </div>
                 
-                <div className="client-form-group">
-                    <label htmlFor="type" className="client-label">Tipo de Negocio:</label>
-                    <select id="type" name="type" value={client.type} onChange={handleChange} className="client-input client-select">
-                        <option value="turno">Turnos</option>
-                        <option value="restaurante">Restaurante</option>
-                    </select>
-                </div>
+                {/* ELIMINADO EL SELECTOR DE TIPO DE NEGOCIO */}
 
                 <div className="client-form-group">
                     <label htmlFor="urlIdentifier" className="client-label">Identificador para URL:</label>

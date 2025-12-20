@@ -8,10 +8,7 @@ const registerClient = asyncHandler(async (req, res) => {
         urlIdentifier, 
         logoUrl, 
         primaryColor,
-        clientLimit,
-        basePrice,
-        pricePerBlock,
-        type
+        clientLimit
     } = req.body;
 
     if (!nombre || !emailContacto || !urlIdentifier) {
@@ -25,10 +22,8 @@ const registerClient = asyncHandler(async (req, res) => {
         urlIdentifier,
         logoUrl,
         primaryColor,
-        clientLimit: clientLimit || 100,
-        basePrice: basePrice || 40000,
-        pricePerBlock: pricePerBlock || 15000,
-        type: type || 'turno',
+        clientLimit: clientLimit || 100, 
+        type: 'turno', 
     });
     
     const mongoHost = process.env.MONGO_DB_HOST;
@@ -36,6 +31,8 @@ const registerClient = asyncHandler(async (req, res) => {
         res.status(500);
         throw new Error('La configuración del host de la base de datos no está definida en el servidor.');
     }
+
+    // Generamos el string de conexión único
     const uniqueDbSuffix = client.clientId.substring(0, 8);
     const tenantDbName = `${urlIdentifier.replace(/-/g, '_')}_${uniqueDbSuffix}`;
     client.connectionStringDB = `${mongoHost}/${tenantDbName}?retryWrites=true&w=majority`;
@@ -51,10 +48,7 @@ const updateClient = asyncHandler(async (req, res) => {
         estadoSuscripcion, 
         logoUrl, 
         primaryColor,
-        clientLimit,
-        basePrice,
-        pricePerBlock,
-        type
+        clientLimit
     } = req.body;
 
     const client = await Client.findById(req.params.id);
@@ -64,15 +58,15 @@ const updateClient = asyncHandler(async (req, res) => {
         throw new Error('Gimnasio no encontrado.');
     }
 
+    // campos relevantes
     if (nombre !== undefined) client.nombre = nombre;
     if (emailContacto !== undefined) client.emailContacto = emailContacto;
     if (estadoSuscripcion !== undefined) client.estadoSuscripcion = estadoSuscripcion;
     if (logoUrl !== undefined) client.logoUrl = logoUrl;
     if (primaryColor !== undefined) client.primaryColor = primaryColor;
     if (clientLimit !== undefined) client.clientLimit = clientLimit;
-    if (basePrice !== undefined) client.basePrice = basePrice;
-    if (pricePerBlock !== undefined) client.pricePerBlock = pricePerBlock;
-    if (type !== undefined) client.type = type;
+    
+
     
     const updatedClient = await client.save();
     res.json({ message: 'Gimnasio actualizado exitosamente.', client: updatedClient });
@@ -126,8 +120,8 @@ const upgradeClientPlan = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
 
-    // Aumentamos el límite al siguiente bloque de 50
-    client.clientLimit += 50; 
+    
+    client.clientLimit += 100; 
     await client.save();
     
     console.log(`Plan para ${client.nombre} ampliado por el administrador del gym. Nuevo límite: ${client.clientLimit}.`);
