@@ -207,12 +207,20 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Cliente no encontrado.');
     }
+
+    const estadosBloqueantes = ['inactivo', 'vencido', 'cancelado'];
+    
+    if (estadosBloqueantes.includes(client.estadoSuscripcion)) {
+        res.status(403); 
+        throw new Error(`El servicio se encuentra ${client.estadoSuscripcion}. Contacte a soporte.`);
+    }
+
     res.status(200).json({
         _id: client._id, 
         clientId: client.clientId, 
         connectionStringDB: client.connectionStringDB,
         estadoSuscripcion: client.estadoSuscripcion,
-        apiSecretKey: client.apiSecretKey // La clave secreta para autenticar otras llamadas
+        apiSecretKey: client.apiSecretKey 
     });
 });
 

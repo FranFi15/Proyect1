@@ -16,6 +16,12 @@ const getGymClientIdByIdentifier = asyncHandler(async (req, res) => {
     });
 
     if (gym) {
+        if (gym.estadoSuscripcion === 'inactivo' || gym.estadoSuscripcion === 'cancelado') {
+             return res.status(403).json({ 
+                 message: 'Este gimnasio se encuentra temporalmente inactivo.',
+                 estadoSuscripcion: gym.estadoSuscripcion 
+             });
+        }
         res.status(200).json({ 
             clientId: gym.clientId,
             urlIdentifier: gym.urlIdentifier,
