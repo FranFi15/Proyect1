@@ -34,8 +34,14 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         });
     }
 
-    // 2. Filtramos las clases que ya han terminado.
-    const currentTime = format(new Date(), 'HH:mm');
+    const now = new Date();
+    const timeFormatter = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires', // <--- CAMBIA ESTO SEGÚN TU PAÍS
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+    const currentTime = timeFormatter.format(now);
     const upcomingClasses = enrolledClassesToday.filter(clase => clase.horaFin > currentTime);
 
     if (upcomingClasses.length === 0) {
