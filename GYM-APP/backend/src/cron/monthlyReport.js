@@ -43,7 +43,7 @@ const generateMonthlyReportAndCleanup = async (dbConnection, clientId) => {
     try {
         const classesToArchive = await Clase.find({
             fecha: { $gte: startDate, $lte: endDate },
-        }).populate('profesor tipoClase usuariosInscritos');
+        }).populate('profesor profesores tipoClase usuariosInscritos');
 
         // Si no hay clases para archivar, no hacemos nada.
         if (classesToArchive.length === 0) {
@@ -62,7 +62,7 @@ const generateMonthlyReportAndCleanup = async (dbConnection, clientId) => {
             { header: 'Nombre del Turno', key: 'nombre', width: 30 },
             { header: 'Tipo de Clase', key: 'tipo', width: 25 },
             { header: 'Horario', key: 'horario', width: 15 },
-            { header: 'Profesor', key: 'profesor', width: 30 },
+            { header: 'Profesores', key: 'profesor', width: 40 },
             { header: 'Inscriptos', key: 'inscriptos', width: 10 },
             { header: 'Capacidad', key: 'capacidad', width: 10 },
             { header: 'Cliente Nombre', key: 'clienteNombre', width: 30 },
@@ -74,12 +74,24 @@ const generateMonthlyReportAndCleanup = async (dbConnection, clientId) => {
         detailSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F4F4F' } };
 
         for (const clase of classesToArchive) {
+
+            let nombresProfesores = 'No asignado';
+
+            if (clase.profesores && clase.profesores.length > 0) {
+                nombresProfesores = clase.profesores
+                    .filter(p => p) 
+                    .map(p => `${p.nombre} ${p.apellido}`)
+                    .join(', ');
+            } else if (clase.profesor) {
+                nombresProfesores = `${clase.profesor.nombre} ${clase.profesor.apellido}`;
+            }
+
             const baseRowData = {
                 fecha: format(new Date(clase.fecha), 'dd/MM/yyyy'),
                 nombre: clase.nombre,
                 tipo: clase.tipoClase?.nombre || 'N/A',
                 horario: `${clase.horaInicio} - ${clase.horaFin}`,
-                profesor: clase.profesor ? `${clase.profesor.nombre} ${clase.profesor.apellido}` : 'No asignado',
+                profesor: nombresProfesores,
                 inscriptos: clase.usuariosInscritos.length,
                 capacidad: clase.capacidad,
             };
