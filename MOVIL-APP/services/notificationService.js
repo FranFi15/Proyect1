@@ -33,29 +33,35 @@ export async function registerForPushNotificationsAsync() {
     if (!Device.isDevice) {
         throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
     }
-    
-    let { status: existingStatus } = await Notifications.getPermissionsAsync();
-    
-    if (existingStatus === 'granted') {
-        const token = await getExpoTokenAndSendToServer();
-        return { status: 'granted', token };
+
+    // 1. Configuración OBLIGATORIA para Android
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+        });
     }
 
-    if (existingStatus === 'denied') {
+    // 2. Revisar permisos existentes
+    let { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    // 3. Si no está determinado, pedir permiso
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
+
+    // 4. Si el usuario denegó, salir
+    if (finalStatus !== 'granted') {
         return { status: 'denied', token: null };
     }
 
-    if (existingStatus === 'undetermined') {
-        const { status: newStatus } = await Notifications.requestPermissionsAsync();
-        if (newStatus === 'granted') {
-            const token = await getExpoTokenAndSendToServer();
-            return { status: 'granted', token };
-        } else {
-            return { status: 'denied', token: null };
-        }
-    }
-    
-    return { status: 'denied', token: null };
+    // 5. Obtener token y enviar
+    const token = await getExpoTokenAndSendToServer();
+    return { status: 'granted', token };
 }
 
 const notificationService = {
