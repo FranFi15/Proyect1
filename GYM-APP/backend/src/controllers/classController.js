@@ -216,14 +216,17 @@ const getClassById = asyncHandler(async (req, res) => {
 });
 
 const updateClass = asyncHandler(async (req, res) => {
-    const { Clase, TipoClase } = getModels(req.gymDBConnection);
+    const { Clase, TipoClase, Notification, User } = getModels(req.gymDBConnection);
     const { capacidad,profesores, ...otherUpdates } = req.body;
-    const classItem = await Clase.findById(req.params.id);
+    const classItem = await Clase.findById(req.params.id).populate('usuariosInscritos');
 
     if (!classItem) {
         res.status(404);
         throw new Error('Turno no encontrado.');
     }
+
+    const oldHoraInicio = classItem.horaInicio;
+    const oldFecha = classItem.fecha;
 
      if (otherUpdates.fecha) {
         otherUpdates.fecha = new Date(`${otherUpdates.fecha}T12:00:00.000Z`);
@@ -242,6 +245,25 @@ const updateClass = asyncHandler(async (req, res) => {
 
     const updatedClass = await classItem.save();
 
+    if ((otherUpdates.horaInicio && otherUpdates.horaInicio !== oldHoraInicio) || 
+        (otherUpdates.fecha && otherUpdates.fecha.getTime() !== oldFecha.getTime())) {
+        
+        const fechaLegible = format(new Date(updatedClass.fecha), 'dd/MM');
+        
+        for (const user of classItem.usuariosInscritos) {
+            await sendSingleNotification(
+                Notification,
+                User,
+                user._id,
+                "⚠️ Cambio de Horario",
+                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
+                'class_update', // Tipo nuevo
+                true,
+                updatedClass._id
+            );
+        }
+    }
+
     if (capacityDifference !== 0) {
         await TipoClase.findByIdAndUpdate(classItem.tipoClase, {
             $inc: {
@@ -250,6 +272,8 @@ const updateClass = asyncHandler(async (req, res) => {
             }
         });
     }
+
+
 
     res.json(updatedClass);
 });

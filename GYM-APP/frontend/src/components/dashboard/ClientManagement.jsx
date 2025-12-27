@@ -443,27 +443,91 @@ function ClientManagement({ classTypes: initialClassTypes }) {
                                 </div>
                             </form>
                             
-                            {availableSlots.length > 0 && (
-                                <form onSubmit={handleMassEnrollSubmit} className="slots-selection">
-                                    <p><strong>Paso 2:</strong> Selecciona el horario a inscribir.</p>
-                                    <div className="radio-group">
-                                        {availableSlots.map((slot, index) => (
-                                            <label key={index} className="radio-label">
-                                                <input type="radio" name="selectedSlot" value={index}
-                                                    checked={selectedSlot?.horaInicio === slot.horaInicio}
-                                                    onChange={() => setSelectedSlot(slot)} />
-                                                {slot.horaInicio} - {slot.horaFin}
-                                            </label>
-                                        ))}
-                                    </div>
-                                    
-                                    <div className="modal-actions">
-                                        <button type="submit" className="btn accent" disabled={!selectedSlot}>
-                                            Inscribir en Horario Seleccionado
-                                        </button>
-                                    </div>
-                                </form>
-                            )}
+{availableSlots.length > 0 && (
+    <View>
+        <ThemedText style={styles.inputLabel}>Paso 2: Selecciona el horario a inscribir.</ThemedText>
+        
+        {availableSlots.map((slot, index) => {
+            // --- 1. LÓGICA HÍBRIDA (Singular vs Plural) ---
+            let nombreProfes = 'Sin Profesor';
+            let idProfes = 'sin-profe';
+
+            if (slot.profesores && Array.isArray(slot.profesores) && slot.profesores.length > 0) {
+                // CASO NUEVO: Array de profesores
+                // Creamos un string con todos los nombres: "Juan Perez, Maria Lopez"
+                nombreProfes = slot.profesores.map(p => `${p.nombre} ${p.apellido}`).join(', ');
+                // Usamos una combinación de IDs para identificar el slot
+                idProfes = slot.profesores.map(p => p._id).join('_');
+            } else if (slot.profesor && slot.profesor._id) {
+                // CASO VIEJO: Objeto profesor único
+                nombreProfes = `${slot.profesor.nombre} ${slot.profesor.apellido}`;
+                idProfes = slot.profesor._id;
+            }
+
+            // --- 2. GENERACIÓN DE IDs ---
+            const nombreClase = slot.nombre || 'Turno';
+            const tipoId = slot.tipoClase?._id || 'sin-tipo';
+            const hora = slot.horaInicio || '00:00';
+            
+            // ID único basado en el contenido real
+            const dataId = `${nombreClase}-${tipoId}-${hora}-${idProfes}`;
+
+            // Lógica de selección
+            let isSelected = false;
+            if (selectedSlot) {
+                // Hacemos lo mismo para el slot seleccionado para poder comparar
+                let selIdProfes = 'sin-profe';
+                if (selectedSlot.profesores?.length > 0) {
+                    selIdProfes = selectedSlot.profesores.map(p => p._id).join('_');
+                } else if (selectedSlot.profesor?._id) {
+                    selIdProfes = selectedSlot.profesor._id;
+                }
+                const selDataId = `${selectedSlot.nombre || 'Turno'}-${selectedSlot.tipoClase?._id || 'sin-tipo'}-${selectedSlot.horaInicio || '00:00'}-${selIdProfes}`;
+                
+                isSelected = dataId === selDataId;
+            }
+
+            // --- 3. RENDERIZADO ---
+            return (
+                <TouchableOpacity 
+                    // CLAVE: Usamos index para garantizar que React nunca se queje, 
+                    // más el dataId para depuración si hiciera falta.
+                    key={`slot_${index}_${dataId}`} 
+                    style={[styles.slotItem, isSelected && styles.slotItemSelected]} 
+                    onPress={() => setSelectedSlot(slot)}
+                >
+                    <Text style={isSelected ? styles.slotTextSelected : styles.slotText}>
+                        {nombreClase} - {nombreProfes} - {slot.horaInicio}hs - {slot.horaFin}hs
+                    </Text>
+                    
+                    {/* Indicador visual de selección */}
+                    <View style={{
+                        height: 20, 
+                        width: 20, 
+                        borderRadius: 10, 
+                        borderWidth: 2, 
+                        borderColor: isSelected ? gymColor : '#777',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'absolute',
+                        right: 10
+                    }}>
+                        {isSelected && <View style={{ height: 10, width: 10, borderRadius: 5, backgroundColor: gymColor }} />}
+                    </View>
+                </TouchableOpacity>
+            );
+        })}
+
+        <View style={styles.buttonWrapper}>
+            <Button 
+                title="Inscribir en Horario Seleccionado" 
+                onPress={handleMassEnrollSubmit} 
+                disabled={!selectedSlot}
+                color={gymColor || '#1a5276'} 
+            />
+        </View>
+    </View>
+)}
                         </fieldset>
 
                         <div className="modal-actions">
