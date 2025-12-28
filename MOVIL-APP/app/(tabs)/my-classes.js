@@ -89,7 +89,7 @@ const MyClassesScreen = () => {
         try {
             const userResponse = await apiClient.get('/users/me');
             const enrolledIds = new Set(userResponse.data.clasesInscritas || []);
-            const classesResponse = await apiClient.get('/classes');
+            const classesResponse = await apiClient.get('/classes?includePast=true');
             const myClasses = classesResponse.data.filter(cls => enrolledIds.has(cls._id));
             const sortedClasses = myClasses.sort((a, b) => {
                 const dateComparison = new Date(a.fecha) - new Date(b.fecha);
