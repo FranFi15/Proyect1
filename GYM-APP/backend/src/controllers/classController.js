@@ -163,6 +163,7 @@ const getAllClassesAdmin = asyncHandler(async (req, res) => {
 const getAllClasses = asyncHandler(async (req, res) => {
     const { Clase, Settings } = getModels(req.gymDBConnection);
 
+    const { includePast } = req.query;
     // 1. Obtenemos la configuración del gimnasio
     const settings = await Settings.findById('main_settings');
     const visibilityDays = settings?.classVisibilityDays;
@@ -171,19 +172,16 @@ const getAllClasses = asyncHandler(async (req, res) => {
     today.setHours(0, 0, 0, 0); 
 
     // Usamos 'today' (00:00hs) en lugar de 'new Date()' (hora actual)
-    let dateFilter = { fecha: { $gte: today } }
+    let dateFilter = {};
     
-    // 2. Si hay un límite de días, construimos el filtro de fecha
-    if (visibilityDays && visibilityDays > 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); 
-        const limitDate = new Date(today);
-        limitDate.setDate(today.getDate() + visibilityDays);
-
-        dateFilter.fecha = {
-            $gte: today,    
-            $lt: limitDate 
-        };
+    if (includePast !== 'true') {
+        dateFilter = { fecha: { $gte: today } }; 
+        
+        if (visibilityDays && visibilityDays > 0) {
+            const limitDate = new Date(today);
+            limitDate.setDate(today.getDate() + visibilityDays);
+            dateFilter.fecha = { ...dateFilter.fecha, $lt: limitDate };
+        }
     }
 
     // 3. Aplicamos el filtro y usamos tu populate optimizado
@@ -260,7 +258,7 @@ const updateClass = asyncHandler(async (req, res) => {
                 User,
                 user._id,
                 "⚠️ Cambio de Horario",
-                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
+                `Tu turno de "${updatedClass.tip}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
                 'class_update', // Tipo nuevo
                 true,
                 updatedClass._id
