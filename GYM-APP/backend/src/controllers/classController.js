@@ -167,7 +167,11 @@ const getAllClasses = asyncHandler(async (req, res) => {
     const settings = await Settings.findById('main_settings');
     const visibilityDays = settings?.classVisibilityDays;
 
-    let dateFilter = { fecha: { $gte: new Date() } };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
+    // Usamos 'today' (00:00hs) en lugar de 'new Date()' (hora actual)
+    let dateFilter = { fecha: { $gte: today } }
     
     // 2. Si hay un límite de días, construimos el filtro de fecha
     if (visibilityDays && visibilityDays > 0) {
@@ -352,12 +356,45 @@ const reactivateClass = asyncHandler(async (req, res) => {
 
 
 const deleteClass = asyncHandler(async (req, res) => {
-    const { Clase, User, TipoClase } = getModels(req.gymDBConnection);
-    const classItem = await Clase.findById(req.params.id);
+    const { Clase, User, TipoClase, Notification } = getModels(req.gymDBConnection);
+    const classItem = await Clase.findById(req.params.id).populate('usuariosInscritos');
 
     if (classItem) {
         const capacity = classItem.capacidad;
         const tipoClaseId = classItem.tipoClase;
+
+        if (classItem.usuariosInscritos && classItem.usuariosInscritos.length > 0) {
+        const fechaLegible = format(new Date(classItem.fecha), 'dd/MM');
+        const hoy = new Date();
+
+        const userPromises = classItem.usuariosInscritos.map(async (user) => {
+            const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
+                                         hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+
+            let mensajeExtra = "";
+
+            if (!tienePaseLibreActivo) {
+                const currentCredits = user.creditosPorTipo.get(tipoClaseId.toString()) || 0;
+                user.creditosPorTipo.set(tipoClaseId.toString(), currentCredits + 1);
+                
+                await user.save();
+                mensajeExtra = " Se te ha reembolsado 1 crédito.";
+            }
+
+            await sendSingleNotification(
+                Notification, 
+                User, 
+                user._id, 
+                "Turno Eliminado", 
+                `El turno de "${classItem.nombre}" del día ${fechaLegible} a las ${classItem.horaInicio}hs ha sido eliminado por el administrador.${mensajeExtra}`, 
+                'class_deletion', 
+                true,
+                null 
+            );
+        });
+
+        await Promise.all(userPromises);
+    }
 
         await User.updateMany({ clasesInscritas: classItem._id }, { $pull: { clasesInscritas: classItem._id } });
         await classItem.deleteOne();
