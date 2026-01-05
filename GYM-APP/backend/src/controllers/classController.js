@@ -769,7 +769,11 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
     if (filters.horaInicio) query.horaInicio = filters.horaInicio;
 
     
-    query.fecha = { $gte: new Date(filters.fechaDesde || new Date()) };
+    const startDate = filters.fechaDesde ? new Date(filters.fechaDesde) : new Date();
+
+    startDate.setHours(0, 0, 0, 0);
+
+    query.fecha = { $gte: startDate };
 
     const result = await Clase.deleteMany(query);
 
