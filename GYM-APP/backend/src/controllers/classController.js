@@ -783,7 +783,7 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
     }
 
     res.json({
-        message: 'Turnos eliminadas exitosamente.',
+        message: 'Turnos eliminados exitosamente.',
         eliminadas: result.deletedCount,
     });
 });
