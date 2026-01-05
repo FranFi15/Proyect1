@@ -6,10 +6,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, AppState, View, ActivityIndicator, StyleSheet } from 'react-native';
 import notificationService from '../services/notificationService';
 import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
+import { Colors } from '@/constants/Colors';
+
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,30 +33,53 @@ const findMostRecentImportantUnread = (notifications) => {
 
 
 export default function RootLayout() {
-     useEffect(() => {
+    const appState = useRef(AppState.currentState); 
+    const [isReady, setIsReady] = useState(true);
+     
+    useEffect(() => {
         // Este código solo se ejecutará en la plataforma web.
         if (Platform.OS === 'web') {
-            // Creamos el CSS para ocultar la barra de scroll en diferentes navegadores.
             const style = document.createElement('style');
             style.textContent = `
-                /* Para Chrome, Safari y otros navegadores WebKit */
-                ::-webkit-scrollbar {
-                    display: none;
-                }
-                /* Para Firefox */
-                body {
-                    scrollbar-width: none;
-                }
-                /* Para Internet Explorer y Edge (versiones viejas) */
-                body {
-                    -ms-overflow-style: none;
-                }
+                ::-webkit-scrollbar { display: none; }
+                body { scrollbar-width: none; }
+                body { -ms-overflow-style: none; }
             `;
-            // Lo añadimos al <head> del documento.
             document.head.appendChild(style);
         }
+
+        // 2. Lógica del UI Buffer para evitar Crash en Android
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            // Detectamos si la app vuelve de 'background' o 'inactive' a 'active'
+            if (
+                appState.current.match(/inactive|background/) &&
+                nextAppState === 'active'
+            ) {
+                console.log("App volviendo a primer plano, aplicando UI Buffer...");
+                setIsReady(false); // Desmontamos la app
+                
+                // Esperamos 100ms para que Android prepare la vista
+                setTimeout(() => {
+                    setIsReady(true); // Volvemos a montar
+                }, 100);
+            }
+            appState.current = nextAppState;
+        });
+
+        return () => {
+            subscription.remove();
+        };
     }, []);
     
+    // 3. Renderizado condicional: Si no está lista, mostramos Spinner
+    if (!isReady) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.backgroundColor} />
+            </View>
+        );
+    }
+
     return (
          <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
@@ -208,3 +233,12 @@ function AppContent() {
         </>
     );
 }
+
+const styles = StyleSheet.create({ // <--- NUEVO
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Colors.backgroundColor, 
+    },
+});

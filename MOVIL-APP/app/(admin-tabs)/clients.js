@@ -771,7 +771,7 @@ const ManageClientsScreen = () => {
     const renderUserCard = ({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
         
-        const today = startOfDay(new Date()); // Obtenemos el inicio del día de hoy para comparar
+        const today = startOfDay(new Date()); 
         const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
 
         const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
@@ -1021,17 +1021,6 @@ const ManageClientsScreen = () => {
                                         <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                                     </View>
                                 )}
-                                {editingClientData.roles.includes('profesor') && (
-                            <View style={styles.switchRow}>
-                                <ThemedText style={styles.inputLabel}>Permitir gestionar ejercicios</ThemedText>
-                                <Switch
-                                    value={editingClientData.puedeGestionarEjercicios}
-                                    onValueChange={(value) => handleEditingClientChange('puedeGestionarEjercicios', value)}
-                                    trackColor={{ false: "#767577", true: gymColor }}
-                                    thumbColor={"#f4f3f4"}
-                                />
-                            </View>
-                        )}
                                <View style={styles.switchRow}>
                             <ThemedText style={styles.inputLabel}>Cuenta Activa</ThemedText>
                             <Switch
@@ -1062,8 +1051,9 @@ const ManageClientsScreen = () => {
                 </Pressable>
                 </KeyboardAvoidingView>
             )}
-
+        
             {creditsModalVisible && (
+                
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.modalOverlayWrapper}
@@ -1076,7 +1066,20 @@ const ManageClientsScreen = () => {
                         </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={styles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
-                            
+                            {selectedClient && Object.values(selectedClient.creditosPorTipo || {}).some(amount => amount > 0) && (
+                    <View style={[styles.creditsContainer, { marginBottom: 20, justifyContent: 'center' }]}>
+                        {Object.entries(selectedClient.creditosPorTipo || {}).map(([typeId, amount]) => {
+                            if (amount > 0) {
+                                return (
+                                    <View key={typeId} style={styles.creditChip}>
+                                        <Text style={styles.creditText}>{getTypeName(typeId)}: {amount}</Text>
+                                    </View>
+                                );
+                            }
+                            return null;
+                        })}
+                    </View>
+                )}
                             <View style={styles.section}>
                                 <ThemedText style={styles.sectionTitle}>Carga de Créditos </ThemedText>
                                 <ThemedText style={styles.inputLabel}>Tipo de Clase</ThemedText>
@@ -1085,7 +1088,7 @@ const ManageClientsScreen = () => {
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
                                 <ThemedText style={styles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
-                                <TextInput style={styles.input} keyboardType="numeric" value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
+                                <TextInput style={styles.input}  value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
                                 
                                 <View style={styles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>

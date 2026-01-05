@@ -87,9 +87,7 @@ const ManageClassesScreen = () => {
 
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // --- Estados para Filtros ---
-    const [selectedClassTypeFilter, setSelectedClassTypeFilter] = useState('all');
-    const [selectedProfessorFilter, setSelectedProfessorFilter] = useState('all');
+  
     const [selectedRecurrentClassTypeFilter, setSelectedRecurrentClassTypeFilter] = useState('all');
 
     // --- Estado para Notificaciones de Extensión ---
@@ -119,7 +117,7 @@ const ManageClassesScreen = () => {
     const [extendingGroup, setExtendingGroup] = useState(null);
     const [extendUntilDate, setExtendUntilDate] = useState('');
     const [dayToManage, setDayToManage] = useState(new Date());
-    const [showDayPicker, setShowDayPicker] = useState(false);
+    
 
     const [activeModal, setActiveModal] = useState(null);
     const [datePickerConfig, setDatePickerConfig] = useState({
@@ -143,8 +141,6 @@ const ManageClassesScreen = () => {
         fechaFin: '',
     });
 
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [dateFieldToEdit, setDateFieldToEdit] = useState(null);
 
     const daysOfWeekOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -290,6 +286,44 @@ const ManageClassesScreen = () => {
             fechaFin: '',
         });
         setShowAddModal(true);
+    };
+
+    const handleDeleteClass = (classItem) => {
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Turno ",
+            message: `¿Eliminar el turno de "${classItem.nombre}"? Se reembolsará créditos automáticamente y notificará a los usuarios.`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                {
+                    text: "Eliminar",
+                    style: "destructive", // Estilo rojo para peligro
+                    onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.delete(`/classes/${classItem._id}`);
+                            
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Éxito', 
+                                message: 'El turno ha sido eliminado correctamente.', 
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] 
+                            });
+                            
+                            // Recargar los datos para que desaparezca de la lista
+                            fetchAllData(); 
+                        } catch (error) {
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Error', 
+                                message: error.response?.data?.message || 'No se pudo eliminar el turno.', 
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] 
+                            });
+                        }
+                    }
+                }
+            ]
+        });
     };
 
     const handleViewRoster = async (classId) => {
@@ -451,44 +485,7 @@ const ManageClassesScreen = () => {
         );
     };
 
-    // 💡 PASO 2: Modificar los manejadores de fecha para que sean compatibles con web y nativo
-    const showDatePickerForField = (field) => {
-        setDateFieldToEdit(field);
-        setShowDatePicker(true);
-    };
 
-    const onDateChange = (eventOrDate, selectedDate) => {
-        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
-        setShowDatePicker(Platform.OS === 'ios'); // En web, este estado no controla el picker
-        
-        if (Platform.OS === 'web') {
-            setShowDatePicker(false); // Cierra el "modal" virtual en la web
-        }
-
-        if (currentDate) {
-            const formattedDate = format(currentDate, 'yyyy-MM-dd');
-            if (dateFieldToEdit === 'extendUntilDate') {
-                setExtendUntilDate(formattedDate);
-            } else if (dateFieldToEdit) {
-                handleFormChange(dateFieldToEdit, formattedDate);
-            }
-        }
-    };
-
-    const onDayToManageChange = (eventOrDate, selectedDate) => {
-        const currentDate = Platform.OS === 'web' ? eventOrDate : selectedDate;
-        setShowDayPicker(Platform.OS === 'ios');
-
-        if(Platform.OS === 'web') {
-            setShowDayPicker(false);
-        }
-
-        if (currentDate) {
-            setDayToManage(currentDate);
-        }
-    };
-
-    // ... (getModalConfig y el resto de la lógica de negocio se mantienen igual)
     const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: 'all', nombre: 'Todos los Tipos' }, ...classTypes];
         const inscriptionTypeOptions = [
@@ -552,11 +549,6 @@ const ManageClassesScreen = () => {
             .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
     }, [classes, selectedDate]);
 
-    const filteredClassesForSelectedDate = useMemo(() => {
-        return classesForSelectedDate
-            .filter(cls => selectedClassTypeFilter === 'all' || cls.tipoClase?._id === selectedClassTypeFilter)
-            .filter(cls => selectedProfessorFilter === 'all' || cls.profesor?._id === selectedProfessorFilter);
-    }, [classesForSelectedDate, selectedClassTypeFilter, selectedProfessorFilter]);
 
     const filteredClasses = useMemo(() => {
         if (!searchTerm) {
@@ -703,17 +695,23 @@ const ManageClassesScreen = () => {
                                 <ThemedText style={{fontSize: 12, marginRight: 5}}>Reactivar</ThemedText>
                                 <Ionicons name="refresh-circle" size={24} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconButton} onPress={() => handleDeleteClass(item)}>
+                                    <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={styles.adminActionsRow}>
                             <TouchableOpacity style={styles.iconButton} onPress={() => handleViewRoster(item._id)}>
-                                <Ionicons name="people" size={22} color={Colors[colorScheme].text} />
+                                <Ionicons name="people" size={23} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>
-                                <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
+                                <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.iconButton} onPress={() => handleCancelClass(item)}>
-                                <Ionicons name="close-circle" size={24} color={'#e74c3c'} />
+                                <Ionicons name="close-circle" size={23} color={'#e74c3c'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconButton} onPress={() => handleDeleteClass(item)}>
+                                <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -901,20 +899,6 @@ const ManageClassesScreen = () => {
         </View>
     );
 
-    // 💡 PASO 3: Crear un componente de renderizado de fecha reutilizable para la web.
-    // Esto simplifica el JSX principal.
-    const renderWebDatePicker = (value, onChange, placeholder) => {
-        const dateValue = value && isValid(parseISO(value)) ? parseISO(value) : null;
-        return (
-            <DatePicker
-                selected={dateValue}
-                onChange={onChange}
-                dateFormat="yyyy-MM-dd"
-                placeholderText={placeholder}
-                customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{value || placeholder}</Text></View>}
-            />
-        );
-    };
 
     const renderScene = ({ route }) => {
         switch (route.key) {
@@ -991,36 +975,12 @@ const ManageClassesScreen = () => {
                         <ThemedText style={styles.sectionTitle}>Gestión por Día Completo</ThemedText>
                         <ThemedText style={styles.inputLabel}>Selecciona una fecha:</ThemedText>
                         
-                        {/* 💡 PASO 4: Usar lógica condicional para el selector de fecha */}
-                        {Platform.OS === 'web' ? (
-                            <DatePicker
-                                selected={dayToManage}
-                                onChange={onDayToManageChange}
-                                dateFormat="dd/MM/yyyy"
-                                customInput={
-                                    <TouchableOpacity>
-                                        <View style={styles.dateInputTouchable}>
-                                            <Text style={styles.dateInputText}>{format(dayToManage, 'dd/MM/yyyy')}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                }
-                            />
-                        ) : (
-                            <TouchableOpacity onPress={() => setShowDayPicker(true)}>
-                                <View style={styles.dateInputTouchable}>
-                                    <Text style={styles.dateInputText}>{format(dayToManage, 'dd/MM/yyyy')}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        )}
-                        
-                        {Platform.OS !== 'web' && showDayPicker && (
-                            <DateTimePicker
-                                value={dayToManage}
-                                mode="date"
-                                display="default"
-                                onChange={onDayToManageChange}
-                            />
-                        )}
+                        {renderDateField(
+                'Día a gestionar', 
+                'dayToManage', 
+                format(dayToManage, 'yyyy-MM-dd'), 
+                (date) => setDayToManage(date) 
+            )}
 
                         <View style={styles.dayActions}>
                             <View style={styles.buttonWrapper}>
@@ -1291,18 +1251,12 @@ const ManageClassesScreen = () => {
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
                             <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
-                            {Platform.OS === 'web' ? (
-                                <DatePicker
-                                    selected={extendUntilDate && isValid(parseISO(extendUntilDate)) ? parseISO(extendUntilDate) : null}
-                                    onChange={(date) => setExtendUntilDate(format(date, 'yyyy-MM-dd'))}
-                                    dateFormat="yyyy-MM-dd"
-                                    customInput={<View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>}
-                                />
-                            ) : (
-                                <TouchableOpacity onPress={() => showDatePickerForField('extendUntilDate')}>
-                                    <View style={styles.dateInputTouchable}><Text style={styles.dateInputText}>{extendUntilDate || 'Seleccionar fecha...'}</Text></View>
-                                </TouchableOpacity>
-                            )}
+                            {renderDateField(
+                        'Fecha de extensión',
+                        'extendUntilDate',
+                        extendUntilDate, // Este ya es un string 'yyyy-MM-dd'
+                        (date) => setExtendUntilDate(format(date, 'yyyy-MM-dd')) // Formateamos al guardar
+                    )}
                             <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Confirmar Extensión" onPress={() => handleExtendSubmit()} color={gymColor || '#1a5276'} /></View></View>
                         </ScrollView>
                     </Pressable>
@@ -1310,19 +1264,6 @@ const ManageClassesScreen = () => {
                 </KeyboardAvoidingView>
             )}
 
-            {Platform.OS !== 'web' && showDatePicker && (
-                <DateTimePicker
-                    value={
-                        (dateFieldToEdit && formData[dateFieldToEdit] && parseISO(formData[dateFieldToEdit])) ||
-                        (extendUntilDate && parseISO(extendUntilDate)) ||
-                        new Date()
-                    }
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                    themeVariant={colorScheme}
-                />
-            )}
 
             {getModalConfig && (
                 <FilterModal
@@ -1339,18 +1280,7 @@ const ManageClassesScreen = () => {
                 />
             )}
 
-            {showDatePicker && (
-                <DateTimePicker
-                  value={
-                        (dateFieldToEdit && formData[dateFieldToEdit] && new Date(formData[dateFieldToEdit].replace(/-/g, '/'))) ||
-                        (extendUntilDate && new Date(extendUntilDate.replace(/-/g, '/'))) ||
-                        new Date()
-                    }
-                    mode="date"
-                    display="default"
-                    onChange={onDateChange}
-                />
-            )}
+           
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -1475,8 +1405,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
     
     buttonContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
-    adminActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15 },
-    iconButton: { padding: 5, flexDirection: 'row', alignItems: 'center' },                                                                                 
+    adminActionsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' , gap: 10, alignSelf: 'flex-end' },
+    iconButton: { flexDirection: 'row', marginLeft: 5 },                                                                                 
 });
 
 export default ManageClassesScreen;
