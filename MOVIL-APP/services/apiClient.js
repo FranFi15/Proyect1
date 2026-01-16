@@ -9,6 +9,9 @@ const baseURL = config.gymAppBackend;
 const apiClient = axios.create({
     baseURL: baseURL,
 });
+console.log("---------------");
+console.log("🚨 REALMENTE ESTOY CONECTANDO A:", baseURL);
+console.log("---------------");
 
 // Interceptor para añadir el token de autorización
 apiClient.interceptors.request.use(

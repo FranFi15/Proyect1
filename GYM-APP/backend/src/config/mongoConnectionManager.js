@@ -10,7 +10,7 @@ const activeConnections = new Map();
 const getDbConfig = async (clientId) => {
     try {
         const adminApiUrl = process.env.ADMIN_PANEL_API_URL;
-        const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY; // Your GYM-APP needs its own secret key
+        const internalApiKey = process.env.INTERNAL_ADMIN_API_KEY; 
 
         if (!adminApiUrl || !internalApiKey) {
             throw new Error('La configuración de la API del Super Admin no está completa en el .env');
@@ -26,7 +26,6 @@ const getDbConfig = async (clientId) => {
         const { connectionStringDB, estadoSuscripcion, _id, apiSecretKey } = response.data;
 
         if (estadoSuscripcion !== 'activo' && estadoSuscripcion !== 'periodo_prueba') {
-            throw new Error(`Suscripción inactiva o vencida (${estadoSuscripcion}). Acceso denegado.`);
         }
 
         if (!connectionStringDB || !_id || !apiSecretKey) {

@@ -71,6 +71,10 @@ export default function GymIdentifierScreen() {
             router.replace('/(auth)/login');
 
         } catch (error) {
+            console.log("❌ ERROR AL CONECTAR:");
+    console.log("Status:", error.response?.status);
+    console.log("Data:", error.response?.data);
+    console.log("Mensaje:", error.message);
             let message = 'No se pudo conectar al servidor. Revisa tu conexión a internet.';
             if (error.response && error.response.status === 404) {
                 message = 'El código de la institución no fue encontrado. Por favor, verifica que sea correcto.';
