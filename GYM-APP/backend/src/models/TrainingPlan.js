@@ -12,7 +12,7 @@ const trainingPlanSchema = new mongoose.Schema({
         ref: 'User', 
         required: true
     },
-    template: { // Opcional: para saber si se basó en una plantilla
+    template: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: 'TrainingTemplate'
     },

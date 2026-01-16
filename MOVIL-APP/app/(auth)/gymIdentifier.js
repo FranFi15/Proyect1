@@ -20,8 +20,9 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
+import config from '../../config'
 
-const SUPER_ADMIN_API_URL = process.env.EXPO_PUBLIC_SUPER_ADMIN_URL;
+const SUPER_ADMIN_API_URL = config.superAdminBackend;
 
 export default function GymIdentifierScreen() {
     const [identifier, setIdentifier] = useState('');

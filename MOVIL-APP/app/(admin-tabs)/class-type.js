@@ -27,8 +27,10 @@ const ClassTypeManagementScreen = () => {
     const [formData, setFormData] = useState({ nombre: '', price: '0', resetMensual: true });
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
+    // Configuración y Cortesía
     const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
     const [visibilityDays, setVisibilityDays] = useState('0');
+    const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
 
     const performDataFetch = useCallback(async () => {
         try {
@@ -38,13 +40,21 @@ const ClassTypeManagementScreen = () => {
             ]);
             setClassTypes(typesRes.data?.tiposClase || []);
             setVisibilityDays(settingsRes.data.classVisibilityDays.toString());
+            
+            if (settingsRes.data.courtesyCredit) {
+                setCourtesyConfig({
+                    isActive: settingsRes.data.courtesyCredit.isActive,
+                    amount: settingsRes.data.courtesyCredit.amount.toString(),
+                    tipoClase: settingsRes.data.courtesyCredit.tipoClase?._id || settingsRes.data.courtesyCredit.tipoClase || ''
+                });
+            }
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los tipos de crédito.' });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, []); // Empty dependency array as it doesn't depend on props or state
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
@@ -120,7 +130,15 @@ const ClassTypeManagementScreen = () => {
 
     const handleSaveSettings = async () => {
         try {
-           await apiClient.put('/settings', { classVisibilityDays: Number(visibilityDays) || 0 });
+            const payload = { 
+                classVisibilityDays: Number(visibilityDays) || 0,
+                courtesyCredit: {
+                    isActive: courtesyConfig.isActive,
+                    amount: Number(courtesyConfig.amount) || 1,
+                    tipoClase: courtesyConfig.tipoClase
+                }
+            };
+            await apiClient.put('/settings', payload);
             setAlertInfo({ visible: true, title: 'Éxito', message: 'Configuración guardada.' });
             setIsSettingsModalVisible(false);
         } catch (error) {
@@ -135,8 +153,9 @@ const ClassTypeManagementScreen = () => {
         );
     }, [classTypes, searchTerm]);
 
+    // --- HEADER MODIFICADO (Sin el botón de configuración) ---
     const renderHeader = useCallback(() => (
-        <View >   
+        <View>   
             <ThemedText style={styles.listTitle}>Créditos</ThemedText>
             <View style={styles.searchInputContainer}>
                 <TextInput 
@@ -148,9 +167,6 @@ const ClassTypeManagementScreen = () => {
                 />
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
-            <TouchableOpacity onPress={() => setIsSettingsModalVisible(true)}>
-                <FontAwesome5 name="cog" size={22} color={Colors[colorScheme].icon} style={styles.settingsIcon} />
-            </TouchableOpacity>
         </View>
     ), [searchTerm, colorScheme, gymColor]);
 
@@ -160,15 +176,18 @@ const ClassTypeManagementScreen = () => {
                 <ThemedText style={styles.itemTitle}>{item.nombre}</ThemedText>
                 <ThemedText style={styles.cardDescription}>
                     {item.resetMensual ? 'Vencimiento Mensual' : 'Sin Vencimiento'}
+                    {item.esUniversal && <Text style={{fontWeight:'bold', color:'#f39c12'}}> (Sistema)</Text>}
                 </ThemedText>
             </View>
             <View style={styles.cardActions}>
                 <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
                     <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
-                    <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
+                {!item.esUniversal && (
+                    <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
+                        <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -188,10 +207,24 @@ const ClassTypeManagementScreen = () => {
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay tipos de crédito registrados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
-            <TouchableOpacity style={styles.fab} onPress={handleAdd}>
+            
+            {/* --- FAB DE CONFIGURACIÓN (Nuevo) --- */}
+            <TouchableOpacity 
+                style={styles.fabSettings} 
+                onPress={() => setIsSettingsModalVisible(true)}
+            >
+                <FontAwesome5 name="cog" size={24} color="#fff" />
+            </TouchableOpacity>
+
+            {/* --- FAB DE AGREGAR (Existente) --- */}
+            <TouchableOpacity 
+                style={styles.fabAdd} 
+                onPress={handleAdd}
+            >
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
+            {/* ... (Resto de Modales: Configuración y Editar) ... */}
             <Modal 
                 visible={isSettingsModalVisible}  
                 transparent={true} 
@@ -206,29 +239,84 @@ const ClassTypeManagementScreen = () => {
                 <View style={styles.modalContainer}>
                     <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                    <ThemedText style={styles.modalTitle}>Visibilidad del Calendario</ThemedText>
-                    <ThemedText style={styles.cardDescription}>
-                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes. (Pon 0 para no tener límite).
-                    </ThemedText>
-                    <ThemedText style={styles.inputLabel}>Mostrar turnos de los próximos (días):</ThemedText>
-                    <TextInput 
-                        style={styles.input} 
-                        value={visibilityDays} 
-                        onChangeText={setVisibilityDays} 
-                        keyboardType="number-pad"
-                        placeholder="0"
-                    />
-                    <Button title="Guardar Configuración" onPress={handleSaveSettings} color={gymColor} />
+                    </TouchableOpacity>
+                    <ScrollView>
+                        <ThemedText style={styles.modalTitle}>Configuración General</ThemedText>
+                        
+                        <ThemedText style={styles.sectionTitle}>📅 Calendario</ThemedText>
+                        <ThemedText style={styles.cardDescription}>
+                            Define cuántos días hacia el futuro podrán ver y reservar tus clientes.
+                        </ThemedText>
+                        <ThemedText style={styles.inputLabel}>Días visibles (0 = sin límite):</ThemedText>
+                        <TextInput 
+                            style={styles.input} 
+                            value={visibilityDays} 
+                            onChangeText={setVisibilityDays} 
+                            keyboardType="number-pad"
+                            placeholder="0"
+                        />
+
+                        {/* Configuración de Cortesía */}
+                        <View style={{borderTopWidth:1, borderColor: Colors[colorScheme].border, paddingTop: 15, marginTop: 10}}>
+                            <ThemedText style={styles.sectionTitle}>🎁 Regalo de Bienvenida</ThemedText>
+                            
+                            <View style={styles.switchContainer}>
+                                <ThemedText style={styles.inputLabel}>¿Activar regalo al registrarse?</ThemedText>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: gymColor }}
+                                    thumbColor={'#f4f3f4'}
+                                    onValueChange={(val) => setCourtesyConfig(prev => ({...prev, isActive: val}))}
+                                    value={courtesyConfig.isActive}
+                                />
+                            </View>
+
+                            {courtesyConfig.isActive && (
+                                <>
+                                    <ThemedText style={styles.inputLabel}>¿Qué crédito regalar?</ThemedText>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15}}>
+                                        {classTypes.map(type => (
+                                            <TouchableOpacity 
+                                                key={type._id} 
+                                                onPress={() => setCourtesyConfig(prev => ({...prev, tipoClase: type._id}))}
+                                                style={[
+                                                    styles.dayChip, 
+                                                    courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }
+                                                ]}
+                                            >
+                                                <Text style={{ 
+                                                    color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text,
+                                                    padding: 8 
+                                                }}>
+                                                    {type.nombre}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+
+                                    <ThemedText style={styles.inputLabel}>Cantidad a regalar:</ThemedText>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={courtesyConfig.amount} 
+                                        onChangeText={(text) => setCourtesyConfig(prev => ({...prev, amount: text}))} 
+                                        keyboardType="number-pad"
+                                    />
+                                </>
+                            )}
+                        </View>
+
+                        <Button title="Guardar Configuración" onPress={handleSaveSettings} color={gymColor} />
+                    </ScrollView>
                 </View>
                 </KeyboardAvoidingView>
             </Modal>
+
             <Modal 
                 visible={isModalVisible} 
                 transparent={true} 
                 animationType="slide" 
                 onRequestClose={() => setIsModalVisible(false)}
             >
+                {/* ... (Contenido del modal de editar crédito igual que antes) ... */}
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={styles.modalOverlayWrapper}
@@ -289,18 +377,18 @@ const ClassTypeManagementScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    listContainer: { paddingBottom: 80 },
+    listContainer: { paddingBottom: 100 }, // Aumentamos paddingBottom para que la lista no quede tapada por los FABs
     headerContainer: { padding: 15, alignItems: 'center' },
     listTitle: {
-        backgroundColor: gymColor,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        alignItems: 'center',
+       backgroundColor: gymColor,
+       paddingVertical: 10,
+       paddingHorizontal: 20,
+       alignItems: 'center',
        alignSelf: 'center',
        width: '100%',
        textAlign: 'center',
        fontWeight: 'bold',
-         color: '#fff',
+       color: '#fff',
        fontSize: 18,
     },
     searchInputContainer: { 
@@ -311,6 +399,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border,
         marginTop: 15,
+        marginHorizontal: 15, // Agregado para margen lateral
+        marginBottom: 10
     },
     searchInput: { 
         flex: 1, 
@@ -334,13 +424,45 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
-    priceText: { fontSize: 16, fontWeight: '600', color: gymColor, marginTop: 8 },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { padding: 8, marginLeft: 10 },
-    fab: {
-        position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20,
-        backgroundColor: gymColor || '#1a5276', borderRadius: 30, elevation: 8,
+    
+    // --- ESTILOS DE LOS FABS ---
+    fabAdd: {
+        position: 'absolute', 
+        width: 60, 
+        height: 60, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        right: 20, 
+        bottom: 20,
+        backgroundColor: gymColor || '#1a5276', 
+        borderRadius: 30, 
+        elevation: 8,
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 1 }, 
+        shadowOpacity: 0.2, 
+        shadowRadius: 1.41,
+        zIndex: 999
     },
+    fabSettings: {
+        position: 'absolute', 
+        width: 60, // Un poco más chico que el principal
+        height: 60, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        right: 20, // Centrado respecto al de abajo (60-50)/2 + 20
+        bottom: 90, // Encima del otro (20 bottom + 60 height + 10 margin)
+        backgroundColor: '#7f8c8d', // Gris para diferenciarlo (configuración), o usa gymColor si prefieres
+        borderRadius: 30, 
+        elevation: 8,
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 1 }, 
+        shadowOpacity: 0.2, 
+        shadowRadius: 1.41,
+        zIndex: 999
+    },
+
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: Colors[colorScheme].text },
     modalOverlayWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
@@ -353,6 +475,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         elevation: 5
     },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 10 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
@@ -377,8 +500,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     button: { flex: 1, paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    settingsIcon: {marginTop: 20, marginLeft: 10 }
     
+    // Estilos para los chips en el modal de configuración
+    dayChip: { 
+        paddingVertical: 6, 
+        paddingHorizontal: 10, 
+        borderRadius: 20, 
+        borderWidth: 1, 
+        borderColor: Colors[colorScheme].border, 
+        marginRight: 8,
+        backgroundColor: Colors[colorScheme].cardBackground
+    },
 });
 
 export default ClassTypeManagementScreen;

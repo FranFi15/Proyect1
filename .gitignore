@@ -49,3 +49,4 @@ serviceAccountKey.json
 **/firebase-service-account-key.json.json
 **/serviceAccountKey.json
 
+.expo/

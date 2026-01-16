@@ -153,7 +153,7 @@ const CalendarScreen = () => {
             await refreshUser();
             const [classesResponse, typesResponse] = await Promise.all([
                 apiClient.get('/classes'),
-                apiClient.get('/tipos-clase')
+                apiClient.get('/tipos-clase?forCreation=true')
             ]);
             
             setAllClasses(classesResponse.data);

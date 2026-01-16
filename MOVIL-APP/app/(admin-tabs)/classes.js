@@ -154,7 +154,7 @@ const ManageClassesScreen = () => {
                 apiClient.get(`/classes/admin${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
                 apiClient.get('/users'),
-                apiClient.get('/tipos-clase')
+                apiClient.get('/tipos-clase?forCreation=true')
             ]);
             setClasses(classesRes?.data || []);
             setTeachers(teachersRes?.data || []);
