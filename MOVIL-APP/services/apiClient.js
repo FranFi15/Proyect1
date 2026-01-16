@@ -16,6 +16,10 @@ console.log("---------------");
 // Interceptor para añadir el token de autorización
 apiClient.interceptors.request.use(
     async (config) => {
+        console.log("-------------------------------------");
+        console.log("📡 SALIENDO PETICIÓN HACIA:");
+        console.log(`👉 ${config.baseURL}${config.url}`);
+        console.log("-------------------------------------");
         const userString = await AsyncStorage.getItem('user');
         if (userString) {
             const user = JSON.parse(userString);
