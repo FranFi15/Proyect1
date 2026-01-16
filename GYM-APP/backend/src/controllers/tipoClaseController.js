@@ -25,6 +25,7 @@ const createTipoClase = asyncHandler(async (req, res) => {
         descripcion,
         price,
         resetMensual,
+        esUniversal: false
     });
 
     res.status(201).json(tipoClase);
@@ -33,6 +34,33 @@ const createTipoClase = asyncHandler(async (req, res) => {
 // Obtener todos los tipos de clase
 const getTiposClase = asyncHandler(async (req, res) => {
     const { TipoClase, User } = getModels(req.gymDBConnection);
+
+    const { forCreation } = req.query; 
+
+    let universalType = await TipoClase.findOne({ esUniversal: true });
+
+    if (!universalType) {
+        try {
+            universalType = await TipoClase.create({
+                nombre: 'Universal',
+                descripcion: 'Crédito válido para cualquier turno.',
+                price: 0, 
+                resetMensual: false,
+                esUniversal: true, 
+                creditosTotales: 999999, 
+                creditosDisponibles: 999999
+            });
+            console.log("Sistema: Tipo de Crédito Universal creado automáticamente.");
+        } catch (error) {
+            console.error("Error al auto-crear crédito universal:", error);
+        }
+    }
+
+    let filter = {};
+    if (forCreation === 'true') {
+        filter.esUniversal = { $ne: true }; 
+    }
+
     const tiposClase = await TipoClase.find({}).lean();
 
     const assignedCreditsAggregation = await User.aggregate([
@@ -47,6 +75,12 @@ const getTiposClase = asyncHandler(async (req, res) => {
 
     const tiposClaseConDisponibles = tiposClase.map(tipo => {
         const totalAsignado = assignedCreditsMap.get(tipo._id.toString()) || 0;
+        if (tipo.esUniversal) {
+            return {
+                ...tipo,
+                creditosDisponibles: 999999
+            };
+        }
         const creditosDisponibles = tipo.creditosTotales - totalAsignado;
         return {
             ...tipo,
@@ -80,6 +114,10 @@ const updateTipoClase = asyncHandler(async (req, res) => {
     const tipoClase = await TipoClase.findById(req.params.id);
 
     if (tipoClase) {
+        if (tipoClase.esUniversal) {
+            res.status(403);
+            throw new Error('No puedes editar la configuración del Crédito Universal del sistema.');
+        }
         tipoClase.nombre = nombre !== undefined ? nombre : tipoClase.nombre;
         tipoClase.descripcion = descripcion !== undefined ? descripcion : tipoClase.descripcion;
         tipoClase.price = price ?? tipoClase.price;
@@ -102,6 +140,11 @@ const deleteTipoClase = asyncHandler(async (req, res) => {
     if (!tipoClase) {
         res.status(404);
         throw new Error('Tipo de turno no encontrado.');
+    }
+
+    if (tipoClase.esUniversal) {
+        res.status(403); 
+        throw new Error('El Crédito Universal es parte del sistema y no puede eliminarse.');
     }
 
     const classesUsingType = await Clase.findOne({ tipoClase: tipoClaseId });

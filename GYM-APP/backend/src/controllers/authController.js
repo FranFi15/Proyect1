@@ -5,7 +5,7 @@ import getModels from '../utils/getModels.js';
 import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClient.js';
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Settings, Notification, TipoClase } = getModels(req.gymDBConnection);
     const { 
         nombre, 
         apellido, 
@@ -64,11 +64,54 @@ const registerUser = asyncHandler(async (req, res) => {
         sexo: sexo || 'Otro' 
     };
     
-    const user = await User.create(userData);
+    const user = new User(userData);
+
+    let courtesyNotificationData = null;
+
+    if (user.roles.includes('cliente')) {
+        try {
+            const settings = await Settings.findById('main_settings');
+            
+            if (settings && settings.courtesyCredit?.isActive && settings.courtesyCredit.tipoClase) {
+                
+                const creditTypeId = settings.courtesyCredit.tipoClase.toString();
+                const amountToGive = settings.courtesyCredit.amount || 1;
+
+                user.creditosPorTipo.set(creditTypeId, amountToGive);
+                
+                courtesyNotificationData = {
+                    amount: amountToGive,
+                    creditTypeId: creditTypeId
+                };
+            }
+        } catch (error) {
+            console.error("Error asignando crédito de cortesía (no crítico):", error);
+        }
+    }
+
+    await user.save();
 
     if (user) {
         if (user.roles.includes('cliente')) {
             updateClientCount(req.gymId, req.apiSecretKey, 'increment');
+        }
+
+    if (courtesyNotificationData) {
+            try {
+                const tipoClase = await TipoClase.findById(courtesyNotificationData.creditTypeId);
+                const nombreCredito = tipoClase ? tipoClase.nombre : "Crédito de Bienvenida";
+
+                await sendSingleNotification(
+                    Notification,
+                    User,
+                    user._id,
+                    "¡Bienvenido/a! 🎁",
+                    `Te regalamos ${courtesyNotificationData.amount} crédito(s) de "${nombreCredito}" para que comiences a entrenar.`,
+                    'welcome_gift'
+                );
+            } catch (notifError) {
+                console.error("Error enviando notificación de bienvenida:", notifError);
+            }
         }
 
         res.status(201).json({

@@ -41,6 +41,11 @@ const createClass = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Debes seleccionar un tipo de turno. Si no hay tipos creados, crea uno primero.');
     }
+    const tipoSeleccionado = await TipoClase.findById(tipoClaseId);
+    if (tipoSeleccionado && tipoSeleccionado.esUniversal) {
+        res.status(400);
+        throw new Error('No puedes crear turnos del tipo "Crédito Universal". Este tipo es exclusivo para pagos.');
+    }
     if (!capacidad) {
         res.status(400);
         throw new Error('La capacidad del turno es obligatoria.');
@@ -295,23 +300,33 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
     }
     classItem.estado = 'cancelada';
 
-   if (refundCredits) {
+    if (refundCredits) {
         for (const userId of classItem.usuariosInscritos) {
             const user = await User.findById(userId);
             if (user) {
-                // --- LÓGICA DE PASE LIBRE AÑADIDA ---
                 const hoy = new Date();
-                const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
-                                             hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+                const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta &&
+                    hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
-                // Solo devolvemos el crédito si NO tiene pase libre activo
                 if (!tienePaseLibreActivo) {
-                    const tipoClaseId = classItem.tipoClase._id.toString();
-                    const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                    user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-                    await user.save();
                     
-                    // Notificación de reembolso
+                    const detalle = classItem.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
+                    
+                    let creditoADevolverId;
+                    if (detalle && detalle.tipoCreditoUsado) {
+                        creditoADevolverId = detalle.tipoCreditoUsado.toString();
+                    } else {
+                        creditoADevolverId = classItem.tipoClase._id.toString();
+                    }
+
+                    const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+                    user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+                    await user.save();
+
+                    if (classItem.inscripcionesDetalle) {
+                        classItem.inscripcionesDetalle = classItem.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
+                    }
+
                     await Notification.create({
                         user: user._id,
                         message: `Se te ha reembolsado 1 crédito para el turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} debido a su cancelación.`,
@@ -319,11 +334,10 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
                         class: classItem._id
                     });
                 } else {
-                    // Si tiene pase libre, solo notificamos la cancelación sin mencionar reembolso
                     await Notification.create({
                         user: user._id,
                         message: `El turno "${classItem.nombre}" del ${new Date(classItem.fecha).toLocaleDateString()} ha sido cancelado.`,
-                        type:'class_cancellation_refund',
+                        type: 'class_cancellation_refund',
                         class: classItem._id
                     });
                 }
@@ -331,6 +345,7 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
         }
     }
     classItem.usuariosInscritos = [];
+    classItem.inscripcionesDetalle = []; 
     await classItem.save();
     res.json({ message: 'Turno cancelada exitosamente.', class: classItem });
 });
@@ -362,37 +377,45 @@ const deleteClass = asyncHandler(async (req, res) => {
         const tipoClaseId = classItem.tipoClase;
 
         if (classItem.usuariosInscritos && classItem.usuariosInscritos.length > 0) {
-        const fechaLegible = format(new Date(classItem.fecha), 'dd/MM');
-        const hoy = new Date();
+            const fechaLegible = format(new Date(classItem.fecha), 'dd/MM');
+            const hoy = new Date();
 
-        const userPromises = classItem.usuariosInscritos.map(async (user) => {
-            const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
-                                         hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+            const userPromises = classItem.usuariosInscritos.map(async (user) => {
+                const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta &&
+                    hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
-            let mensajeExtra = "";
+                let mensajeExtra = "";
 
-            if (!tienePaseLibreActivo) {
-                const currentCredits = user.creditosPorTipo.get(tipoClaseId.toString()) || 0;
-                user.creditosPorTipo.set(tipoClaseId.toString(), currentCredits + 1);
-                
-                await user.save();
-                mensajeExtra = " Se te ha reembolsado 1 crédito.";
-            }
+                if (!tienePaseLibreActivo) {
+                    const detalle = classItem.inscripcionesDetalle?.find(d => d.user.toString() === user._id.toString());
+                    let creditoADevolverId;
+                    
+                    if (detalle && detalle.tipoCreditoUsado) {
+                        creditoADevolverId = detalle.tipoCreditoUsado.toString();
+                    } else {
+                        creditoADevolverId = tipoClaseId.toString();
+                    }
 
-            await sendSingleNotification(
-                Notification, 
-                User, 
-                user._id, 
-                "Turno Eliminado", 
-                `El turno de "${classItem.nombre}" del día ${fechaLegible} a las ${classItem.horaInicio}hs ha sido eliminado por el administrador.${mensajeExtra}`, 
-                'class_deletion', 
-                true,
-                null 
-            );
-        });
+                    const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+                    user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+                    await user.save();
+                    mensajeExtra = " Se te ha reembolsado 1 crédito.";
+                }
 
-        await Promise.all(userPromises);
-    }
+                await sendSingleNotification(
+                    Notification,
+                    User,
+                    user._id,
+                    "Turno Eliminado",
+                    `El turno de "${classItem.nombre}" del día ${fechaLegible} a las ${classItem.horaInicio}hs ha sido eliminado por el administrador.${mensajeExtra}`,
+                    'class_deletion',
+                    true,
+                    null
+                );
+            });
+
+            await Promise.all(userPromises);
+        }
 
         await User.updateMany({ clasesInscritas: classItem._id }, { $pull: { clasesInscritas: classItem._id } });
         await classItem.deleteOne();
@@ -405,7 +428,7 @@ const deleteClass = asyncHandler(async (req, res) => {
                 }
             });
         }
-        
+
         res.json({ message: 'Turno eliminado correctamente.' });
     } else {
         res.status(404);
@@ -429,8 +452,13 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     }
 
     if (!classItem.tipoClase) {
-        res.status(500); // O 400, dependiendo de cómo quieras manejarlo
+        res.status(500); 
         throw new Error('El turno no tiene un tipo asociado, no se puede procesar la inscripción.');
+    }
+
+    if (classItem.tipoClase.esUniversal) {
+        res.status(400);
+        throw new Error('Error de sistema: No te puedes inscribir a una clase de tipo Universal.');
     }
     
     if (classItem.estado !== 'activa') {
@@ -450,37 +478,48 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
                                  hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
+
     if (tienePaseLibreActivo) {
-        // Opción 1: Tiene Pase Libre. No se descuentan créditos.
         console.log(`Usuario ${user.nombre} inscripto usando Pase Libre.`);
     } else {
-        // Opción 2: No tiene Pase Libre, usamos la lógica de créditos existente.
+        // --- MODIFICADO: LÓGICA DE COBRO PRIORIZADA ---
         const tipoClaseId = classItem.tipoClase._id.toString();
         let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
-        let creditDeducted = false;
 
+        // 1. Intentar cobrar con Crédito Específico
         if (creditosEspecificos > 0) {
             user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
-            creditDeducted = true;
+            tipoCreditoADescontar = classItem.tipoClase._id; 
         } else {
-            const universalType = await TipoClase.findOne({ nombre: 'Crédito Universal' });
+            // 2. Intentar cobrar con Crédito Universal
+            const universalType = await TipoClase.findOne({ esUniversal: true });
+            
             if (universalType) {
                 const universalTypeId = universalType._id.toString();
                 const creditosUniversales = user.creditosPorTipo.get(universalTypeId) || 0;
+                
                 if (creditosUniversales > 0) {
                     user.creditosPorTipo.set(universalTypeId, creditosUniversales - 1);
-                    creditDeducted = true;
+                    tipoCreditoADescontar = universalType._id; 
                 }
             }
         }
 
-        if (!creditDeducted) {
+        if (!tipoCreditoADescontar) {
             res.status(400);
             throw new Error(`No tienes un Pase Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
         }
     }
 
     classItem.usuariosInscritos.push(userId);
+    
+    if (!tienePaseLibreActivo && tipoCreditoADescontar) {
+        classItem.inscripcionesDetalle.push({
+            user: userId,
+            tipoCreditoUsado: tipoCreditoADescontar
+        });
+    }
+
     if (classItem.usuariosInscritos.length >= classItem.capacidad) {
         classItem.estado = 'llena';
     }
@@ -531,30 +570,42 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
                                  hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
 
-    // El resto de la lógica para devolver el crédito y actualizar los datos se mantiene igual
    if (!tienePaseLibreActivo) {
-        // Si NO tiene un pase libre activo, le devolvemos el crédito.
-        if (clase.tipoClase && clase.tipoClase._id) {
-            const tipoClaseId = clase.tipoClase._id.toString();
-            const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-            user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-            user.markModified('creditosPorTipo');
+        // --- MODIFICADO: BUSCAR QUÉ CRÉDITO USÓ Y DEVOLVER ESE MISMO ---
+        const detalle = clase.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
+
+        if (detalle && detalle.tipoCreditoUsado) {
+            const creditoADevolverId = detalle.tipoCreditoUsado.toString();
+            const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+            user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+            
+            // Borrar el detalle
+            clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
+        } else {
+            // Fallback para turnos viejos
+            if (clase.tipoClase && clase.tipoClase._id) {
+                const tipoClaseId = clase.tipoClase._id.toString();
+                const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
+                user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
+            }
         }
+        user.markModified('creditosPorTipo');
     }
-    
+
     user.clasesInscritas.pull(classId);
     clase.usuariosInscritos.pull(userId);
-    
+
     if (clase.estado === 'llena') {
         clase.estado = 'activa';
     }
-    
+
     await user.save();
+    
+    // Lista de espera
     if (clase.waitlist && clase.waitlist.length > 0) {
         const title = "¡Lugar Disponible!";
         const message = `Se ha liberado un lugar en el turno de "${clase.nombre || clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs. ¡Corre a inscribirte!`;
 
-        // Notificamos a TODOS los de la lista (o podrías hacerlo solo al primero, como prefieras)
         for (const waitingUserId of clase.waitlist) {
             await sendSingleNotification(
                 Notification,
@@ -562,12 +613,11 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
                 waitingUserId,
                 title,
                 message,
-                'spot_available', // Tipo especial para identificarlo
-                true, // Importante
+                'spot_available',
+                true,
                 clase._id
             );
         }
-        console.log(`[Clase ${classId}] Notificados ${clase.waitlist.length} usuarios en lista de espera.`);
     }
     await clase.save();
 
@@ -663,6 +713,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     tipoInscripcion: 'fijo',
                     estado: 'activa',
                     usuariosInscritos: [],
+                    inscripcionesDetalle: [],
                 });
                 classesGeneratedCount++;
             }
@@ -733,6 +784,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                 fecha: dateAtNoon,
                 diaDeSemana: [getDayName(dateAtNoon)], 
                 usuariosInscritos: [],
+                inscripcionesDetalle: [],
                 estado: 'activa',
             });
         }
@@ -898,6 +950,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             horaFin: lastInstance.horaFin,
             estado: 'activa',
             usuariosInscritos: [],
+            inscripcionesDetalle: [],
             rrule: lastInstance.rrule // Es importante mantener la rrule para agrupaciones futuras si es necesario
         });
         createdCount++;
@@ -937,37 +990,44 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
     for (const classItem of classesToCancel) {
         classItem.estado = 'cancelada';
         
-        // Si se eligió reembolsar y hay usuarios inscritos
         if (refundCredits && classItem.usuariosInscritos.length > 0) {
             for (const userId of classItem.usuariosInscritos) {
                 allAffectedUserIds.add(userId.toString());
                 const user = await User.findById(userId);
-                // Verificamos que el usuario y el tipo de clase existan para evitar errores
-                if (user && classItem.tipoClase?._id) {
-                    const tipoClaseId = classItem.tipoClase._id.toString();
-                    const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                    user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-                    await user.save();
+                
+                if (user) {
+                     // --- Devolución inteligente ---
+                     const detalle = classItem.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
+                     let creditoADevolverId;
+                     if (detalle && detalle.tipoCreditoUsado) {
+                         creditoADevolverId = detalle.tipoCreditoUsado.toString();
+                     } else if (classItem.tipoClase?._id) {
+                         creditoADevolverId = classItem.tipoClase._id.toString();
+                     }
+
+                     if (creditoADevolverId) {
+                         const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+                         user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+                         await user.save();
+                     }
                 }
             }
-            // Vaciamos la lista de inscritos después de reembolsar
             classItem.usuariosInscritos = [];
+            classItem.inscripcionesDetalle = [];
         }
-        
         await classItem.save();
     }
 
-    // Notificamos a todos los usuarios afectados una sola vez
     if (allAffectedUserIds.size > 0) {
         const notificationMessage = `Atención: Todas los turnos del día ${startOfDay.toLocaleDateString('es-AR')} han sido cancelados. ${refundCredits ? 'Se te ha reembolsado el crédito por los turnos a los que estabas inscrito.' : ''}`;
-        const notificationPromises = Array.from(allAffectedUserIds).map(userId => 
+        const notificationPromises = Array.from(allAffectedUserIds).map(userId =>
             sendSingleNotification(Notification, User, userId, "Clases Canceladas", notificationMessage, 'class_cancellation', true)
         );
         await Promise.all(notificationPromises);
     }
-    
-    res.status(200).json({ 
-        message: `Se cancelaron ${classesToCancel.length} turnos. ${refundCredits ? 'Se procesaron los reembolsos.' : ''}` 
+
+    res.status(200).json({
+        message: `Se cancelaron ${classesToCancel.length} turnos. ${refundCredits ? 'Se procesaron los reembolsos.' : ''}`
     });
 });
 
@@ -1241,7 +1301,7 @@ const addUserToClass = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Clase o usuario no encontrado.');
     }
-    // ... (Your other validation logic)
+    
 
     clase.usuariosInscritos.push(userId);
     user.clasesInscritas.push(clase._id);
@@ -1269,6 +1329,11 @@ const removeUserFromClass = asyncHandler(async (req, res) => {
     }
     
     clase.usuariosInscritos.pull(userId);
+    if (clase.inscripcionesDetalle) {
+        clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(
+            d => d.user.toString() !== userId.toString()
+        );
+    }
     user.clasesInscritas.pull(clase._id);
 
     await clase.save();

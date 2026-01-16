@@ -55,9 +55,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 const getMe = asyncHandler(async (req, res) => {
     const { User , Notification } = getModels(req.gymDBConnection);
-    // Fetch the user. Ensure 'requestedSpotNotifications' is included.
-    // If you use .select(), make sure to include the fields you need,
-    // or simply don't use .select() for inclusion if you want all fields by default.
     const user = await User.findById(req.user._id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
@@ -690,7 +687,7 @@ const handleResetLink = asyncHandler(async (req, res, next) => {
     }
     
     // 2. Construimos el deep link final al que queremos que el usuario llegue.
-    const deepLink = `${process.env.MOBILE_APP_SCHEMA}/${resettoken}?clientId=${clientId}`;
+    const deepLink = `${process.env.MOBILE_APP_SCHEMA}?token=${resettoken}?clientId=${clientId}`;
 
     // 3. Enviamos una redirección HTTP 302.
     //    El navegador del usuario recibirá esto e intentará abrir el deep link.

@@ -43,6 +43,12 @@ const classSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     }],
+    inscripcionesDetalle: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        tipoCreditoUsado: { type: mongoose.Schema.Types.ObjectId, ref: 'TipoClase' }, 
+        fechaInscripcion: { type: Date, default: Date.now },
+        _id: false 
+    }],
      waitlist: [{ // Array of user IDs who are on the waiting list for this class
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

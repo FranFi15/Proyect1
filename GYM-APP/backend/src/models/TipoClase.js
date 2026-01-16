@@ -32,6 +32,11 @@ const tipoClaseSchema = mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        esUniversal: {
+            type: Boolean,
+            default: false,
+            immutable: true,
+        },
     },
     {
         timestamps: true,

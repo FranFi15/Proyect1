@@ -6,6 +6,20 @@ const settingsSchema = new mongoose.Schema({
         type: Number,
         default: 0 
     },
+    courtesyCredit: {
+        isActive: { 
+            type: Boolean, 
+            default: false 
+        },
+        tipoClase: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'TipoClase' 
+        },
+        amount: { 
+            type: Number, 
+            default: 1 
+        }
+    }
 });
 
 export default (gymDBConnection) => {
