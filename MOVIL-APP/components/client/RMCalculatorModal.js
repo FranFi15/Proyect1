@@ -290,7 +290,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
 
                                     {/* RESULTADO EDITABLE */}
                                     <View style={styles.resultBox}>
-                                        <Text style={styles.resultLabel}>Tu 1RM (Editable)</Text>
+                                        <Text style={styles.resultLabel}>RM Calculado</Text>
                                         <View style={{flexDirection:'row', alignItems:'center', justifyContent:'center'}}>
                                             <TextInput 
                                                 style={styles.resultInput}
@@ -303,6 +303,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                             <Text style={{fontSize: 20, color: Colors[colorScheme].text, fontWeight:'bold'}}> kg</Text>
                                         </View>
                                     </View>
+                                    <Text style={styles.disclaimer}>*Usando la fórmula de Brzycki.</Text>
 
                                     <TouchableOpacity style={styles.saveButton} onPress={handleSaveRM}>
                                         <Text style={styles.saveButtonText}>{editingIndex !== null ? 'Actualizar RM' : 'Guardar RM'}</Text>
@@ -313,8 +314,6 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                             <Text style={{color: Colors[colorScheme].icon}}>Cancelar Edición</Text>
                                         </TouchableOpacity>
                                     )}
-
-                                    <Text style={styles.disclaimer}>*Usando la fórmula de Brzycki o valor manual.</Text>
                                 </View>
                             )}
                         </View>
@@ -361,10 +360,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     input: { backgroundColor: Colors[colorScheme].inputBackground, color: Colors[colorScheme].text, padding: 12, borderRadius: 5, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
     resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 5, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor },
     resultLabel: { color: Colors[colorScheme].text, fontSize: 14, marginBottom: 5 },
-    resultInput: { fontSize: 32, fontWeight: 'bold', color: Colors[colorScheme].text, minWidth: 60, textAlign:'center', borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].text },
+    resultInput: { fontSize: 32, fontWeight: 'bold', color: Colors[colorScheme].text, minWidth: 30, textAlign:'center',  },
     saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
     saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    disclaimer: { color: Colors[colorScheme].icon, fontSize: 10, textAlign: 'center', marginTop: 15 },
+    disclaimer: { color: Colors[colorScheme].icon, fontSize: 10, textAlign: 'center', marginTop: 10, marginBottom:10 },
 
     // TABLA PORCENTAJES
     percentageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', padding: 10 },
