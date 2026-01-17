@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard, TouchableWithoutFeedback, ScrollView } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
 
 // Importamos TU alerta personalizada
 import CustomAlert from '@/components/CustomAlert';
 
-// Fórmula de Epley para 1RM
+// Fórmula de Brzycki
 const calculate1RM = (weight, reps) => {
     if (!weight || !reps) return 0;
     if (reps === 1) return weight;
-    return Math.round(weight * (1 + reps / 30));
+    if (reps > 30) return 0;
+    return Math.round(weight / (1.0278 - (0.0278 * reps)));
 };
 
 const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme, gymColor }) => {
@@ -20,107 +21,102 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
     const [tab, setTab] = useState('list'); 
     const [records, setRecords] = useState(initialRecords);
     
-    // Estados de la calculadora
-    const [weight, setWeight] = useState('');
-    const [reps, setReps] = useState('');
-    const [calculatedRM, setCalculatedRM] = useState(0);
+    // --- ESTADOS DE EDICIÓN Y CÁLCULO ---
+    const [editingIndex, setEditingIndex] = useState(null);
     const [exerciseName, setExerciseName] = useState('');
+    const [weightInput, setWeightInput] = useState(''); // Input Peso
+    const [repsInput, setRepsInput] = useState('');     // Input Repes
+    const [finalRM, setFinalRM] = useState('');         // El RM Final (Editable)
+
+    // Estado para Modal de Porcentajes
+    const [percentageItem, setPercentageItem] = useState(null);
 
     // Estado para CustomAlert
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
-    });
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     useEffect(() => {
         setRecords(initialRecords);
     }, [initialRecords]);
 
+    // Cálculo automático al escribir peso/repes
     useEffect(() => {
-        const w = parseFloat(weight);
-        const r = parseFloat(reps);
+        const w = parseFloat(weightInput);
+        const r = parseFloat(repsInput);
         if (!isNaN(w) && !isNaN(r)) {
-            setCalculatedRM(calculate1RM(w, r));
-        } else {
-            setCalculatedRM(0);
+            const calc = calculate1RM(w, r);
+            if (calc > 0) setFinalRM(calc.toString());
         }
-    }, [weight, reps]);
+    }, [weightInput, repsInput]);
 
-    // Función auxiliar para cerrar la alerta
     const closeAlert = () => setAlertInfo({ ...alertInfo, visible: false });
 
+    const resetForm = () => {
+        setExerciseName('');
+        setWeightInput('');
+        setRepsInput('');
+        setFinalRM('');
+        setEditingIndex(null);
+    };
+
+    const handleEdit = (item, index) => {
+        setExerciseName(item.exercise);
+        setFinalRM(item.weight.toString());
+        setWeightInput(''); 
+        setRepsInput('');
+        setEditingIndex(index);
+        setTab('calculator');
+    };
+
     const handleSaveRM = async () => {
-        if (!exerciseName.trim()) {
+        if (!exerciseName.trim() || !finalRM) {
             setAlertInfo({
                 visible: true,
                 title: 'Falta información',
-                message: 'Por favor escribe el nombre del ejercicio.',
+                message: 'Por favor ingresa nombre y valor de RM.',
                 buttons: [{ text: 'Entendido', onPress: closeAlert }]
             });
             return;
         }
-        if (!weight || isNaN(parseFloat(weight)) || parseFloat(weight) <= 0) {
-            setAlertInfo({
-                visible: true,
-                title: 'Falta información',
-                message: 'Por favor escribe el peso del ejercicio.',
-                buttons: [{ text: 'Entendido', onPress: closeAlert }]
-            });
-            return;
-        }
-        if (!reps || isNaN(parseFloat(reps)) || parseFloat(reps) <= 0) {
-            setAlertInfo({
-                visible: true,
-                title: 'Falta información',
-                message: 'Por favor escribe las repeticiones del ejercicio.',
-                buttons: [{ text: 'Entendido', onPress: closeAlert }]
-            });
-            return;
-        }
+
+        const rmValue = parseFloat(finalRM);
+        if (isNaN(rmValue) || rmValue <= 0) return;
 
         const newRecord = {
             exercise: exerciseName,
-            weight: calculatedRM > 0 ? calculatedRM : parseFloat(weight),
+            weight: rmValue,
             date: new Date()
         };
 
-        const updatedList = [...records, newRecord];
-        
-        // Optimistic UI update (Actualizamos localmente primero)
-        setRecords(updatedList);
+        let updatedList = [...records];
+        if (editingIndex !== null) {
+            updatedList[editingIndex] = newRecord; 
+        } else {
+            updatedList.push(newRecord); 
+        }
+
+        setRecords(updatedList); 
         
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
             
-            // Limpiamos form
-            setWeight('');
-            setReps('');
-            setExerciseName('');
-            
-            // Notificamos éxito y volvemos a la lista
             setAlertInfo({
                 visible: true,
-                title: '¡Guardado!',
-                message: `Nuevo RM para ${newRecord.exercise} registrado.`,
+                title: editingIndex !== null ? 'Actualizado' : 'Guardado',
+                message: `RM para ${newRecord.exercise} registrado exitosamente.`,
                 buttons: [{ 
                     text: 'Ver Lista', 
                     onPress: () => {
                         closeAlert();
+                        resetForm();
                         setTab('list');
                     }
                 }]
             });
 
         } catch (error) {
-            // Revertimos si falla
-            setRecords(records); 
+            setRecords(records); // Revertir
             setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudo guardar el récord. Intenta nuevamente.',
-                buttons: [{ text: 'OK', onPress: closeAlert }]
+                visible: true, title: 'Error', message: 'No se pudo guardar.', buttons: [{ text: 'OK', onPress: closeAlert }]
             });
         }
     };
@@ -129,17 +125,10 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         setAlertInfo({
             visible: true,
             title: 'Eliminar Récord',
-            message: '¿Estás seguro de que quieres eliminar este registro de RM?',
+            message: '¿Estás seguro de que quieres eliminar este registro?',
             buttons: [
                 { text: 'Cancelar', style: 'cancel', onPress: closeAlert },
-                { 
-                    text: 'Eliminar', 
-                    style: 'destructive', 
-                    onPress: () => {
-                        closeAlert();
-                        handleDelete(index);
-                    }
-                }
+                { text: 'Eliminar', style: 'destructive', onPress: () => { closeAlert(); handleDelete(index); } }
             ]
         });
     };
@@ -149,9 +138,43 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         setRecords(updatedList);
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
-        } catch (error) {
-            console.error(error);
-        }
+        } catch (error) { console.error(error); }
+    };
+
+    // Modal interno de Porcentajes
+    const renderPercentageModal = () => {
+        if (!percentageItem) return null;
+        const percentages = [105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 50];
+        
+        return (
+            <Modal visible={!!percentageItem} transparent={true} animationType="fade" onRequestClose={() => setPercentageItem(null)}>
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPercentageItem(null)}>
+                    <View style={[styles.modalContainer, { height: 'auto', maxHeight: '85%', justifyContent: 'flex-start', paddingTop:0 }]}> 
+                        <View style={[styles.header, { borderBottomWidth: 1, borderColor: Colors[colorScheme].border, padding: 15 }]}>
+                            <View style={{flex:1}}>
+                                <Text style={[styles.recordTitle, {fontSize: 18}]}>{percentageItem.exercise}</Text>
+                                <Text style={{color: Colors[colorScheme].icon, fontSize:12}}>RM Base: {percentageItem.weight}kg</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setPercentageItem(null)}>
+                                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={{padding: 15}}>
+                            <View style={styles.percentageGrid}>
+                                {percentages.map((p) => (
+                                    <View key={p} style={styles.percentageRow}>
+                                        <Text style={[styles.percentageLabel, p > 100 && {color: gymColor}]}>{p}%</Text>
+                                        <Text style={[styles.percentageValue, p > 100 && {color: gymColor, fontWeight:'bold'}]}>
+                                            {Math.round(percentageItem.weight * (p / 100))} kg
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        );
     };
 
     return (
@@ -171,7 +194,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                         <View style={styles.tabsContainer}>
                             <TouchableOpacity 
                                 style={[styles.tab, tab === 'list' && styles.activeTab]} 
-                                onPress={() => setTab('list')}
+                                onPress={() => { setTab('list'); resetForm(); }}
                             >
                                 <Text style={[styles.tabText, tab === 'list' && styles.activeTabText]}>Mis RMs</Text>
                             </TouchableOpacity>
@@ -179,7 +202,9 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                 style={[styles.tab, tab === 'calculator' && styles.activeTab]} 
                                 onPress={() => setTab('calculator')}
                             >
-                                <Text style={[styles.tabText, tab === 'calculator' && styles.activeTabText]}>Calculadora</Text>
+                                <Text style={[styles.tabText, tab === 'calculator' && styles.activeTabText]}>
+                                    {editingIndex !== null ? 'Editar' : 'Calculadora'}
+                                </Text>
                             </TouchableOpacity>
                         </View>
 
@@ -200,14 +225,28 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                     }
                                     renderItem={({ item, index }) => (
                                         <View style={styles.recordItem}>
-                                            <View>
+                                            <View style={{flex: 1}}>
                                                 <Text style={styles.recordTitle}>{item.exercise}</Text>
                                                 <Text style={styles.recordDate}>{new Date(item.date).toLocaleDateString()}</Text>
                                             </View>
-                                            <View style={{flexDirection:'row', alignItems:'center', gap: 15}}>
+                                            
+                                            <View style={styles.actionsContainer}>
+                                                {/* BOTÓN % TABLA */}
+                                                <TouchableOpacity style={styles.percentButton} onPress={() => setPercentageItem(item)}>
+                                                    <MaterialCommunityIcons name="percent" size={16} color={gymColor} />
+                                                </TouchableOpacity>
+
+                                                {/* PESO */}
                                                 <Text style={styles.recordWeight}>{item.weight} kg</Text>
-                                                <TouchableOpacity onPress={() => confirmDelete(index)}>
-                                                    <Ionicons name="trash-outline" size={20} color="red" style={{opacity:0.6}} />
+                                                
+                                                {/* EDITAR */}
+                                                <TouchableOpacity onPress={() => handleEdit(item, index)} style={{padding: 5}}>
+                                                    <FontAwesome5 name="pencil-alt" size={16} color={Colors[colorScheme].icon} />
+                                                </TouchableOpacity>
+
+                                                {/* BORRAR */}
+                                                <TouchableOpacity onPress={() => confirmDelete(index)} style={{padding: 5}}>
+                                                    <Ionicons name="trash-outline" size={20} color="#ff4444" style={{opacity:0.8}} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -232,8 +271,8 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                                 keyboardType="numeric" 
                                                 placeholder="0" 
                                                 placeholderTextColor={Colors[colorScheme].icon}
-                                                value={weight}
-                                                onChangeText={setWeight}
+                                                value={weightInput}
+                                                onChangeText={setWeightInput}
                                             />
                                         </View>
                                         <View style={{flex: 1}}>
@@ -243,25 +282,39 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                                 keyboardType="numeric" 
                                                 placeholder="0" 
                                                 placeholderTextColor={Colors[colorScheme].icon}
-                                                value={reps}
-                                                onChangeText={setReps}
+                                                value={repsInput}
+                                                onChangeText={setRepsInput}
                                             />
                                         </View>
                                     </View>
 
-                                    {/* RESULTADO VISUAL */}
+                                    {/* RESULTADO EDITABLE */}
                                     <View style={styles.resultBox}>
-                                        <Text style={styles.resultLabel}>Tu 1RM Estimado</Text>
-                                        <Text style={styles.resultValue}>{calculatedRM} kg</Text>
-                                        
-                                        
+                                        <Text style={styles.resultLabel}>Tu 1RM (Editable)</Text>
+                                        <View style={{flexDirection:'row', alignItems:'center', justifyContent:'center'}}>
+                                            <TextInput 
+                                                style={styles.resultInput}
+                                                value={finalRM}
+                                                onChangeText={setFinalRM}
+                                                keyboardType="numeric"
+                                                placeholder="0"
+                                                placeholderTextColor={Colors[colorScheme].text}
+                                            />
+                                            <Text style={{fontSize: 20, color: Colors[colorScheme].text, fontWeight:'bold'}}> kg</Text>
+                                        </View>
                                     </View>
 
                                     <TouchableOpacity style={styles.saveButton} onPress={handleSaveRM}>
-                                        <Text style={styles.saveButtonText}>Guardar este RM</Text>
+                                        <Text style={styles.saveButtonText}>{editingIndex !== null ? 'Actualizar RM' : 'Guardar RM'}</Text>
                                     </TouchableOpacity>
 
-                                    <Text style={styles.disclaimer}>*Usando la fórmula de Epley.</Text>
+                                    {editingIndex !== null && (
+                                        <TouchableOpacity onPress={() => { resetForm(); setTab('list'); }} style={{marginTop:15, alignItems:'center'}}>
+                                            <Text style={{color: Colors[colorScheme].icon}}>Cancelar Edición</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <Text style={styles.disclaimer}>*Usando la fórmula de Brzycki o valor manual.</Text>
                                 </View>
                             )}
                         </View>
@@ -276,6 +329,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                         gymColor={gymColor}
                     />
 
+                    {renderPercentageModal()}
                 </View>
             </TouchableWithoutFeedback>
         </Modal>
@@ -285,7 +339,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', },
     modalContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, height: '85%', overflow: 'hidden' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, },
+    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingRight: 15, paddingTop: 10, },
     tabsContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     tab: { flex: 1, padding: 15, alignItems: 'center' },
     activeTab: { borderBottomWidth: 2, borderBottomColor: gymColor },
@@ -293,20 +347,30 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     activeTabText: { color: gymColor, fontWeight: 'bold' },
     content: { flex: 1, padding: 20 },
     emptyText: { color: Colors[colorScheme].text, marginTop: 10, fontSize: 16 },
-    // Estilos Lista
+    
+    // LISTA
     recordItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     recordTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
     recordDate: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
-    recordWeight: { fontSize: 18, fontWeight: 'bold', color: gymColor },
-    // Estilos Calculadora
+    actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    percentButton: { backgroundColor: gymColor + '20', padding: 6, borderRadius: 5 },
+    recordWeight: { fontSize: 16, fontWeight: 'bold', color: gymColor, minWidth: 40, textAlign:'right' },
+    
+    // CALCULADORA
     label: { color: Colors[colorScheme].text, marginBottom: 5, fontWeight:'600' },
-    input: { backgroundColor: Colors[colorScheme].inputBackground, color: Colors[colorScheme].text, padding: 12, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 10, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor },
+    input: { backgroundColor: Colors[colorScheme].inputBackground, color: Colors[colorScheme].text, padding: 12, borderRadius: 5, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 5, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor },
     resultLabel: { color: Colors[colorScheme].text, fontSize: 14, marginBottom: 5 },
-    resultValue: { color: gymColor, fontSize: 32, fontWeight: 'bold' },
-    saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+    resultInput: { fontSize: 32, fontWeight: 'bold', color: Colors[colorScheme].text, minWidth: 60, textAlign:'center', borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].text },
+    saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
     saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    disclaimer: { color: Colors[colorScheme].icon, fontSize: 10, textAlign: 'center', marginTop: 15 }
+    disclaimer: { color: Colors[colorScheme].icon, fontSize: 10, textAlign: 'center', marginTop: 15 },
+
+    // TABLA PORCENTAJES
+    percentageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', padding: 10 },
+    percentageRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderBottomWidth: 1, borderColor: Colors[colorScheme].border },
+    percentageLabel: { color: Colors[colorScheme].text, fontWeight: '600' },
+    percentageValue: { color: Colors[colorScheme].text },
 });
 
 export default RMCalculatorModal;

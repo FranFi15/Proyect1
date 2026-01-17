@@ -806,12 +806,25 @@ const removeUserPaseLibre = asyncHandler(async (req, res) => {
 });
 
 const updateRMs = asyncHandler(async (req, res) => {
-    const { User, } = getModels(req.gymDBConnection);
+    const { User } = getModels(req.gymDBConnection);
     
+    // 1. VERIFICAR DATOS ENTRANTES
+    console.log("Body recibido:", req.body); 
+    console.log("RMs a guardar:", req.body.rmRecords);
+
     const user = await User.findById(req.user._id);
     if (user) {
         user.rmRecords = req.body.rmRecords; 
+        
+        // 2. FORZAR A MONGOOSE A DETECTAR EL CAMBIO
+        // A veces con arrays, Mongoose no se da cuenta que cambiaron.
+        user.markModified('rmRecords'); 
+
         const updatedUser = await user.save();
+        
+        // 3. VERIFICAR SI SE GUARDÓ
+        console.log("Usuario guardado:", updatedUser.rmRecords);
+        
         res.json(updatedUser.rmRecords);
     } else {
         res.status(404);
