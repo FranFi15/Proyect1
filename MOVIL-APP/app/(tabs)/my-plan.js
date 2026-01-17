@@ -18,6 +18,10 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns'; // Importar date-fns
+
+// Importamos el visualizador de contenido HTML/Texto
+import PlanContentViewer from '@/components/PlanContentViewer';
 
 // Componente de Modal para los detalles del plan
 const PlanDetailModal = ({ visible, plan, onClose, gymColor, colorScheme }) => {
@@ -32,24 +36,33 @@ const PlanDetailModal = ({ visible, plan, onClose, gymColor, colorScheme }) => {
             visible={visible}
             onRequestClose={onClose}
         >
-            <View style={styles.modalContainer}>
-                <ThemedView style={styles.modalView}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalView}>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close-circle" size={30} color="#ccc" />
+                        <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                     </TouchableOpacity>
+                    
                     <ScrollView contentContainerStyle={styles.modalScrollContainer}>
                         <ThemedText style={styles.modalTitle}>{plan.name}</ThemedText>
+                        
+
                         {plan.description && (
                             <ThemedText style={styles.modalDescription}>{plan.description}</ThemedText>
                         )}
-                        <ThemedText style={styles.modalContent}>{plan.content}</ThemedText>
+                        
+                        {/* CONTENIDO PRINCIPAL RENDERIZADO */}
+                        <View style={styles.contentWrapper}>
+                            <PlanContentViewer 
+                                content={plan.content} 
+                                colorScheme={colorScheme} 
+                            />
+                        </View>
                     </ScrollView>
-                </ThemedView>
+                </View>
             </View>
         </Modal>
     );
 };
-
 
 const MyPlanScreen = () => {
     const [plans, setPlans] = useState([]);
@@ -111,8 +124,9 @@ const MyPlanScreen = () => {
     return (
         <ThemedView style={styles.container}>
             <View style={styles.headerContainer}>
-                                <Text style={styles.headerTitle}>Planes</Text>
-                            </View>
+                <Text style={styles.headerTitle}>Mis Planes</Text>
+            </View>
+            
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
@@ -120,14 +134,19 @@ const MyPlanScreen = () => {
                 {plans.length > 0 ? (
                     plans.map(plan => (
                         <TouchableOpacity key={plan._id} style={styles.planButton} onPress={() => handlePlanPress(plan)}>
-                            <ThemedText style={styles.planButtonText}>{plan.name}</ThemedText>
+                            <View style={{flex: 1}}>
+                                <ThemedText style={styles.planButtonText}>{plan.name}</ThemedText>
+                                <Text style={styles.planButtonDate}>
+                                    Creado: {format(new Date(plan.createdAt), 'dd/MM/yyyy')}
+                                </Text>
+                            </View>
                             <Ionicons name="chevron-forward" size={22} color={gymColor} />
                         </TouchableOpacity>
                     ))
                 ) : (
                     <ThemedView style={styles.centered}>
-                        <ThemedText style={styles.noPlanText}>Tu profesional aún no ha cargado un plan visible.</ThemedText>
-                        <ThemedText style={styles.noPlanSubText}>Arrastra hacia abajo para refrescar.</ThemedText>
+                        <Ionicons name="documents-outline" size={64} color={Colors[colorScheme].icon} style={{marginBottom: 10, opacity: 0.5}} />
+                        <ThemedText style={styles.noPlanText}>Aún no tienes planes asignados.</ThemedText>
                     </ThemedView>
                 )}
             </ScrollView>
@@ -155,14 +174,15 @@ const MyPlanScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     contentContainer: { flexGrow: 1, padding: 15 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, marginTop: 50 },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 10,
+        paddingVertical: 15,
         paddingHorizontal: 20,
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
+        elevation: 4
     },
     headerTitle: {
         fontSize: 18,
@@ -172,58 +192,64 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     planButton: {
         backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 5,
-        paddingVertical: 20,
-        paddingHorizontal: 15,
-        marginVertical: 8,
+        borderRadius: 8,
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        marginVertical: 6,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
     planButtonText: {
         fontSize: 18,
         fontWeight: '600',
         color: Colors[colorScheme].text,
-        flex: 1, 
+        marginBottom: 4
     },
-    noPlanText: { fontSize: 18, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.8 },
-    noPlanSubText: { fontSize: 14, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, marginTop: 10 },
+    planButtonDate: {
+        fontSize: 12,
+        color: Colors[colorScheme].icon,
+    },
+    noPlanText: { fontSize: 18, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.8, fontWeight: '600' },
+    noPlanSubText: { fontSize: 14, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, marginTop: 5 },
     
     // Estilos del Modal
-    modalContainer: {
+    modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalView: {
-        height: '85%',
+        height: '90%',
         backgroundColor: Colors[colorScheme].background,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        borderTopLeftRadius: 5,
+        borderTopRightRadius: 5,
         padding: 20,
         elevation: 5,
     },
     closeButton: {
-        position: 'absolute',
-        top: 15,
-        right: 15,
-        zIndex: 1,
+        alignSelf: 'flex-end',
+        marginBottom: 10,
+        padding: 5
     },
     modalScrollContainer: {
         flexGrow: 1,
         paddingBottom: 40,
     },
     modalTitle: {
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 5,
         color: Colors[colorScheme].text,
-        textAlign: 'center'
+        textAlign: 'center',
+        borderBottomWidth: 3,
+        borderBottomColor: gymColor,
+        paddingBottom: 10
     },
     modalDescription: {
         fontSize: 16,
@@ -234,12 +260,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderLeftWidth: 4,
         borderLeftColor: gymColor,
         paddingLeft: 15,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        paddingVertical: 10,
+        borderRadius: 4
     },
-    modalContent: {
-        fontSize: 17,
-        lineHeight: 25,
-        color: Colors[colorScheme].text,
-    },
+    contentWrapper: {
+        marginTop: 10
+    }
 });
 
 export default MyPlanScreen;

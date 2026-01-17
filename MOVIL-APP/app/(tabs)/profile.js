@@ -15,9 +15,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, Octicons } from '@expo/vector-icons';
+// Agregamos FontAwesome5 para el icono de pesa
+import { Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
-import es from 'date-fns/locale/es';
 import * as Notifications from 'expo-notifications';
 import {registerForPushNotificationsAsync} from '../../services/notificationService';
 import apiClient from '../../services/apiClient';
@@ -26,6 +26,8 @@ import apiClient from '../../services/apiClient';
 import BalanceModal from '@/components/client/BalanceModal';
 import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
+// Importamos el nuevo Modal de RM
+import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert'; 
 
 const ProfileScreen = () => {
@@ -40,7 +42,7 @@ const ProfileScreen = () => {
         buttons: [] 
     });
 
-     const [activeModal, setActiveModal] = useState(null);
+     const [activeModal, setActiveModal] = useState(null); // 'balance', 'plans', 'edit', 'rm'
 
      const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -79,7 +81,6 @@ const ProfileScreen = () => {
                         style: "primary",
                         onPress: async () => {
                             try {
-                                // Solo si el usuario confirma, actualizamos el backend y el estado
                                 await apiClient.put('/users/profile/push-token', { token: null });
                                 setNotificationsEnabled(false);
                                 Linking.openSettings();
@@ -104,7 +105,6 @@ const ProfileScreen = () => {
                         message: 'Has activado las notificaciones.' 
                     });
                 } else if (result.status === 'denied') {
-                    // El usuario ya había denegado el permiso. Lo guiamos a los ajustes.
                     setAlertInfo({
                         visible: true,
                         title: "Permiso Requerido",
@@ -141,12 +141,12 @@ const ProfileScreen = () => {
                     style: "destructive", 
                     onPress: async () => {
                         try {
-                            await apiClient.delete('/users/me'); // Llama al nuevo endpoint del backend
+                            await apiClient.delete('/users/me'); 
                             setAlertInfo({
                                 visible: true,
                                 title: "Cuenta Eliminada",
                                 message: "Tu cuenta ha sido eliminada exitosamente.",
-                                buttons: [{ text: "OK", onPress: logout }] // Desloguea al usuario
+                                buttons: [{ text: "OK", onPress: logout }] 
                             });
                         } catch (error) {
                             setAlertInfo({
@@ -213,7 +213,7 @@ const ProfileScreen = () => {
                           <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
                           <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
                       </View>
-                       <View style={styles.infoRow}>
+                        <View style={styles.infoRow}>
                           <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
                           <ThemedText style={styles.infoLabel}>Email</ThemedText>
                           <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
@@ -234,6 +234,7 @@ const ProfileScreen = () => {
                           <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
                       </View>
                   </ThemedView>
+                  
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('balance')}>
@@ -246,12 +247,19 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
                     </TouchableOpacity>
 
+                    {/* --- NUEVO BOTÓN PARA RMs --- */}
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
+                        <FontAwesome5 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{marginLeft:1, marginRight:1}} />
+                        <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
+                    </TouchableOpacity>
+                    {/* ---------------------------- */}
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
                         <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
 
-                     <TouchableOpacity style={styles.menuButton} onPress={handleNotificationsPress}>
+                      <TouchableOpacity style={styles.menuButton} onPress={handleNotificationsPress}>
                         <Ionicons name={notificationsEnabled ? "notifications" : "notifications-off"} size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>
                             {notificationsEnabled ? 'Desactivar Notificaciones' : 'Activar Notificaciones'}
@@ -281,6 +289,15 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'edit'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <EditProfileModal userProfile={profile} onClose={() => setActiveModal(null)} />
             </Modal>
+
+            {/* MODAL DE RMs (Ya contiene su propio <Modal> interno en el código que te pasé antes) */}
+            <RMCalculatorModal
+                visible={activeModal === 'rm'}
+                onClose={() => setActiveModal(null)}
+                initialRecords={profile?.rmRecords || []}
+                colorScheme={colorScheme}
+                gymColor={gymColor}
+            />
 
             <CustomAlert
                 visible={alertInfo.visible}

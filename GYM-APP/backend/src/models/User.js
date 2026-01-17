@@ -134,6 +134,11 @@ puedeGestionarEjercicios: {
         type: Boolean,
         default: false
     },
+    rmRecords: [{
+        exercise: { type: String, required: true },
+        weight: { type: Number, required: true }, 
+        date: { type: Date, default: Date.now }
+    }],
 }, {
     timestamps: true,
 });

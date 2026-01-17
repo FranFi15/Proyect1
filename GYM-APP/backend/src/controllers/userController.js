@@ -805,6 +805,20 @@ const removeUserPaseLibre = asyncHandler(async (req, res) => {
     res.json({ message: 'El Pase Libre del usuario ha sido eliminado.' });
 });
 
+const updateRMs = asyncHandler(async (req, res) => {
+    const { User, } = getModels(req.gymDBConnection);
+    
+    const user = await User.findById(req.user._id);
+    if (user) {
+        user.rmRecords = req.body.rmRecords; 
+        const updatedUser = await user.save();
+        res.json(updatedUser.rmRecords);
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -830,4 +844,5 @@ export {
     updateUserStatus,
     updateUserPaseLibre,
     removeUserPaseLibre,
+    updateRMs,
 };

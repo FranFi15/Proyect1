@@ -25,6 +25,7 @@ import {
     updateUserStatus,
     updateUserPaseLibre,
     removeUserPaseLibre,
+    updateRMs,
 } from '../controllers/userController.js'; 
 
 
@@ -46,6 +47,7 @@ router.route('/me')
 router.route('/me').get(protect, getUserProfile);
 router.route('/profile').put(protect, updateUserProfile);
 router.route('/profile/change-password').put(protect, changeUserPassword);
+router.route('/profile/rm').put(protect, updateRMs)
 
 
 router.route('/:id')

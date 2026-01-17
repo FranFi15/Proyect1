@@ -5,9 +5,9 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
+import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 
-// Usamos el editor para la creación/edición
-import { actions, RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
+import RichTextEditor from '@/components/RichTextEditor';
 
 const TrainingPlanModal = ({ clients, visible, onClose }) => {
     const { gymColor } = useAuth();
@@ -15,45 +15,54 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     const styles = getStyles(colorScheme, gymColor);
 
     const [plans, setPlans] = useState([]);
-    const [templates, setTemplates] = useState([]);
     const [availableClasses, setAvailableClasses] = useState([]); 
     const [loading, setLoading] = useState(true);
+    
+    // Vista actual: 'list' (historial) o 'newPlan' (editor)
     const [view, setView] = useState('list'); 
+    
     const [currentPlan, setCurrentPlan] = useState(null);
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
+    // Configuración de destino (Masivo)
     const [targetConfig, setTargetConfig] = useState({ type: 'manual', id: null, name: '' });
     const [showClassSelector, setShowClassSelector] = useState(false);
 
+    // Lógica para detectar el modo
     const isManualSelection = clients && clients.length > 0;
     const isSingleClient = isManualSelection && clients.length === 1;
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const promises = [apiClient.get('/plans/templates')];
-            
             if (isSingleClient) {
-                promises.push(apiClient.get(`/plans/user/${clients[0]._id}`));
-            }
-            if (!isManualSelection) {
-                promises.push(apiClient.get('/classes/admin')); 
-            }
-
-            const results = await Promise.all(promises);
-            setTemplates(results[0].data);
-            
-            if (isSingleClient) {
-                setPlans(results[1].data);
-                setView('list');
-            } else {
+                const plansRes = await apiClient.get(`/plans/user/${clients[0]._id}`);
+                setPlans(plansRes.data);
+                setView('list'); 
+            } 
+            else {
                 setPlans([]);
-                setView('newPlan');
                 setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false });
-                if (!isManualSelection && results[1]) setAvailableClasses(results[1].data);
+                setView('newPlan'); 
+
+                if (!isManualSelection) {
+                    const classesRes = await apiClient.get('/classes/profesor/me');
+                    
+                    const allClasses = classesRes.data;
+                    const today = startOfDay(new Date());
+
+                    const futureClasses = allClasses.filter(cls => {
+                        return !isBefore(parseISO(cls.fecha), today);
+                    }).sort((a, b) => {
+                        return new Date(a.fecha) - new Date(b.fecha);
+                    });
+
+                    setAvailableClasses(futureClasses);
+                }
             }
         } catch (error) {
             console.error(error);
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
             setLoading(false);
         }
@@ -130,8 +139,8 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
         if (loading) return <ActivityIndicator color={gymColor} size="large" style={{flex: 1}} />;
 
         switch (view) {
-            case 'editPlan':
-            case 'newPlan':
+            case 'editPlan': 
+            case 'newPlan':  
                 return (
                     <PlanEditor 
                         plan={currentPlan} 
@@ -142,26 +151,13 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                         targetName={isManualSelection ? (isSingleClient ? clients[0].nombre : `${clients.length} seleccionados`) : targetConfig.name || 'Todos'}
                     />
                 );
-            case 'selectTemplate':
-                return (
-                    <TemplateSelector 
-                        templates={templates} 
-                        onSelect={(t) => {
-                            setCurrentPlan({ name: t.name, description: t.description, content: t.content, isVisibleToUser: false });
-                            setView('newPlan');
-                        }} 
-                        onCancel={() => isSingleClient ? setView('list') : onClose()} 
-                        colorScheme={colorScheme} 
-                    />
-                );
-            default:
+            default: 
                 return (
                     <PlanList 
                         plans={plans} 
                         onEdit={(p) => { setCurrentPlan(p); setView('editPlan'); }} 
                         onDelete={handleDeletePlan} 
                         onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} 
-                        onNewFromTemplate={() => setView('selectTemplate')} 
                         colorScheme={colorScheme} 
                     />
                 );
@@ -183,6 +179,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                     {renderContent()}
                 </View>
 
+                {/* Modal interno selector de clase (Solo modo Global) */}
                 <Modal visible={showClassSelector} transparent={true} animationType="fade">
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalContainer, {height: '50%'}]}>
@@ -196,7 +193,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                                         setShowClassSelector(false);
                                     }}>
                                         <Text style={styles.listItemText}>{item.nombre} - {item.tipoClase?.nombre}</Text>
-                                        <Text style={styles.listItemSubtext}>{item.horaInicio}hs ({item.diaDeSemana[0]})</Text>
+                                        <Text style={styles.listItemSubtext}>{item.diaDeSemana[0]} {format(new Date(item.fecha), 'dd/MM')} {item.horaInicio}hs</Text>
                                     </TouchableOpacity>
                                 )}
                             />
@@ -217,39 +214,31 @@ const PlanEditor = ({ plan: initialPlan, onSave, onCancel, colorScheme, isBulk, 
     const [plan, setPlan] = useState(initialPlan);
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
-    const richText = useRef();
 
     return (
         <View style={{flex: 1}}>
             <ScrollView style={{flex: 1}} keyboardShouldPersistTaps="handled">
-                {isBulk && <Text style={{color: gymColor, marginBottom: 10, fontWeight:'bold'}}>Asignando a: {targetName}</Text>}
+                {isBulk && <Text style={{color: gymColor, marginBottom: 10, fontWeight:'bold', textAlign:'center'}}>Asignando a: {targetName}</Text>}
                 
                 <Text style={styles.label}>Título</Text>
-                <TextInput style={styles.input} value={plan.name} onChangeText={t => setPlan(p => ({ ...p, name: t }))} placeholder="Ej: Hipertrofia Mes 1" placeholderTextColor={Colors[colorScheme].icon}/>
+                <TextInput 
+                    style={styles.input} 
+                    value={plan.name} 
+                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
+                    placeholder="Ej: Hipertrofia Mes 1" 
+                    placeholderTextColor={Colors[colorScheme].icon}
+                />
 
                 <Text style={styles.label}>Contenido</Text>
-                <RichToolbar
-                    editor={richText}
-                    actions={[ actions.setBold, actions.setItalic, actions.setUnderline, actions.insertBulletsList, actions.insertOrderedList ]}
-                    iconTint={Colors[colorScheme].text}
-                    selectedIconTint={gymColor}
-                    style={{ backgroundColor: Colors[colorScheme].cardBackground, borderTopLeftRadius: 5, borderTopRightRadius: 5 }}
+                
+                {/* Editor Rico */}
+                <RichTextEditor
+                    initialContent={plan.content}
+                    onChange={(html) => setPlan(p => ({ ...p, content: html }))}
+                    colorScheme={colorScheme}
+                    gymColor={gymColor}
+                    placeholder="Escribe la rutina aquí..."
                 />
-                <View style={{ borderWidth: 1, borderColor: Colors[colorScheme].border, minHeight: 200, marginBottom: 15 }}>
-                    <RichEditor
-                        ref={richText}
-                        initialContentHTML={plan.content}
-                        onChange={html => setPlan(p => ({ ...p, content: html }))}
-                        placeholder="Escribe la rutina aquí..."
-                        editorStyle={{
-                            backgroundColor: Colors[colorScheme].inputBackground,
-                            color: Colors[colorScheme].text,
-                            placeholderColor: Colors[colorScheme].icon,
-                            contentCSSText: 'font-size: 16px; min-height: 200px;'
-                        }}
-                        style={{ minHeight: 200, flex: 1 }}
-                    />
-                </View>
 
                 <View style={styles.switchContainer}>
                     <Text style={styles.label}>Visible para el Cliente</Text>
@@ -258,18 +247,21 @@ const PlanEditor = ({ plan: initialPlan, onSave, onCancel, colorScheme, isBulk, 
             </ScrollView>
 
             <View style={styles.footerButtons}>
-                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}><Text style={styles.buttonTextSecondary}>Cancelar</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}><Text style={styles.buttonText}>{isBulk ? 'Asignar a Todos' : 'Guardar'}</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}>
+                    <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}>
+                    <Text style={styles.buttonText}>{isBulk ? 'Asignar' : 'Guardar'}</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
 };
 
-const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate, colorScheme }) => {
+const PlanList = ({ plans, onEdit, onDelete, onNewPlan, colorScheme }) => {
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
     
-    // --- FUNCIÓN PARA LIMPIAR HTML ---
     const stripHtml = (html) => {
         if (!html) return '';
         return html.replace(/<[^>]+>/g, ' ').substring(0, 50) + '...';
@@ -280,7 +272,6 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate, color
             <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{item.name}</Text>
                 <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
-                {/* Mostramos solo texto plano en la lista */}
                 <Text style={{color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2}}>
                     {stripHtml(item.content)}
                 </Text>
@@ -294,22 +285,20 @@ const PlanList = ({ plans, onEdit, onDelete, onNewPlan, onNewFromTemplate, color
 
     return (
         <View style={{flex: 1}}>
-            <FlatList data={plans} renderItem={renderItem} keyExtractor={(item) => item._id} ListEmptyComponent={<Text style={styles.emptyText}>Sin planes.</Text>} />
+            <FlatList 
+                data={plans} 
+                renderItem={renderItem} 
+                keyExtractor={(item) => item._id} 
+                ListEmptyComponent={<Text style={styles.emptyText}>Sin planes asignados.</Text>} 
+            />
             <View style={styles.footerButtons}>
-                <TouchableOpacity style={[styles.button, {marginRight: 5}]} onPress={onNewPlan}><Text style={styles.buttonText}>Nuevo Vacío</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.button, {marginLeft: 5, backgroundColor: '#555'}]} onPress={onNewFromTemplate}><Text style={styles.buttonText}>Desde Plantilla</Text></TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.button, {width: '100%'}]} 
+                    onPress={onNewPlan}
+                >
+                    <Text style={styles.buttonText}>Crear Nuevo Plan</Text>
+                </TouchableOpacity>
             </View>
-        </View>
-    );
-};
-
-const TemplateSelector = ({ templates, onSelect, onCancel, colorScheme }) => {
-    const { gymColor } = useAuth();
-    const styles = getStyles(colorScheme, gymColor);
-    return (
-        <View style={{flex: 1}}>
-            <FlatList data={templates} keyExtractor={item => item._id} renderItem={({item}) => (<TouchableOpacity style={styles.planCard} onPress={() => onSelect(item)}><Text style={styles.planTitle}>{item.name}</Text></TouchableOpacity>)} ListEmptyComponent={<Text style={styles.emptyText}>No hay plantillas.</Text>} />
-            <TouchableOpacity style={[styles.button, styles.buttonSecondary, {marginTop: 10}]} onPress={onCancel}><Text style={styles.buttonTextSecondary}>Cancelar</Text></TouchableOpacity>
         </View>
     );
 };
@@ -323,10 +312,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     planTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
     planDate: { fontSize: 12, opacity: 0.6, marginTop: 4, color: Colors[colorScheme].text },
     planActions: { flexDirection: 'row', gap: 15, marginTop: 5 },
-    footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 20 },
+    footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 20, gap: 10 },
     button: { flex: 1, padding: 12, borderRadius: 5, alignItems: 'center', backgroundColor: gymColor, justifyContent: 'center' },
     buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-    buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors[colorScheme].border, marginRight: 10 },
+    buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors[colorScheme].border },
     buttonTextSecondary: { color: Colors[colorScheme].text },
     emptyText: { textAlign: 'center', marginTop: 50, color: Colors[colorScheme].text },
     label: { fontSize: 14, fontWeight: '600', marginBottom: 5, marginTop: 15, color: Colors[colorScheme].text },
