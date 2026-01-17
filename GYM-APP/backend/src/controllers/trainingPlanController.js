@@ -64,51 +64,89 @@ const deleteTemplate = asyncHandler(async (req, res) => {
     res.json({ message: 'Plantilla eliminada' });
 });
 
-// --- CONTROLADORES DE PLANES ASIGNADOS ---
 
 const createPlanForUser = asyncHandler(async (req, res) => {
-    const { TrainingPlan, TrainingTemplate, User } = getModels(req.gymDBConnection);
-    const { userId, name, description, content, templateId, isVisibleToUser } = req.body;
+    const { TrainingPlan, TrainingTemplate, User, Clase } = getModels(req.gymDBConnection);
+    
+    const { 
+        userIds, userId, 
+        targetType, targetId, 
+        name, description, content, templateId, isVisibleToUser 
+    } = req.body;
 
-    if (!userId) {
-        res.status(400).throw(new Error('Se requiere el ID del usuario.'));
+    let targets = [];
+
+    if (targetType) {
+        switch (targetType) {
+            case 'all':
+                const allClients = await User.find({ roles: 'cliente', isActive: true }, '_id');
+                targets = allClients.map(u => u._id);
+                break;
+            case 'class':
+                if (!targetId) { res.status(400); throw new Error('Falta el ID de la clase.'); }
+                const clase = await Clase.findById(targetId);
+                if (!clase) { res.status(404); throw new Error('Clase no encontrada.'); }
+                const classUsers = await User.find({ 
+                    _id: { $in: clase.usuariosInscritos }, 
+                    isActive: true 
+                }, '_id');
+                targets = classUsers.map(u => u._id);
+                break;
+            case 'user': 
+            default:
+                if (userIds && Array.isArray(userIds)) targets = userIds;
+                else if (userId) targets = [userId];
+                break;
+        }
+    } else {
+        if (userIds && Array.isArray(userIds)) {
+            targets = userIds;
+        } else if (userId) {
+            targets = [userId];
+        }
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-        res.status(404);
-        throw new Error('El cliente especificado no fue encontrado.');
-    }
-    if (!user.isActive) {
-        res.status(403); 
-        throw new Error('No se pueden crear planes para un usuario que no está activo.');
+    targets = [...new Set(targets.map(id => id.toString()))];
+
+    if (targets.length === 0) {
+        res.status(400);
+        throw new Error('No se encontraron usuarios destinatarios válidos para asignar el plan.');
     }
 
-    let planData = {
-        user: userId,
-        createdBy: req.user._id,
-        name: name || 'Nuevo Plan',
-        description,
-        isVisibleToUser: isVisibleToUser || false,
-    };
+    let planContent = content;
+    let planName = name || 'Nuevo Plan';
 
     if (templateId) {
         const template = await TrainingTemplate.findById(templateId);
         if (!template) {
-            res.status(404).throw(new Error('Plantilla no encontrada'));
+            res.status(404);
+            throw new Error('Plantilla no encontrada');
         }
-        planData.name = name || template.name;
-        planData.content = template.content; // Copia el contenido de la plantilla
-        planData.template = templateId;
+        planName = name || template.name;
+        planContent = template.content;
     } else {
         if (!content) {
-            res.status(400).throw(new Error('Se requiere el contenido para un plan nuevo.'));
+            res.status(400);
+            throw new Error('Se requiere el contenido para el plan.');
         }
-        planData.content = content;
     }
 
-    const plan = await TrainingPlan.create(planData);
-    res.status(201).json(plan);
+    const createdPlans = await Promise.all(targets.map(async (uid) => {
+        return await TrainingPlan.create({
+            user: uid,
+            createdBy: req.user._id,
+            name: planName,
+            description,
+            content: planContent, 
+            template: templateId || undefined,
+            isVisibleToUser: isVisibleToUser || false,
+        });
+    }));
+
+    res.status(201).json({ 
+        message: `Plan asignado exitosamente a ${createdPlans.length} cliente(s).`,
+        count: createdPlans.length 
+    });
 });
 
 const getPlansForUser = asyncHandler(async (req, res) => {

@@ -8,7 +8,6 @@ import {
     TouchableOpacity, 
     useColorScheme, 
     Text,
-   ThemedText,
     RefreshControl 
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -18,17 +17,24 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import TrainingPlanModal from '../../components/profesor/TrainingPlanModal';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5 } from '@expo/vector-icons';
+// Importamos MaterialCommunityIcons para los checkboxes
+import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ProfessorClientsScreen = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedClient, setSelectedClient] = useState(null);
+    
+    // selectedClient ahora puede ser: null (modo global), un objeto (individual), o un array (múltiple)
+    const [selectedClient, setSelectedClient] = useState(null); 
     const [planModalVisible, setPlanModalVisible] = useState(false);
-    // --- 2. Add state for refreshing ---
+    
     const [isRefreshing, setIsRefreshing] = useState(false);
     
+    // --- ESTADOS PARA SELECCIÓN MÚLTIPLE ---
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedClientIds, setSelectedClientIds] = useState([]);
+
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -41,7 +47,6 @@ const ProfessorClientsScreen = () => {
     });
 
     const fetchData = useCallback(async () => {
-        // No setLoading(true) here, handled by loading/isRefreshing states
         try {
             const response = await apiClient.get('/users?role=cliente');
             setUsers(response.data);
@@ -59,7 +64,6 @@ const ProfessorClientsScreen = () => {
         }
     }, []);
 
-    // --- 3. Create onRefresh function ---
     const onRefresh = useCallback(() => {
         setIsRefreshing(true);
         fetchData();
@@ -72,81 +76,195 @@ const ProfessorClientsScreen = () => {
         }, [fetchData])
     );
 
-    const handleOpenPlanModal = (client) => {
-        setSelectedClient(client);
+    // --- LÓGICA DE SELECCIÓN ---
+
+    const toggleSelectionMode = (clientId) => {
+        setIsSelectionMode(true);
+        handleSelectClient(clientId);
+    };
+
+    const handleSelectClient = (clientId) => {
+        if (selectedClientIds.includes(clientId)) {
+            // Deseleccionar
+            const newSelection = selectedClientIds.filter(id => id !== clientId);
+            setSelectedClientIds(newSelection);
+            if (newSelection.length === 0) setIsSelectionMode(false);
+        } else {
+            // Seleccionar
+            setSelectedClientIds([...selectedClientIds, clientId]);
+        }
+    };
+
+    const cancelSelectionMode = () => {
+        setIsSelectionMode(false);
+        setSelectedClientIds([]);
+    };
+
+    // --- MANEJADORES DE APERTURA DE MODAL ---
+
+    // 1. Click simple en un cliente
+    const handleCardPress = (client) => {
+        if (isSelectionMode) {
+            handleSelectClient(client._id);
+        } else {
+            // Abrir modo individual (pasamos array de 1 para compatibilidad con el modal nuevo)
+            setSelectedClient([client]);
+            setPlanModalVisible(true);
+        }
+    };
+
+    // 2. Click en FAB de "Confirmar Selección" (Varios clientes)
+    const handleOpenBulkSelectionModal = () => {
+        // Filtramos los objetos de usuario completos basados en los IDs seleccionados
+        const clientsSelected = users.filter(u => selectedClientIds.includes(u._id));
+        setSelectedClient(clientsSelected);
         setPlanModalVisible(true);
     };
 
-    const handleCloseModal = () => {
+    // 3. Click en FAB de "Asignación Global" (Sin selección previa)
+    const handleOpenGlobalModal = () => {
+        setSelectedClient(null); // Null indica al modal que muestre el selector "Todos / Por Clase"
+        setPlanModalVisible(true);
+    };
+
+    const handleCloseModal = (shouldRefresh) => {
         setPlanModalVisible(false);
         setSelectedClient(null);
+        
+        if (shouldRefresh === true) { 
+            // Si el modal nos dice que guardó cambios, limpiamos y refrescamos
+            cancelSelectionMode();
+            onRefresh();
+        }
     };
 
     const filteredData = useMemo(() => {
         if (!searchTerm) return users;
         return users.filter(user =>
-            `${user.nombre} ${user.apellido}`.toLowerCase().includes(searchTerm.toLowerCase())
+            `${user.nombre} ${user.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.dni?.includes(searchTerm)
         );
     }, [users, searchTerm]);
 
-    const renderUserCard = ({ item }) => (
-        <TouchableOpacity style={styles.card} onPress={() => handleOpenPlanModal(item)}>
-            <View>
-                <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                <Text style={styles.cardSubtitle}>{item.email}</Text>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderUserCard = ({ item }) => {
+        const isSelected = selectedClientIds.includes(item._id);
+        
+        return (
+            <TouchableOpacity 
+                style={[
+                    styles.card, 
+                    isSelected && styles.cardSelected // Estilo visual si está seleccionado
+                ]} 
+                onPress={() => handleCardPress(item)}
+                onLongPress={() => toggleSelectionMode(item._id)}
+                delayLongPress={300}
+                activeOpacity={0.7}
+            >
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <View>
+                        <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                        <Text style={styles.cardSubtitle}>{item.email}</Text>
+                    </View>
+                    
+                    {/* Mostrar Checkbox solo en modo selección */}
+                    {isSelectionMode && (
+                        <MaterialCommunityIcons 
+                            name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
+                            size={24} 
+                            color={isSelected ? gymColor : Colors[colorScheme].icon} 
+                        />
+                    )}
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.headerContainer}>
-                <Text style={styles.headerTitle}>Planes</Text>
+            {/* Header Dinámico: Cambia si estamos seleccionando */}
+            <View style={[styles.headerContainer, isSelectionMode && {backgroundColor: '#333'}]}>
+                {isSelectionMode ? (
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingHorizontal: 10}}>
+                        <Text style={{color: 'white', fontSize: 18, fontWeight: 'bold'}}>
+                            {selectedClientIds.length} seleccionados
+                        </Text>
+                        <TouchableOpacity onPress={cancelSelectionMode}>
+                            <FontAwesome5 name="times" size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <Text style={styles.headerTitle}>Planes</Text>
+                )}
             </View>
-            {loading ? <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} /> : (
-                
-                <ThemedView>
+
+            {loading ? (
+                <ActivityIndicator style={{ marginTop: 20 }} size="large" color={gymColor} />
+            ) : (
+                <ThemedView style={{flex: 1}}>
                     <View style={styles.searchInputContainer}>
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Buscar cliente por nombre o DNI..."
-                                placeholderTextColor={Colors[colorScheme].icon}
-                                value={searchTerm}
-                                onChangeText={setSearchTerm}
-                            />
-                            <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
-            </View>
-            
-                <FlatList
-                    data={filteredData}
-                    renderItem={renderUserCard}
-                    keyExtractor={(item) => item._id}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={onRefresh}
-                            tintColor={gymColor}
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Buscar cliente por nombre o DNI..."
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            value={searchTerm}
+                            onChangeText={setSearchTerm}
                         />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>
-                                {searchTerm ? "No se encontraron clientes con ese nombre." : "Aún no tienes clientes asignados."}
-                            </Text>
-                        </View>
-                    }
-                />
+                        <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
+                    </View>
+            
+                    <FlatList
+                        data={filteredData}
+                        renderItem={renderUserCard}
+                        keyExtractor={(item) => item._id}
+                        contentContainerStyle={{ paddingBottom: 100 }} // Espacio extra para los FABs
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={onRefresh}
+                                tintColor={gymColor}
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>
+                                    {searchTerm ? "No se encontraron clientes." : "Aún no tienes clientes asignados."}
+                                </Text>
+                            </View>
+                        }
+                    />
                 </ThemedView>
             )}
             
-            {selectedClient && (
-                <TrainingPlanModal
-                    visible={planModalVisible}
-                    client={selectedClient}
-                    onClose={handleCloseModal}
-                />
+            {/* --- FABs (Botones Flotantes) --- */}
+            
+            {!loading && (
+                isSelectionMode ? (
+                    // FAB para confirmar selección manual (aparece solo al seleccionar)
+                    <TouchableOpacity 
+                        style={styles.fab} 
+                        onPress={handleOpenBulkSelectionModal}
+                    >
+                        <FontAwesome5 name="check" size={24} color="#fff" />
+                    </TouchableOpacity>
+                ) : (
+                    // FAB para Asignación Masiva Global (aparece siempre por defecto)
+                    <TouchableOpacity 
+                        style={[styles.fab, { backgroundColor: '#f39c12' }]} // Color diferente (naranja) para distinguir
+                        onPress={handleOpenGlobalModal}
+                    >
+                        <FontAwesome5 name="users" size={24} color="#fff" />
+                    </TouchableOpacity>
+                )
             )}
+
+            {/* --- MODAL --- */}
+            {/* Pasamos 'clients' que puede ser Array o Null */}
+            <TrainingPlanModal
+                visible={planModalVisible}
+                clients={selectedClient} 
+                onClose={handleCloseModal}
+            />
+
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -163,11 +281,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 10,
+        paddingVertical: 15,
         paddingHorizontal: 20,
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
+        elevation: 4,
     },
     headerTitle: {
         fontSize: 18,
@@ -175,11 +294,42 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         textAlign: 'center',
     },
-    searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
+    searchInputContainer: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        marginHorizontal: 15, 
+        marginVertical: 10, 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        borderRadius: 5, 
+        borderWidth: 1, 
+        borderColor: Colors[colorScheme].border 
+    },
+    searchInput: { 
+        flex: 1, 
+        height: 50, 
+        paddingHorizontal: 15, 
+        color: Colors[colorScheme].text, 
+        fontSize: 16 
+    },
     searchIcon: { marginRight: 15 },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  },
+    card: { 
+        backgroundColor: Colors[colorScheme].cardBackground, 
+        borderRadius: 5, 
+        padding: 20, 
+        marginVertical: 6, 
+        marginHorizontal: 15, 
+        elevation: 2,
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 1 }, 
+        shadowOpacity: 0.2, 
+        shadowRadius: 1.41,
+        borderWidth: 1,
+        borderColor: 'transparent' // Por defecto transparente
+    },
+    cardSelected: {
+        borderColor: gymColor,
+        backgroundColor: gymColor + '10' // Un fondo muy suave del color del gym
+    },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
     emptyContainer: {
@@ -193,6 +343,22 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: Colors[colorScheme].icon,
         textAlign: 'center',
     },
+    fab: { 
+        position: 'absolute', 
+        width: 60, 
+        height: 60, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        right: 20, 
+        bottom: 20, 
+        backgroundColor: gymColor, 
+        borderRadius: 30, 
+        elevation: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    }
 });
 
 export default ProfessorClientsScreen;
