@@ -165,7 +165,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     };
 
     return (
-        <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={() => onClose()}>
+        <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={() => onClose()}>
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContainer}>
                     <View style={styles.header}>

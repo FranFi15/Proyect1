@@ -284,21 +284,21 @@ const ProfileScreen = () => {
             </ScrollView>
 
             {/* Renderizado de los Modales */}
-            <Modal visible={activeModal === 'balance'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'balance'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
 
-            <Modal visible={activeModal === 'plans'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>
 
-            <Modal visible={activeModal === 'edit'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'edit'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <EditProfileModal userProfile={profile} onClose={() => setActiveModal(null)} />
             </Modal>
 
-            {/* MODAL DE RMs (Ya contiene su propio <Modal> interno en el código que te pasé antes) */}
             <RMCalculatorModal
                 visible={activeModal === 'rm'}
+                animationType="fade"
                 onClose={() => setActiveModal(null)}
                 initialRecords={profile?.rmRecords || []}
                 colorScheme={colorScheme}

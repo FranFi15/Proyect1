@@ -51,7 +51,7 @@ const QrScannerModal = ({ visible, onClose, onBarcodeScanned }) => {
     }
 
     return (
-        <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <Modal visible={visible} animationType="fade" onRequestClose={onClose}>
             <View style={styles.container}>
                 {content}
             </View>

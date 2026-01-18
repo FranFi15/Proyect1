@@ -9,7 +9,15 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
 import { format, parseISO, isValid } from 'date-fns';
-import es from 'date-fns/locale/es';
+
+const formatDateUTC = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+};
 
 const PlansAndCreditsModal = ({ onClose }) => {
     const { user, gymColor } = useAuth();
@@ -91,7 +99,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                             <View style={styles.infoRow}>
                                 <ThemedText style={[styles.infoLabelBold]}>Válido hasta:</ThemedText>
                                 <ThemedText style={styles.infoValue}>
-                                    {format(parseISO(profile.paseLibreHasta), 'dd/MM/yyyy')}
+                                    {formatDateUTC(profile.paseLibreHasta)}
                                 </ThemedText>
                             </View>
                         </ThemedView>

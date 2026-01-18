@@ -114,10 +114,6 @@ const updateTipoClase = asyncHandler(async (req, res) => {
     const tipoClase = await TipoClase.findById(req.params.id);
 
     if (tipoClase) {
-        if (tipoClase.esUniversal) {
-            res.status(403);
-            throw new Error('No puedes editar la configuración del Crédito Universal del sistema.');
-        }
         tipoClase.nombre = nombre !== undefined ? nombre : tipoClase.nombre;
         tipoClase.descripcion = descripcion !== undefined ? descripcion : tipoClase.descripcion;
         tipoClase.price = price ?? tipoClase.price;

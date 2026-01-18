@@ -352,7 +352,7 @@ const NotificationAdminScreen = () => {
             </KeyboardAvoidingView>
 
             <Modal
-                animationType="slide"
+                animationType="fade"
                 transparent={false}
                 visible={searchModalVisible}
                 onRequestClose={closeSearchModal}

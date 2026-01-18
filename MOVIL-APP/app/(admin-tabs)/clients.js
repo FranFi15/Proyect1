@@ -53,6 +53,15 @@ const ClientCounter = ({ count, limit, onUpgradePress, gymColor, colorScheme }) 
 };
 
 
+const formatDateUTC = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+};
+
 const ManageClientsScreen = () => {
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
@@ -317,29 +326,6 @@ const ManageClientsScreen = () => {
         }
     };
 
-    const handleRemoveSubscription = (tipoClaseId) => {
-        if (!selectedClient || !tipoClaseId) return;
-        setAlertInfo({
-            visible: true,
-            title: "Quitar Suscripción",
-            message: "¿Seguro que quieres eliminar la suscripción automática para este Turno?",
-            buttons: [
-                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                {
-                    text: "Quitar", style: "destructive", onPress: async () => {
-                        setAlertInfo({ visible: false });
-                        try {
-                            await apiClient.delete(`/users/${selectedClient._id}/subscription/${tipoClaseId}`);
-                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Suscripción eliminada.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                            fetchAllData();
-                        } catch (error) {
-                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la suscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        }
-                    }
-                }
-            ]
-        });
-    };
 
     
 
@@ -497,40 +483,9 @@ const ManageClientsScreen = () => {
         });
     };
 
-    const showPaseLibreDatePicker = (field) => {
-        setPaseLibreFieldToEdit(field);
-        setIsPaseLibrePickerVisible(true);
-    };
+
 
     
-
-    const renderPaseLibreDateField = (label, field) => {
-        const dateValue = paseLibreData[field];
-        const displayValue = dateValue ? format(dateValue, 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
-
-        if (Platform.OS === 'web') {
-            return (
-                <WebDatePicker
-                    selected={dateValue}
-                    onChange={(date) => setPaseLibreData(prev => ({ ...prev, [field]: date }))}
-                    minDate={field === 'hasta' ? paseLibreData.desde : null}
-                    dateFormat="dd/MM/yyyy"
-                    customInput={
-                        <View style={styles.dateInputTouchable}>
-                            <Text style={styles.dateInputText}>{displayValue}</Text>
-                        </View>
-                    }
-                />
-            );
-        }
-        return (
-            <TouchableOpacity onPress={() => showPaseLibreDatePicker(field)}>
-                <View style={styles.dateInputTouchable}>
-                    <Text style={styles.dateInputText}>{displayValue}</Text>
-                </View>
-            </TouchableOpacity>
-        );
-    };
 
     const getModalConfig = useMemo(() => {
         const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes];
@@ -839,7 +794,7 @@ const ManageClientsScreen = () => {
                     <View style={styles.paseLibreContainer}>
                         <Ionicons name="star" size={14} color={styles.paseLibreText.color} />
                         <Text style={styles.paseLibreText}>
-                            Pase Libre hasta: {format(paseLibreDate, 'dd/MM/yyyy')}
+                           Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
                         </Text>
                     </View>
                 )}
@@ -847,7 +802,7 @@ const ManageClientsScreen = () => {
                     <View style={[styles.paseLibreContainer, { backgroundColor: '#e74c3c' }]}> 
                         <Ionicons name="alert-circle" size={14} color="#fff" />
                         <Text style={styles.paseLibreText}>
-                            Pase Libre Vencido ({format(paseLibreDate, 'dd/MM/yyyy')})
+                            Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
                         </Text>
                     </View>
                 )}

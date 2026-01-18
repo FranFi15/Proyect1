@@ -153,7 +153,6 @@ const ClassTypeManagementScreen = () => {
         );
     }, [classTypes, searchTerm]);
 
-    // --- HEADER MODIFICADO (Sin el botón de configuración) ---
     const renderHeader = useCallback(() => (
         <View>   
             <ThemedText style={styles.listTitle}>Créditos</ThemedText>
@@ -173,10 +172,9 @@ const ClassTypeManagementScreen = () => {
     const renderClassTypeItem = ({ item }) => (
         <View style={styles.itemCard}>
             <View style={styles.cardContent}>
-                <ThemedText style={styles.itemTitle}>{item.nombre}</ThemedText>
+                <ThemedText style={styles.itemTitle}>{item.nombre} {item.esUniversal && <FontAwesome6 name="shield" size={14} color="#f39c12" style={{ marginLeft: 10 }}/>}</ThemedText>
                 <ThemedText style={styles.cardDescription}>
                     {item.resetMensual ? 'Vencimiento Mensual' : 'Sin Vencimiento'}
-                    {item.esUniversal && <Text style={{fontWeight:'bold', color:'#f39c12'}}> (Sistema)</Text>}
                 </ThemedText>
             </View>
             <View style={styles.cardActions}>
@@ -313,7 +311,7 @@ const ClassTypeManagementScreen = () => {
             <Modal 
                 visible={isModalVisible} 
                 transparent={true} 
-                animationType="slide" 
+                animationType="fade" 
                 onRequestClose={() => setIsModalVisible(false)}
             >
                 {/* ... (Contenido del modal de editar crédito igual que antes) ... */}

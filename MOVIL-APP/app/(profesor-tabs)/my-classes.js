@@ -224,7 +224,7 @@ const ProfessorMyClassesScreen = () => {
             />
 
             <Modal
-                animationType="slide"
+                animationType="fade"
                 transparent={true}
                 visible={isListModalVisible}
                 onRequestClose={handleCloseModal}

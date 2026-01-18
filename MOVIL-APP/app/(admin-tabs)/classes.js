@@ -1021,7 +1021,7 @@ const ManageClassesScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
             {datePickerConfig.visible && Platform.OS === 'ios' && (
-                <Modal transparent={true} animationType="slide" visible={datePickerConfig.visible}>
+                <Modal transparent={true} animationType="fade" visible={datePickerConfig.visible}>
                     <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(p => ({...p, visible: false}))}>
                         <Pressable style={styles.iosPickerContainer}>
                             <DateTimePicker 
@@ -1127,7 +1127,7 @@ const ManageClassesScreen = () => {
             )}
 
            {showRosterModal && viewingClassRoster && (
-                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)} animationType='slide'>
+                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)} animationType='fade'>
                     <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>  
                         <Pressable style={styles.modalView}>
                              <TouchableOpacity onPress={() =>  setShowRosterModal(false)} style={styles.closeButton}>
@@ -1175,7 +1175,7 @@ const ManageClassesScreen = () => {
             )}
 
             {showCancelModal && (
-                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)} animationType='slide'>
+                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)} animationType='fade'>
                     <Pressable style={[styles.modalView, styles.confirmationModal]}>
                         <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />

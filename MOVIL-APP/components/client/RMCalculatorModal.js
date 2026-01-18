@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard, TouchableWithoutFeedback, ScrollView } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome5, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons, Octicons, FontAwesome6 } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
 
 // Importamos TU alerta personalizada
@@ -185,7 +185,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
     };
 
     return (
-        <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+        <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
@@ -236,24 +236,25 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                                                 <Text style={styles.recordTitle}>{item.exercise}</Text>
                                                 <Text style={styles.recordDate}>{new Date(item.date).toLocaleDateString()}</Text>
                                             </View>
+
                                             
                                             <View style={styles.actionsContainer}>
                                                 {/* BOTÓN % TABLA */}
                                                 <TouchableOpacity style={styles.percentButton} onPress={() => setPercentageItem(item)}>
-                                                    <MaterialCommunityIcons name="percent" size={16} color={gymColor} />
+                                                    <FontAwesome5 name="percentage" size={16} color={Colors[colorScheme].icon} />
                                                 </TouchableOpacity>
 
                                                 {/* PESO */}
                                                 <Text style={styles.recordWeight}>{item.weight} kg</Text>
                                                 
                                                 {/* EDITAR */}
-                                                <TouchableOpacity onPress={() => handleEdit(item, index)} style={{padding: 5}}>
-                                                    <FontAwesome5 name="pencil-alt" size={16} color={Colors[colorScheme].icon} />
+                                                <TouchableOpacity onPress={() => handleEdit(item, index)} style={{padding: 5, paddingRight: 0}}>
+                                                    <FontAwesome6 name="edit" size={18} color={Colors[colorScheme].icon} />
                                                 </TouchableOpacity>
 
                                                 {/* BORRAR */}
-                                                <TouchableOpacity onPress={() => confirmDelete(index)} style={{padding: 5}}>
-                                                    <Ionicons name="trash-outline" size={20} color="#ff4444" style={{opacity:0.8}} />
+                                                <TouchableOpacity onPress={() => confirmDelete(index)} style={{ padding: 5, paddingLeft: 0 }}>
+                                                    <Octicons name="trash" size={20} color="#ff4444" style={{opacity:0.8}} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -358,7 +359,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     recordItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     recordTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
     recordDate: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
-    actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, },
     percentButton: { backgroundColor: gymColor + '20', padding: 6, borderRadius: 5 },
     recordWeight: { fontSize: 18, fontWeight: 'bold', color: gymColor, minWidth: 40, textAlign:'right' },
     
