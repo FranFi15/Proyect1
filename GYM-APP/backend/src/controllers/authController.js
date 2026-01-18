@@ -105,7 +105,7 @@ const registerUser = asyncHandler(async (req, res) => {
                     Notification,
                     User,
                     user._id,
-                    "¡Bienvenido/a! 🎁",
+                    "¡Bienvenido/a! ",
                     `Te regalamos ${courtesyNotificationData.amount} crédito(s) de "${nombreCredito}" para que comiences a entrenar.`,
                     'welcome_gift'
                 );

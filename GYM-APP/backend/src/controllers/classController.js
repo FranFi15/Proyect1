@@ -444,8 +444,6 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(classId).populate('tipoClase');
     const user = await User.findById(userId);
 
-    
-
     if (!classItem || !user) {
         res.status(404);
         throw new Error('Turno o usuario no encontrados.');
@@ -470,29 +468,35 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         throw new Error('Ya estás inscrito en este turno.');
     }
 
-        if (classItem.waitlist && classItem.waitlist.includes(userId)) {
+    if (classItem.waitlist && classItem.waitlist.includes(userId)) {
         classItem.waitlist.pull(userId);
     }
     
-   const hoy = new Date();
-    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
-                                 hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+    const fechaDelTurno = new Date(classItem.fecha);
+    let tienePaseLibreValidoParaEsteTurno = false;
 
-    let tipoCreditoADescontar = null;
+    if (user.paseLibreDesde && user.paseLibreHasta) {
+        const inicioPase = new Date(user.paseLibreDesde);
+        inicioPase.setHours(0, 0, 0, 0); 
 
-    if (tienePaseLibreActivo) {
-        console.log(`Usuario ${user.nombre} inscripto usando Pase Libre.`);
+        const finPase = new Date(user.paseLibreHasta);
+        finPase.setHours(23, 59, 59, 999); 
+        if (fechaDelTurno >= inicioPase && fechaDelTurno <= finPase) {
+            tienePaseLibreValidoParaEsteTurno = true;
+        }
+    }
+    
+    let tipoCreditoADescontar = null; 
+
+    if (tienePaseLibreValidoParaEsteTurno) {
     } else {
-        // --- MODIFICADO: LÓGICA DE COBRO PRIORIZADA ---
+        
         const tipoClaseId = classItem.tipoClase._id.toString();
         let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
-
-        // 1. Intentar cobrar con Crédito Específico
         if (creditosEspecificos > 0) {
             user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
             tipoCreditoADescontar = classItem.tipoClase._id; 
         } else {
-            // 2. Intentar cobrar con Crédito Universal
             const universalType = await TipoClase.findOne({ esUniversal: true });
             
             if (universalType) {
@@ -507,14 +511,19 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         }
 
         if (!tipoCreditoADescontar) {
-            res.status(400);
-            throw new Error(`No tienes un Pase Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
+            if (user.paseLibreHasta) {
+                res.status(400);
+                throw new Error(`Tu Pase Libre vence el ${new Date(user.paseLibreHasta).toLocaleDateString()} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+            } else {
+                res.status(400);
+                throw new Error(`No tienes un Pase Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
+            }
         }
     }
 
     classItem.usuariosInscritos.push(userId);
     
-    if (!tienePaseLibreActivo && tipoCreditoADescontar) {
+    if (!tienePaseLibreValidoParaEsteTurno && tipoCreditoADescontar) {
         classItem.inscripcionesDetalle.push({
             user: userId,
             tipoCreditoUsado: tipoCreditoADescontar

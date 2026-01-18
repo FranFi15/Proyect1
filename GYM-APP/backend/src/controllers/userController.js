@@ -770,13 +770,27 @@ const updateUserPaseLibre = asyncHandler(async (req, res) => {
     }
 
     user.paseLibreDesde = paseLibreDesde ? new Date(paseLibreDesde) : undefined;
-    user.paseLibreHasta = paseLibreHasta ? new Date(paseLibreHasta) : undefined;
+
+    if (paseLibreHasta) {
+        const hasta = new Date(paseLibreHasta);
+        hasta.setUTCHours(23, 59, 59, 999);
+
+        user.paseLibreHasta = hasta;
+    } else {
+        user.paseLibreHasta = undefined;
+    }
 
     await user.save();
 
-    const title = "¡Tienes un Pase Libre!";
-    const message = `Tu nuevo Pase Libre es válido desde el ${format(new Date(paseLibreDesde), 'dd/MM/yyyy')} hasta el ${format(new Date(paseLibreHasta), 'dd/MM/yyyy')}.`;
-    await sendSingleNotification(Notification, User, user._id, title, message, 'pase_libre_update');
+   if (paseLibreDesde && paseLibreHasta) {
+        const title = "¡Tienes un Pase Libre!";
+        const message = `Tu nuevo Pase Libre es válido desde el ${format(new Date(paseLibreDesde), 'dd/MM/yyyy')} hasta el ${format(new Date(paseLibreHasta), 'dd/MM/yyyy')}.`;
+        try {
+            await sendSingleNotification(Notification, User, user._id, title, message, 'pase_libre_update');
+        } catch (error) {
+            console.error("Error enviando notificación de pase libre:", error);
+        }
+    }
 
     res.json({
         message: 'El Pase Libre del usuario ha sido actualizado.',
