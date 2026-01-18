@@ -135,7 +135,7 @@ puedeGestionarEjercicios: {
         default: false
     },
     rmRecords: [{
-        exercise: { type: String, required: true },
+        exercise: { type: String, required: true, unique:true},
         weight: { type: Number, required: true }, 
         date: { type: Date, default: Date.now }
     }],
