@@ -478,6 +478,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
                                  hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
+    let tipoCreditoADescontar = null;
 
     if (tienePaseLibreActivo) {
         console.log(`Usuario ${user.nombre} inscripto usando Pase Libre.`);

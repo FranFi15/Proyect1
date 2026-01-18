@@ -15,7 +15,7 @@ const calculate1RM = (weight, reps) => {
     return Math.round(weight / (1.0278 - (0.0278 * reps)));
 };
 
-const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme, gymColor }) => {
+const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme, gymColor, onRecordsUpdate }) => {
     const styles = getStyles(colorScheme, gymColor);
     
     const [tab, setTab] = useState('list'); 
@@ -98,6 +98,10 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
+
+            if (onRecordsUpdate) {
+            onRecordsUpdate(updatedList);
+        }
             
             setAlertInfo({
                 visible: true,
@@ -138,6 +142,9 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         setRecords(updatedList);
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
+            if (onRecordsUpdate) {
+                onRecordsUpdate(updatedList);
+            }
         } catch (error) { console.error(error); }
     };
 

@@ -16,7 +16,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 // Agregamos FontAwesome5 para el icono de pesa
-import { Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 import {registerForPushNotificationsAsync} from '../../services/notificationService';
@@ -62,6 +62,14 @@ const ProfileScreen = () => {
         };
         checkNotificationStatus();
     }, []);
+
+
+    const handleRMsUpdate = (newRmRecords) => {
+        setProfile(prev => ({
+            ...prev,
+            rmRecords: newRmRecords
+        }));
+    };
 
      const handleNotificationsPress = async () => {
         if (notificationsEnabled) {
@@ -247,12 +255,10 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
                     </TouchableOpacity>
 
-                    {/* --- NUEVO BOTÓN PARA RMs --- */}
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
-                        <FontAwesome5 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{marginLeft:1, marginRight:1}} />
+                        <FontAwesome6 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{marginLeft:1, marginRight:1}} />
                         <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
                     </TouchableOpacity>
-                    {/* ---------------------------- */}
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
                         <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
@@ -297,6 +303,7 @@ const ProfileScreen = () => {
                 initialRecords={profile?.rmRecords || []}
                 colorScheme={colorScheme}
                 gymColor={gymColor}
+                onRecordsUpdate={handleRMsUpdate}
             />
 
             <CustomAlert
@@ -306,6 +313,7 @@ const ProfileScreen = () => {
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor} 
+                
             />
         </ThemedView>
     );
