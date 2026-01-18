@@ -360,7 +360,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     recordDate: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
     actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     percentButton: { backgroundColor: gymColor + '20', padding: 6, borderRadius: 5 },
-    recordWeight: { fontSize: 16, fontWeight: 'bold', color: gymColor, minWidth: 40, textAlign:'right' },
+    recordWeight: { fontSize: 18, fontWeight: 'bold', color: gymColor, minWidth: 40, textAlign:'right' },
     
     // CALCULADORA
     label: { color: Colors[colorScheme].text, marginBottom: 5, fontWeight:'600' },

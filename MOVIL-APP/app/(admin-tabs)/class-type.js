@@ -228,7 +228,7 @@ const ClassTypeManagementScreen = () => {
             <Modal 
                 visible={isSettingsModalVisible}  
                 transparent={true} 
-                animationType="slide" 
+                animationType="fade" 
                 onRequestClose={() => setIsSettingsModalVisible(false)}
             >
                 <KeyboardAvoidingView
@@ -243,7 +243,7 @@ const ClassTypeManagementScreen = () => {
                     <ScrollView>
                         <ThemedText style={styles.modalTitle}>Configuración General</ThemedText>
                         
-                        <ThemedText style={styles.sectionTitle}>📅 Calendario</ThemedText>
+                        <ThemedText style={styles.sectionTitle}>Calendario</ThemedText>
                         <ThemedText style={styles.cardDescription}>
                             Define cuántos días hacia el futuro podrán ver y reservar tus clientes.
                         </ThemedText>
@@ -258,10 +258,10 @@ const ClassTypeManagementScreen = () => {
 
                         {/* Configuración de Cortesía */}
                         <View style={{borderTopWidth:1, borderColor: Colors[colorScheme].border, paddingTop: 15, marginTop: 10}}>
-                            <ThemedText style={styles.sectionTitle}>🎁 Regalo de Bienvenida</ThemedText>
+                            <ThemedText style={styles.sectionTitle}>Crédito de Bienvenida</ThemedText>
                             
                             <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Activar regalo al registrarse?</ThemedText>
+                                <ThemedText style={styles.inputLabel}>¿Activar rcrédito de bienvenida al registrarse?</ThemedText>
                                 <Switch
                                     trackColor={{ false: "#767577", true: gymColor }}
                                     thumbColor={'#f4f3f4'}
@@ -272,7 +272,7 @@ const ClassTypeManagementScreen = () => {
 
                             {courtesyConfig.isActive && (
                                 <>
-                                    <ThemedText style={styles.inputLabel}>¿Qué crédito regalar?</ThemedText>
+                                    <ThemedText style={styles.inputLabel}>¿Qué crédito dar?</ThemedText>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15}}>
                                         {classTypes.map(type => (
                                             <TouchableOpacity 
@@ -293,7 +293,7 @@ const ClassTypeManagementScreen = () => {
                                         ))}
                                     </ScrollView>
 
-                                    <ThemedText style={styles.inputLabel}>Cantidad a regalar:</ThemedText>
+                                    <ThemedText style={styles.inputLabel}>Cantidad de créditos:</ThemedText>
                                     <TextInput 
                                         style={styles.input} 
                                         value={courtesyConfig.amount} 
@@ -475,7 +475,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         elevation: 5
     },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 10 },
+    sectionTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 10 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
@@ -505,7 +505,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dayChip: { 
         paddingVertical: 6, 
         paddingHorizontal: 10, 
-        borderRadius: 20, 
+        borderRadius: 5, 
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border, 
         marginRight: 8,
