@@ -513,7 +513,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         if (!tipoCreditoADescontar) {
             if (user.paseLibreHasta) {
                 res.status(400);
-                throw new Error(`Tu Pase Libre vence el ${new Date(user.paseLibreHasta).toLocaleDateString()} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+                throw new Error(`Tu Pase Libre vence el ${format(new Date(user.paseLibreHasta),'dd/MM')} y este turno es posterior. Tampoco tienes créditos disponibles.`);
             } else {
                 res.status(400);
                 throw new Error(`No tienes un Pase Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
