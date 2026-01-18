@@ -159,7 +159,8 @@ const ManageClassesScreen = () => {
             setClasses(classesRes?.data || []);
             setTeachers(teachersRes?.data || []);
             setAllUsers(usersRes?.data || []);
-            setClassTypes(typesRes?.data?.tiposClase || []);
+            const filteredTypes = (typesRes.data.tiposClase || []).filter(type => !type.esUniversal);
+            setClassTypes(filteredTypes);
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos de gestión de turnos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }

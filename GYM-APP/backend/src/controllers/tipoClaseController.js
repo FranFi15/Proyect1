@@ -107,8 +107,6 @@ const getTipoClaseById = asyncHandler(async (req, res) => {
 // Actualizar un tipo de clase (solo admin)
 const updateTipoClase = asyncHandler(async (req, res) => {
     const { TipoClase } = getModels(req.gymDBConnection);
-
-    // --- CORRECCIÓN: Se añade 'price' a la desestructuración ---
     const { nombre, descripcion, price, resetMensual } = req.body;
 
     const tipoClase = await TipoClase.findById(req.params.id);

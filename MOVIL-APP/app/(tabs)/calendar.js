@@ -157,7 +157,8 @@ const CalendarScreen = () => {
             ]);
             
             setAllClasses(classesResponse.data);
-            setClassTypes(typesResponse.data.tiposClase || []);
+            const filteredTypes = (typesResponse.data.tiposClase || []).filter(type => !type.esUniversal);
+                setClassTypes(filteredTypes);
 
             
             const markers = {};
