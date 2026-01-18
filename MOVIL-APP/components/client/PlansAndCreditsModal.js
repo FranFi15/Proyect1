@@ -83,7 +83,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     <Ionicons name="close-circle" size={30} color="#ccc" />
                 </TouchableOpacity>
                 <ScrollView>
-                    <Text style={styles.modalTitle}>Pase y Créditos</Text>
+                    <Text style={styles.modalTitle}>Créditos</Text>
 
                     {hasPaseLibre && (
                         <ThemedView style={[styles.card,]}>
@@ -98,12 +98,14 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     )}
                     {fixedPlans.length > 0 && (
                         <ThemedView style={styles.card}>
-                            <ThemedText style={styles.cardTitle}>Planes Fijos</ThemedText>
+                            <ThemedText style={styles.cardTitle}>Turnos Fijos</ThemedText>
                             {fixedPlans.map((plan, index) => (
                                 <View key={index} style={styles.infoRow}>
                                     <ThemedText style={styles.infoLabelBold}>{plan.tipoClase?.nombre || 'Clase'}</ThemedText>
-                                    <ThemedText style={styles.infoValue}>{plan.diasDeSemana.join(', ')} - {plan.horaInicio}</ThemedText>
+                                    <ThemedText style={styles.infoValue}>{plan.diasDeSemana.join(', ')} - {plan.horaInicio}hs</ThemedText>
                                 </View>
+                                
+                                
                             ))}
                         </ThemedView>
                     )}

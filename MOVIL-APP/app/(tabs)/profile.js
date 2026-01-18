@@ -251,8 +251,8 @@ const ProfileScreen = () => {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('plans')}>
-                        <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.menuButtonText}>Mis Planes y Créditos</ThemedText>
+                        <FontAwesome6 name="coins" size={22} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Mis Créditos</ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
