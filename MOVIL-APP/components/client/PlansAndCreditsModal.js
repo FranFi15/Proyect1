@@ -96,19 +96,6 @@ const PlansAndCreditsModal = ({ onClose }) => {
                             </View>
                         </ThemedView>
                     )}
-                    {fixedPlans.length > 0 && (
-                        <ThemedView style={styles.card}>
-                            <ThemedText style={styles.cardTitle}>Turnos Fijos</ThemedText>
-                            {fixedPlans.map((plan, index) => (
-                                <View key={index} style={styles.infoRow}>
-                                    <ThemedText style={styles.infoLabelBold}>{plan.tipoClase?.nombre || 'Clase'}</ThemedText>
-                                    <ThemedText style={styles.infoValue}>{plan.diasDeSemana.join(', ')} - {plan.horaInicio}hs</ThemedText>
-                                </View>
-                                
-                                
-                            ))}
-                        </ThemedView>
-                    )}
                     {creditosDisponibles.length > 0 && (
                          <ThemedView style={styles.card}>
                             <ThemedText style={styles.cardTitle}>Créditos Disponibles</ThemedText>
