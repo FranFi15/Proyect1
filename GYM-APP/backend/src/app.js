@@ -24,9 +24,6 @@ import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 
-
-
-
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 
@@ -60,21 +57,25 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Id', 'x-gym-domain', 'X-Api-Secret', 'X-Internal-Api-Key'],
     credentials: true
 }));
-app.use(express.json()); 
 
+app.use(express.json({ limit: '10kb' }));
+
+app.use(express.urlencoded({ extended: true }));
 
 app.use(mongoSanitize());
 
 app.use(xss());
 
-const limiter = rateLimit({
+app.use(hpp());
+
+const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 1000, 
     message: 'Demasiadas peticiones desde esta IP, por favor intenta en 15 minutos.',
     standardHeaders: true, 
     legacyHeaders: false, 
 });
-app.use(limiter);
+app.use('/api', globalLimiter);
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
@@ -82,9 +83,10 @@ const authLimiter = rateLimit({
     message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
 });
 
-app.use(hpp());
+
 
 // Rutas
+app.use('/api/auth', authLimiter, gymTenantMiddleware, authRoutes);
 app.use('/api/users', gymTenantMiddleware, userRoutes); 
 app.use('/api/classes', gymTenantMiddleware, classRoutes);
 app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
@@ -92,13 +94,11 @@ app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
 app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
-app.use('/api/auth', gymTenantMiddleware, authRoutes, authLimiter);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 
-
-
-app.use('/api/public/users', publicUserRoutes);//Ruta publica
+//Ruta publica
+app.use('/api/public/users', publicUserRoutes);
 
 
 app.use('/api/debug', debugRoutes); 
