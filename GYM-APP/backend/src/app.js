@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import mongoSanitize from 'express-mongo-sanitize';
+import rateLimit from 'express-rate-limit';
+import hpp from 'hpp';
+import helmet from 'helmet';
+import xss from 'xss-clean';
 
 import gymTenantMiddleware from './middlewares/gymTenantMiddleware.js';
 import initializeFirebaseAdmin from './config/firebaseAdmin.js';
@@ -37,6 +42,8 @@ import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.
 dotenv.config();
 const app = express();
 
+app.use(helmet());
+
 initializeFirebaseAdmin();
 
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
@@ -56,8 +63,28 @@ app.use(cors({
 app.use(express.json()); 
 
 
+app.use(mongoSanitize());
 
-// Definir las rutas de la API
+app.use(xss());
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 1000, 
+    message: 'Demasiadas peticiones desde esta IP, por favor intenta en 15 minutos.',
+    standardHeaders: true, 
+    legacyHeaders: false, 
+});
+app.use(limiter);
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 20, 
+    message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
+});
+
+app.use(hpp());
+
+// Rutas
 app.use('/api/users', gymTenantMiddleware, userRoutes); 
 app.use('/api/classes', gymTenantMiddleware, classRoutes);
 app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
@@ -65,7 +92,7 @@ app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
 app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
-app.use('/api/auth', gymTenantMiddleware, authRoutes);
+app.use('/api/auth', gymTenantMiddleware, authRoutes, authLimiter);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 

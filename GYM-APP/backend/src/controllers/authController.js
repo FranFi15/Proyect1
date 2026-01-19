@@ -4,6 +4,12 @@ import { calculateAge } from '../utils/ageUtils.js';
 import getModels from '../utils/getModels.js';
 import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClient.js';
 
+const isValidEmail = (email) => {
+    return String(email)
+        .toLowerCase()
+        .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+};
+
 const registerUser = asyncHandler(async (req, res) => {
     const { User, Settings, Notification, TipoClase } = getModels(req.gymDBConnection);
     const { 
@@ -25,7 +31,14 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Por favor, ingresa todos los campos obligatorios.');
     } 
 
-    const userExists = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') }});
+    if (!isValidEmail(email)) {
+        res.status(400);
+        throw new Error('El formato del email no es válido.');
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists) {
         res.status(400);
         throw new Error('Ya existe un usuario con este email.');
@@ -52,7 +65,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const userData = { 
         nombre, 
         apellido, 
-        email, 
+        email: normalizedEmail, 
         contraseña, 
         dni, 
         fechaNacimiento: new Date(fechaNacimiento), 
@@ -130,7 +143,15 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const { email, contraseña } = req.body;
-    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+
+   if (typeof email !== 'string' || typeof contraseña !== 'string') {
+        res.status(400);
+        throw new Error('Datos inválidos. Se esperaban cadenas de texto.');
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (user && (await user.matchPassword(contraseña))) {
          if (!user.isActive) {

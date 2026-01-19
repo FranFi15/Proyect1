@@ -308,7 +308,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { height: '95%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 10, borderTopRightRadius: 10, padding: 15 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, marginVertical: 5, borderColor: Colors[colorScheme].border, borderWidth: 1 },
+    planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: 'transparent' },
     planTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
     planDate: { fontSize: 12, opacity: 0.6, marginTop: 4, color: Colors[colorScheme].text },
     planActions: { flexDirection: 'row', gap: 15, marginTop: 5 },

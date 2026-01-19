@@ -366,7 +366,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     // CALCULADORA
     label: { color: Colors[colorScheme].text, marginBottom: 5, fontWeight:'600' },
     input: { backgroundColor: Colors[colorScheme].inputBackground, color: Colors[colorScheme].text, padding: 12, borderRadius: 5, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 5, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor },
+    resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 5, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor + '40' },
     resultLabel: { color: Colors[colorScheme].text, fontSize: 14, marginBottom: 5 },
     resultInput: { fontSize: 32, fontWeight: 'bold', color: Colors[colorScheme].text, minWidth: 30, textAlign:'center',  },
     saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },

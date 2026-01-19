@@ -191,19 +191,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         textAlign: 'center',
     },
     planButton: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 8,
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        marginVertical: 6,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: 'transparent' 
     },
     planButtonText: {
         fontSize: 18,
