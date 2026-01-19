@@ -4,7 +4,7 @@ import cors from 'cors';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import xss from 'xss-clean';
+
 
 import gymTenantMiddleware from './middlewares/gymTenantMiddleware.js';
 import initializeFirebaseAdmin from './config/firebaseAdmin.js';
@@ -63,7 +63,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(mongoSanitize());
 
-app.use(xss());
+
 
 
 const globalLimiter = rateLimit({
