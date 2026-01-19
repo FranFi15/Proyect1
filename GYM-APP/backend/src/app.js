@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
@@ -61,7 +60,7 @@ app.use(express.json({ limit: '10kb' }));
 
 app.use(express.urlencoded({ extended: true }));
 
-app.use(mongoSanitize());
+
 
 
 
