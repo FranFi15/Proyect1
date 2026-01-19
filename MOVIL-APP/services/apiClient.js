@@ -2,6 +2,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../config';
+import { router } from 'expo-router';
 
 // Apuntamos al backend del GYM-APP en el puerto 5000
 const baseURL = config.gymAppBackend;
@@ -24,6 +25,23 @@ apiClient.interceptors.request.use(
         return config;
     },
     (error) => {
+        return Promise.reject(error);
+    }
+);
+
+apiClient.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    async (error) => {
+        if (error.response && error.response.status === 401) {
+            console.log("⛔ Sesión expirada (401). Cerrando sesión...");
+
+            await AsyncStorage.removeItem('user');
+
+            router.replace('/auth/login'); 
+        }
+
         return Promise.reject(error);
     }
 );

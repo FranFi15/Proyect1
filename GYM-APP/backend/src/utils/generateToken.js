@@ -6,7 +6,7 @@ const generateToken = (id, gymId, roles, email, nombre) => {
         { id, gymId, roles, email, nombre }, 
         process.env.JWT_SECRET,
         {
-            expiresIn: '1y',
+            expiresIn: '1m',
         }
     );
 };
