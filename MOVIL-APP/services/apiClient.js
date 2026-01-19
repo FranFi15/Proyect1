@@ -39,7 +39,7 @@ apiClient.interceptors.response.use(
 
             await AsyncStorage.removeItem('user');
 
-            router.replace('/auth/login'); 
+            router.replace('/login'); 
         }
 
         return Promise.reject(error);
