@@ -31,6 +31,11 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Por favor, ingresa todos los campos obligatorios.');
     } 
 
+    if (typeof email !== 'string' || typeof contraseña !== 'string') {
+        res.status(400);
+        throw new Error('Intento de inyección detectado. Datos inválidos.');
+    }
+
     if (!isValidEmail(email)) {
         res.status(400);
         throw new Error('El formato del email no es válido.');
@@ -53,7 +58,6 @@ const registerUser = asyncHandler(async (req, res) => {
     const userCount = await User.countDocuments();
     const roles = userCount === 0 ? ['admin'] : ['cliente'];
 
-    // --- VERIFICACIÓN DE LÍMITE ---
     if (roles.includes('cliente')) {
         const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
         if (!hasSpace) {
