@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
-import hpp from 'hpp';
 import helmet from 'helmet';
 import xss from 'xss-clean';
 
@@ -66,7 +65,6 @@ app.use(mongoSanitize());
 
 app.use(xss());
 
-app.use(hpp());
 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
