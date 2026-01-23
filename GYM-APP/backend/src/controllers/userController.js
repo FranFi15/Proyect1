@@ -680,20 +680,22 @@ const handleResetLink = asyncHandler(async (req, res, next) => {
     const { resettoken } = req.params;
     const { clientId } = req.query;
 
-    // 1. La variable de entorno ahora debe ser el schema y la ruta de tu app.
-    //    Ej: MOBILE_APP_SCHEMA=movil-app://reset-password
-    if (!process.env.MOBILE_APP_SCHEMA) {
-        console.error('La variable de entorno MOBILE_APP_SCHEMA no está definida.');
-        // Puedes redirigir a una página de error web si lo deseas.
-        return res.status(500).send('Error de configuración del servidor.');
-    }
-    
-    // 2. Construimos el deep link final al que queremos que el usuario llegue.
-    const deepLink = `${process.env.MOBILE_APP_SCHEMA}?token=${resettoken}?clientId=${clientId}`;
+    const userAgent = req.headers['user-agent'] || '';
+    const isMobile = /android|iphone|ipad|ipod/i.test(userAgent);
 
-    // 3. Enviamos una redirección HTTP 302.
-    //    El navegador del usuario recibirá esto e intentará abrir el deep link.
-    res.redirect(302, deepLink);
+    let redirectUrl;
+
+    if (isMobile) {
+        redirectUrl = `${process.env.MOBILE_APP_SCHEMA}?token=${resettoken}&clientId=${clientId}`;
+    } else {
+        if (!process.env.WEB_APP_URL) {
+             return res.status(500).send('Falta configuración WEB_APP_URL');
+        }
+        redirectUrl = `${process.env.WEB_APP_URL}?token=${resettoken}&clientId=${clientId}`;
+    }
+
+    console.log('Redirigiendo a:', redirectUrl);
+    res.redirect(302, redirectUrl);
 });
 
 const requestPlanUpgrade = asyncHandler(async (req, res) => {
