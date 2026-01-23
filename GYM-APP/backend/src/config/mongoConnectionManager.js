@@ -22,7 +22,6 @@ const forceStagingConnection = (originalString) => {
         
         const newConnectionString = `${stagingBase}/${dbName}${stagingParams}`;
 
-        console.log(`🛡️ SECUESTRO DE CONEXIÓN: Redirigiendo ${dbName} a Cluster de Pruebas.`);
         return newConnectionString;
 
     } catch (e) {
@@ -81,7 +80,7 @@ const connectToGymDB = async (clientId) => {
     const { connectionStringDB, superAdminId, apiSecretKey } = await getDbConfig(clientId);
 
     try {
-        console.log(`✨ Creando nueva conexión hacia: ${connectionStringDB.split('@')[1]}`); 
+        console.log(`✨ Creando nueva conexión `); 
         const newConnection = await mongoose.createConnection(connectionStringDB).asPromise();
         
         getModels(newConnection);
