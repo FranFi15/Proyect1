@@ -676,25 +676,19 @@ const resetPassword = asyncHandler(async (req, res, next) => {
         message: 'Contraseña actualizada con éxito.',
     });
 });
+
 const handleResetLink = asyncHandler(async (req, res, next) => {
     const { resettoken } = req.params;
     const { clientId } = req.query;
 
-    const userAgent = req.headers['user-agent'] || '';
-    const isMobile = /android|iphone|ipad|ipod/i.test(userAgent);
-
-    let redirectUrl;
-
-    if (isMobile) {
-        redirectUrl = `${process.env.MOBILE_APP_SCHEMA}?token=${resettoken}&clientId=${clientId}`;
-    } else {
-        if (!process.env.WEB_APP_URL) {
-             return res.status(500).send('Falta configuración WEB_APP_URL');
-        }
-        redirectUrl = `${process.env.WEB_APP_URL}?token=${resettoken}&clientId=${clientId}`;
+    if (!process.env.WEB_APP_URL) {
+         return res.status(500).send('Error de configuración del servidor.');
     }
 
-    console.log('Redirigiendo a:', redirectUrl);
+    const redirectUrl = `${process.env.WEB_APP_URL}?token=${resettoken}&clientId=${clientId}`;
+
+    console.log('Redirigiendo a la Web:', redirectUrl);
+    
     res.redirect(302, redirectUrl);
 });
 

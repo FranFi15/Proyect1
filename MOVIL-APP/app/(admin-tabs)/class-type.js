@@ -259,7 +259,7 @@ const ClassTypeManagementScreen = () => {
                             <ThemedText style={styles.sectionTitle}>Crédito de Bienvenida</ThemedText>
                             
                             <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Activar rcrédito de bienvenida al registrarse?</ThemedText>
+                                <ThemedText style={styles.inputLabel}>¿Activar crédito de bienvenida al registrarse?</ThemedText>
                                 <Switch
                                     trackColor={{ false: "#767577", true: gymColor }}
                                     thumbColor={'#f4f3f4'}

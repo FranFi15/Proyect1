@@ -34,7 +34,7 @@ const ResetPasswordScreen = () => {
     // 2. Estado local para configuración visual (independiente del AuthContext)
     const [gymData, setGymData] = useState({
         name: 'Gimnasio',
-        color: '#19131f', 
+        color: '#6b6b6b', 
         logo: null
     });
     const [isFetchingConfig, setIsFetchingConfig] = useState(true);
@@ -121,12 +121,15 @@ const ResetPasswordScreen = () => {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    {gymData.logo ? (
-                        <Image source={{ uri: gymData.logo }} style={styles.logo} resizeMode="contain" />
-                    ) : (
-                        <ThemedText style={styles.gymName}>{gymData.name}</ThemedText>
-                    )}
-
+                    
+                <Image
+                        source={
+                            colorScheme === 'dark'
+                                ? require('../../../assets/images/modo-oscuro-logo.png')
+                                : require('../../../assets/images/modo-claro-logo.png')
+                        }
+                        style={styles.logo}
+                    />
                     <ThemedText type="title" style={styles.title}>Nueva Contraseña</ThemedText>
 
                     <TextInput
