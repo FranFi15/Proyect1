@@ -210,14 +210,53 @@ const deletePlan = asyncHandler(async (req, res) => {
         throw new Error('Plan no encontrado');
     }
 
-    const user = await User.findById(plan.user);
-    if (!user || !user.isActive) {
+    const isOwner = plan.user.toString() === req.user._id.toString();
+    const isProfOrAdmin = req.user.roles.some(role => ['admin', 'profesor'].includes(role));
+
+    if (!isOwner && !isProfOrAdmin) {
         res.status(403);
-        throw new Error('No se pueden eliminar planes de un usuario inactivo.');
+        throw new Error('No tienes permiso para eliminar este plan.');
+    }
+
+    if (isProfOrAdmin) {
+        const user = await User.findById(plan.user);
+        if (!user || !user.isActive) {
+            res.status(403);
+            throw new Error('No se pueden eliminar planes de un usuario inactivo.');
+        }
     }
 
     await plan.deleteOne();
     res.json({ message: 'Plan de entrenamiento eliminado' });
+});
+
+const deleteAllPlans = asyncHandler(async (req, res) => {
+    const { TrainingPlan, User } = getModels(req.gymDBConnection);
+    
+    let targetUserId;
+
+    if (req.params.userId) {
+        if (!req.user.roles.some(role => ['admin', 'profesor'].includes(role))) {
+            res.status(403);
+            throw new Error('No autorizado para eliminar planes de otros usuarios.');
+        }
+        targetUserId = req.params.userId;
+    } else {
+        targetUserId = req.user._id;
+    }
+
+    const user = await User.findById(targetUserId);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+
+    const result = await TrainingPlan.deleteMany({ user: targetUserId });
+
+    res.json({ 
+        message: 'Todos los planes han sido eliminados.', 
+        deletedCount: result.deletedCount 
+    });
 });
 
 export {
@@ -229,5 +268,7 @@ export {
     getPlansForUser,
     getMyVisiblePlans,
     updatePlan,
-    deletePlan
+    deletePlan,
+    deleteAllPlans
+
 };
