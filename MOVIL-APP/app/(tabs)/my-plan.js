@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { format } from 'date-fns'; // Importar date-fns
 
 // Importamos el visualizador de contenido HTML/Texto
@@ -221,12 +221,15 @@ const MyPlanScreen = () => {
         <ThemedView style={styles.container}>
             <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>Mis Planes</Text>
-                {plans.length > 0 && (
+            </View>
+            <View style={styles.header}>
+                 {plans.length > 0 && (
                     <TouchableOpacity 
-                        style={{ position: 'absolute', right: 20 }} 
                         onPress={handleDeleteAllPlans}
+                        style={styles.deleteAllButton}
                     >
-                        <Ionicons name="trash-bin" size={24} color="white" />
+                        <Octicons name="trash" size={16} color="white" />
+                        <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
                     </TouchableOpacity>
                 )}
             </View>
@@ -235,6 +238,7 @@ const MyPlanScreen = () => {
                 contentContainerStyle={styles.contentContainer}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
             >
+                
                 {plans.length > 0 ? (
                     plans.map(plan => (
                         <TouchableOpacity key={plan._id} style={styles.planButton} onPress={() => handlePlanPress(plan)}>
@@ -249,7 +253,7 @@ const MyPlanScreen = () => {
                                     onPress={() => handleDeleteSinglePlan(plan._id, plan.name)}
                                     style={{ padding: 10, marginRight: 5 }}
                                 >
-                                    <Ionicons name="trash-outline" size={22} color={Colors[colorScheme].error || '#ff4444'} />
+                                    <Octicons name="trash" size={20} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
                                 <Ionicons name="chevron-forward" size={22} color={gymColor} />
                             </View>
@@ -302,6 +306,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         textAlign: 'center',
     },
+    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 1, paddingTop: 10, paddingBottom: 0},
+    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
+    deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 10,},
     planButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',
