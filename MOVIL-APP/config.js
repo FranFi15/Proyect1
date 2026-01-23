@@ -14,7 +14,6 @@ const environments = {
 
 const config = environments[ENV];
 
-console.log(`🚀 App corriendo en entorno: ${ENV}`);
-console.log(`🔗 URL Backend Gym: ${config.gymAppBackend}`);
+
 
 export default config;

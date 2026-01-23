@@ -1,8 +1,10 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import authService from '../services/authService';
 import notificationService from '../services/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../services/apiClient';
+import { useRouter } from 'expo-router'; 
+import { registerSessionExpiredHandler } from '../services/sessionEvent';
 
 const AuthContext = createContext();
 
@@ -13,6 +15,9 @@ export const AuthProvider = ({ children }) => {
     const [gymLogo, setGymLogo] = useState(null);
     const [gymColor, setGymColor] = useState('#150224'); // Color por defecto
     const [loading, setLoading] = useState(true);
+
+    const [sessionAlertVisible, setSessionAlertVisible] = useState(false);
+    const router = useRouter();
 
     useEffect(() => {
         const checkInitialState = async () => {
@@ -76,9 +81,11 @@ export const AuthProvider = ({ children }) => {
         return userDataFromServer;
     };
 
-    const logout = async () => {
+    const logout = async (redirect = true) => {
         try {
-            await authService.logout();
+            // Intentamos notificar al backend (opcional)
+            try { await authService.logout(); } catch(e){}
+
             await AsyncStorage.multiRemove(['clientId', 'gymName', 'gymLogo', 'user', 'gymColor', 'gymId']); 
             
             setUser(null);
@@ -89,11 +96,28 @@ export const AuthProvider = ({ children }) => {
             
             delete apiClient.defaults.headers.common['Authorization'];
             delete apiClient.defaults.headers.common['x-client-id'];
-             delete apiClient.defaults.headers.common['x-gym-domain'];
+            delete apiClient.defaults.headers.common['x-gym-domain'];
+
+            if (redirect) {
+                router.replace('/(auth)/login'); // O la ruta correcta a tu login
+            }
         } catch (error) {
             console.error('[AuthContext] Error durante el logout:', error);
         }
     };
+
+    const handleSessionExpiredConfirm = useCallback(async () => {
+        setSessionAlertVisible(false); 
+        setTimeout(async () => {
+            await logout(true); 
+        }, 300);
+    }, []);
+
+    useEffect(() => {
+        registerSessionExpiredHandler(() => {
+            setSessionAlertVisible(true);
+        });
+    }, []);
 
     const refreshUser = async () => {
         try {
@@ -130,7 +154,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, clientId, gymName, gymLogo, gymColor, loading, login, logout, refreshUser, register, setGymContext }}>
+        <AuthContext.Provider value={{ user, clientId, gymName, gymLogo, gymColor, loading, login, logout, refreshUser, register, setGymContext, sessionAlertVisible, handleSessionExpiredConfirm}}>
             {children}
         </AuthContext.Provider>
     );

@@ -2,15 +2,15 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../config';
-import { router } from 'expo-router';
+import { triggerSessionExpired, isEventBlocked   } from './sessionEvent';
 
-// Apuntamos al backend del GYM-APP en el puerto 5000
 const baseURL = config.gymAppBackend;
 
 const apiClient = axios.create({
     baseURL: baseURL,
 });
 
+let isLoggingOut = false;
 
 // Interceptor para añadir el token de autorización
 apiClient.interceptors.request.use(
@@ -30,18 +30,19 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     async (error) => {
         if (error.response && error.response.status === 401) {
-            console.log("⛔ Sesión expirada (401). Cerrando sesión...");
-
-            await AsyncStorage.removeItem('user');
-
-            router.replace('/login'); 
+            
+            // Si ya se disparó la alerta, no hacemos nada más que rechazar
+            if (isLoggingOut || isEventBlocked) {
+                return Promise.reject(error);
+            }
+            isLoggingOut = true;
+            console.log("⛔ Sesión expirada. Disparando evento...");
+            triggerSessionExpired();
+            return Promise.reject(new Error("SESSION_EXPIRED"));
         }
-
         return Promise.reject(error);
     }
 );

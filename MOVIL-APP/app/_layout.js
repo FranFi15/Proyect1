@@ -4,13 +4,13 @@ import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-route
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { Platform, Alert, AppState, View, ActivityIndicator, StyleSheet } from 'react-native';
 import notificationService from '../services/notificationService';
 import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
 import { Colors } from '@/constants/Colors';
+import CustomAlert from '@/components/CustomAlert';
+
 
 
 SplashScreen.preventAutoHideAsync();
@@ -90,13 +90,21 @@ export default function RootLayout() {
 }
 
 function AppContent() {
-    const { user, clientId, loading, refreshUser } = useAuth();
+    const { user, 
+        clientId, 
+        loading, 
+        refreshUser, 
+        sessionAlertVisible, 
+        handleSessionExpiredConfirm,
+        gymColor } = useAuth();
     const segments = useSegments();
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [currentImportantNotification, setCurrentImportantNotification] = useState(null);
     const notificationListener = useRef();
     const responseListener = useRef();
+
+    const [isSplashHidden, setIsSplashHidden] = useState(false);
 
     const navigationState = useRootNavigationState();
 
@@ -125,9 +133,12 @@ function AppContent() {
     useEffect(() => {
         if (loading || !navigationState?.key) return;
 
-        SplashScreen.hideAsync().catch((err) => {
-            console.log("Splash Screen ya oculto"); 
-        });
+        if (!isSplashHidden) {
+            SplashScreen.hideAsync()
+                .then(() => setIsSplashHidden(true))
+                .catch((err) => {
+                });
+        }
 
         const inAuthGroup = segments[0] === '(auth)';
         
@@ -209,7 +220,10 @@ function AppContent() {
                 setModalVisible(true);
               }
             } catch (error) {
-              console.error("Error checking for important notifications (polling):", error);
+              if (error.message === 'SESSION_EXPIRED' || error?.response?.status === 401) {
+              } else {
+                  console.error("Error polling notifications:", error);
+              }
             }
           };
 
@@ -222,7 +236,7 @@ function AppContent() {
    }, [user, loading, refreshUser]); 
 
     return (
-        <>
+        <View style={{ flex: 1 }}>
             <Slot />
             
             <ImportantNotificationModal
@@ -230,7 +244,24 @@ function AppContent() {
                 notification={currentImportantNotification}
                 onClose={handleModalClose}
             />
-        </>
+            {sessionAlertVisible && (
+                <View style={styles.absoluteBlocker} />
+            )}
+            <CustomAlert
+                visible={sessionAlertVisible}
+                title="Sesión Expirada"
+                message="Por seguridad, tu sesión ha caducado. Por favor, vuelve a iniciar sesión."
+                onClose={() => {}} 
+                gymColor={gymColor}
+                buttons={[
+                    {
+                        text: "OK, Entendido",
+                        style: "primary",
+                        onPress: handleSessionExpiredConfirm
+                    }
+                ]}
+            />
+        </View>
     );
 }
 
@@ -241,4 +272,10 @@ const styles = StyleSheet.create({ // <--- NUEVO
         alignItems: 'center',
         backgroundColor: Colors.backgroundColor, 
     },
+    absoluteBlocker: {
+        ...StyleSheet.absoluteFillObject, 
+        backgroundColor: 'rgba(0,0,0,0.2)', 
+        zIndex: 9999, 
+        elevation: 10, 
+    }
 });
