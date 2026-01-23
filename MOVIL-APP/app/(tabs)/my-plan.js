@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
-import { Ionicons, Octicons } from '@expo/vector-icons';
+import { Ionicons, Octicons,} from '@expo/vector-icons';
 import { format } from 'date-fns'; // Importar date-fns
 
 // Importamos el visualizador de contenido HTML/Texto
@@ -221,17 +221,6 @@ const MyPlanScreen = () => {
         <ThemedView style={styles.container}>
             <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>Mis Planes</Text>
-            </View>
-            <View style={styles.header}>
-                 {plans.length > 0 && (
-                    <TouchableOpacity 
-                        onPress={handleDeleteAllPlans}
-                        style={styles.deleteAllButton}
-                    >
-                        <Octicons name="trash" size={16} color="white" />
-                        <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
-                    </TouchableOpacity>
-                )}
             </View>
             
             <ScrollView

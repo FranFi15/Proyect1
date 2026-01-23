@@ -254,12 +254,11 @@ const ClassTypeManagementScreen = () => {
                             placeholder="0"
                         />
 
-                        {/* Configuración de Cortesía */}
-                        <View style={{borderTopWidth:1, borderColor: Colors[colorScheme].border, paddingTop: 15, marginTop: 10}}>
+                        <View style={{ paddingTop: 15, marginTop: 10}}>
                             <ThemedText style={styles.sectionTitle}>Crédito de Bienvenida</ThemedText>
                             
                             <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Activar crédito de bienvenida al registrarse?</ThemedText>
+                                <ThemedText style={styles.inputLabel}>¿Activar crédito de bienvenida?</ThemedText>
                                 <Switch
                                     trackColor={{ false: "#767577", true: gymColor }}
                                     thumbColor={'#f4f3f4'}
@@ -375,7 +374,7 @@ const ClassTypeManagementScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    listContainer: { paddingBottom: 100 }, // Aumentamos paddingBottom para que la lista no quede tapada por los FABs
+    listContainer: { paddingBottom: 100 }, 
     headerContainer: { padding: 15, alignItems: 'center' },
     listTitle: {
        backgroundColor: gymColor,
@@ -397,7 +396,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 1, 
         borderColor: Colors[colorScheme].border,
         marginTop: 15,
-        marginHorizontal: 15, // Agregado para margen lateral
+        marginHorizontal: 15, 
         marginBottom: 10
     },
     searchInput: { 
@@ -424,8 +423,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { padding: 8, marginLeft: 10 },
-    
-    // --- ESTILOS DE LOS FABS ---
     fabAdd: {
         position: 'absolute', 
         width: 60, 
@@ -445,13 +442,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     fabSettings: {
         position: 'absolute', 
-        width: 60, // Un poco más chico que el principal
+        width: 60, 
         height: 60, 
         alignItems: 'center', 
         justifyContent: 'center', 
-        right: 20, // Centrado respecto al de abajo (60-50)/2 + 20
-        bottom: 90, // Encima del otro (20 bottom + 60 height + 10 margin)
-        backgroundColor: '#7f8c8d', // Gris para diferenciarlo (configuración), o usa gymColor si prefieres
+        right: 20, 
+        bottom: 90, 
+        backgroundColor: '#7f8c8d', 
         borderRadius: 30, 
         elevation: 8,
         shadowColor: '#000', 
@@ -475,7 +472,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     sectionTitle: { fontSize: 20, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 10 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
-    inputLabel: { fontSize: 16, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
+    inputLabel: { fontSize: 14, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text },
     input: {
         height: 50,
         borderColor: Colors[colorScheme].border,
@@ -504,8 +501,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 6, 
         paddingHorizontal: 10, 
         borderRadius: 5, 
-        borderWidth: 1, 
-        borderColor: Colors[colorScheme].border, 
         marginRight: 8,
         backgroundColor: Colors[colorScheme].cardBackground
     },

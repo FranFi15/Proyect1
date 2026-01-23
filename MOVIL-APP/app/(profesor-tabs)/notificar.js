@@ -10,7 +10,6 @@ import {
     TextInput,
     Switch,
     FlatList,
-    // --- IMPORTACIONES CLAVE ---
     Platform,
     KeyboardAvoidingView,
     ScrollView,
@@ -26,37 +25,54 @@ import FilterModal from '@/components/FilterModal';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
+// ... (getStyles se mantiene igual)
+const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    pageTitle: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', alignSelf: 'center', width: '100%', textAlign: 'center', fontWeight: 'bold', color: '#fff', fontSize: 18,  },
+    formContainer: { paddingHorizontal: 20, paddingTop: 10 , marginTop: 20},
+    label: { fontSize: 14, color: Colors[colorScheme].icon, marginBottom: 8 },
+    input: { backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, padding: 15, borderRadius: 5, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 5, marginBottom: 20, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
+    placeholderText: { color: Colors[colorScheme].icon },
+    actionsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border },
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    buttonWrapper: { borderRadius: 5, overflow: 'hidden' },
+    modalContainer: { flex: 1, padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 22, fontWeight: 'bold' },
+    listItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
+    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
+    emptyListText: { padding: 20, textAlign: 'center', color: Colors[colorScheme].icon },
+});
+
 const NotificationTeacherScreen = () => {
     const { gymColor, user } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estados del formulario
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [isImportant, setIsImportant] = useState(false);
     
-    // Estados de selección
-    const [targetType, setTargetType] = useState('class'); // Inicia por defecto en 'class'
+    const [targetType, setTargetType] = useState('class'); 
     const [selectedUserId, setSelectedUserId] = useState('');
     const [selectedClassId, setSelectedClassId] = useState('');
 
-    // Estados de búsqueda (para el modal)
     const [userSearchTerm, setUserSearchTerm] = useState('');
     const [classSearchTerm, setClassSearchTerm] = useState('');
 
-    // Estados de datos y carga
     const [myClasses, setMyClasses] = useState([]);
     const [myStudents, setMyStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
 
-    // Estados de modales
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
-    const [activeModal, setActiveModal] = useState(null); // Para el FilterModal
-    const [searchModalVisible, setSearchModalVisible] = useState(false); // Para el nuevo modal de búsqueda
+    const [activeModal, setActiveModal] = useState(null); 
+    const [searchModalVisible, setSearchModalVisible] = useState(false); 
 
-    // --- MANEJADORES DE MODAL ---
     const openSearchModal = () => setSearchModalVisible(true);
     const closeSearchModal = () => {
         setSearchModalVisible(false);
@@ -108,7 +124,50 @@ const NotificationTeacherScreen = () => {
     }, [myClasses, classSearchTerm]);
     
     const handleSendNotification = () => {
-        // ... (Tu lógica de envío no necesita cambios)
+         if (!title || !message) {
+            setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]});
+            return;
+        }
+        let payload = { title, message, isImportant, targetType };
+        let confirmationMessage = '';
+        switch (targetType) {
+            case 'user':
+                if (!selectedUserId) { setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un usuario.', buttons: [{ text: 'OK' }] }); return; }
+                payload.targetId = selectedUserId;
+                const student = myStudents.find(u => u._id === selectedUserId);
+                confirmationMessage = `¿Enviar a ${student?.nombre} ${student?.apellido}?`;
+                break;
+            case 'class':
+                if (!selectedClassId) { setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un Turno.', buttons: [{ text: 'OK' }] }); return; }
+                payload.targetId = selectedClassId;
+                const cls = myClasses.find(c => c._id === selectedClassId);
+                confirmationMessage = `¿Enviar a todos los inscritos en "${cls?.nombre}"?`;
+                break;
+            default: return;
+        }
+        setAlertInfo({
+            visible: true,
+            title: "Confirmar Envío",
+            message: confirmationMessage,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                { text: 'Enviar', style: 'primary', onPress: async () => {
+                    setAlertInfo({ visible: false });
+                    setSending(true);
+                    try {
+                        await apiClient.post('/notifications', payload);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        setTitle('');
+                        setMessage('');
+                        setIsImportant(false);
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                    } finally {
+                        setSending(false);
+                    }
+                }}
+            ]
+        });
     };
     
     const getModalConfig = useMemo(() => {
@@ -168,7 +227,12 @@ const NotificationTeacherScreen = () => {
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 keyboardVerticalOffset={80}
             >
-                <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+                {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
+                <ScrollView 
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                >
                     <ThemedText type="title" style={styles.pageTitle}>Notificar</ThemedText>
 
                     <View style={styles.formContainer}>
@@ -234,7 +298,7 @@ const NotificationTeacherScreen = () => {
                     >
                         <View style={styles.modalHeader}>
                             <ThemedText style={styles.modalTitle}>
-                                {targetType === 'user' ? 'Buscar Alumno' : 'Buscar Turno'}
+                                {targetType === 'user' ? 'Buscar Cliente' : 'Buscar Turno'}
                             </ThemedText>
                             <TouchableOpacity onPress={closeSearchModal}>
                                 <Ionicons name="close" size={28} color={Colors[colorScheme].text} />
@@ -243,17 +307,20 @@ const NotificationTeacherScreen = () => {
 
                         <TextInput
                             style={styles.input}
-                            placeholder={targetType === 'user' ? "Buscar por nombre..." : "Buscar por nombre de Turno..."}
+                            placeholder={targetType === 'user' ? "Buscar por nombre o email..." : "Buscar por nombre de clase..."}
                             value={targetType === 'user' ? userSearchTerm : classSearchTerm}
                             onChangeText={targetType === 'user' ? setUserSearchTerm : setClassSearchTerm}
                             placeholderTextColor={Colors[colorScheme].icon}
                         />
 
+                        {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
                         <FlatList
                             data={targetType === 'user' ? filteredStudents : filteredClasses}
                             renderItem={targetType === 'user' ? renderUserItem : renderClassItem}
                             keyExtractor={(item) => item._id}
                             ListEmptyComponent={<Text style={styles.emptyListText}>No se encontraron resultados</Text>}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
                         />
                     </KeyboardAvoidingView>
                 </ThemedView>
@@ -281,76 +348,5 @@ const NotificationTeacherScreen = () => {
         </ThemedView>
     );
 };
-
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { backgroundColor: gymColor,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-       alignSelf: 'center',
-       width: '100%',
-       textAlign: 'center',
-       fontWeight: 'bold',
-       color: '#fff',
-       fontSize: 18,  },
-    formContainer: { paddingHorizontal: 20, paddingTop: 10 , marginTop: 20},
-    label: { fontSize: 14, color: Colors[colorScheme].icon, marginBottom: 8 },
-    input: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        padding: 15,
-        borderRadius: 5,
-        fontSize: 16,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    filterButton: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground,
-        padding: 15,
-        borderRadius: 5,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
-    placeholderText: { color: Colors[colorScheme].icon },
-    actionsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border },
-    switchContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    buttonWrapper: { borderRadius: 5, overflow: 'hidden' },
-    modalContainer: {
-        flex: 1,
-        padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-    },
-    listItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-    },
-    listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
-    listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
-    emptyListText: { padding: 20, textAlign: 'center', color: Colors[colorScheme].icon },
-});
 
 export default NotificationTeacherScreen;

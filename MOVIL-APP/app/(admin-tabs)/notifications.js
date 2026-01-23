@@ -25,78 +25,28 @@ import FilterModal from '@/components/FilterModal';
 import CustomAlert from '@/components/CustomAlert';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 
-// --- Estilos ---
+// ... (getStyles se mantiene igual, lo omito para ahorrar espacio visual)
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { backgroundColor: gymColor,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-       alignSelf: 'center',
-       width: '100%',
-       textAlign: 'center',
-       fontWeight: 'bold',
-       color: '#fff',
-       fontSize: 18, },
+    pageTitle: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', alignSelf: 'center', width: '100%', textAlign: 'center', fontWeight: 'bold', color: '#fff', fontSize: 18, },
     formContainer: { paddingHorizontal: 20, paddingTop: 10, marginTop: 20 },
     label: { fontSize: 14, color: Colors[colorScheme].icon, marginBottom: 8 },
-    input: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        padding: 15,
-        borderRadius: 5,
-        fontSize: 16,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
-    filterButton: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground,
-        padding: 15,
-        borderRadius: 5,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-    },
+    input: { backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, padding: 15, borderRadius: 5, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 5, marginBottom: 20, borderWidth: 1, borderColor: Colors[colorScheme].border },
     filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
     placeholderText: { color: Colors[colorScheme].icon },
     actionsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border },
-    switchContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     buttonWrapper: { borderRadius: 5, overflow: 'hidden' },
-    modalContainer: {
-        flex: 1,
-        padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-    },
-    listItem: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-    },
+    modalContainer: { flex: 1, padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 22, fontWeight: 'bold' },
+    listItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
     listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
     emptyListText: { padding: 20, textAlign: 'center', color: Colors[colorScheme].icon },
 });
-
 
 const NotificationAdminScreen = () => {
     const { gymColor } = useAuth();
@@ -168,7 +118,6 @@ const NotificationAdminScreen = () => {
         );
     }, [allClasses, classSearchTerm]);
     
-    // --- FUNCIÓN RESTAURADA ---
     const handleSendNotification = () => {
         if (!title || !message) {
             setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]});
@@ -290,7 +239,12 @@ const NotificationAdminScreen = () => {
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 keyboardVerticalOffset={80}
             >
-                <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+                {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
+                <ScrollView 
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                >
                     <ThemedText type="title" style={styles.pageTitle}>Notificar</ThemedText>
                     
                     <View style={styles.formContainer}>
@@ -380,11 +334,14 @@ const NotificationAdminScreen = () => {
                             placeholderTextColor={Colors[colorScheme].icon}
                         />
 
+                        {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
                         <FlatList
                             data={targetType === 'user' ? filteredUsers : filteredClasses}
                             renderItem={targetType === 'user' ? renderUserItem : renderClassItem}
                             keyExtractor={(item) => item._id}
                             ListEmptyComponent={<Text style={styles.emptyListText}>No se encontraron resultados</Text>}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
                         />
                     </KeyboardAvoidingView>
                 </ThemedView>
