@@ -3,6 +3,8 @@ import generateToken from '../utils/generateToken.js';
 import { calculateAge } from '../utils/ageUtils.js';
 import getModels from '../utils/getModels.js';
 import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClient.js';
+import { sendSingleNotification } from './notificationController.js';
+
 
 const isValidEmail = (email) => {
     return String(email)
@@ -23,7 +25,8 @@ const registerUser = asyncHandler(async (req, res) => {
         direccion, 
         numeroTelefono, 
         obraSocial, 
-        sexo 
+        sexo,
+        pushToken
     } = req.body;
 
     if (!nombre || !apellido || !email || !contraseña || !dni || !fechaNacimiento || !telefonoEmergencia) {
@@ -78,7 +81,8 @@ const registerUser = asyncHandler(async (req, res) => {
         numeroTelefono: numeroTelefono || '', 
         obraSocial: obraSocial || '', 
         roles: roles,
-        sexo: sexo || 'Otro' 
+        sexo: sexo || 'Otro' ,
+        pushToken: pushToken || null
     };
     
     const user = new User(userData);
