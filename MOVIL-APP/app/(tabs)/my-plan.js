@@ -209,7 +209,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     noPlanText: { fontSize: 18, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.8, fontWeight: '600' },
     noPlanSubText: { fontSize: 14, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, marginTop: 5 },
     
-    // Estilos del Modal
+   
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
