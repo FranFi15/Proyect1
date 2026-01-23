@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { format } from 'date-fns'; // Importar date-fns
 
 // Importamos el visualizador de contenido HTML/Texto
@@ -81,6 +81,7 @@ const MyPlanScreen = () => {
         message: '', 
         buttons: [] 
     });
+    const closeAlert = () => setAlertInfo(prev => ({ ...prev, visible: false }));
 
     const fetchPlans = useCallback(async () => {
         setLoading(true);
@@ -117,6 +118,101 @@ const MyPlanScreen = () => {
         setSelectedPlan(null);
     };
 
+    const handleDeleteSinglePlan = (planId, planName) => {
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Plan",
+            message: `¿Estás seguro de que deseas eliminar el plan "${planName}"?`,
+            buttons: [
+                { 
+                    text: "Cancelar", 
+                    style: "cancel", 
+                    onPress: closeAlert 
+                },
+                { 
+                    text: "Eliminar", 
+                    style: "destructive",
+                    onPress: async () => {
+                        closeAlert(); 
+                        setLoading(true);
+                        try {
+                            await apiClient.delete(`/plans/${planId}`);
+                            setPlans(prev => prev.filter(p => p._id !== planId));
+                            setTimeout(() => { 
+                                setAlertInfo({ 
+                                    visible: true, 
+                                    title: 'Éxito', 
+                                    message: 'Plan eliminado correctamente.', 
+                                    buttons: [{ text: 'OK', style: 'primary', onPress: closeAlert }] 
+                                });
+                            }, 300);
+                        } catch (error) {
+                            setTimeout(() => {
+                                setAlertInfo({ 
+                                    visible: true, 
+                                    title: 'Error', 
+                                    message: 'No se pudo eliminar el plan.', 
+                                    buttons: [{ text: 'OK', style: 'primary', onPress: closeAlert }] 
+                                });
+                            }, 300);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        });
+    };
+
+
+    const handleDeleteAllPlans = () => {
+        if (plans.length === 0) return;
+        
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Todo",
+            message: "¿Deseas eliminar TODOS tus planes de entrenamiento? Esta acción no se puede deshacer.",
+            buttons: [
+                { 
+                    text: "Cancelar", 
+                    style: "cancel", 
+                    onPress: closeAlert 
+                },
+                { 
+                    text: "Eliminar Todo", 
+                    style: "destructive",
+                    onPress: async () => {
+                        closeAlert();
+                        setLoading(true);
+                        try {
+                            await apiClient.delete('/plans/my-plans/all');
+                            setPlans([]);
+                            setTimeout(() => {
+                                setAlertInfo({ 
+                                    visible: true, 
+                                    title: 'Éxito', 
+                                    message: 'Todos tus planes han sido eliminados.', 
+                                    buttons: [{ text: 'OK', style: 'primary', onPress: closeAlert }] 
+                                });
+                            }, 300);
+                        } catch (error) {
+                            setTimeout(() => {
+                                setAlertInfo({ 
+                                    visible: true, 
+                                    title: 'Error', 
+                                    message: 'Ocurrió un error al eliminar los planes.', 
+                                    buttons: [{ text: 'OK', style: 'primary', onPress: closeAlert }] 
+                                });
+                            }, 300);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        });
+    };
+
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
@@ -126,11 +222,23 @@ const MyPlanScreen = () => {
             <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>Mis Planes</Text>
             </View>
+            <View style={styles.header}>
+                 {plans.length > 0 && (
+                    <TouchableOpacity 
+                        onPress={handleDeleteAllPlans}
+                        style={styles.deleteAllButton}
+                    >
+                        <Octicons name="trash" size={16} color="white" />
+                        <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
+                    </TouchableOpacity>
+                )}
+            </View>
             
             <ScrollView
                 contentContainerStyle={styles.contentContainer}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
             >
+                
                 {plans.length > 0 ? (
                     plans.map(plan => (
                         <TouchableOpacity key={plan._id} style={styles.planButton} onPress={() => handlePlanPress(plan)}>
@@ -140,7 +248,15 @@ const MyPlanScreen = () => {
                                     Creado: {format(new Date(plan.createdAt), 'dd/MM/yyyy')}
                                 </Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={22} color={gymColor} />
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                <TouchableOpacity 
+                                    onPress={() => handleDeleteSinglePlan(plan._id, plan.name)}
+                                    style={{ padding: 10, marginRight: 5 }}
+                                >
+                                    <Octicons name="trash" size={20} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                                <Ionicons name="chevron-forward" size={22} color={gymColor} />
+                            </View>
                         </TouchableOpacity>
                     ))
                 ) : (
@@ -190,6 +306,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         textAlign: 'center',
     },
+    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 1, paddingTop: 10, paddingBottom: 0},
+    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
+    deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 10,},
     planButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -209,7 +328,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     noPlanText: { fontSize: 18, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.8, fontWeight: '600' },
     noPlanSubText: { fontSize: 14, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, marginTop: 5 },
     
-   
+    // Estilos del Modal
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
