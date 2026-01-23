@@ -34,7 +34,7 @@ const ResetPasswordScreen = () => {
     // 2. Estado local para configuración visual (independiente del AuthContext)
     const [gymData, setGymData] = useState({
         name: 'Gimnasio',
-        color: '#4b187b', // Color default
+        color: '#19131f', 
         logo: null
     });
     const [isFetchingConfig, setIsFetchingConfig] = useState(true);
