@@ -128,11 +128,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: {
         flex: 1,
         marginBottom: 15,
-        elevation: 8, 
-        shadowColor: "#000", 
-        shadowOffset: { width: 0, height: 2 }, 
-        shadowOpacity: 0.25, 
-        shadowRadius: 3.84 
     },
     toolbar: {
         backgroundColor: Colors[colorScheme].cardBackground, 
@@ -166,7 +161,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         padding: 20,
         width: '100%',
         maxWidth: 400,
-        elevation: 5
+        
     },
     modalTitle: {
         fontSize: 18,

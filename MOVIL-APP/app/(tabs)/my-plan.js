@@ -229,7 +229,7 @@ const MyPlanScreen = () => {
                         style={styles.deleteAllButton}
                     >
                         <Octicons name="trash" size={16} color="white" />
-                        <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
+                        <ThemedText style={styles.deleteAllButtonText}>Eliminar Todos</ThemedText>
                     </TouchableOpacity>
                 )}
             </View>

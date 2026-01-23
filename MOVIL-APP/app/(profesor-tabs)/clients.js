@@ -24,13 +24,14 @@ const ProfessorClientsScreen = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // selectedClient: null (global), object (single), array (multi)
+    // selectedClient: Array de objetos cliente para pasar al modal
+    // Si es null, el modal asume modo "Global/Todos"
     const [selectedClient, setSelectedClient] = useState(null); 
     const [planModalVisible, setPlanModalVisible] = useState(false);
     
     const [isRefreshing, setIsRefreshing] = useState(false);
     
-    // Estados Selección Múltiple
+    // Estados Selección Múltiple (Para asignación masiva)
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedClientIds, setSelectedClientIds] = useState([]);
 
@@ -38,7 +39,14 @@ const ProfessorClientsScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
+    const [alertInfo, setAlertInfo] = useState({ 
+        visible: false, 
+        title: '', 
+        message: '', 
+        buttons: [] 
+    });
+
+    const closeAlert = () => setAlertInfo(prev => ({ ...prev, visible: false }));
 
     const fetchData = useCallback(async () => {
         try {
@@ -49,7 +57,7 @@ const ProfessorClientsScreen = () => {
                 visible: true,
                 title: 'Error',
                 message: 'No se pudieron cargar los clientes.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+                buttons: [{ text: 'OK', style: 'primary', onPress: closeAlert }]
             });
         } finally {
             setLoading(false);
@@ -69,7 +77,7 @@ const ProfessorClientsScreen = () => {
         }, [fetchData])
     );
 
-    // Lógica Selección
+    // --- Lógica Selección Múltiple ---
     const toggleSelectionMode = (clientId) => {
         setIsSelectionMode(true);
         handleSelectClient(clientId);
@@ -90,24 +98,28 @@ const ProfessorClientsScreen = () => {
         setSelectedClientIds([]);
     };
 
-    // Manejadores
+    // --- Manejadores de Apertura del Modal ---
+    
+    // 1. Click simple en tarjeta: Abre historial de ESE cliente
     const handleCardPress = (client) => {
         if (isSelectionMode) {
             handleSelectClient(client._id);
         } else {
-            setSelectedClient([client]); // Modo individual (array de 1)
+            setSelectedClient([client]); // Pasamos array con 1 elemento
             setPlanModalVisible(true);
         }
     };
 
+    // 2. Click en FAB (Check): Abre asignación masiva para SELECCIONADOS
     const handleOpenBulkSelectionModal = () => {
         const clientsSelected = users.filter(u => selectedClientIds.includes(u._id));
         setSelectedClient(clientsSelected);
         setPlanModalVisible(true);
     };
 
+    // 3. Click en FAB (Usuarios): Abre asignación masiva GLOBAL
     const handleOpenGlobalModal = () => {
-        setSelectedClient(null); // Modo global
+        setSelectedClient(null); // null indica modo global/clase
         setPlanModalVisible(true);
     };
 
@@ -120,6 +132,7 @@ const ProfessorClientsScreen = () => {
         }
     };
 
+    // --- Filtrado ---
     const filteredData = useMemo(() => {
         if (!searchTerm) return users;
         return users.filter(user =>
@@ -157,6 +170,7 @@ const ProfessorClientsScreen = () => {
 
     return (
         <ThemedView style={styles.container}>
+            {/* Header: Muestra título o contador de selección */}
             <View style={[styles.headerContainer, isSelectionMode && {backgroundColor: '#333'}]}>
                 {isSelectionMode ? (
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingHorizontal: 10}}>
@@ -202,18 +216,33 @@ const ProfessorClientsScreen = () => {
             
             {!loading && (
                 isSelectionMode ? (
+                    // Botón Flotante: Asignar Plan a Seleccionados
                     <TouchableOpacity style={styles.fab} onPress={handleOpenBulkSelectionModal}>
                         <FontAwesome5 name="check" size={24} color="#fff" />
                     </TouchableOpacity>
                 ) : (
+                    // Botón Flotante: Asignar Plan Global / Por Clase
                     <TouchableOpacity style={[styles.fab]} onPress={handleOpenGlobalModal}>
                         <FontAwesome5 name="users" size={24} color="#fff" />
                     </TouchableOpacity>
                 )
             )}
 
-            <TrainingPlanModal visible={planModalVisible} clients={selectedClient} onClose={handleCloseModal} />
-            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
+            {/* Modal para Ver Historial o Asignar Planes */}
+            <TrainingPlanModal 
+                visible={planModalVisible} 
+                clients={selectedClient} 
+                onClose={handleCloseModal} 
+            />
+            
+            <CustomAlert 
+                visible={alertInfo.visible} 
+                title={alertInfo.title} 
+                message={alertInfo.message} 
+                buttons={alertInfo.buttons} 
+                onClose={closeAlert} 
+                gymColor={gymColor} 
+            />
         </ThemedView>
     );
 };
