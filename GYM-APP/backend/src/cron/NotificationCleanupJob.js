@@ -87,7 +87,7 @@ const runNotificationCleanupJob = async () => {
 
 const scheduleNotificationCleanup = () => {
     // '0 3 * * *' -> Se ejecuta todos los días a las 03:00 AM
-    cron.schedule('0 3 * * *', runNotificationCleanupJob, {
+    cron.schedule('0 4 * * *', runNotificationCleanupJob, {
         timezone: "America/Argentina/Buenos_Aires"
     });
     console.log('🧹 Cron Job de limpieza de notificaciones programado (Diario 03:00 AM).');

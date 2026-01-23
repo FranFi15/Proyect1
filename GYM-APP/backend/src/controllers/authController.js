@@ -166,6 +166,8 @@ const loginUser = asyncHandler(async (req, res) => {
             res.status(403);
             throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al administrador.');
         }
+        user.lastLogin = new Date();
+        await user.save({ validateBeforeSave: false });
         res.json({
             _id: user._id,
             nombre: user.nombre,
