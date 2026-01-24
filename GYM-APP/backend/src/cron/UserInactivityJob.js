@@ -19,7 +19,7 @@ const deactivateInactiveUsersForGym = async (gymDBConnection, clientId) => {
 
         // Calculamos la fecha límite (Hoy - 40 días)
         const limitDate = new Date();
-       limitDate.setMinutes(limitDate.getMinutes() - 5)
+        limitDate.setDate(limitDate.getDate() - 40);
 
         // Ejecutamos la actualización masiva
         // Buscamos: Activos + Rol Cliente + UpdatedAt viejo

@@ -34,7 +34,6 @@ import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.
 import { scheduleUserInactivityCheck } from './cron/UserInactivityJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 
-import { runUserInactivityJob } from './cron/UserInactivityJob.js';
 
 
 
@@ -85,14 +84,7 @@ const authLimiter = rateLimit({
     message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
 });
 
-app.get('/test-inactividad', async (req, res) => {
-    console.log("🚀 Disparando test manual de inactividad...");
-    
-    // Ejecutamos la lógica del cron manualmente
-    await runUserInactivityJob();
-    
-    res.send('Proceso de inactividad ejecutado. Revisa la consola del servidor.');
-});
+
 
 // Rutas
 app.use('/api/auth', authLimiter, gymTenantMiddleware, authRoutes);
