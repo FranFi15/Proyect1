@@ -85,7 +85,14 @@ const authLimiter = rateLimit({
     message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
 });
 
-
+app.get('/test-inactividad', async (req, res) => {
+    console.log("🚀 Disparando test manual de inactividad...");
+    
+    // Ejecutamos la lógica del cron manualmente
+    await runUserInactivityJob();
+    
+    res.send('Proceso de inactividad ejecutado. Revisa la consola del servidor.');
+});
 
 // Rutas
 app.use('/api/auth', authLimiter, gymTenantMiddleware, authRoutes);
@@ -119,14 +126,7 @@ scheduleUserInactivityCheck();
 scheduleNotificationCleanup();
 
 
-app.get('/test-inactividad', async (req, res) => {
-    console.log("🚀 Disparando test manual de inactividad...");
-    
-    // Ejecutamos la lógica del cron manualmente
-    await runUserInactivityJob();
-    
-    res.send('Proceso de inactividad ejecutado. Revisa la consola del servidor.');
-});
+
 
 // Middlewares de manejo de errores
 app.use(notFound);
