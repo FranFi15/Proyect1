@@ -130,9 +130,9 @@ const userSchema = mongoose.Schema({
     type: Boolean,
     default: true, 
 },
-puedeGestionarEjercicios: {
-        type: Boolean,
-        default: false
+lastLogin: {
+        type: Date,
+        default: null
     },
     rmRecords: [{
         exercise: { type: String, required: true, unique:true},
