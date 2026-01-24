@@ -34,6 +34,7 @@ import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.
 import { scheduleUserInactivityCheck } from './cron/UserInactivityJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 
+import { runUserInactivityJob } from './cron/UserInactivityJob.js';
 
 
 
@@ -117,6 +118,15 @@ schedulePaseLibreExpirationCheck();
 scheduleUserInactivityCheck();
 scheduleNotificationCleanup();
 
+
+app.get('/test-inactividad', async (req, res) => {
+    console.log("🚀 Disparando test manual de inactividad...");
+    
+    // Ejecutamos la lógica del cron manualmente
+    await runUserInactivityJob();
+    
+    res.send('Proceso de inactividad ejecutado. Revisa la consola del servidor.');
+});
 
 // Middlewares de manejo de errores
 app.use(notFound);
