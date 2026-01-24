@@ -84,7 +84,11 @@ const ResetPasswordScreen = () => {
 
         setIsLoading(true);
         try {
-            await apiClient.put(`/users/reset-password/${token}`, { password });
+            await apiClient.put(`/users/reset-password/${token}`, { password },{ 
+                    headers: { 
+                        'x-client-id': clientId 
+                    } 
+                });
             setAlertInfo({
                 visible: true,
                 title: 'Éxito',
