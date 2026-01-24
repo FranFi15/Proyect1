@@ -1,5 +1,5 @@
 import express from 'express';
-import { handleResetLink } from '../controllers/userController.js'; // Importa solo el controlador que necesitas
+import { handleResetLink } from '../controllers/userController.js'; 
 
 const router = express.Router();
 

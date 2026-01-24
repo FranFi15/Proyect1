@@ -55,7 +55,6 @@ export default function RootLayout() {
                 appState.current.match(/inactive|background/) &&
                 nextAppState === 'active'
             ) {
-                console.log("App volviendo a primer plano, aplicando UI Buffer...");
                 setIsReady(false); // Desmontamos la app
                 
                 // Esperamos 100ms para que Android prepare la vista
@@ -138,6 +137,12 @@ function AppContent() {
                 .then(() => setIsSplashHidden(true))
                 .catch((err) => {
                 });
+        }
+
+        const isResetPasswordScreen = segments.some(s => s === 'reset-password');
+
+        if (isResetPasswordScreen) {
+            return;
         }
 
         const inAuthGroup = segments[0] === '(auth)';
