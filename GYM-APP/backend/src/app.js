@@ -31,7 +31,6 @@ import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
 import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; 
 import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
-import { scheduleUserInactivityCheck } from './cron/UserInactivityJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 
 
@@ -114,7 +113,6 @@ scheduleMonthlyCreditReset();
 scheduleDebtorNotifications(); 
 scheduleMonthlyCleanup();
 schedulePaseLibreExpirationCheck();
-scheduleUserInactivityCheck();
 scheduleNotificationCleanup();
 
 
