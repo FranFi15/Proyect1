@@ -85,14 +85,11 @@ const authLimiter = rateLimit({
     message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
 });
 
-app.get('/emergencia-reactivar', async (req, res) => {
-    console.log("⚠️ Ejecutando botón de pánico...");
-    
-    // Ejecutamos el script sin esperar (fire and forget) para que no de timeout el navegador
-    runEmergencyReactivation(); 
-    
-    res.send('Comando de reactivación enviado. Revisa los logs de la consola en unos segundos.');
-});
+//app.get('/emergencia-reactivar', async (req, res) => {
+//  console.log("⚠️ Ejecutando botón de pánico...");
+//  runEmergencyReactivation(); 
+//   res.send('Comando de reactivación enviado. Revisa los logs de la consola en unos segundos.');
+//});
 
 // Rutas
 app.use('/api/auth', authLimiter, gymTenantMiddleware, authRoutes);
