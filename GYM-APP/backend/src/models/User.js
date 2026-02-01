@@ -135,7 +135,7 @@ lastLogin: {
         default: null
     },
     rmRecords: [{
-        exercise: { type: String, required: true, unique:true},
+        exercise: { type: String, required: true},
         weight: { type: Number, required: true }, 
         date: { type: Date, default: Date.now }
     }],
