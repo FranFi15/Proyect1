@@ -33,7 +33,7 @@ import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { runEmergencyReactivation } from './cron/EmergencyReactivation.js';
-import { runFixIndexes } from '../scripts/FixIndexes.js';
+import { runFixIndexes } from '../src/scripts/FixIndexes.js'
 
 
 
