@@ -33,6 +33,7 @@ import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { runEmergencyReactivation } from './cron/EmergencyReactivation.js';
+import { runFixIndexes } from '../scripts/FixIndexes.js';
 
 
 
@@ -83,6 +84,11 @@ const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 20, 
     message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.'
+});
+
+app.get('/fix-indexes', async (req, res) => {
+    runFixIndexes();
+    res.send('Reparando índices...');
 });
 
 //app.get('/emergencia-reactivar', async (req, res) => {
