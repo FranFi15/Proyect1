@@ -259,10 +259,6 @@ const updateUserPlan = asyncHandler(async (req, res) => {
     // --- LÓGICA PARA AÑADIR CRÉDITOS Y GENERAR CARGO ---
     if (creditsToAdd !== undefined && Number(creditsToAdd) !== 0) {
         const creditsToAddNum = Number(creditsToAdd);
-        
-        // Lógica de validación de créditos (sin cambios)
-        // ...
-
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
         const newTotal = currentCredits + creditsToAddNum;
 
@@ -271,6 +267,18 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         }
         
         user.creditosPorTipo.set(tipoClaseId, newTotal);
+
+        if (creditsToAddNum > 0) {
+    const fechaVto = new Date();
+    fechaVto.setDate(fechaVto.getDate() + 30); 
+
+    user.vencimientosDetallados.push({
+        tipoClaseId: tipoClaseId,
+        cantidad: creditsToAddNum,
+        fechaVencimiento: fechaVto,
+        idCarga: new mongoose.Types.ObjectId().toString()
+    });
+}
         
         await CreditLog.create({
             user: userId, admin: adminId, amount: creditsToAddNum,

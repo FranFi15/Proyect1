@@ -94,6 +94,12 @@ const userSchema = mongoose.Schema({
         of: Number,
         default: {},
     },
+    vencimientosDetallados: [{
+    tipoClaseId: { type: mongoose.Schema.Types.ObjectId, ref: 'TipoClase' },
+    cantidad: Number,
+    fechaVencimiento: Date,
+    idCarga: String,
+}],
     paseLibreDesde: {
         type: Date,
     },
@@ -139,6 +145,7 @@ lastLogin: {
         weight: { type: Number, required: true }, 
         date: { type: Date, default: Date.now }
     }],
+
 }, {
     timestamps: true,
 });

@@ -487,25 +487,52 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     }
     
     let tipoCreditoADescontar = null; 
+    let fechaVencimientoCapturada = null;
 
     if (tienePaseLibreValidoParaEsteTurno) {
     } else {
         
         const tipoClaseId = classItem.tipoClase._id.toString();
         let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
+
         if (creditosEspecificos > 0) {
             user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
+
+            const indicesVto = user.vencimientosDetallados
+                .map((v, i) => v.tipoClaseId.toString() === tipoClaseId ? i : -1)
+                .filter(i => i !== -1)
+                .sort((a, b) => user.vencimientosDetallados[a].fechaVencimiento - user.vencimientosDetallados[b].fechaVencimiento);
+
+            if (indicesVto.length > 0) {
+                const idx = indicesVto[0];
+                fechaVencimientoCapturada = user.vencimientosDetallados[idx].fechaVencimiento;
+                user.vencimientosDetallados[idx].cantidad -= 1;
+                if (user.vencimientosDetallados[idx].cantidad <= 0) {
+                    user.vencimientosDetallados.splice(idx, 1);
+                }
+            }
+
             tipoCreditoADescontar = classItem.tipoClase._id; 
         } else {
             const universalType = await TipoClase.findOne({ esUniversal: true });
-            
             if (universalType) {
-                const universalTypeId = universalType._id.toString();
-                const creditosUniversales = user.creditosPorTipo.get(universalTypeId) || 0;
-                
-                if (creditosUniversales > 0) {
-                    user.creditosPorTipo.set(universalTypeId, creditosUniversales - 1);
-                    tipoCreditoADescontar = universalType._id; 
+                const uId = universalType._id.toString();
+                const uCreds = user.creditosPorTipo.get(uId) || 0;
+                if (uCreds > 0) {
+                    user.creditosPorTipo.set(uId, uCreds - 1);
+                     const indicesVtoUni = user.vencimientosDetallados
+                        .map((v, i) => v.tipoClaseId.toString() === uId ? i : -1)
+                        .filter(i => i !== -1)
+                        .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
+                     
+                     if (indicesVtoUni.length > 0) {
+                         const idxU = indicesVtoUni[0];
+                         fechaVencimientoCapturada = user.vencimientosDetallados[idxU].fechaVencimiento;
+                         user.vencimientosDetallados[idxU].cantidad -= 1;
+                         if (user.vencimientosDetallados[idxU].cantidad <= 0) user.vencimientosDetallados.splice(idxU, 1);
+                     }
+
+                    tipoCreditoADescontar = universalType._id;
                 }
             }
         }
@@ -536,6 +563,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     }
     user.clasesInscritas.push(classId);
 
+    user.markModified('creditosPorTipo');
     await user.save();
     await classItem.save();
     res.json({ message: 'Inscripción exitosa.', class: classItem });
@@ -555,22 +583,13 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
-    // --- ¡LÓGICA DE TIEMPO DEFINITIVA Y SIMPLIFICADA! ---
-    
-    // 1. Creamos un string con la fecha, la hora Y la zona horaria de Argentina (-03:00).
     const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00-03:00`;
     
-    // 2. JavaScript ahora entiende perfectamente que esta es la hora de Argentina y la convierte
-    //    a la hora universal (UTC) correcta para poder compararla.
-    const classStartDateTime = new Date(dateTimeString);
 
-    // 3. Calculamos el límite de cancelación (1 hora antes).
+    const classStartDateTime = new Date(dateTimeString);
     const cancellationDeadline = subHours(classStartDateTime, 1);
-    
-    // 4. Obtenemos la hora actual del servidor (que también está en UTC).
     const now = new Date();
 
-    // 5. La comparación ahora es 100% precisa.
     if (now > cancellationDeadline) {
         res.status(400);
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
@@ -582,24 +601,49 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
 
 
    if (!tienePaseLibreActivo) {
-        // --- MODIFICADO: BUSCAR QUÉ CRÉDITO USÓ Y DEVOLVER ESE MISMO ---
+        // 1. Buscamos el detalle específico de cuando se anotó
         const detalle = clase.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
 
+        // 2. Identificamos qué tipo de crédito usó
+        let creditoADevolverId;
         if (detalle && detalle.tipoCreditoUsado) {
-            const creditoADevolverId = detalle.tipoCreditoUsado.toString();
-            const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
-            user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
-            
-            // Borrar el detalle
-            clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
+            creditoADevolverId = detalle.tipoCreditoUsado.toString();
         } else {
-            // Fallback para turnos viejos
-            if (clase.tipoClase && clase.tipoClase._id) {
-                const tipoClaseId = clase.tipoClase._id.toString();
-                const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                user.creditosPorTipo.set(tipoClaseId, currentCredits + 1);
-            }
+            // Fallback por si es un turno antiguo sin detalle
+            creditoADevolverId = clase.tipoClase._id.toString();
         }
+
+        // 3. Devolvemos la cantidad al contador general (Map)
+        const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+        user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+        
+        // 4. RECUPERAMOS LA FECHA ORIGINAL (La clave para evitar el hack)
+        let fechaRestaurada;
+        
+        if (detalle && detalle.fechaVencimientoCredito) {
+            // CASO A: Usamos la fecha original que guardamos al inscribirse
+            fechaRestaurada = detalle.fechaVencimientoCredito;
+        } else {
+            // CASO B: Turnos viejos (antes de esta actualización).
+            // Les damos 30 días de gracia para no generar error, o la fecha que prefieras.
+            const fechaDefault = new Date();
+            fechaDefault.setDate(fechaDefault.getDate() + 30);
+            fechaRestaurada = fechaDefault;
+        }
+
+        // 5. Insertamos el crédito devuelto en el array detallado
+        user.vencimientosDetallados.push({
+            tipoClaseId: creditoADevolverId,
+            cantidad: 1,
+            fechaVencimiento: fechaRestaurada,
+            idCarga: 'DEVOLUCION-CLASE' // Para rastrear de dónde vino
+        });
+
+        // 6. Borramos el detalle de la clase para limpiar
+        if (clase.inscripcionesDetalle) {
+            clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
+        }
+        
         user.markModified('creditosPorTipo');
     }
 
