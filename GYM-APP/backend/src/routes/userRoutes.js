@@ -28,8 +28,18 @@ import {
     updateRMs,
 } from '../controllers/userController.js'; 
 
+import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';
 
 const router = express.Router();
+
+router.post('/test-cron-manual', protect, admin, asyncHandler(async (req, res) => {
+    console.log("⚡ Iniciando prueba manual del Cron de Créditos...");
+    
+    // Ejecutamos la lógica pasando la conexión actual del request
+    await resetCreditsForCurrentGym(req.gymDBConnection, req.gymId);
+    
+    res.json({ message: 'Lógica del Cron ejecutada manualmente. Revisa la consola y la DB.' });
+}));
 
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
