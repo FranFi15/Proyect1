@@ -1,6 +1,7 @@
 // src/routes/userRoutes.js
 import express from 'express';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js'; 
+import asyncHandler from 'express-async-handler';
 import {
     getAllUsers,
     getUserById,
@@ -32,14 +33,12 @@ import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';
 
 const router = express.Router();
 
-router.post('/test-cron-manual', asyncHandler(async (req, res) => {
+router.post('/test-cron-manual', protect, authorizeRoles('admin'), asyncHandler(async (req, res) => {
     console.log("⚡ Iniciando prueba manual del Cron de Créditos...");
-    
-    // Ejecutamos la lógica pasando la conexión actual del request
     await resetCreditsForCurrentGym(req.gymDBConnection, req.gymId);
-    
-    res.json({ message: 'Lógica del Cron ejecutada manualmente. Revisa la consola y la DB.' });
+    res.json({ message: 'Lógica del Cron ejecutada manualmente.' });
 }));
+
 
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
