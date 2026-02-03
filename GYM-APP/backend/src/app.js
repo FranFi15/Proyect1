@@ -32,7 +32,7 @@ import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
 import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
-import { runEmergencyReactivation } from './cron/EmergencyReactivation.js';
+import { scheduleClassReminders } from './cron/ClassReminderJob.js';
 
 
 
@@ -120,6 +120,7 @@ scheduleDebtorNotifications();
 scheduleMonthlyCleanup();
 schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
+scheduleClassReminders();
 
 
 
