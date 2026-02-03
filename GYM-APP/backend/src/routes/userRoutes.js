@@ -32,7 +32,7 @@ import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';
 
 const router = express.Router();
 
-router.post('/test-cron-manual', protect, admin, asyncHandler(async (req, res) => {
+router.post('/test-cron-manual', protect, asyncHandler(async (req, res) => {
     console.log("⚡ Iniciando prueba manual del Cron de Créditos...");
     
     // Ejecutamos la lógica pasando la conexión actual del request
