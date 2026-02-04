@@ -29,15 +29,9 @@ import {
     updateRMs,
 } from '../controllers/userController.js'; 
 
-import { runClassReminderJob } from '../cron/ClassReminderJob.js';
 
 const router = express.Router();
 
-router.post('/test-cron-manual', asyncHandler(async (req, res) => {
-    console.log("⚡ Iniciando prueba manual del Cron de Recordatorios de Clases...");
-    await runClassReminderJob();
-    res.json({ message: 'Lógica del Cron ejecutada manualmente.' });
-}));
 
 
 router.post('/forgot-password', forgotPassword);
