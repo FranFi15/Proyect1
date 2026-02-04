@@ -29,7 +29,7 @@ import {
     updateRMs,
 } from '../controllers/userController.js'; 
 
-import { resetCreditsForCurrentGym } from '../cron/CreditResetJob.js';
+import { runClassReminderJob } from '../cron/ClassReminderJob.js';
 
 const router = express.Router();
 
