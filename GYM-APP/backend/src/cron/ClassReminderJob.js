@@ -61,8 +61,8 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
                     });
 
                     if (!existingNotif) {
-                        const title = "⏰ Tu clase comienza en 2 hs";
-                        const message = `Recuerda: Si no puedes asistir a "${clase.nombre || clase.tipoClase?.nombre || 'tu turno'}", anula tu inscripción ahora para liberar el cupo y recuperar tu crédito.`;
+                        const title = `⏰ Tu Turno "${clase.nombre}" empieza en 2 hs`;
+                        const message = `Si no puedes asistir, anula tu inscripción ahora para liberar el cupo y recuperar tu crédito.`;
 
                         await sendSingleNotification(
                             Notification,
