@@ -2,8 +2,8 @@ import cron from 'node-cron';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 import axios from 'axios';
-import { addHours, subMinutes, addMinutes, format, parseISO } from 'date-fns';
-import { sendSingleNotification } from '../controllers/notificationController.js'; // Asegúrate de importar esto
+import { addHours, subMinutes, addMinutes, subDays, addDays } from 'date-fns';
+import { sendSingleNotification } from '../controllers/notificationController.js'; 
 
 import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
@@ -15,57 +15,54 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
     try {
         const { Clase, User, Notification } = getModels(gymDBConnection);
         
-        // Obtenemos la hora actual en UTC
         const now = new Date();
-        
-        // Calculamos el objetivo: 2 horas en el futuro
-        // Ejemplo: Si son las 16:00, buscamos clases de las 18:00
         const targetTime = addHours(now, 2);
 
-        // Definimos una ventana de tiempo de 30 minutos (15 antes, 15 despues)
-        // para asegurar que atrapamos la clase aunque el cron corra con desfase
+        // Ventana de tolerancia: Buscamos clases que empiecen entre 1h 45m y 2h 15m desde AHORA
         const windowStart = subMinutes(targetTime, 15);
         const windowEnd = addMinutes(targetTime, 15);
 
-        // 1. Buscamos clases activas que coincidan con la FECHA de hoy
-        // Nota: Como 'fecha' en tu modelo suele ser a las 00:00 o 12:00, usamos rango del día
-        const startOfDay = new Date(targetTime);
-        startOfDay.setUTCHours(0,0,0,0);
-        const endOfDay = new Date(targetTime);
-        endOfDay.setUTCHours(23,59,59,999);
+        console.log(`[Reminder Debug] Hora Servidor (UTC): ${now.toISOString()}`);
+        console.log(`[Reminder Debug] Buscando clases que inicien entre:`);
+        console.log(`   Desde: ${windowStart.toISOString()}`);
+        console.log(`   Hasta: ${windowEnd.toISOString()}`);
+
+        // 1. QUERY CORREGIDA: Buscamos en un rango amplio (ayer, hoy y mañana)
+        // Esto evita errores si la fecha UTC cambia de día justo en la ventana de 2hs
+        const broadStart = subDays(now, 1);
+        const broadEnd = addDays(now, 2);
 
         const potentialClasses = await Clase.find({
-            fecha: { $gte: startOfDay, $lte: endOfDay },
+            fecha: { $gte: broadStart, $lte: broadEnd },
             estado: 'activa',
-            usuariosInscritos: { $not: { $size: 0 } } // Solo clases con alumnos
-        });
+            usuariosInscritos: { $not: { $size: 0 } } 
+        }).populate('tipoClase', 'nombre'); // Populate para ver el nombre en el log
+
+        console.log(`[Reminder Debug] Clases candidatas encontradas en DB: ${potentialClasses.length}`);
 
         for (const clase of potentialClasses) {
-            // 2. Construir la fecha exacta de inicio de la clase
-            // Tu 'horaInicio' es string "18:00". Combinamos con la fecha.
-            // Asumimos hora Argentina/Local para el string, convertimos para comparar
-            
-            const classDateString = clase.fecha.toISOString().split('T')[0]; // "2023-10-25"
-            const classDateTimeString = `${classDateString}T${clase.horaInicio}:00-03:00`; // Formato ISO con timezone AR
+            // 2. Construir fecha exacta
+            const classDateString = clase.fecha.toISOString().split('T')[0]; 
+            const classDateTimeString = `${classDateString}T${clase.horaInicio}:00-03:00`; 
             const classStartTime = new Date(classDateTimeString);
 
-            // 3. Verificar si esta clase empieza dentro de la ventana de 2 horas
+            // console.log(`   -> Revisando clase "${clase.nombre || 'Sin nombre'}" - Inicio: ${classStartTime.toISOString()}`);
+
+            // 3. Verificar ventana exacta
             if (classStartTime >= windowStart && classStartTime <= windowEnd) {
                 
-                console.log(`[Reminder] La clase ${clase.nombre} inicia a las ${clase.horaInicio}. Procesando recordatorios...`);
+                console.log(`✅ MATCH! La clase ${clase.nombre} inicia a las ${clase.horaInicio} (en ~2hs). Procesando...`);
 
                 for (const userId of clase.usuariosInscritos) {
-                    // 4. EVITAR DUPLICADOS: Verificar si ya le enviamos notificación a este usuario para esta clase
                     const existingNotif = await Notification.findOne({
                         user: userId,
                         class: clase._id,
-                        type: 'class_reminder_2h' // Un tipo específico para identificarlo
+                        type: 'class_reminder_2h'
                     });
 
                     if (!existingNotif) {
-                        // Enviamos la notificación
                         const title = "⏰ Tu clase comienza en 2 hs";
-                        const message = `Recuerda: Si no puedes asistir a "${clase.nombre || clase.tipoClase}", anula tu inscripción ahora para liberar el cupo y recuperar tu crédito.`;
+                        const message = `Recuerda: Si no puedes asistir a "${clase.nombre || clase.tipoClase?.nombre || 'tu turno'}", anula tu inscripción ahora para liberar el cupo y recuperar tu crédito.`;
 
                         await sendSingleNotification(
                             Notification,
@@ -73,11 +70,13 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
                             userId,
                             title,
                             message,
-                            'class_reminder_2h', // Tipo nuevo
-                            true, // Es Push
+                            'class_reminder_2h',
+                            true,
                             clase._id
                         );
-                        console.log(` -> Enviado a usuario ${userId}`);
+                        console.log(`      -> 📨 Notificación enviada al usuario ${userId}`);
+                    } else {
+                        console.log(`      -> ⏭️ Usuario ${userId} ya fue notificado.`);
                     }
                 }
             }
@@ -106,7 +105,7 @@ const runClassReminderJob = async () => {
                     const { connection } = await connectToGymDB(client.clientId);
                     await checkAndSendReminders(connection, client.clientId);
                 } catch (e) {
-                    // Silent fail para no ensuciar logs
+                    // Silent fail
                 }
             }
         }
@@ -115,8 +114,6 @@ const runClassReminderJob = async () => {
     }
 };
 
-// Programamos para que corra cada 15 minutos
-// Así aseguramos no perder ninguna clase sin importar la hora de inicio
 const scheduleClassReminders = () => {
     cron.schedule('*/15 * * * *', runClassReminderJob);
     console.log('⏰ Cron Job de Recordatorios (2hs antes) iniciado.');
