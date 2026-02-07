@@ -30,6 +30,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         roles: user.roles,
         creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
         clasesInscritas: user.clasesInscritas,
+        balance: user.balance,
         telefonoEmergencia: user.telefonoEmergencia,
         dni: user.dni,
         fechaNacimiento: user.fechaNacimiento,
