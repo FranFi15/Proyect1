@@ -1297,9 +1297,9 @@ const ManageClassesScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
     expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },
-    cancelledCard: { backgroundColor: Colors[colorScheme].cardBackground, opacity: 0.7 },
+    cancelledCard: { backgroundColor: Colors[colorScheme].cardBackground, opacity: 0.7, borderWidth: 1, borderColor: Colors[colorScheme].border},
     actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
     cancelledText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: 'bold', marginRight: 'auto' },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -1388,10 +1388,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginHorizontal: 16,
         marginVertical: 8,
         borderRadius: 5,
-        borderWidth: 0,
         elevation: 2,
         backgroundColor: Colors[colorScheme].background,
         shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,
+         borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },

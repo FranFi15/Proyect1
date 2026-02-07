@@ -60,56 +60,68 @@ const PlansAndCreditsModal = ({ onClose }) => {
         }, [])
     );
 
-    // --- LÓGICA PARA AGRUPAR CRÉDITOS POR TIPO Y FECHA ---
+    // --- LÓGICA CORREGIDA PARA VENCIMIENTOS ---
     const detailedCredits = useMemo(() => {
         if (!profile || !classTypes.length) return [];
 
         const groups = {};
 
-        // 1. Procesar vencimientos detallados (Array con fechas)
+        // 1. Procesar vencimientos detallados
         if (profile.vencimientosDetallados && profile.vencimientosDetallados.length > 0) {
             profile.vencimientosDetallados.forEach(item => {
                 const typeId = item.tipoClaseId;
+                
+                // Buscamos la configuración de este tipo de clase
+                const cType = classTypes.find(ct => ct._id === typeId);
+                const isResetEnabled = cType ? cType.resetMensual : false; // ¿Tiene vencimiento?
+
                 if (!groups[typeId]) {
-                    const cType = classTypes.find(ct => ct._id === typeId);
                     groups[typeId] = {
                         name: cType ? cType.nombre : 'Crédito',
+                        resetMensual: isResetEnabled,
                         total: 0,
                         batches: []
                     };
                 }
+                
                 groups[typeId].total += item.cantidad;
+                
+                // --- LÓGICA CLAVE ---
+                // Si 'isResetEnabled' es true, mostramos la fecha real.
+                // Si es false, forzamos null para que la UI diga "Sin vencimiento".
                 groups[typeId].batches.push({
                     amount: item.cantidad,
-                    date: item.fechaVencimiento
+                    date: isResetEnabled ? item.fechaVencimiento : null 
                 });
             });
         }
 
-        // 2. Revisar si hay créditos "sueltos" (Legacy o sin fecha) en el contador global
-        // Esto asegura que si algo falló en el detalle, al menos se muestre el total
+        // 2. Revisar créditos "sueltos" (fallback para datos viejos)
         if (profile.creditosPorTipo) {
             Object.entries(profile.creditosPorTipo).forEach(([typeId, amount]) => {
                 if (amount > 0) {
                     if (!groups[typeId]) {
-                        // Si no estaba en el detalle pero tiene saldo positivo
                         const cType = classTypes.find(ct => ct._id === typeId);
+                        const isResetEnabled = cType ? cType.resetMensual : false;
+
                         groups[typeId] = {
                             name: cType ? cType.nombre : 'Crédito',
+                            resetMensual: isResetEnabled,
                             total: amount,
-                            batches: [{ amount: amount, date: null }] // Sin fecha
+                            batches: [{ 
+                                amount: amount, 
+                                date: null // Aquí siempre es null porque no tenemos el detalle
+                            }] 
                         };
                     } else {
-                        // Si ya existe, verificamos si el total coincide. 
-                        // A veces el total global puede ser mayor si hubo cargas manuales antiguas.
-                        // Usamos el del mapa global como la verdad absoluta de "cantidad".
-                        groups[typeId].total = Math.max(groups[typeId].total, amount);
+                        // Si ya existe en 'detailed', asumimos que el total ya se sumó correctamente allí
+                        // O ajustamos si hay discrepancia (opcional, por simplicidad confiamos en el detalle)
                     }
                 }
             });
         }
 
-        // Ordenar batches por fecha
+        // Ordenar batches: Los que tienen fecha primero (más próxima), luego los null
         Object.values(groups).forEach(g => {
             g.batches.sort((a, b) => {
                 if (!a.date) return 1;
@@ -183,9 +195,15 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                             <Ionicons name="ticket-outline" size={16} color={Colors[colorScheme].text} style={{marginRight: 8}} />
                                             <ThemedText style={styles.batchAmount}>{batch.amount} créditos</ThemedText>
                                         </View>
+                                        
                                         <ThemedText style={styles.batchDate}>
-                                            {batch.date ? `Vence: ${formatDateUTC(batch.date)}` : 'Sin vencimiento'}
+                                            {/* Si hay fecha (porque resetMensual=true), la mostramos. Si no, "Sin vencimiento" */}
+                                            {batch.date 
+                                                ? `Vence: ${formatDateUTC(batch.date)}` 
+                                                : 'Sin vencimiento'
+                                            }
                                         </ThemedText>
+                                        
                                     </View>
                                 ))}
                             </ThemedView>
@@ -218,7 +236,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '80%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 20, elevation: 5 },
     
     header: { alignItems: 'center', marginBottom: 20, marginTop: 10 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -251,7 +269,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     // Detalles de Lotes
     batchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
     batchAmount: { fontSize: 15, fontWeight: '500', color: Colors[colorScheme].text },
-    batchDate: { fontSize: 14, color: Colors[colorScheme].icon }, // Color más suave para la fecha
+    batchDate: { fontSize: 14, color: Colors[colorScheme].icon }, 
     
     // Info general
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

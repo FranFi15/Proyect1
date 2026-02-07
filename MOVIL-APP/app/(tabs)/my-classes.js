@@ -322,7 +322,8 @@ const getStyles = (colorScheme, gymColor) => {
             marginVertical: 8,
             borderRadius: 5,
             elevation: 2,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, 
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,
+             borderWidth: 1, borderColor: Colors[colorScheme].border 
         },
         className: {
             fontSize: 18,

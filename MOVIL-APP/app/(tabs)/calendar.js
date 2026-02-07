@@ -651,7 +651,7 @@
         listHeader: { textAlign: 'center', fontSize: 20, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background },
         sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
         
-        classItem: { padding: 20, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, backgroundColor: Colors[colorScheme].background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 },
+        classItem: { padding: 20, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, backgroundColor: Colors[colorScheme].background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
         className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
         classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
         buttonContainer: { marginTop: 12, alignSelf: 'flex-start' },
@@ -673,7 +673,7 @@
         filterButton: { height: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, paddingHorizontal: 15, borderRadius: 5, backgroundColor: Colors[colorScheme].background },
         filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
         headerActions: { backgroundColor: Colors[colorScheme].background, paddingHorizontal: 15, paddingVertical: 10 },
-        qrButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, paddingVertical: 18, paddingHorizontal: 15, borderRadius: 5, elevation: 2, marginTop: 10 },
+        qrButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, paddingVertical: 18, paddingHorizontal: 15, borderRadius: 5, elevation: 2, marginTop: 10,  shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
         qrButtonText: { marginLeft: 15, fontSize: 16, fontWeight: '500', color: Colors[colorScheme].text },
         
         // FABs

@@ -327,6 +327,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 20,
         alignItems: 'center',
+
     },
     headerTitle: {
         fontSize: 18,
@@ -357,6 +358,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 1.41,
+         borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     menuButtonText: {
         flex: 1,
@@ -375,6 +377,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 1.41,
+         borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     cardTitle: {
         fontSize: 20,

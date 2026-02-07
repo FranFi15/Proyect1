@@ -650,7 +650,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 
+        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, 
+        borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -673,7 +674,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         position: 'absolute', 
         width: 60, height: 60, 
         alignItems: 'center', justifyContent: 'center', 
-        right: 20, bottom: 90, 
+        right: 90, bottom: 20, 
         backgroundColor: '#7f8c8d', 
         borderRadius: 30, 
         elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,
@@ -684,7 +685,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         position: 'absolute', 
         width: 60, height: 60, 
         alignItems: 'center', justifyContent: 'center', 
-        right: 20, bottom: 160, 
+        right: 160, bottom: 20, 
         backgroundColor: '#f39c12', // Color dorado/naranja para trofeo
         borderRadius: 30, 
         elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,

@@ -302,7 +302,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: 'transparent' 
+        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border 
     },
     planButtonText: {
         fontSize: 18,
@@ -324,7 +324,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalView: {
-        height: '90%',
+        height: '85%',
         backgroundColor: Colors[colorScheme].background,
         borderTopLeftRadius: 5,
         borderTopRightRadius: 5,
@@ -338,7 +338,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     modalScrollContainer: {
         flexGrow: 1,
-        paddingBottom: 40,
+        paddingBottom: 20,
+        
     },
     modalTitle: {
         fontSize: 26,
@@ -346,7 +347,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 5,
         color: Colors[colorScheme].text,
         textAlign: 'center',
-        borderBottomWidth: 3,
+        borderBottomWidth: 1,
         borderBottomColor: gymColor,
         paddingBottom: 10
     },
