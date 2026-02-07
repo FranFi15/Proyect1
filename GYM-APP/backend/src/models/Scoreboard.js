@@ -19,7 +19,7 @@ const scoreboardSchema = new mongoose.Schema({
     },
     metrics: { 
         type: [String],
-        enum: ['tiempo', 'peso', 'distancia', 'repeticiones', 'calorias'],
+        enum: ['tiempo', 'peso', 'distancia', 'repeticiones',],
         default: ['tiempo']
     },
     metricUnit: { 

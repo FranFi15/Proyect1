@@ -27,6 +27,7 @@ import {
     updateUserPaseLibre,
     removeUserPaseLibre,
     updateRMs,
+    getFinancialStats,
 } from '../controllers/userController.js'; 
 
 
@@ -40,6 +41,7 @@ router.put('/reset-password/:token', resetPassword);
 router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
 router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscriptionInfo);
 
+router.get('/financial-stats', protect, authorize('admin'), getFinancialStats);
  
 
 router.route('/')
