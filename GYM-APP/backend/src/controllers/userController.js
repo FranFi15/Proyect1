@@ -104,6 +104,7 @@ const getMe = asyncHandler(async (req, res) => {
             paseLibreHasta: user.paseLibreHasta,
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             rmRecords: user.rmRecords || [],
+            vencimientosDetallados: user.vencimientosDetallados || [],
         };
         res.json(userProfile);
     } else {

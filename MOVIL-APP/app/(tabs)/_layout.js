@@ -8,7 +8,7 @@ import { Colors } from '@/constants/Colors';
 function HeaderLogoTitle() {
   const { gymLogo } = useAuth();
   if (!gymLogo) return null;
-  return <Image style={{ width: 120, height: 70, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
+  return <Image style={{ width: 120, height: 70, resizeMode: 'contain'  }} source={{ uri: gymLogo }} />;
 }
 
 export default function TabsLayout() {
