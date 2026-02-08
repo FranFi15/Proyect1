@@ -263,9 +263,8 @@ const updateClass = asyncHandler(async (req, res) => {
                 User,
                 user._id,
                 "⚠️ Cambio de Horario",
-                `Tu turno de "${updatedClass.tip}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
-                'class_update', // Tipo nuevo
-                true,
+                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
+                'class_update', 
                 updatedClass._id
             );
         }
