@@ -33,32 +33,32 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
 
     // Función para cuando se selecciona una plantilla
     const handleTemplateSelected = (template) => {
-        // Actualizamos el estado del plan con los datos de la plantilla
         setPlan(prev => ({
             ...prev,
             name: template.name,
             description: template.description || '',
             content: template.content,
-            templateId: template._id // Guardamos referencia, esto dispara el cambio de 'key' en el editor
+            templateId: template._id 
         }));
         setTemplatesVisible(false);
     };
 
     return (
         <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
+            // CORRECCIÓN 1: Evitar "height" en Android para prevenir el rebote
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         >
             <ScrollView 
                 style={{flex: 1}} 
                 keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
+                // CORRECCIÓN EXTRA: Ayuda a cerrar el teclado suavemente
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
                 contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
             >
                 {isBulk && <Text style={{color: gymColor, marginBottom: 10, fontWeight:'bold', textAlign:'center'}}>Asignando a: {targetName}</Text>}
                 
-                {/* --- BOTÓN: USAR PLANTILLA --- */}
                 <TouchableOpacity 
                     style={styles.templateButton} 
                     onPress={() => setTemplatesVisible(true)}
@@ -67,14 +67,14 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                     <Text style={styles.templateButtonText}>Cargar desde Plantilla</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.label}>Título</Text>
+                <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
                 <TextInput 
                     style={styles.input} 
                     value={plan.name} 
                     onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
                     placeholder="Ej: Hipertrofia Mes 1" 
                     placeholderTextColor={Colors[colorScheme].icon}
-                    returnKeyType="done"
+                    returnKeyType="next"
                 />
                 
                 <Text style={styles.label}>Descripción</Text>
@@ -87,13 +87,13 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                 />
 
                 <View style={styles.switchContainer}>
-                    <Text style={styles.label }>Visible para el Cliente</Text>
+                    <Text style={styles.label}>Visible para el Cliente</Text>
                     <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={v => setPlan(p => ({ ...p, isVisibleToUser: v }))} value={plan.isVisibleToUser} />
                 </View>
-                <Text style={styles.label}>Contenido</Text>
+
+                <Text style={styles.label}>Contenido <Text style={{color:'red'}}>*</Text></Text>
                 <RichTextEditor
                     key={plan.templateId || 'custom-plan'} 
-                    
                     initialContent={plan.content}
                     onChange={(html) => setPlan(p => ({ ...p, content: html }))}
                     colorScheme={colorScheme}
@@ -111,7 +111,6 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                 </TouchableOpacity>
             </View>
 
-            {/* Modal de Plantillas anidado */}
             <TemplateManagerModal 
                 visible={templatesVisible} 
                 onClose={() => setTemplatesVisible(false)}
@@ -142,7 +141,7 @@ const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme
                 </Text>
             </View>
             <View style={styles.planActions}>
-                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
                 <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors[colorScheme].text} /></TouchableOpacity>
             </View>
         </View>
@@ -264,6 +263,17 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     };
 
     const handleSaveChanges = async (planToSave) => {
+        // --- CORRECCIÓN 2: Validación de campos vacíos ---
+        if (!planToSave.name?.trim() || !planToSave.content?.trim()) {
+            setAlertInfo({
+                visible: true,
+                title: 'Campos Requeridos',
+                message: 'Por favor, asegúrate de ingresar un título y el contenido del plan antes de guardar.',
+                buttons: [{ text: 'Entendido', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+            return;
+        }
+
         try {
             const payload = { ...planToSave };
             if (isManualSelection) {
@@ -419,7 +429,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     emptyText: { textAlign: 'center', marginTop: 50, color: Colors[colorScheme].text },
     label: { fontSize: 14, fontWeight: '600', marginBottom: 5, marginTop: 15, color: Colors[colorScheme].text },
     input: { borderWidth: 1, borderColor: Colors[colorScheme].border, borderRadius: 5, paddingHorizontal: 10, backgroundColor: Colors[colorScheme].inputBackground, fontSize: 16, height: 45, color: Colors[colorScheme].text },
-    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', },
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingVertical: 10 },
     filterButton: { padding: 10, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border, marginRight: 10 },
     filterButtonActive: { backgroundColor: gymColor, borderColor: gymColor },
     filterButtonText: { color: Colors[colorScheme].text },

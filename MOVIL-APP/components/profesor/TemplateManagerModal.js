@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal, View, Text, StyleSheet, TouchableOpacity, FlatList,
-    TextInput, ActivityIndicator, Alert, useColorScheme, KeyboardAvoidingView, Platform, ScrollView
+    TextInput, ActivityIndicator, useColorScheme, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { Ionicons, FontAwesome6, Octicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { ThemedText } from '@/components/ThemedText';
 
-// 1. IMPORTAR EL EDITOR
+// 1. IMPORTAR COMPONENTES
 import RichTextEditor from '@/components/RichTextEditor';
+import CustomAlert from '@/components/CustomAlert'; // <--- IMPORTANTE
 
 const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, colorScheme }) => {
     const styles = getStyles(colorScheme, gymColor);
@@ -17,6 +18,9 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState('list'); // 'list' | 'form'
     
+    // Estado para CustomAlert
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
+
     const [formData, setFormData] = useState({ id: null, name: '', description: '', content: '' });
 
     useEffect(() => {
@@ -32,7 +36,12 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
             const res = await apiClient.get('/plans/templates');
             setTemplates(res.data);
         } catch (error) {
-            Alert.alert("Error", "No se pudieron cargar las plantillas");
+            setAlertInfo({ 
+                visible: true, 
+                title: "Error", 
+                message: "No se pudieron cargar las plantillas",
+                buttons: [{ text: "OK", onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
@@ -40,7 +49,13 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     const handleSave = async () => {
         if (!formData.name || !formData.content) {
-            return Alert.alert("Error", "Nombre y contenido son obligatorios");
+            setAlertInfo({ 
+                visible: true, 
+                title: "Campos Incompletos", 
+                message: "El nombre y el contenido son obligatorios.",
+                buttons: [{ text: "Entendido", onPress: () => setAlertInfo({ visible: false }) }]
+            });
+            return;
         }
         setLoading(true);
         try {
@@ -52,26 +67,48 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
             await fetchTemplates();
             setViewMode('list');
         } catch (error) {
-            Alert.alert("Error", "No se pudo guardar la plantilla");
+            setAlertInfo({ 
+                visible: true, 
+                title: "Error", 
+                message: "No se pudo guardar la plantilla.",
+                buttons: [{ text: "OK", onPress: () => setAlertInfo({ visible: false }) }]
+            });
         } finally {
             setLoading(false);
         }
     };
 
     const handleDelete = (id) => {
-        Alert.alert(
-            "Eliminar Plantilla",
-            "¿Estás seguro? Esto no afectará a los planes ya asignados.",
-            [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Eliminar", style: "destructive", onPress: async () => {
-                    try {
-                        await apiClient.delete(`/plans/templates/${id}`);
-                        fetchTemplates();
-                    } catch (e) { Alert.alert("Error", "No se pudo eliminar"); }
-                }}
+        setAlertInfo({
+            visible: true,
+            title: "Eliminar Plantilla",
+            message: "¿Estás seguro? Esto no afectará a los planes ya asignados.",
+            buttons: [
+                { 
+                    text: "Cancelar", 
+                    style: "cancel", 
+                    onPress: () => setAlertInfo({ visible: false }) 
+                },
+                { 
+                    text: "Eliminar", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        setAlertInfo({ visible: false }); // Cerrar alerta
+                        try {
+                            await apiClient.delete(`/plans/templates/${id}`);
+                            fetchTemplates();
+                        } catch (e) { 
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: "Error", 
+                                message: "No se pudo eliminar la plantilla.",
+                                buttons: [{ text: "OK", onPress: () => setAlertInfo({ visible: false }) }]
+                            });
+                        }
+                    }
+                }
             ]
-        );
+        });
     };
 
     const openForm = (template = null) => {
@@ -106,9 +143,9 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-            {/* Agregamos KeyboardAvoidingView para que el teclado no tape el editor */}
+            {/* KeyboardAvoidingView configurado para evitar el rebote en Android */}
             <KeyboardAvoidingView 
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={styles.modalOverlay}
             >
                 <View style={styles.modalContainer}>
@@ -149,7 +186,7 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
                     {!loading && viewMode === 'form' && (
                         <ScrollView style={styles.formContainer} contentContainerStyle={{paddingBottom: 20}}>
-                            <ThemedText style={styles.label}>Nombre</ThemedText>
+                            <ThemedText style={styles.label}>Nombre <Text style={{color:'red'}}>*</Text></ThemedText>
                             <TextInput 
                                 style={styles.input} 
                                 value={formData.name} 
@@ -167,10 +204,9 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                                 placeholderTextColor={Colors[colorScheme].icon}
                             />
 
-                            <ThemedText style={styles.label}>Contenido (Plan)</ThemedText>
+                            <ThemedText style={styles.label}>Contenido (Plan) <Text style={{color:'red'}}>*</Text></ThemedText>
                             
-                            {/* 2. REEMPLAZO POR RICH TEXT EDITOR */}
-                            {/* Usamos 'key' para forzar reinicio si cambiamos de plantilla */}
+                            {/* EDITOR */}
                             <RichTextEditor
                                 key={formData.id || 'new'} 
                                 initialContent={formData.content}
@@ -186,6 +222,17 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                         </ScrollView>
                     )}
                 </View>
+
+                {/* --- CUSTOM ALERT --- */}
+                <CustomAlert 
+                    visible={alertInfo.visible} 
+                    title={alertInfo.title} 
+                    message={alertInfo.message} 
+                    buttons={alertInfo.buttons} 
+                    onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                    gymColor={gymColor} 
+                />
+
             </KeyboardAvoidingView>
         </Modal>
     );
