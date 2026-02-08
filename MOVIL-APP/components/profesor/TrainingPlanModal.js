@@ -11,23 +11,178 @@ import {
     Switch, 
     ScrollView, 
     useColorScheme,
-    KeyboardAvoidingView, // <--- IMPORTANTE
-    Platform,             // <--- IMPORTANTE
-    Keyboard              // <--- IMPORTANTE
+    KeyboardAvoidingView, 
+    Platform, 
+    Keyboard 
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome6, Ionicons, Octicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 
 import RichTextEditor from '@/components/RichTextEditor';
+import TemplateManagerModal from './TemplateManagerModal'; 
+
+// --- COMPONENTE INTERNO: EDITOR DE PLANES ---
+const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, setPlan }) => { 
+    const { gymColor } = useAuth();
+    const styles = getStyles(colorScheme, gymColor);
+    const [templatesVisible, setTemplatesVisible] = useState(false);
+
+    // Función para cuando se selecciona una plantilla
+    const handleTemplateSelected = (template) => {
+        // Actualizamos el estado del plan con los datos de la plantilla
+        setPlan(prev => ({
+            ...prev,
+            name: template.name,
+            description: template.description || '',
+            content: template.content,
+            templateId: template._id // Guardamos referencia, esto dispara el cambio de 'key' en el editor
+        }));
+        setTemplatesVisible(false);
+    };
+
+    return (
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+        >
+            <ScrollView 
+                style={{flex: 1}} 
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+            >
+                {isBulk && <Text style={{color: gymColor, marginBottom: 10, fontWeight:'bold', textAlign:'center'}}>Asignando a: {targetName}</Text>}
+                
+                {/* --- BOTÓN: USAR PLANTILLA --- */}
+                <TouchableOpacity 
+                    style={styles.templateButton} 
+                    onPress={() => setTemplatesVisible(true)}
+                >
+                    <MaterialCommunityIcons name="file-document-edit-outline" size={24} color="#fff" />
+                    <Text style={styles.templateButtonText}>Cargar desde Plantilla</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.label}>Título</Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={plan.name} 
+                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
+                    placeholder="Ej: Hipertrofia Mes 1" 
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    returnKeyType="done"
+                />
+                
+                <Text style={styles.label}>Descripción</Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={plan.description} 
+                    onChangeText={t => setPlan(p => ({ ...p, description: t }))} 
+                    placeholder="Opcional..." 
+                    placeholderTextColor={Colors[colorScheme].icon}
+                />
+
+                <View style={styles.switchContainer}>
+                    <Text style={styles.label }>Visible para el Cliente</Text>
+                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={v => setPlan(p => ({ ...p, isVisibleToUser: v }))} value={plan.isVisibleToUser} />
+                </View>
+                <Text style={styles.label}>Contenido</Text>
+                <RichTextEditor
+                    key={plan.templateId || 'custom-plan'} 
+                    
+                    initialContent={plan.content}
+                    onChange={(html) => setPlan(p => ({ ...p, content: html }))}
+                    colorScheme={colorScheme}
+                    gymColor={gymColor}
+                    placeholder="Escribe la rutina aquí..."
+                />
+            </ScrollView>
+
+            <View style={styles.footerButtons}>
+                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}>
+                    <Text style={styles.buttonTextSecondary}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}>
+                    <Text style={styles.buttonText}>{isBulk ? 'Asignar' : 'Guardar'}</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Modal de Plantillas anidado */}
+            <TemplateManagerModal 
+                visible={templatesVisible} 
+                onClose={() => setTemplatesVisible(false)}
+                onSelectTemplate={handleTemplateSelected} 
+                gymColor={gymColor}
+                colorScheme={colorScheme}
+            />
+        </KeyboardAvoidingView>
+    );
+};
+
+const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme }) => {
+    const { gymColor } = useAuth();
+    const styles = getStyles(colorScheme, gymColor);
+    
+    const stripHtml = (html) => {
+        if (!html) return '';
+        return html.replace(/<[^>]+>/g, ' ').substring(0, 50) + '...';
+    };
+
+    const renderItem = ({ item }) => (
+        <View style={styles.planCard}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.planTitle}>{item.name}</Text>
+                <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
+                <Text style={{color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2}}>
+                    {stripHtml(item.content)}
+                </Text>
+            </View>
+            <View style={styles.planActions}>
+                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors[colorScheme].text} /></TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    return (
+        <View style={{flex: 1}}>
+            <FlatList 
+                data={plans} 
+                renderItem={renderItem} 
+                keyExtractor={(item) => item._id} 
+                ListEmptyComponent={<Text style={styles.emptyText}>Sin planes asignados.</Text>} 
+                contentContainerStyle={{ paddingBottom: 20 }}
+            />
+            
+            <View style={styles.footerContainer}>
+                <TouchableOpacity 
+                    style={[styles.button, {marginBottom: 10}]} 
+                    onPress={onNewPlan}
+                >
+                    <Text style={styles.buttonText}>Crear Nuevo Plan</Text>
+                </TouchableOpacity>
+
+                {plans.length > 0 && (
+                    <TouchableOpacity 
+                        style={[styles.button, styles.buttonDestructive]} 
+                        onPress={onDeleteAll}
+                    >
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                            <Octicons name="trash" size={16} color="#fff" />
+                            <Text style={styles.buttonText}>Eliminar Todos los Planes</Text>
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </View>
+        </View>
+    );
+};
 
 const TrainingPlanModal = ({ clients, visible, onClose }) => {
-    // ... (Todo el código del componente principal TrainingPlanModal se mantiene IGUAL)
-    // ... (fetchData, useEffect, handleDeleteAll, handleSaveChanges, etc.)
-
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -177,6 +332,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                 return (
                     <PlanEditor 
                         plan={currentPlan} 
+                        setPlan={setCurrentPlan} 
                         onSave={handleSaveChanges} 
                         onCancel={() => isSingleClient ? setView('list') : onClose()} 
                         colorScheme={colorScheme} 
@@ -244,128 +400,6 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     );
 };
 
-// --- AQUÍ ESTÁ LA SOLUCIÓN DEL TECLADO ---
-const PlanEditor = ({ plan: initialPlan, onSave, onCancel, colorScheme, isBulk, targetName }) => {
-    const [plan, setPlan] = useState(initialPlan);
-    const { gymColor } = useAuth();
-    const styles = getStyles(colorScheme, gymColor);
-
-    return (
-        // Usamos KeyboardAvoidingView como contenedor principal
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-            // Ajusta este offset si el teclado tapa algo en iOS (ej: si tienes header)
-            keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-        >
-            <ScrollView 
-                style={{flex: 1}} 
-                keyboardShouldPersistTaps="handled"
-                // Esta propiedad permite bajar el teclado arrastrando hacia abajo
-                keyboardDismissMode="on-drag"
-                contentContainerStyle={{ paddingBottom: 20 }}
-            >
-                {isBulk && <Text style={{color: gymColor, marginBottom: 10, fontWeight:'bold', textAlign:'center'}}>Asignando a: {targetName}</Text>}
-                
-                <Text style={styles.label}>Título</Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={plan.name} 
-                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
-                    placeholder="Ej: Hipertrofia Mes 1" 
-                    placeholderTextColor={Colors[colorScheme].icon}
-                    // Esto ayuda a cerrar teclado al dar "Enter" en campos de una línea
-                    returnKeyType="done"
-                />
-
-                <Text style={styles.label}>Contenido</Text>
-                <RichTextEditor
-                    initialContent={plan.content}
-                    onChange={(html) => setPlan(p => ({ ...p, content: html }))}
-                    colorScheme={colorScheme}
-                    gymColor={gymColor}
-                    placeholder="Escribe la rutina aquí..."
-                />
-
-                <View style={styles.switchContainer}>
-                    <Text style={styles.label}>Visible para el Cliente</Text>
-                    <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={v => setPlan(p => ({ ...p, isVisibleToUser: v }))} value={plan.isVisibleToUser} />
-                </View>
-            </ScrollView>
-
-            <View style={styles.footerButtons}>
-                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}>
-                    <Text style={styles.buttonTextSecondary}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}>
-                    <Text style={styles.buttonText}>{isBulk ? 'Asignar' : 'Guardar'}</Text>
-                </TouchableOpacity>
-            </View>
-        </KeyboardAvoidingView>
-    );
-};
-
-const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme }) => {
-    // ... (PlanList se mantiene IGUAL)
-    const { gymColor } = useAuth();
-    const styles = getStyles(colorScheme, gymColor);
-    
-    const stripHtml = (html) => {
-        if (!html) return '';
-        return html.replace(/<[^>]+>/g, ' ').substring(0, 50) + '...';
-    };
-
-    const renderItem = ({ item }) => (
-        <View style={styles.planCard}>
-            <View style={{ flex: 1 }}>
-                <Text style={styles.planTitle}>{item.name}</Text>
-                <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
-                <Text style={{color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2}}>
-                    {stripHtml(item.content)}
-                </Text>
-            </View>
-            <View style={styles.planActions}>
-                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors[colorScheme].text} /></TouchableOpacity>
-            </View>
-        </View>
-    );
-
-    return (
-        <View style={{flex: 1}}>
-            <FlatList 
-                data={plans} 
-                renderItem={renderItem} 
-                keyExtractor={(item) => item._id} 
-                ListEmptyComponent={<Text style={styles.emptyText}>Sin planes asignados.</Text>} 
-                contentContainerStyle={{ paddingBottom: 20 }}
-            />
-            
-            <View style={styles.footerContainer}>
-                <TouchableOpacity 
-                    style={[styles.button, {marginBottom: 10}]} 
-                    onPress={onNewPlan}
-                >
-                    <Text style={styles.buttonText}>Crear Nuevo Plan</Text>
-                </TouchableOpacity>
-
-                {plans.length > 0 && (
-                    <TouchableOpacity 
-                        style={[styles.button, styles.buttonDestructive]} 
-                        onPress={onDeleteAll}
-                    >
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <Octicons name="trash" size={16} color="#fff" />
-                            <Text style={styles.buttonText}>Eliminar Todos los Planes</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </View>
-    );
-};
-
-// ... (getStyles se mantiene igual)
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContainer: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 10, borderTopRightRadius: 10, padding: 15 },
@@ -385,13 +419,31 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     emptyText: { textAlign: 'center', marginTop: 50, color: Colors[colorScheme].text },
     label: { fontSize: 14, fontWeight: '600', marginBottom: 5, marginTop: 15, color: Colors[colorScheme].text },
     input: { borderWidth: 1, borderColor: Colors[colorScheme].border, borderRadius: 5, paddingHorizontal: 10, backgroundColor: Colors[colorScheme].inputBackground, fontSize: 16, height: 45, color: Colors[colorScheme].text },
-    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingVertical: 10 },
+    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', },
     filterButton: { padding: 10, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border, marginRight: 10 },
     filterButtonActive: { backgroundColor: gymColor, borderColor: gymColor },
     filterButtonText: { color: Colors[colorScheme].text },
     listItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     listItemText: { color: Colors[colorScheme].text, fontSize: 16 },
     listItemSubtext: { color: Colors[colorScheme].text, opacity: 0.7, fontSize: 12 },
+    
+    // --- ESTILO NUEVO: BOTÓN DE PLANTILLAS ---
+    templateButton: {
+        flexDirection: 'row',
+        backgroundColor: '#34495e', 
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+        elevation: 2
+    },
+    templateButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        marginLeft: 10,
+        fontSize: 16
+    }
 });
 
 export default TrainingPlanModal;

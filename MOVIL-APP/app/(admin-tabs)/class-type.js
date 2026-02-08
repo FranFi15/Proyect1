@@ -16,6 +16,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+// Importamos el componente específico para Web
+import WebDatePicker from '@/components/WebDatePicker';
+
 // --- COMPONENTE INTERNO: GESTIÓN DE SCOREBOARDS (MODAL) ---
 const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => {
     const styles = getStyles(colorScheme, gymColor);
@@ -27,7 +30,7 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
     });
     const [editingId, setEditingId] = useState(null);
     
-    // Configuración DatePicker (Igual a tu ManageClients)
+    // Configuración DatePicker (Solo Android/iOS)
     const [datePickerConfig, setDatePickerConfig] = useState({ visible: false, currentValue: new Date() });
 
     const AVAILABLE_METRICS = [
@@ -35,7 +38,6 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
         { id: 'tiempo', label: 'Tiempo', icon: 'stopwatch' },
         { id: 'distancia', label: 'Distancia', icon: 'road' },
         { id: 'repeticiones', label: 'Reps', icon: 'redo' },
-        { id: 'calorias', label: 'Calorías', icon: 'fire' }
     ];
 
     useEffect(() => {
@@ -102,24 +104,25 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
         });
     };
 
-    // Render Date Picker Logic
+    // Lógica para Android
     const onDateChange = (event, selectedDate) => {
-        const currentDate = selectedDate || datePickerConfig.currentValue;
-        if (Platform.OS === 'android') {
+        if (event.type === 'dismissed') {
             setDatePickerConfig(prev => ({ ...prev, visible: false }));
-            if (event.type !== 'dismissed') setFormData(prev => ({ ...prev, fechaLimite: currentDate }));
-        } else {
-            setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate }));
+            return;
         }
+        const currentDate = selectedDate || datePickerConfig.currentValue;
+        setDatePickerConfig(prev => ({ ...prev, visible: false }));
+        setFormData(prev => ({ ...prev, fechaLimite: currentDate }));
     };
 
+    // Lógica para iOS
     const confirmIOSDate = () => {
         setFormData(prev => ({ ...prev, fechaLimite: datePickerConfig.currentValue }));
         setDatePickerConfig(prev => ({ ...prev, visible: false }));
     };
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
                 <Pressable style={styles.modalBackdrop} onPress={onClose} />
                 <View style={styles.modalContainerFull}>
@@ -128,7 +131,7 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
                             <Ionicons name={viewMode === 'form' ? "arrow-back" : "close"} size={26} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                         <ThemedText style={styles.modalTitle}>
-                            {viewMode === 'list' ? 'Competencias & WODs' : (editingId ? 'Editar Desafío' : 'Nuevo Desafío')}
+                            {viewMode === 'list' ? 'Desafios' : (editingId ? 'Editar Desafío' : 'Nuevo Desafío')}
                         </ThemedText>
                         <View style={{width: 26}} /> 
                     </View>
@@ -188,11 +191,31 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
                             </View>
 
                             {formData.hasDeadline && (
-                                <TouchableOpacity onPress={() => setDatePickerConfig({visible: true, currentValue: formData.fechaLimite})} style={styles.input}>
-                                    <Text style={{color: Colors[colorScheme].text, marginTop: 12}}>
-                                        {format(formData.fechaLimite, 'dd/MM/yyyy')}
-                                    </Text>
-                                </TouchableOpacity>
+                                <>
+                                    {/* --- SOLUCIÓN: Selector diferente para Web vs Móvil --- */}
+                                    {Platform.OS === 'web' ? (
+                                        <View style={{ marginBottom: 20, zIndex: 9999, position: 'relative'}}>
+                                            <WebDatePicker
+                                                selected={formData.fechaLimite}
+                                                onChange={(date) => setFormData(prev => ({ ...prev, fechaLimite: date }))}
+                                                dateFormat="dd/MM/yyyy"
+                                                customInput={
+                                                    <TouchableOpacity style={styles.input}>
+                                                        <Text style={{color: Colors[colorScheme].text, marginTop: 12}}>
+                                                            {format(formData.fechaLimite, 'dd/MM/yyyy')}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                }
+                                            />
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity onPress={() => setDatePickerConfig({visible: true, currentValue: formData.fechaLimite})} style={styles.input}>
+                                            <Text style={{color: Colors[colorScheme].text, marginTop: 12}}>
+                                                {format(formData.fechaLimite, 'dd/MM/yyyy')}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </>
                             )}
 
                             <View style={styles.switchContainer}>
@@ -206,10 +229,17 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
                 </View>
             </KeyboardAvoidingView>
 
-            {/* DatePicker Modals (Android/iOS) */}
+            {/* --- DatePicker Modals (Solo Android Nativo) --- */}
             {datePickerConfig.visible && Platform.OS === 'android' && (
-                <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="default" onChange={onDateChange} />
+                <DateTimePicker 
+                    value={datePickerConfig.currentValue} 
+                    mode="date" 
+                    display="default" 
+                    onChange={onDateChange} 
+                />
             )}
+            
+            {/* --- DatePicker Modal (Solo iOS Nativo) --- */}
             {datePickerConfig.visible && Platform.OS === 'ios' && (
                 <Modal transparent animationType="fade">
                     <View style={styles.iosPickerOverlay}>
@@ -650,8 +680,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, 
-        borderWidth: 1, borderColor: Colors[colorScheme].border
+        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 
     },
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },

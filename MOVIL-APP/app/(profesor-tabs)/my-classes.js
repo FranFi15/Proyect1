@@ -305,8 +305,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
     viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor || '#1a5276', paddingVertical: 10, borderRadius: 5, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
-    modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalView: { margin: 20, backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 25, alignItems: 'center', elevation: 5, width: '100%', height: '90%' },
+    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+    modalView: {  backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 25, justifyContent: 'flex-end' , alignItems: 'center', elevation: 5, width: '100%', height: '85%' },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
     button: {
         borderRadius: 5,

@@ -17,7 +17,7 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import TrainingPlanModal from '../../components/profesor/TrainingPlanModal';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ProfessorClientsScreen = () => {
     const [users, setUsers] = useState([]);
@@ -223,7 +223,7 @@ const ProfessorClientsScreen = () => {
                 ) : (
                     // Botón Flotante: Asignar Plan Global / Por Clase
                     <TouchableOpacity style={[styles.fab]} onPress={handleOpenGlobalModal}>
-                        <FontAwesome5 name="users" size={24} color="#fff" />
+                        <Ionicons name="documents" size={26} color="#fff" />
                     </TouchableOpacity>
                 )
             )}

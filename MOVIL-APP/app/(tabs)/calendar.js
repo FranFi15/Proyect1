@@ -699,12 +699,12 @@
         lockedText: { fontSize: 16, textAlign: 'center', color: Colors[colorScheme].text, marginBottom: 20 },
         formContainer: { width: '100%' },
         inputLabel: { fontSize: 14, color: Colors[colorScheme].text, marginBottom: 5, fontWeight: '600' },
-        input: { backgroundColor: Colors[colorScheme].inputBackground || '#f0f0f0', borderRadius: 5, padding: 12, borderWidth: 1, borderColor: Colors[colorScheme].border, color: Colors[colorScheme].text },
+        input: { backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 12, borderWidth: 1, borderColor: Colors[colorScheme].border, color: Colors[colorScheme].text },
         mainButton: { padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
         mainButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 
         // My Score & Ranking
-        myScoreContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, alignItems: 'center',  elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  },
+        myScoreContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, alignItems: 'center',  elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
         rankingHeader: { flexDirection: 'row', width: '100%',paddingVertical: 10, },
         rankingHeadText: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text },
         rankingRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: gymColor},

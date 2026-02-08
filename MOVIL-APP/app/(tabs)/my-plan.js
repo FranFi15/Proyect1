@@ -328,7 +328,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: Colors[colorScheme].background,
         borderTopLeftRadius: 5,
         borderTopRightRadius: 5,
-        padding: 20,
+        padding: 10,
         elevation: 5,
     },
     closeButton: {
@@ -347,25 +347,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 5,
         color: Colors[colorScheme].text,
         textAlign: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: gymColor,
-        paddingBottom: 10
     },
     modalDescription: {
         fontSize: 16,
-        fontStyle: 'italic',
+        fontWeight: 'bold',
         color: Colors[colorScheme].text,
         opacity: 0.9,
-        marginBottom: 20,
-        borderLeftWidth: 4,
-        borderLeftColor: gymColor,
+        marginBottom: 10,
         paddingLeft: 15,
-        backgroundColor: Colors[colorScheme].cardBackground,
         paddingVertical: 10,
-        borderRadius: 4
+        borderBottomWidth: 1,
+        borderBottomColor: gymColor,
     },
     contentWrapper: {
-        marginTop: 10
+        marginTop: 0
     }
 });
 
