@@ -1,5 +1,5 @@
 
-const ENV = process.env.EXPO_PUBLIC_ENV || 'staging';
+const ENV = process.env.EXPO_PUBLIC_ENV || 'prod';
 
 const environments = {
   staging: {
