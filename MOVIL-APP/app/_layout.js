@@ -240,8 +240,13 @@ function AppContent() {
         };
    }, [user, loading, refreshUser]); 
 
+
+
+
     return (
-        <View style={{ flex: 1 }}>
+       <View
+            style={{ flex: 1 }}
+        >
             <Slot />
             
             <ImportantNotificationModal

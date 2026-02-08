@@ -1,6 +1,7 @@
 // src/routes/userRoutes.js
 import express from 'express';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js'; 
+import asyncHandler from 'express-async-handler';
 import {
     getAllUsers,
     getUserById,
@@ -26,10 +27,13 @@ import {
     updateUserPaseLibre,
     removeUserPaseLibre,
     updateRMs,
+    getFinancialStats,
 } from '../controllers/userController.js'; 
 
 
 const router = express.Router();
+
+
 
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
@@ -37,6 +41,7 @@ router.put('/reset-password/:token', resetPassword);
 router.put('/upgrade-plan', protect, authorizeRoles('admin'), requestPlanUpgrade);
 router.get('/subscription-info', protect, authorizeRoles('admin'), getSubscriptionInfo);
 
+router.get('/financial-stats', protect, authorizeRoles('admin'), getFinancialStats);
  
 
 router.route('/')

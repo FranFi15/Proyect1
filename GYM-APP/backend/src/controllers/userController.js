@@ -30,6 +30,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         roles: user.roles,
         creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
         clasesInscritas: user.clasesInscritas,
+        balance: user.balance,
         telefonoEmergencia: user.telefonoEmergencia,
         dni: user.dni,
         fechaNacimiento: user.fechaNacimiento,
@@ -104,6 +105,7 @@ const getMe = asyncHandler(async (req, res) => {
             paseLibreHasta: user.paseLibreHasta,
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             rmRecords: user.rmRecords || [],
+            vencimientosDetallados: user.vencimientosDetallados || [],
         };
         res.json(userProfile);
     } else {
@@ -259,10 +261,6 @@ const updateUserPlan = asyncHandler(async (req, res) => {
     // --- LÓGICA PARA AÑADIR CRÉDITOS Y GENERAR CARGO ---
     if (creditsToAdd !== undefined && Number(creditsToAdd) !== 0) {
         const creditsToAddNum = Number(creditsToAdd);
-        
-        // Lógica de validación de créditos (sin cambios)
-        // ...
-
         const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
         const newTotal = currentCredits + creditsToAddNum;
 
@@ -271,6 +269,18 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         }
         
         user.creditosPorTipo.set(tipoClaseId, newTotal);
+
+        if (creditsToAddNum > 0) {
+    const fechaVto = new Date();
+    fechaVto.setDate(fechaVto.getDate() + 30); 
+
+    user.vencimientosDetallados.push({
+        tipoClaseId: tipoClaseId,
+        cantidad: creditsToAddNum,
+        fechaVencimiento: fechaVto,
+        idCarga: new mongoose.Types.ObjectId().toString()
+    });
+}
         
         await CreditLog.create({
             user: userId, admin: adminId, amount: creditsToAddNum,
@@ -837,6 +847,39 @@ const updateRMs = asyncHandler(async (req, res) => {
     }
 });
 
+const getFinancialStats = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+
+    // MongoDB Aggregation:
+    // 1. Filtramos solo los usuarios que son 'cliente'.
+    // 2. Filtramos solo los que tienen balance NEGATIVO (menor a 0).
+    // 3. Sumamos esos balances.
+    const stats = await User.aggregate([
+        { 
+            $match: { 
+                roles: 'cliente',
+                balance: { $lt: 0 } // Solo deudores
+            } 
+        },
+        { 
+            $group: { 
+                _id: null, 
+                totalDebt: { $sum: "$balance" },
+                debtorCount: { $sum: 1 } // De paso contamos cuántos deben
+            } 
+        }
+    ]);
+
+    // Si no hay deudores, stats estará vacío
+    const totalDebt = stats.length > 0 ? stats[0].totalDebt : 0;
+    const debtorCount = stats.length > 0 ? stats[0].debtorCount : 0;
+
+    res.json({
+        totalDebt: Math.abs(totalDebt),
+        debtorCount
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -863,4 +906,5 @@ export {
     updateUserPaseLibre,
     removeUserPaseLibre,
     updateRMs,
+    getFinancialStats,
 };

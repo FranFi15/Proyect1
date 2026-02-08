@@ -8,6 +8,8 @@ import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getSettingsModel from '../models/Settings.js';
+import getScoreboardModel from '../models/Scoreboard.js';
+
 
 
 
@@ -16,6 +18,8 @@ const getModels = (dbConnection) => {
     if (!dbConnection) {
         throw new Error('La conexión a la base de datos no está disponible.');
     }
+
+    const { Scoreboard, ScoreboardEntry } = getScoreboardModel(dbConnection);
     
     const models = {
         User: getUserModel(dbConnection),
@@ -28,6 +32,9 @@ const getModels = (dbConnection) => {
         TrainingPlan: getTrainingPlanModel(dbConnection),
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
+        Scoreboard,
+        ScoreboardEntry
+
         
     };
 

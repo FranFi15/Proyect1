@@ -21,6 +21,7 @@ import publicUserRoutes from './routes/publicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import scoreboardRoutes from './routes/scoreboardRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -32,8 +33,7 @@ import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
 import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
-import { runEmergencyReactivation } from './cron/EmergencyReactivation.js';
-import { runFixIndexes } from '../src/scripts/FixIndexes.js'
+import { scheduleClassReminders } from './cron/ClassReminderJob.js';
 
 
 
@@ -108,6 +108,7 @@ app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
+app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);
@@ -126,6 +127,7 @@ scheduleDebtorNotifications();
 scheduleMonthlyCleanup();
 schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
+scheduleClassReminders();
 
 
 
@@ -133,6 +135,8 @@ scheduleNotificationCleanup();
 // Middlewares de manejo de errores
 app.use(notFound);
 app.use(errorHandler);
+
+
 
 
 

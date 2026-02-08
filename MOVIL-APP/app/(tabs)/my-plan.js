@@ -302,7 +302,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: 'transparent' 
+        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border 
     },
     planButtonText: {
         fontSize: 18,
@@ -324,11 +324,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalView: {
-        height: '90%',
+        height: '85%',
         backgroundColor: Colors[colorScheme].background,
         borderTopLeftRadius: 5,
         borderTopRightRadius: 5,
-        padding: 20,
+        padding: 10,
         elevation: 5,
     },
     closeButton: {
@@ -338,7 +338,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     modalScrollContainer: {
         flexGrow: 1,
-        paddingBottom: 40,
+        paddingBottom: 20,
+        
     },
     modalTitle: {
         fontSize: 26,
@@ -346,25 +347,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 5,
         color: Colors[colorScheme].text,
         textAlign: 'center',
-        borderBottomWidth: 3,
-        borderBottomColor: gymColor,
-        paddingBottom: 10
     },
     modalDescription: {
         fontSize: 16,
-        fontStyle: 'italic',
+        fontWeight: 'bold',
         color: Colors[colorScheme].text,
         opacity: 0.9,
-        marginBottom: 20,
-        borderLeftWidth: 4,
-        borderLeftColor: gymColor,
+        marginBottom: 10,
         paddingLeft: 15,
-        backgroundColor: Colors[colorScheme].cardBackground,
         paddingVertical: 10,
-        borderRadius: 4
+        borderBottomWidth: 1,
+        borderBottomColor: gymColor,
     },
     contentWrapper: {
-        marginTop: 10
+        marginTop: 0
     }
 });
 

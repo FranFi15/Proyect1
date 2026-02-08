@@ -12,63 +12,69 @@ const INTERNAL_ADMIN_API_KEY = process.env.INTERNAL_ADMIN_API_KEY;
 
 const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
     try {
+        // 1. Agregamos TipoClase a los modelos
         const { User, TipoClase } = getModels(gymDBConnection);
+        const hoy = new Date();
 
-        const classTypesToReset = await TipoClase.find({ resetMensual: true });
-        const classTypeIdsToReset = new Set(classTypesToReset.map(ct => ct._id.toString()));
+        // 2. BUSCAMOS QUÉ TIPOS DE CLASE TIENEN EL RESET ACTIVADO
+        // Solo nos interesan los IDs de los que tienen resetMensual: true
+        const tiposConReset = await TipoClase.find({ resetMensual: true }).select('_id');
+        
+        // Creamos un Set para búsqueda rápida (O(1))
+        const idsPermitidosParaBorrar = new Set(tiposConReset.map(t => t._id.toString()));
 
-        if (classTypeIdsToReset.size === 0) {
-            console.log(`[CreditResetJob - ${clientId}] No hay tipos de clase para reiniciar.`);
-            return;
+        // Si no hay ningún tipo de clase con reset activado, no tiene sentido buscar usuarios
+        if (idsPermitidosParaBorrar.size === 0) {
+            return; 
         }
 
         const usersToUpdate = await User.find({
-            $or: [
-                { 'creditosPorTipo': { $exists: true, $ne: {} } }, 
-                { 'monthlySubscriptions.0': { $exists: true } }
-            ]
+            "vencimientosDetallados.fechaVencimiento": { $lte: hoy }
         });
 
-        if (usersToUpdate.length === 0) {
-            console.log(`[CreditResetJob - ${clientId}] No se encontraron usuarios con créditos para procesar.`);
-            return;
-        }
-
         for (const user of usersToUpdate) {
-            let userModified = false;
+            let modificado = false;
 
-            if (user.creditosPorTipo && user.creditosPorTipo.size > 0) {
-                for (const tipoClaseId of user.creditosPorTipo.keys()) {
-                    if (classTypeIdsToReset.has(tipoClaseId)) {
-                        user.creditosPorTipo.delete(tipoClaseId);
-                        userModified = true;
-                    }
-                }
-            }
-
-            for (const sub of user.monthlySubscriptions) {
-                if (sub.status === 'automatica' && sub.autoRenewAmount > 0) {
-                    const tipoClaseId = sub.tipoClase.toString();
-                    const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                    user.creditosPorTipo.set(tipoClaseId, currentCredits + sub.autoRenewAmount);
-                    sub.lastRenewalDate = new Date();
-                    userModified = true;
-                }
-            }
+            // 3. MODIFICADO: El filtro ahora tiene DOBLE CONDICIÓN
+            const vencidos = user.vencimientosDetallados.filter(v => {
+                const estaVencido = v.fechaVencimiento <= hoy;
+                const permiteReset = idsPermitidosParaBorrar.has(v.tipoClaseId.toString());
+                
+                // Solo devuelve true si venció Y el tipo de clase permite el borrado
+                return estaVencido && permiteReset;
+            });
             
-            if (userModified) {
+            if (vencidos.length > 0) {
+                vencidos.forEach(v => {
+                    const idTipo = v.tipoClaseId.toString();
+                    
+                    const totalActual = user.creditosPorTipo.get(idTipo) || 0;
+                    const nuevoTotal = Math.max(0, totalActual - v.cantidad);
+                    user.creditosPorTipo.set(idTipo, nuevoTotal);
+                });
+
+                // 4. Limpiar el array: Mantenemos los que NO vencieron O los que NO tienen reset activado
+                user.vencimientosDetallados = user.vencimientosDetallados.filter(v => {
+                    const estaVencido = v.fechaVencimiento <= hoy;
+                    const permiteReset = idsPermitidosParaBorrar.has(v.tipoClaseId.toString());
+                    
+                    // Si está vencido Y permite reset, LO SACAMOS (return false)
+                    // En cualquier otro caso, LO DEJAMOS (return true)
+                    return !(estaVencido && permiteReset);
+                });
+
+                modificado = true;
+            }
+
+            if (modificado) {
                 user.markModified('creditosPorTipo');
                 await user.save();
             }
         }
-        console.log(`[CreditResetJob - ${clientId}] Créditos procesados para ${usersToUpdate.length} usuarios.`);
-
     } catch (error) {
-        console.error(`[CreditResetJob - ${clientId}] Error al reiniciar créditos:`, error);
+        console.error("Error en reset:", error);
     }
 };
-
-
 
 const runCreditResetJob = async () => {
     console.log('[CreditResetJob] Iniciando job de reinicio de créditos...');
@@ -90,13 +96,8 @@ const runCreditResetJob = async () => {
         for (const client of clients) {
             if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
                 try {
-                    // --- ¡CORRECCIÓN AQUÍ! ---
-                    // Destructuramos el objeto para obtener solo la 'connection'.
                     const { connection } = await connectToGymDB(client.clientId); 
-                    
-                    // Pasamos la conexión correcta a la función worker.
                     await resetCreditsForCurrentGym(connection, client.clientId);
-                    
                 } catch (gymError) {
                     console.error(`[CreditResetJob] Error al procesar gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
@@ -108,12 +109,12 @@ const runCreditResetJob = async () => {
     console.log('[CreditResetJob] Job de reinicio de créditos finalizado.');
 };
 
-// --- La función scheduleMonthlyCreditReset ahora llama a la nueva función exportable ---
 const scheduleMonthlyCreditReset = () => {
-    cron.schedule('0 0 1 * *', runCreditResetJob, { // Ahora llama a la función runCreditResetJob
+    // Se ejecuta todos los días a las 00:00 hora Argentina
+    cron.schedule('0 0 * * *', runCreditResetJob, { 
         timezone: "America/Argentina/Buenos_Aires"
     });
-    console.log('🕒 Cron Job de reinicio de créditos mensual programado.');
+    console.log('🕒 Cron Job de reinicio de créditos mensual (logica diaria) programado.');
 };
 
 export { scheduleMonthlyCreditReset, runCreditResetJob, resetCreditsForCurrentGym };
