@@ -204,11 +204,26 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 
 
 const deleteUser = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Clase } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id);
 
     if (user) {
         const wasClient = user.roles.includes('cliente'); 
+
+        await Clase.updateMany(
+            { 
+                $or: [
+                    { usuariosInscritos: user._id },
+                    { 'inscripcionesDetalle.user': user._id }
+                ]
+            }, 
+            { 
+                $pull: { 
+                    usuariosInscritos: user._id,
+                    inscripcionesDetalle: { user: user._id } 
+                } 
+            }
+        );
 
         await user.deleteOne();
 
@@ -224,12 +239,27 @@ const deleteUser = asyncHandler(async (req, res) => {
 });
 
 const deleteMyAccount = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Clase } = getModels(req.gymDBConnection);
     const user = await User.findById(req.user._id);
 
     if (user) {
         const wasClient = user.roles.includes('cliente');
         
+        await Clase.updateMany(
+            { 
+                $or: [
+                    { usuariosInscritos: user._id },
+                    { 'inscripcionesDetalle.user': user._id }
+                ]
+            }, 
+            { 
+                $pull: { 
+                    usuariosInscritos: user._id,
+                    inscripcionesDetalle: { user: user._id }
+                } 
+            }
+        );
+
         await user.deleteOne();
         if (wasClient) {
             updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
