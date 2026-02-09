@@ -152,22 +152,30 @@ const loginUser = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const { email, contraseña } = req.body;
 
-   if (typeof email !== 'string' || typeof contraseña !== 'string') {
+    if (typeof email !== 'string' || typeof contraseña !== 'string') {
         res.status(400);
         throw new Error('Datos inválidos. Se esperaban cadenas de texto.');
     }
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email: normalizedEmail }).select('+contraseña');
+
 
     if (user && (await user.matchPassword(contraseña))) {
-         if (!user.isActive) {
+        
+        if (user.isActive === false) {
             res.status(403);
             throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al administrador.');
         }
+
+        if (user.isActive === undefined) {
+            user.isActive = true;
+        }
+
         user.lastLogin = new Date();
         await user.save({ validateBeforeSave: false });
+
         res.json({
             _id: user._id,
             nombre: user.nombre,
