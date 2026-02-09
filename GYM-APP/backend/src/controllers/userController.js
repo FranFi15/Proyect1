@@ -210,19 +210,26 @@ const deleteUser = asyncHandler(async (req, res) => {
     if (user) {
         const wasClient = user.roles.includes('cliente'); 
 
-        await Clase.updateMany(
+       await Clase.updateMany(
             { 
                 $or: [
                     { usuariosInscritos: user._id },
-                    { 'inscripcionesDetalle.user': user._id }
+                    { 'inscripcionesDetalle.user': user._id },
+                    { profesores: user._id } 
                 ]
             }, 
             { 
                 $pull: { 
                     usuariosInscritos: user._id,
-                    inscripcionesDetalle: { user: user._id } 
+                    inscripcionesDetalle: { user: user._id },
+                    profesores: user._id 
                 } 
             }
+        );
+
+        await Clase.updateMany(
+            { profesor: user._id },
+            { $unset: { profesor: "" } } 
         );
 
         await user.deleteOne();
@@ -249,15 +256,22 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
             { 
                 $or: [
                     { usuariosInscritos: user._id },
-                    { 'inscripcionesDetalle.user': user._id }
+                    { 'inscripcionesDetalle.user': user._id },
+                    { profesores: user._id }
                 ]
             }, 
             { 
                 $pull: { 
                     usuariosInscritos: user._id,
-                    inscripcionesDetalle: { user: user._id }
+                    inscripcionesDetalle: { user: user._id },
+                    profesores: user._id
                 } 
             }
+        );
+
+        await Clase.updateMany(
+            { profesor: user._id },
+            { $unset: { profesor: "" } }
         );
 
         await user.deleteOne();
