@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
-import getUserModel from '../models/User.js';
+import getUserModel from '../models/User.js'; 
 
 const protect = asyncHandler(async (req, res, next) => {
     let token;
@@ -11,6 +11,9 @@ const protect = asyncHandler(async (req, res, next) => {
 
             // 1. Verificamos el token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+            // 2. Obtenemos el usuario (sin la contraseña)
+            // NOTA: Asegúrate que tu función getUserModel funcione bien o usa getModels(req.gymDBConnection).User
             const User = getUserModel(req.gymDBConnection); 
             req.user = await User.findById(decoded.id).select('-contraseña');
 
@@ -21,12 +24,16 @@ const protect = asyncHandler(async (req, res, next) => {
 
             next();
         } catch (error) {
-            res.status(401); 
+            // --- MEJORA: Manejo limpio de errores ---
+            res.status(401); // 401 siempre significa "Volvé a loguearte"
+
             if (error.name === 'TokenExpiredError') {
+                // NO imprimimos console.error para no ensuciar Render. Es normal que expire.
                 throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
             } else if (error.name === 'JsonWebTokenError') {
                 throw new Error('Token inválido. Acceso denegado.');
             } else {
+                // Solo logueamos errores raros de base de datos
                 console.error('Error inesperado en auth middleware:', error);
                 throw new Error('No autorizado, error de validación.');
             }
@@ -51,7 +58,7 @@ const authorizeRoles = (...allowedRoles) => {
         const hasPermission = req.user.roles.some(userRole => allowedRoles.includes(userRole));
 
         if (!hasPermission) {
-            res.status(403); 
+            res.status(403); // 403 = Prohibido (Estás logueado pero no tenés permiso)
             throw new Error(`Acceso denegado. No tienes los permisos necesarios.`);
         }
         next();
