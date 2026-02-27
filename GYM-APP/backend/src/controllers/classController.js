@@ -1191,7 +1191,7 @@ const getAvailableSlotsForPlan = asyncHandler(async (req, res) => {
 });
 
 const subscribeToWaitlist = asyncHandler(async (req, res) => {
-    const { Clase } = getModels(req.gymDBConnection);
+    const { Clase, Notification, User } = getModels(req.gymDBConnection);
     const clase = await Clase.findById(req.params.id);
 
     if (!clase) {
@@ -1205,8 +1205,6 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
         throw new Error('No puedes apuntarte a la lista de espera, el turno aún tiene lugares.');
     }
 
-    // --- CORRECCIÓN FINAL ---
-    // Usamos 'waitlist' que es el nombre correcto del campo en el modelo.
     if (!clase.waitlist) {
         clase.waitlist = [];
     }
@@ -1235,7 +1233,6 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
         );
 
     } catch (notificationError) {
-        // Si la notificación falla, no detenemos el proceso, pero sí lo registramos.
         console.error('Error al enviar la notificación de suscripción a la lista de espera:', notificationError);
     }
 
@@ -1243,7 +1240,6 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
 
     res.status(200).json({ message: 'Te has apuntado a la lista de espera. Se te notificará si hay un lugar.' });
 });
-
 
 const unsubscribeFromWaitlist = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
