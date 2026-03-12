@@ -14,6 +14,6 @@ router.post(
     registerUser 
 );
 router.route('/login').post(loginUser);
-router.get('/refresh-token', protect, gymTenantMiddleware, refreshToken);
+router.get('/refresh-token', protect, refreshToken);
 
 export default router;
