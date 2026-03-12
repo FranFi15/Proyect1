@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
     const [sessionAlertVisible, setSessionAlertVisible] = useState(false);
     const router = useRouter();
 
-    // --- NUEVA FUNCIÓN: Refresco silencioso de token ---
+    
     const refreshSessionToken = async (currentUser) => {
         try {
             // Asegurarnos de que el token actual esté en los headers para la petición
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
                 apiClient.defaults.headers.common['Authorization'] = `Bearer ${currentUser.token}`;
             }
             
-            const response = await apiClient.get('/users/refresh-token');
+            const response = await apiClient.get('/auth/refresh-token');
             
             if (response.data && response.data.token) {
                 const newToken = response.data.token;

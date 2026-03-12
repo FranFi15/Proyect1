@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser } from '../controllers/authController.js';
+import { registerUser, loginUser, refreshToken } from '../controllers/authController.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
 import { protect } from '../middlewares/authMiddleware.js';
 
@@ -14,6 +14,6 @@ router.post(
     registerUser 
 );
 router.route('/login').post(loginUser);
-router.get('/refresh-token', protect, gymTenantMiddleware, refreshToken);
+router.get('/refresh-token', protect, refreshToken);
 
 export default router;

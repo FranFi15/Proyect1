@@ -132,6 +132,9 @@ const ManageClientsScreen = () => {
     // --- ESTADO VISIBILIDAD DEUDA ---
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
 
+    // --- NUEVO ESTADO: VISIBILIDAD SECCIÓN ESTADÍSTICAS ---
+    const [showStats, setShowStats] = useState(false);
+
     const handleToggleDebtVisibility = () => {
         setIsDebtVisible(!isDebtVisible);
     };
@@ -204,7 +207,7 @@ const ManageClientsScreen = () => {
     const filteredData = useMemo(() => { if (!searchTerm) return users; return users.filter(user => `${user.nombre} ${user.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) || user.email.toLowerCase().includes(searchTerm.toLowerCase()) ); }, [users, searchTerm]);
     const getTypeName = (typeId) => { const classType = classTypes.find(t => t._id === typeId); return classType?.nombre || 'Desconocido'; };
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
-    const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> </View> ); };
+    const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} /> </TouchableOpacity> </View> ); };
     const handlePaseLibreDateChange = (field, dateString) => { setPaseLibreData(prev => ({ ...prev, [field]: dateString })); };
     const handleSavePaseLibre = async () => { if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/pase-libre`, { paseLibreDesde: paseLibreData.desde, paseLibreHasta: paseLibreData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' }); } };
     const handleMassEnrollDateChange = (field, dateString) => { setMassEnrollFilters(prev => ({ ...prev, [field]: dateString })); };
@@ -321,30 +324,47 @@ const ManageClientsScreen = () => {
                 <ThemedText style={dynamicStyles.headerTitle}>Gestión de Usuarios</ThemedText>
             </View>
 
-            {/* --- DASHBOARD STATISTICS --- */}
-            <View style={dynamicStyles.statsContainer}>
-                <StatCard 
-                    label="Clientes Activos"
-                    value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`}
-                    icon={<Ionicons name="people" size={18} color={gymColor} />}
-                    color={Colors[colorScheme].text}
-                    action={() => setActiveModal('upgrade')}
-                    actionLabel="Ampliar"
-                    styles={dynamicStyles} 
-                    style={{ flex: 1 }}
+            {/* --- BOTÓN PARA MOSTRAR/OCULTAR ESTADÍSTICAS --- */}
+            <TouchableOpacity 
+                style={dynamicStyles.toggleStatsButton} 
+                onPress={() => setShowStats(!showStats)}
+            >
+                <ThemedText style={dynamicStyles.toggleStatsText}>
+                    {showStats ? 'Ocultar Estadísticas' : 'Ver Estadísticas'}
+                </ThemedText>
+                <Ionicons 
+                    name={showStats ? "chevron-up" : "chevron-down"} 
+                    size={16} 
+                    color={gymColor} 
                 />
-                
-                <StatCard 
-                    label="Deuda Total"
-                    value={`$${debtStats.totalDebt} `}
-                    icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />}
-                    color={Colors[colorScheme].text}
-                    isValueHidden={!isDebtVisible}
-                    onToggleHidden={handleToggleDebtVisibility}
-                    styles={dynamicStyles} 
-                    style={{ flex: 1.3 }}
-                />
-            </View>
+            </TouchableOpacity>
+
+            {/* --- DASHBOARD STATISTICS (Condicionado por showStats) --- */}
+            {showStats && (
+                <View style={dynamicStyles.statsContainer}>
+                    <StatCard 
+                        label="Clientes Activos"
+                        value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`}
+                        icon={<Ionicons name="people" size={18} color={gymColor} />}
+                        color={Colors[colorScheme].text}
+                        action={() => setActiveModal('upgrade')}
+                        actionLabel="Ampliar"
+                        styles={dynamicStyles} 
+                        style={{ flex: 1 }}
+                    />
+                    
+                    <StatCard 
+                        label="Deuda Total"
+                        value={`$${debtStats.totalDebt} `}
+                        icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />}
+                        color={Colors[colorScheme].text}
+                        isValueHidden={!isDebtVisible}
+                        onToggleHidden={handleToggleDebtVisibility}
+                        styles={dynamicStyles} 
+                        style={{ flex: 1.3 }}
+                    />
+                </View>
+            )}
             
             <View style={dynamicStyles.searchInputContainer}>
                 <TextInput
@@ -708,7 +728,7 @@ const ManageClientsScreen = () => {
                 visible={isScannerVisible}
                 onClose={() => setScannerVisible(false)}
                 onBarcodeScanned={handleGeneralScan}
-            />    
+            />  
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
 
         </ThemedView>
@@ -736,6 +756,24 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
+    // --- NUEVO ESTILO: BOTÓN TOGGLE ESTADÍSTICAS ---
+    toggleStatsButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 8,
+        backgroundColor: Colors[colorScheme].background,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+    },
+    toggleStatsText: {
+        fontSize: 14,
+        color: Colors[colorScheme].text,
+        fontWeight: '600',
+        marginRight: 5,
+    },
+    // ----------------------------------------------
+
     statsContainer: {
         flexDirection: 'row', 
         paddingHorizontal: 15, 
@@ -820,6 +858,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         height: 50,
         color: Colors[colorScheme].text,
         fontSize: 16
+    },
+    searchIcon: {
+        marginRight: 15,
     },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border },
     inactiveCard: {
