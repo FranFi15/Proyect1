@@ -1,6 +1,7 @@
 import express from 'express';
 import { registerUser, loginUser } from '../controllers/authController.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
+import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
@@ -10,8 +11,9 @@ router.post(
         console.log('--- Router: La ruta /register ha sido alcanzada. A punto de llamar a registerUser.');
         next();
     },
-    registerUser // El controlador original se llama después
+    registerUser 
 );
 router.route('/login').post(loginUser);
+router.get('/refresh-token', protect, gymTenantMiddleware, refreshToken);
 
 export default router;

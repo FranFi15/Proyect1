@@ -139,7 +139,8 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: user._id, 
             nombre: user.nombre, 
             email: user.email, 
-            token: generateToken(user._id, user.roles, user.email, user.nombre) 
+            // --- CORRECCIÓN DEL BUG: Se añade req.gymId ---
+            token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre) 
         });
     } else {
         res.status(400);
@@ -200,4 +201,27 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 });
 
-export { registerUser, loginUser };
+
+const refreshToken = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    
+    // Obtenemos al usuario usando el ID que viene del token viejo (ya validado por el middleware protect)
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        if (user.isActive === false) {
+            res.status(403);
+            throw new Error('Tu cuenta ha sido desactivada.');
+        }
+
+        // Generamos y enviamos un token nuevo de 90 días
+        res.json({
+            token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre)
+        });
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+});
+
+export { registerUser, loginUser, refreshToken };

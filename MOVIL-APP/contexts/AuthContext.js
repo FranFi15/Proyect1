@@ -19,6 +19,37 @@ export const AuthProvider = ({ children }) => {
     const [sessionAlertVisible, setSessionAlertVisible] = useState(false);
     const router = useRouter();
 
+    // --- NUEVA FUNCIÓN: Refresco silencioso de token ---
+    const refreshSessionToken = async (currentUser) => {
+        try {
+            // Asegurarnos de que el token actual esté en los headers para la petición
+            if (currentUser && currentUser.token) {
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${currentUser.token}`;
+            }
+            
+            const response = await apiClient.get('/users/refresh-token');
+            
+            if (response.data && response.data.token) {
+                const newToken = response.data.token;
+                
+                // Actualizamos el objeto user local y en AsyncStorage
+                const updatedUser = { ...currentUser, token: newToken };
+                setUser(updatedUser);
+                await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+                
+                // Actualizamos los headers de Axios para futuras peticiones
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+                
+                console.log("Token actualizado silenciosamente (Sesión extendida)");
+            }
+        } catch (error) {
+            console.log("No se pudo refrescar el token silenciosamente. Se usará el actual.", error.message);
+            // Si falla (ej: sin internet), no hacemos nada, el usuario sigue con su token actual.
+            // Si el token actual ya está vencido, la primera petición real que haga tirará error 401
+            // y activará el modal de sesión expirada.
+        }
+    };
+
     useEffect(() => {
         const checkInitialState = async () => {
             try {
@@ -37,8 +68,12 @@ export const AuthProvider = ({ children }) => {
                     setClientId(storedClientId);
                     apiClient.defaults.headers.common['x-client-id'] = storedClientId;
                 }
+                
                 if (storedUser) {
                     setUser(storedUser);
+                    // --- LLAMADA AL REFRESCO SILENCIOSO ---
+                    // Como encontramos un usuario guardado, intentamos extender su sesión
+                    await refreshSessionToken(storedUser);
                 }
             } catch (e) {
                 console.error("No se pudo verificar el estado inicial", e);
