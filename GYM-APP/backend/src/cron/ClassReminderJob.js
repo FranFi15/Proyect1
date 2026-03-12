@@ -22,10 +22,6 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
         const windowStart = subMinutes(targetTime, 15);
         const windowEnd = addMinutes(targetTime, 15);
 
-        console.log(`[Reminder Debug] Hora Servidor (UTC): ${now.toISOString()}`);
-        console.log(`[Reminder Debug] Buscando clases que inicien entre:`);
-        console.log(`   Desde: ${windowStart.toISOString()}`);
-        console.log(`   Hasta: ${windowEnd.toISOString()}`);
 
         // 1. QUERY CORREGIDA: Buscamos en un rango amplio (ayer, hoy y mañana)
         // Esto evita errores si la fecha UTC cambia de día justo en la ventana de 2hs
@@ -51,7 +47,7 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
             // 3. Verificar ventana exacta
             if (classStartTime >= windowStart && classStartTime <= windowEnd) {
                 
-                console.log(`✅ MATCH! La clase ${clase.nombre} inicia a las ${clase.horaInicio} (en ~2hs). Procesando...`);
+               
 
                 for (const userId of clase.usuariosInscritos) {
                     const existingNotif = await Notification.findOne({
@@ -74,9 +70,9 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
                             true,
                             clase._id
                         );
-                        console.log(`      -> 📨 Notificación enviada al usuario ${userId}`);
+                       
                     } else {
-                        console.log(`      -> ⏭️ Usuario ${userId} ya fue notificado.`);
+                      
                     }
                 }
             }
