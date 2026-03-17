@@ -7,7 +7,6 @@ const {RRule} = rrule
 import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
 
-
 const mapDayToRRule = (day) => {
     const map = {
         'Lunes': RRule.MO,
@@ -242,7 +241,7 @@ const updateClass = asyncHandler(async (req, res) => {
     const newCapacity = capacidad !== undefined ? Number(capacidad) : oldCapacity;
     const capacityDifference = newCapacity - oldCapacity;
 
-    Object.assign(classItem, otherUpdates); // Ya es seguro usar assign porque quitamos los arrays críticos
+    Object.assign(classItem, otherUpdates); 
     classItem.capacidad = newCapacity;
 
     if (profesores) {
@@ -298,8 +297,6 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
     
     classItem.estado = 'cancelada';
 
-    // BLINDAJE DE SEGURIDAD: Solo vaciamos la lista SI decidieron reembolsar.
-    // Si no reembolsan (pausa), la lista se mantiene por si reactivan.
     if (refundCredits) {
         for (const userId of classItem.usuariosInscritos) {
             const user = await User.findById(userId);
@@ -333,7 +330,6 @@ const cancelClassInstance = asyncHandler(async (req, res) => {
             }
         }
         
-        // Vaciamos a los usuarios SOLO si hubo reembolso.
         classItem.usuariosInscritos = [];
         classItem.inscripcionesDetalle = []; 
     }
@@ -639,9 +635,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     res.json({ message: 'Anulación exitosa. Se te devolvió 1 crédito.' });
 });
 
-// @desc    Generar futuras instancias de clases fijas para un gimnasio específico
 const generateFutureFixedClasses = asyncHandler(async (req, res) => {
-    // --- CORRECCIÓN CRÍTICA 2: Traemos User para la auto-inscripción ---
     const { Clase, TipoClase, User } = getModels(req.gymDBConnection);
 
     const now = new Date();
@@ -683,18 +677,16 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
         const classDates = rule.all();
 
         for (const classDate of classDates) {
-            // --- CORRECCIÓN CRÍTICA 1: Fijamos la hora a las 12:00 UTC para evitar desfases ---
             const dateAtNoon = setNoonUTC(classDate);
 
             const existingClass = await Clase.findOne({
                 nombre: pattern.nombre,
                 tipoClase: pattern.tipoClase,
-                fecha: dateAtNoon, // Buscamos con la fecha corregida
+                fecha: dateAtNoon, 
                 horaInicio: pattern.horaInicio,
             });
 
             if (!existingClass) {
-                // Obtenemos el nombre del día para buscar a los alumnos recurrentes
                 const classDayName = getDayName(dateAtNoon);
 
                 const newClass = await Clase.create({
@@ -702,18 +694,17 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     tipoClase: pattern.tipoClase,
                     capacidad: pattern.capacidad,
                     profesores: pattern.profesores,
-                    fecha: dateAtNoon, // Guardamos con la fecha corregida
+                    fecha: dateAtNoon, 
                     horaInicio: pattern.horaInicio,
                     horaFin: pattern.horaFin,
                     horarioFijo: pattern.horarioFijo,
                     diaDeSemana: [classDayName],
                     tipoInscripcion: 'fijo',
                     estado: 'activa',
-                    usuariosInscritos: [], // Nace vacío, pero lo llenamos abajo
+                    usuariosInscritos: [], 
                     inscripcionesDetalle: [],
                 });
                 
-                // --- CORRECCIÓN CRÍTICA 2: AUTO-INSCRIBIR ALUMNOS RECURRENTES ---
                 const usersWithPlan = await User.find({
                     isActive: true,
                     planesFijos: {
@@ -736,7 +727,6 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     }
                     await newClass.save();
 
-                    // Guardar la clase también en el historial del alumno
                     await User.updateMany(
                         { _id: { $in: userIds } },
                         { $addToSet: { clasesInscritas: newClass._id } }
@@ -750,6 +740,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
     return classesGeneratedCount;
 });
 
+// --- LÓGICA INTELIGENTE IMPLEMENTADA AQUÍ ---
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
     const { filters, updates } = req.body;
@@ -771,12 +762,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     const futureInstances = await Clase.find(query).sort({ fecha: 1 });
     if (futureInstances.length === 0) {
         res.status(404);
-        throw new Error('No se encontraron clases futuras para modificar los días.');
+        throw new Error('No se encontraron clases futuras para modificar.');
     }
 
     // 1. Lógica inteligente: Verificar si los días de la semana REALMENTE cambiaron
     let daysChanged = false;
-    if (updates.diasDeSemana) {
+    if (updates.diasDeSemana && updates.diasDeSemana.length > 0) {
         const currentDays = futureInstances[0].diaDeSemana || [];
         const sortedCurrent = [...currentDays].sort().join(',');
         const sortedNew = [...updates.diasDeSemana].sort().join(',');
@@ -802,7 +793,8 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.profesores) template.profesores = updates.profesores;
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
-        if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); // AÑADIDO CAPACIDAD
+        if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); 
+
         if (updates.horaInicio && updates.horaFin) {
             template.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
         }
@@ -834,10 +826,10 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                 estado: 'activa',
             });
         }
-        return res.json({ message: 'Días del turno actualizados. Turnos recreados.', eliminadas: idsToDelete.length, creadas: newDates.length });
+        return res.json({ message: 'Días del turno actualizados.', eliminadas: idsToDelete.length, creadas: newDates.length });
     } 
     
-    // 3. ACTUALIZACIÓN SEGURA: Si los días son los mismos, solo actualizamos los campos (Ej: profe o capacidad)
+    // 3. ACTUALIZACIÓN SEGURA: Si los días son los mismos, solo actualizamos los campos 
     const updateData = { $set: {} };
     if (updates.profesores) updateData.$set.profesores = updates.profesores;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
@@ -896,6 +888,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
                 horaInicio: { $first: "$horaInicio" },
                 horaFin: { $first: "$horaFin" },
                 tipoClase: { $first: "$tipoClase" },
+                capacidad: { $first: "$capacidad" }, // AÑADIDO PARA LEER CAPACIDAD ACTUAL
                 profesoresIds: { $first: "$profesores" }, 
                 diasDeSemana: { $addToSet: {
                     $cond: {
@@ -917,6 +910,7 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
                 nombre: '$nombre',
                 horaInicio: '$horaInicio',
                 horaFin: '$horaFin',
+                capacidad: '$capacidad', // AÑADIDO PARA ENVIARLA AL FRONTEND
                 tipoClase: { $arrayElemAt: ['$tipoClaseInfo', 0] },
                 profesores: '$profesoresInfo',
                 diasDeSemana: '$diasDeSemana',
@@ -929,7 +923,6 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
 });
 
 const bulkExtendClasses = asyncHandler(async (req, res) => {
-    // --- CORRECCIÓN CRÍTICA 2: Traemos User ---
     const { Clase, User } = getModels(req.gymDBConnection);
     const { filters, extension } = req.body;
     const { nombre, tipoClase, horaInicio, diasDeSemana } = filters; 
@@ -970,7 +963,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
     let createdCount = 0;
 
     for (const date of newDates) {
-        // --- CORRECCIÓN CRÍTICA 1: Fijamos a las 12:00 UTC ---
         const dateAtNoon = setNoonUTC(date);
         const classDayName = getDayName(dateAtNoon);
 
@@ -982,7 +974,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
             profesores: lastInstance.profesores,
-            fecha: dateAtNoon, // Usamos fecha corregida
+            fecha: dateAtNoon, 
             horaInicio: lastInstance.horaInicio,
             horaFin: lastInstance.horaFin,
             estado: 'activa',
@@ -991,7 +983,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             rrule: lastInstance.rrule 
         });
 
-        // --- CORRECCIÓN CRÍTICA 2: AUTO-INSCRIBIR ALUMNOS RECURRENTES ---
         const usersWithPlan = await User.find({
             isActive: true,
             planesFijos: {
@@ -1014,7 +1005,6 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             }
             await newClass.save();
 
-            // Guardar la clase en el historial del alumno
             await User.updateMany(
                 { _id: { $in: userIds } },
                 { $addToSet: { clasesInscritas: newClass._id } }
