@@ -768,14 +768,26 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         fecha: { $gte: fechaDesdeFiltro }
     };
 
-    if (updates.diasDeSemana) {
-        const futureInstances = await Clase.find(query).sort({ fecha: 1 });
-        if (futureInstances.length === 0) {
-            res.status(404);
-            throw new Error('No se encontraron clases futuras para modificar los días.');
-        }
+    const futureInstances = await Clase.find(query).sort({ fecha: 1 });
+    if (futureInstances.length === 0) {
+        res.status(404);
+        throw new Error('No se encontraron clases futuras para modificar los días.');
+    }
 
-        // BLINDAJE CRÍTICO: Bloquear si hay alumnos. Si cambiamos días y borramos, se pierden.
+    // 1. Lógica inteligente: Verificar si los días de la semana REALMENTE cambiaron
+    let daysChanged = false;
+    if (updates.diasDeSemana) {
+        const currentDays = futureInstances[0].diaDeSemana || [];
+        const sortedCurrent = [...currentDays].sort().join(',');
+        const sortedNew = [...updates.diasDeSemana].sort().join(',');
+        
+        if (sortedCurrent !== sortedNew) {
+            daysChanged = true;
+        }
+    }
+
+    // 2. Si cambiaron los días, hay que borrar y recrear (aquí SI bloqueamos si hay alumnos)
+    if (daysChanged) {
         const hasUsers = futureInstances.some(inst => inst.usuariosInscritos && inst.usuariosInscritos.length > 0);
         if (hasUsers) {
             res.status(400);
@@ -790,11 +802,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.profesores) template.profesores = updates.profesores;
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
+        if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); // AÑADIDO CAPACIDAD
         if (updates.horaInicio && updates.horaFin) {
             template.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
         }
         
-       const ruleStart = new Date(fechaDesdeFiltro);
+        const ruleStart = new Date(fechaDesdeFiltro);
         ruleStart.setUTCHours(12, 0, 0, 0); 
 
         const lastDate = futureInstances[futureInstances.length - 1].fecha;
@@ -821,19 +834,22 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                 estado: 'activa',
             });
         }
-        return res.json({ message: 'Días del turno actualizados.', eliminadas: idsToDelete.length, creadas: newDates.length });
-    }
+        return res.json({ message: 'Días del turno actualizados. Turnos recreados.', eliminadas: idsToDelete.length, creadas: newDates.length });
+    } 
     
+    // 3. ACTUALIZACIÓN SEGURA: Si los días son los mismos, solo actualizamos los campos (Ej: profe o capacidad)
     const updateData = { $set: {} };
     if (updates.profesores) updateData.$set.profesores = updates.profesores;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
+    if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); // AÑADIDO CAPACIDAD
+    
     if (updates.horaInicio && updates.horaFin) {
         updateData.$set.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
     }
 
     const result = await Clase.updateMany(query, updateData);
-    res.json({ message: 'Operación completada.', actualizadas: result.modifiedCount, encontradas: result.matchedCount });
+    res.json({ message: 'Operación completada de forma segura.', actualizadas: result.modifiedCount, encontradas: result.matchedCount });
 });
 
 const bulkDeleteClasses = asyncHandler(async (req, res) => {
