@@ -842,7 +842,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.profesores) updateData.$set.profesores = updates.profesores;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
-    if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); // AÑADIDO CAPACIDAD
+    if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); 
     
     if (updates.horaInicio && updates.horaFin) {
         updateData.$set.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
