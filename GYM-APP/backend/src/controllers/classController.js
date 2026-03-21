@@ -831,7 +831,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                     );
                 }
                 
-                // Sacamos este turno de la lista de clases inscritas de los usuarios
+               
                 await User.updateMany({ clasesInscritas: inst._id }, { $pull: { clasesInscritas: inst._id } });
             }
         }

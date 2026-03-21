@@ -315,16 +315,42 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         user.creditosPorTipo.set(tipoClaseId, newTotal);
 
         if (creditsToAddNum > 0) {
-    const fechaVto = new Date();
-    fechaVto.setDate(fechaVto.getDate() + 30); 
+            const fechaVto = new Date();
+            fechaVto.setDate(fechaVto.getDate() + 30); 
 
-    user.vencimientosDetallados.push({
-        tipoClaseId: tipoClaseId,
-        cantidad: creditsToAddNum,
-        fechaVencimiento: fechaVto,
-        idCarga: new mongoose.Types.ObjectId().toString()
-    });
-}
+            user.vencimientosDetallados.push({
+                tipoClaseId: tipoClaseId,
+                cantidad: creditsToAddNum,
+                fechaVencimiento: fechaVto,
+                idCarga: new mongoose.Types.ObjectId().toString()
+            });
+        } else if (creditsToAddNum < 0) {
+            // --- SOLUCIÓN: Lógica para RESTAR de los vencimientos detallados ---
+            let creditsToRemove = Math.abs(creditsToAddNum);
+            
+            // 1. Buscamos y ordenamos los lotes de este tipo de clase (los que vencen antes van primero)
+            const indicesVto = user.vencimientosDetallados
+                .map((v, i) => v.tipoClaseId.toString() === tipoClaseId.toString() ? i : -1)
+                .filter(i => i !== -1)
+                .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
+
+            // 2. Vamos descontando del array hasta satisfacer la cantidad a remover
+            for (let idx of indicesVto) {
+                if (creditsToRemove <= 0) break;
+                
+                let batch = user.vencimientosDetallados[idx];
+                if (batch.cantidad <= creditsToRemove) {
+                    creditsToRemove -= batch.cantidad;
+                    batch.cantidad = 0; // Vaciamos este lote
+                } else {
+                    batch.cantidad -= creditsToRemove;
+                    creditsToRemove = 0; // Ya quitamos todos los necesarios
+                }
+            }
+            
+            // 3. Limpiamos los lotes que quedaron en 0 para no ensuciar la base de datos
+            user.vencimientosDetallados = user.vencimientosDetallados.filter(v => v.cantidad > 0);
+        }
         
         await CreditLog.create({
             user: userId, admin: adminId, amount: creditsToAddNum,
@@ -383,6 +409,7 @@ const clearUserCredits = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
     if (user) {
         user.creditosPorTipo = new Map();
+        user.vencimientosDetallados = []; // --- SOLUCIÓN: Limpiamos también este array ---
         await user.save();
         res.json({ message: 'Todos los créditos del usuario han sido eliminados.' });
     } else {
