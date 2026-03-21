@@ -768,8 +768,17 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     // 1. Lógica inteligente: Verificar si los días de la semana REALMENTE cambiaron
     let daysChanged = false;
     if (updates.diasDeSemana && updates.diasDeSemana.length > 0) {
-        const currentDays = futureInstances[0].diaDeSemana || [];
-        const sortedCurrent = [...currentDays].sort().join(',');
+        // En la BD, cada instancia tiene guardado solo SU día (ej: ['Lunes']).
+        // Tenemos que juntar los días de TODAS las instancias futuras para comparar con el array del frontend.
+        const currentDaysSet = new Set();
+        futureInstances.forEach(inst => {
+            if (inst.diaDeSemana && inst.diaDeSemana.length > 0) {
+                currentDaysSet.add(inst.diaDeSemana[0]);
+            }
+        });
+        const currentDays = Array.from(currentDaysSet);
+        
+        const sortedCurrent = currentDays.sort().join(',');
         const sortedNew = [...updates.diasDeSemana].sort().join(',');
         
         if (sortedCurrent !== sortedNew) {
