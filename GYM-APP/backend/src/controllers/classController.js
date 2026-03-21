@@ -826,7 +826,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                         "Turno Reprogramado/Cancelado",
                         `El administrador ha modificado los días del turno "${inst.nombre}". La clase del ${fechaLegible} a las ${inst.horaInicio}hs ha sido cancelada.${mensajeExtra}`,
                         'class_deletion',
-                        true,
+                        false,
                         null
                     );
                 }
