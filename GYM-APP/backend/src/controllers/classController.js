@@ -742,7 +742,8 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
 
 // --- LÓGICA INTELIGENTE IMPLEMENTADA AQUÍ ---
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
-    const { Clase } = getModels(req.gymDBConnection);
+    // Añadimos User y Notification para poder hacer los reembolsos
+    const { Clase, User, Notification } = getModels(req.gymDBConnection);
     const { filters, updates } = req.body;
 
     if (!filters || !updates || Object.keys(updates).length === 0) {
@@ -786,12 +787,53 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         }
     }
 
-    // 2. Si cambiaron los días, hay que borrar y recrear (aquí SI bloqueamos si hay alumnos)
+    // 2. Si cambiaron los días, hay que borrar y recrear (ahora REEMBOLSAMOS automáticamente)
     if (daysChanged) {
-        const hasUsers = futureInstances.some(inst => inst.usuariosInscritos && inst.usuariosInscritos.length > 0);
-        if (hasUsers) {
-            res.status(400);
-            throw new Error('ATENCIÓN: No puedes modificar los días de este turno porque ya hay alumnos inscriptos en clases futuras. Por favor, anula o vacía esos turnos primero para proteger los créditos de los alumnos.');
+        const hoy = new Date();
+
+        // Iteramos sobre todos los turnos futuros que van a ser eliminados
+        for (const inst of futureInstances) {
+            // Si el turno tiene alumnos inscriptos, procesamos devoluciones
+            if (inst.usuariosInscritos && inst.usuariosInscritos.length > 0) {
+                const fechaLegible = format(new Date(inst.fecha), 'dd/MM');
+                const tipoClaseIdStr = inst.tipoClase.toString();
+
+                for (const userId of inst.usuariosInscritos) {
+                    const user = await User.findById(userId);
+                    if (!user) continue;
+
+                    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta &&
+                        hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+
+                    let mensajeExtra = "";
+
+                    // Devolución de crédito si no tiene pase libre
+                    if (!tienePaseLibreActivo) {
+                        const detalle = inst.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
+                        let creditoADevolverId = detalle?.tipoCreditoUsado ? detalle.tipoCreditoUsado.toString() : tipoClaseIdStr;
+
+                        const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+                        user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+                        await user.save();
+                        mensajeExtra = " Se te ha reembolsado 1 crédito.";
+                    }
+
+                    // Notificación al usuario
+                    await sendSingleNotification(
+                        Notification,
+                        User,
+                        user._id,
+                        "Turno Reprogramado/Cancelado",
+                        `El administrador ha modificado los días del turno "${inst.nombre}". La clase del ${fechaLegible} a las ${inst.horaInicio}hs ha sido cancelada.${mensajeExtra}`,
+                        'class_deletion',
+                        true,
+                        null
+                    );
+                }
+                
+                // Sacamos este turno de la lista de clases inscritas de los usuarios
+                await User.updateMany({ clasesInscritas: inst._id }, { $pull: { clasesInscritas: inst._id } });
+            }
         }
 
         const template = futureInstances[0].toObject();
