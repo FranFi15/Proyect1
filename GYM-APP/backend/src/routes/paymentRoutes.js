@@ -9,7 +9,7 @@ import {
 } from '../controllers/paymentController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
-import { upload } from '../config/cloudinary.js';
+import { upload } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
