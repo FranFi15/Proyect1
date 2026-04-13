@@ -34,8 +34,13 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
     const { PaymentRequest, PaymentPackage } = getModels(req.gymDBConnection);
     const { packageId, amountTransferred } = req.body;
 
-    // Aquí está la magia: Cloudinary ya subió la foto y nos da el link público
-    const receiptUrl = req.file ? req.file.path : null;
+    // 🔥 FIX: Buscar la URL en las diferentes propiedades que puede devolver Cloudinary
+    let receiptUrl = null;
+    if (req.file) {
+        receiptUrl = req.file.secure_url || req.file.path || req.file.url;
+    }
+
+    console.log("Datos recibidos en el servidor:", { packageId, amountTransferred, receiptUrl }); // <-- Agrega este log para depurar
 
     if (!amountTransferred || !receiptUrl) {
         res.status(400);
