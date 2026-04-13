@@ -6,7 +6,7 @@ import helmet from 'helmet';
 
 
 import gymTenantMiddleware from './middlewares/gymTenantMiddleware.js';
-import initializeFirebaseAdmin from './config/firebaseAdmin.js';
+
 
 // Importación de rutas
 import authRoutes from './routes/authRoutes.js';
@@ -46,7 +46,7 @@ const app = express();
 
 app.use(helmet());
 
-initializeFirebaseAdmin();
+
 
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
 
