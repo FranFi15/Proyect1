@@ -26,7 +26,7 @@ import apiClient from '../../services/apiClient';
 import BalanceModal from '@/components/client/BalanceModal';
 import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
-// Importamos el nuevo Modal de RM
+import TransferPaymentModal from '../../components/client/TransferPaymentModal';
 import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert'; 
 
@@ -249,6 +249,10 @@ const ProfileScreen = () => {
                         <Ionicons name="logo-usd" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Mi Saldo y Movimientos</ThemedText>
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('payment')}>
+                        <Ionicons name="cash-outline" size={24} color={Colors[colorScheme].icon}  />
+                        <ThemedText style={[styles.menuButtonText, ]}>Informar Pago </ThemedText>
+                    </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('plans')}>
                         <FontAwesome6 name="coins" size={22} color={Colors[colorScheme].icon} />
@@ -287,7 +291,9 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'balance'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
-
+            <Modal visible={activeModal === 'payment'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+                 <TransferPaymentModal onClose={() => setActiveModal(null)} />
+            </Modal>
             <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>

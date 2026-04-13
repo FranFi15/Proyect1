@@ -16,8 +16,11 @@ import {
     Modal,
     KeyboardAvoidingView,
     RefreshControl,
+    Image,
+    useWindowDimensions
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { TabView, TabBar } from 'react-native-tab-view'; // <-- Importamos TabView
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -30,13 +33,12 @@ import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
-import QrScannerModal from '../../components/profesor/QrScannerModal'
+import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
-const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style,  }) => {
-    // Protección contra crash si styles no llega
-    const safeStyles = styles || {}; 
+const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
+     const safeStyles = styles || {}; 
      const { gymColor } = useAuth();
 
     return (
@@ -83,22 +85,35 @@ const formatDateUTC = (dateString) => {
 };
 
 const ManageClientsScreen = () => {
+    const layout = useWindowDimensions();
+    const { gymColor } = useAuth();
+    const colorScheme = useColorScheme() ?? 'light';
+    
+    // 🔥 FIX TECLADO 1: Memorizar los estilos
+    const dynamicStyles = useMemo(() => getStyles(colorScheme, gymColor), [colorScheme, gymColor]); 
+
+    // --- ESTADOS TABVIEW ---
+    const [index, setIndex] = useState(0);
+    const [routes] = useState([
+        { key: 'clients', title: 'Usuarios' },
+        { key: 'transfers', title: 'Transferencias' },
+    ]);
+
+    // --- ESTADOS GENERALES ---
     const [users, setUsers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
-    
-    // NUEVO ESTADO: Deuda Total desde el Backend
     const [debtStats, setDebtStats] = useState({ totalDebt: 0, debtorCount: 0 });
+
+    // --- ESTADOS TRANSFERENCIAS ---
+    const [pendingTransfers, setPendingTransfers] = useState([]);
+    const [imageViewerData, setImageViewerData] = useState(null); 
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { gymColor } = useAuth();
-    const colorScheme = useColorScheme() ?? 'light';
     
-    const dynamicStyles = getStyles(colorScheme, gymColor); 
-
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [selectedClient, setSelectedClient] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
@@ -129,10 +144,7 @@ const ManageClientsScreen = () => {
     const [isScannerVisible, setScannerVisible] = useState(false);
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
     
-    // --- ESTADO VISIBILIDAD DEUDA ---
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
-
-    // --- NUEVO ESTADO: VISIBILIDAD SECCIÓN ESTADÍSTICAS ---
     const [showStats, setShowStats] = useState(false);
 
     const handleToggleDebtVisibility = () => {
@@ -141,21 +153,22 @@ const ManageClientsScreen = () => {
 
     const fetchAllData = useCallback(async () => {
         try {
-            // AHORA HACEMOS 4 PETICIONES, INCLUYENDO LA DE DEUDA
-            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse] = await Promise.all([
+            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse, transfersResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/users/subscription-info'),
-                apiClient.get('/users/financial-stats') 
+                apiClient.get('/users/financial-stats'),
+                apiClient.get('/payments/tickets/pending') // <-- Llamada a transferencias
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
             setClassTypes(classTypesResponse.data.tiposClase || []);
             setSubscriptionInfo(subInfoResponse.data);
             setDebtStats(debtResponse.data); 
+            setPendingTransfers(transfersResponse.data || []);
 
         } catch (error) {
-            console.error(error); // Log para ver si falla la nueva ruta
+            console.error(error);
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
             setLoading(false);
@@ -186,7 +199,7 @@ const ManageClientsScreen = () => {
         }
     }, [editingClientDay, editingClientMonth, editingClientYear]);
 
-    // ... Handlers (iguales) ...
+    // --- HANDLERS EXISTENTES ---
     const handleUpgradePlan = async () => { setIsSubmitting(true); try { const response = await apiClient.put('/users/upgrade-plan'); setAlertInfo({ visible: true, title: '¡Plan Ampliado!', message: `Tu límite de clientes ha sido aumentado a ${response.data.newLimit}.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); setActiveModal(null); await fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo ampliar el plan.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } finally { setIsSubmitting(false); } };
     const handleAddClientSubmit = async () => { setLoading(true); try { if (!newClientData.nombre || !newClientData.email || !newClientData.contraseña) throw new Error('Por favor, ingresa todos los campos obligatorios.'); await apiClient.post('/auth/register', newClientData); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'}); setActiveModal(null); await fetchAllData(); } catch (error) { let errorMessage = 'Ocurrió un error inesperado.'; if (error.response?.data?.message) errorMessage = error.response.data.message; else if (error.message) errorMessage = error.message; if (error.response?.status === 403) setActiveModal('upgrade'); else setAlertInfo({ visible: true, title: 'Error de Registro', message: errorMessage }); } finally { setLoading(false); } };
     const handleOpenBillingModal = (client) => { setSelectedClient(client); setBillingModalVisible(true); };
@@ -202,9 +215,69 @@ const ManageClientsScreen = () => {
     const handleEditingClientChange = (name, value) => setEditingClientData(prev => ({ ...prev, [name]: value }));
     const handleUpdateClientSubmit = async () => { if (!editingClientData) return; const updatePayload = { nombre: editingClientData.nombre, apellido: editingClientData.apellido, email: editingClientData.email, dni: editingClientData.dni, sexo: editingClientData.sexo, fechaNacimiento: editingClientData.fechaNacimiento, numeroTelefono: editingClientData.numeroTelefono, telefonoEmergencia: editingClientData.telefonoEmergencia, obraSocial: editingClientData.obraSocial, roles: editingClientData.roles, direccion: editingClientData.direccion, ordenMedicaRequerida: editingClientData.ordenMedicaRequerida, ordenMedicaEntregada: editingClientData.ordenMedicaEntregada, puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios, }; try { await apiClient.put(`/users/${editingClientData._id}`, updatePayload); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' }); setShowEditFormModal(false); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' }); } };
     const handleToggleMedicalOrder = (user) => { const newStatus = !user.ordenMedicaEntregada; const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE"; setAlertInfo({ visible: true, title: `Confirmar Orden Médica`, message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${user.nombre} ${user.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Confirmar", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.put(`/users/${user._id}`, { ordenMedicaEntregada: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, ordenMedicaEntregada: newStatus } : u)); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
+    
+    // --- HANDLER TRANSFERENCIAS ---
+    const handleProcessTransfer = (ticketId, action) => {
+        let actionText = action === 'approve' ? 'APROBAR' : 'RECHAZAR';
+        
+        setAlertInfo({
+            visible: true,
+            title: `Confirmar Acción`,
+            message: `¿Estás seguro de que deseas ${actionText} esta transferencia?`,
+            buttons: [
+                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
+                { 
+                    text: "Confirmar", 
+                    style: action === 'approve' ? "primary" : "destructive", 
+                    onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            // Llama al endpoint de tu backend que creamos en paymentRoutes.js
+                            await apiClient.put(`/payments/ticket/${ticketId}/process`, { action });
+                            
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Éxito', 
+                                message: `Transferencia procesada correctamente.`, 
+                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+                            });
+                            
+                            // Recargamos los datos para que el ticket desaparezca de la lista
+                            fetchAllData(); 
+                        } catch (error) {
+                            setAlertInfo({ 
+                                visible: true, 
+                                title: 'Error', 
+                                message: error.response?.data?.message || 'No se pudo procesar la transferencia.', 
+                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
+                            });
+                        }
+                    } 
+                }
+            ]
+        });
+    };
+
     const getModalConfig = useMemo(() => { const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes]; const roleOptions = [{ _id: 'cliente', nombre: 'Cliente' }, { _id: 'profesor', nombre: 'Profesional' }, { _id: 'admin', nombre: 'Admin' }]; switch (activeModal) { case 'addRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleNewClientChange('roles', [id]), selectedValue: newClientData.roles[0] }; case 'editRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleEditingClientChange('roles', [id]), selectedValue: editingClientData?.roles[0] }; case 'creditsClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setPlanData(prev => ({ ...prev, tipoClaseId: id })), selectedValue: planData.tipoClaseId }; case 'massEnrollClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setMassEnrollFilters(prev => ({ ...prev, tipoClaseId: id, diasDeSemana: [] })), selectedValue: massEnrollFilters.tipoClaseId }; default: return null; } }, [activeModal, classTypes, newClientData.roles, editingClientData?.roles, planData.tipoClaseId, massEnrollFilters.tipoClaseId]);
     const getDisplayName = (id, type) => { if (!id) return 'Seleccionar'; if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || 'Seleccionar'; if (type === 'role') return id.charAt(0).toUpperCase() + id.slice(1); return 'Seleccionar'; };
-    const filteredData = useMemo(() => { if (!searchTerm) return users; return users.filter(user => `${user.nombre} ${user.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) || user.email.toLowerCase().includes(searchTerm.toLowerCase()) ); }, [users, searchTerm]);
+    
+    // 🔥 FIX TECLADO 2: Mejorado buscador
+    const filteredData = useMemo(() => { 
+        if (!searchTerm) return users; 
+        const cleanSearchTerm = searchTerm.trim().toLowerCase();
+        const normalizeText = (text) => {
+            if (!text) return '';
+            return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        };
+        const normalizedSearchTerm = normalizeText(cleanSearchTerm);
+
+        return users.filter(user => {
+            const fullName = normalizeText(`${user.nombre} ${user.apellido}`);
+            const email = normalizeText(user.email);
+            return fullName.includes(normalizedSearchTerm) || email.includes(normalizedSearchTerm);
+        }); 
+    }, [users, searchTerm]);
+
     const getTypeName = (typeId) => { const classType = classTypes.find(t => t._id === typeId); return classType?.nombre || 'Desconocido'; };
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
     const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} /> </TouchableOpacity> </View> ); };
@@ -215,14 +288,13 @@ const ManageClientsScreen = () => {
     const handleToggleUserStatus = async (user, newStatus) => { try { await apiClient.put(`/users/${user._id}/status`, { isActive: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, isActive: newStatus } : u)); setEditingClientData(prev => ({ ...prev, isActive: newStatus })); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado del cliente ha sido actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.' }); setEditingClientData(prev => ({ ...prev, isActive: !newStatus })); } };
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
-    const renderUserCard = ({ item }) => {
+    // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
+    const renderUserCard = useCallback(({ item }) => {
         const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
         const today = startOfDay(new Date()); 
         const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
         const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
         const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
-        
-        // --- CALCULO DEUDA INDIVIDUAL ---
         const balance = item.balance || 0;
         const isDebtor = balance < 0; 
 
@@ -241,7 +313,6 @@ const ManageClientsScreen = () => {
                                 <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
                                     <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
                                     <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
-                                        {/* AQUI SE MUESTRA LO QUE DEBE EL INDIVIDUO */}
                                         {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
                                     </Text>
                                 </View>
@@ -260,10 +331,7 @@ const ManageClientsScreen = () => {
                         </TouchableOpacity>
                          )}
                          {(isPaseLibreActive || isPaseLibreExpired) && (
-                            <TouchableOpacity 
-                                style={dynamicStyles.actionButton} 
-                                onPress={() => handleQuickRemovePaseLibre(item)}
-                            >
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
                                 <Ionicons name="star" size={22} color="#e74c3c" />
                             </TouchableOpacity>
                         )}
@@ -312,6 +380,115 @@ const ManageClientsScreen = () => {
                 )}
             </View>
         );
+    }, [dynamicStyles, classTypes, colorScheme, gymColor]);
+
+    const renderTransferCard = useCallback(({ item }) => {
+        return (
+            <View style={dynamicStyles.card}>
+                <View style={[dynamicStyles.cardTopRow, {borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10, marginBottom: 10}]}>
+                    <View>
+                        <ThemedText style={dynamicStyles.cardTitle}>{item.user.nombre} {item.user.apellido}</ThemedText>
+                        <Text style={dynamicStyles.cardSubtitle}>{format(parseISO(item.createdAt), 'dd/MM/yyyy HH:mm')}hs</Text>
+                    </View>
+                    <View style={[dynamicStyles.roleBadge, {backgroundColor: '#e0f3ffff'}]}>
+                        <Text style={dynamicStyles.roleText}>$ {item.amountTransferred}</Text>
+                    </View>
+                </View>
+
+                <ThemedText style={{fontWeight: 'bold', marginBottom: 10}}>
+                    {item.package ? `Compra de Paquete: ${item.package.name}` : 'Abono de deuda / Monto Libre'}
+                </ThemedText>
+
+                <TouchableOpacity 
+                    style={dynamicStyles.viewReceiptButton}
+                    onPress={() => setImageViewerData(item.receiptUrl)}
+                >
+                    <Ionicons name="image-outline" size={20} color={gymColor} />
+                    <ThemedText style={{color: gymColor, fontWeight: 'bold', marginLeft: 8}}>Ver Comprobante</ThemedText>
+                </TouchableOpacity>
+
+                <View style={{flexDirection: 'row', gap: 10, marginTop: 15}}>
+                    <TouchableOpacity style={[dynamicStyles.button, dynamicStyles.cancelButton]} onPress={() => handleProcessTransfer(item._id, 'reject')}>
+                        <Text style={dynamicStyles.buttonText}>Rechazar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[dynamicStyles.button, { backgroundColor: gymColor }]} onPress={() => handleProcessTransfer(item._id, 'approve')}>
+                        <Text style={dynamicStyles.buttonText}>Aprobar</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }, [dynamicStyles, gymColor]);
+
+    // 🔥 FIX TECLADO 4: Extraemos las rutas fuera del SceneMap para que no se recreen al buscar
+    const renderClientsRoute = () => (
+        <View style={{flex: 1}}>
+            <TouchableOpacity style={dynamicStyles.toggleStatsButton} onPress={() => setShowStats(!showStats)}>
+                <ThemedText style={dynamicStyles.toggleStatsText}>{showStats ? 'Ocultar Estadísticas' : 'Ver Estadísticas'}</ThemedText>
+                <Ionicons name={showStats ? "chevron-up" : "chevron-down"} size={16} color={gymColor} />
+            </TouchableOpacity>
+
+            {showStats && (
+                <View style={dynamicStyles.statsContainer}>
+                    <StatCard label="Clientes Activos" value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`} icon={<Ionicons name="people" size={18} color={gymColor} />} color={Colors[colorScheme].text} action={() => setActiveModal('upgrade')} actionLabel="Ampliar" styles={dynamicStyles} style={{ flex: 1 }} />
+                    <StatCard label="Deuda Total" value={`$${debtStats.totalDebt} `} icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />} color={Colors[colorScheme].text} isValueHidden={!isDebtVisible} onToggleHidden={handleToggleDebtVisibility} styles={dynamicStyles} style={{ flex: 1.3 }} />
+                </View>
+            )}
+            
+            <View style={dynamicStyles.searchInputContainer}>
+                <TextInput
+                    style={dynamicStyles.searchInput}
+                    placeholder="Buscar usuario..."
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                    // 🔥 Mejoras para el teclado móvil
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                />
+                <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={dynamicStyles.searchIcon} />
+            </View>
+            
+            <FlatList
+                data={filteredData}
+                renderItem={renderUserCard}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={{ paddingBottom: 100 }}
+                ListEmptyComponent={<ThemedText style={dynamicStyles.emptyText}>No se encontraron usuarios.</ThemedText>}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="none"
+            />
+            
+            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setScannerVisible(true)}>
+                <Ionicons name="qr-code" size={28} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={dynamicStyles.fab} onPress={handleOpenAddModal}>
+                <Ionicons name="add" size={32} color="#fff" />
+            </TouchableOpacity>
+        </View>
+    );
+
+    const renderTransfersRoute = () => (
+        <View style={{flex: 1}}>
+            <FlatList
+                data={pendingTransfers}
+                renderItem={renderTransferCard}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
+                ListEmptyComponent={<ThemedText style={dynamicStyles.emptyText}>No hay transferencias pendientes.</ThemedText>}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+            />
+        </View>
+    );
+
+    // 🔥 FIX TECLADO 5: Función estable de enrutamiento
+    const renderScene = ({ route }) => {
+        switch (route.key) {
+            case 'clients': return renderClientsRoute();
+            case 'transfers': return renderTransfersRoute();
+            default: return null;
+        }
     };
 
     if (loading) {
@@ -324,98 +501,39 @@ const ManageClientsScreen = () => {
                 <ThemedText style={dynamicStyles.headerTitle}>Gestión de Usuarios</ThemedText>
             </View>
 
-            {/* --- BOTÓN PARA MOSTRAR/OCULTAR ESTADÍSTICAS --- */}
-            <TouchableOpacity 
-                style={dynamicStyles.toggleStatsButton} 
-                onPress={() => setShowStats(!showStats)}
-            >
-                <ThemedText style={dynamicStyles.toggleStatsText}>
-                    {showStats ? 'Ocultar Estadísticas' : 'Ver Estadísticas'}
-                </ThemedText>
-                <Ionicons 
-                    name={showStats ? "chevron-up" : "chevron-down"} 
-                    size={16} 
-                    color={gymColor} 
-                />
-            </TouchableOpacity>
+            {/* 🔥 NUEVO: TabView Integrado 🔥 */}
+            <TabView 
+                navigationState={{ index, routes }} 
+                renderScene={renderScene} 
+                onIndexChange={setIndex} 
+                initialLayout={{ width: layout.width }} 
+                renderTabBar={props => (
+                    <TabBar 
+                        {...props} 
+                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} 
+                        indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} 
+                        labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none' }} 
+                    />
+                )} 
+            />
 
-            {/* --- DASHBOARD STATISTICS (Condicionado por showStats) --- */}
-            {showStats && (
-                <View style={dynamicStyles.statsContainer}>
-                    <StatCard 
-                        label="Clientes Activos"
-                        value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`}
-                        icon={<Ionicons name="people" size={18} color={gymColor} />}
-                        color={Colors[colorScheme].text}
-                        action={() => setActiveModal('upgrade')}
-                        actionLabel="Ampliar"
-                        styles={dynamicStyles} 
-                        style={{ flex: 1 }}
-                    />
-                    
-                    <StatCard 
-                        label="Deuda Total"
-                        value={`$${debtStats.totalDebt} `}
-                        icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />}
-                        color={Colors[colorScheme].text}
-                        isValueHidden={!isDebtVisible}
-                        onToggleHidden={handleToggleDebtVisibility}
-                        styles={dynamicStyles} 
-                        style={{ flex: 1.3 }}
-                    />
-                </View>
+            {/* --- VISOR DE IMÁGENES FULL SCREEN --- */}
+            {imageViewerData && (
+                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
+                    <View style={dynamicStyles.imageViewerOverlay}>
+                        <TouchableOpacity style={dynamicStyles.imageViewerClose} onPress={() => setImageViewerData(null)}>
+                            <Ionicons name="close" size={40} color="#fff" />
+                        </TouchableOpacity>
+                        <Image source={{ uri: imageViewerData }} style={dynamicStyles.imageViewerImage} resizeMode="contain" />
+                    </View>
+                </Modal>
             )}
-            
-            <View style={dynamicStyles.searchInputContainer}>
-                <TextInput
-                    style={dynamicStyles.searchInput}
-                    placeholder="Buscar usuario..."
-                    placeholderTextColor={Colors[colorScheme].icon}
-                    value={searchTerm}
-                    onChangeText={setSearchTerm}
-                />
-                <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={dynamicStyles.searchIcon} />
-            </View>
-            
-            <FlatList
-                data={filteredData}
-                renderItem={renderUserCard}
-                keyExtractor={(item) => item._id}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                ListEmptyComponent={<ThemedText style={dynamicStyles.emptyText}>No se encontraron usuarios.</ThemedText>}
-                refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={onRefresh}
-                            tintColor={gymColor} 
-                        />
-                    }
-            />
-            
-            {/* ... FABS ... */}
-            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setScannerVisible(true)}>
-                <Ionicons name="qr-code" size={28} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity style={dynamicStyles.fab} onPress={handleOpenAddModal}>
-                <Ionicons name="add" size={32} color="#fff" />
-            </TouchableOpacity>
 
-            <UpgradePlanModal
-                visible={activeModal === 'upgrade'}
-                onClose={() => setActiveModal(null)}
-                onConfirm={handleUpgradePlan}
-                currentCount={subscriptionInfo.clientCount}
-                currentLimit={subscriptionInfo.clientLimit}
-                gymColor={gymColor}
-            />
+            {/* --- MODALES EXISTENTES (Intactos) --- */}
+            <UpgradePlanModal visible={activeModal === 'upgrade'} onClose={() => setActiveModal(null)} onConfirm={handleUpgradePlan} currentCount={subscriptionInfo.clientCount} currentLimit={subscriptionInfo.clientLimit} gymColor={gymColor} />
 
-            {/* ... Modales de Add/Edit/Billing/Credits se mantienen igual ... */}
             {showAddFormModal && (
-                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={dynamicStyles.modalOverlayWrapper}
-                    keyboardVerticalOffset={70} 
-                >
+                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={dynamicStyles.modalOverlayWrapper} keyboardVerticalOffset={70} >
                 <Pressable style={dynamicStyles.modalOverlay} onPress={() => setShowAddFormModal(false)}>
                     <Pressable style={dynamicStyles.modalView}>
                         <TouchableOpacity onPress={() => setShowAddFormModal(false)} style={dynamicStyles.closeButton}>
@@ -468,11 +586,7 @@ const ManageClientsScreen = () => {
             )}
 
             {showEditFormModal && (
-                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={dynamicStyles.modalOverlayWrapper}
-                    keyboardVerticalOffset={70} 
-                >
+                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={dynamicStyles.modalOverlayWrapper} keyboardVerticalOffset={70} >
                 <Pressable style={dynamicStyles.modalOverlay} onPress={() => setShowEditFormModal(false)}>
                     {editingClientData && (
                         <Pressable style={dynamicStyles.modalView}>
@@ -518,14 +632,9 @@ const ManageClientsScreen = () => {
                                 )}
                                <View style={dynamicStyles.switchRow}>
                             <ThemedText style={dynamicStyles.inputLabel}>Cuenta Activa</ThemedText>
-                            <Switch
-                                value={editingClientData.isActive}
-                                onValueChange={(value) => handleToggleUserStatus(editingClientData, value)}
-                                trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"}
-                            />
+                            <Switch value={editingClientData.isActive} onValueChange={(value) => handleToggleUserStatus(editingClientData, value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
                         </View>
                                 <View style={dynamicStyles.modalActions}><View style={dynamicStyles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} /></View></View>
-                            
                             </ScrollView>
                         </Pressable>
                     )}
@@ -534,11 +643,7 @@ const ManageClientsScreen = () => {
             )}
 
             {billingModalVisible && (
-                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={dynamicStyles.modalOverlayWrapper}
-                    keyboardVerticalOffset={70} 
-                >
+                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={dynamicStyles.modalOverlayWrapper} keyboardVerticalOffset={70} >
                 <Pressable style={dynamicStyles.modalOverlay} onPress={() => setBillingModalVisible(false)}>
                     <Pressable style={dynamicStyles.modalView}>
                         {selectedClient && <BillingModalContent client={selectedClient} onClose={() => setBillingModalVisible(false)} onRefresh={fetchAllData} />}
@@ -548,11 +653,7 @@ const ManageClientsScreen = () => {
             )}
         
             {creditsModalVisible && (
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={dynamicStyles.modalOverlayWrapper}
-                    keyboardVerticalOffset={70} 
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={dynamicStyles.modalOverlayWrapper} keyboardVerticalOffset={70} >
                 <Pressable style={dynamicStyles.modalOverlay} onPress={() => setCreditsModalVisible(false)}>
                     <Pressable style={dynamicStyles.modalView}>
                         <TouchableOpacity onPress={() => setCreditsModalVisible(false)} style={dynamicStyles.closeButton}>
@@ -627,12 +728,7 @@ const ManageClientsScreen = () => {
                                 </View>
                                 
                                 <View style={dynamicStyles.buttonWrapper}>
-                                    <Button 
-                                        title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} 
-                                        onPress={findAvailableSlots} 
-                                        disabled={isLoadingSlots} 
-                                        color={gymColor || '#1a5276'} 
-                                    />
+                                    <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} />
                                 </View>
                                 
                                 {availableSlots.map((slot, index) => {
@@ -640,12 +736,9 @@ const ManageClientsScreen = () => {
                                     let teacherIdForKey = 'sin-profe';
 
                                     if (slot.profesores && slot.profesores.length > 0) {
-                                        teacherText = slot.profesores
-                                            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
-                                            .join(', ');
+                                        teacherText = slot.profesores.map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '').join(', ');
                                         teacherIdForKey = slot.profesores.map(p => p._id).join('_');
-                                    } 
-                                    else if (slot.profesor && slot.profesor.nombre) {
+                                    } else if (slot.profesor && slot.profesor.nombre) {
                                         teacherText = `${slot.profesor.nombre} ${slot.profesor.apellido || ''}`.trim();
                                         teacherIdForKey = slot.profesor._id;
                                     }
@@ -654,21 +747,13 @@ const ManageClientsScreen = () => {
                                     let isSelected = false;
                                     if (selectedSlot) {
                                         let selTeacherId = 'sin-profe';
-                                        if (selectedSlot.profesores?.length > 0) {
-                                            selTeacherId = selectedSlot.profesores.map(p => p._id).join('_');
-                                        } else if (selectedSlot.profesor?._id) {
-                                            selTeacherId = selectedSlot.profesor._id;
-                                        }
+                                        if (selectedSlot.profesores?.length > 0) { selTeacherId = selectedSlot.profesores.map(p => p._id).join('_'); } else if (selectedSlot.profesor?._id) { selTeacherId = selectedSlot.profesor._id; }
                                         const selDataId = `${selectedSlot.nombre}-${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selTeacherId}`;
                                         isSelected = dataId === selDataId;
                                     }
 
                                     return (
-                                        <TouchableOpacity 
-                                            key={`slot_${index}_${dataId}`} 
-                                            style={[dynamicStyles.slotItem, isSelected && dynamicStyles.slotItemSelected]} 
-                                            onPress={() => setSelectedSlot(slot)}
-                                        >
+                                        <TouchableOpacity key={`slot_${index}_${dataId}`} style={[dynamicStyles.slotItem, isSelected && dynamicStyles.slotItemSelected]} onPress={() => setSelectedSlot(slot)}>
                                             <Text style={isSelected ? dynamicStyles.slotTextSelected : dynamicStyles.slotText}>
                                                 {slot.nombre || 'Turno'} - {teacherText} - {slot.horaInicio}hs - {slot.horaFin}hs
                                             </Text>
@@ -700,35 +785,18 @@ const ManageClientsScreen = () => {
                                     <Text style={{color: gymColor, fontWeight: 'bold'}}>Confirmar</Text>
                                 </TouchableOpacity>
                             </View>
-                            <DateTimePicker
-                                value={datePickerConfig.currentValue}
-                                mode="date"
-                                display="inline" 
-                                onChange={datePickerConfig.onChange}
-                                themeVariant={colorScheme}
-                                style={{backgroundColor: Colors[colorScheme].background}}
-                            />
+                            <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="inline" onChange={datePickerConfig.onChange} themeVariant={colorScheme} style={{backgroundColor: Colors[colorScheme].background}} />
                         </Pressable>
                     </Pressable>
                 </Modal>
             )}
 
-            {/* --- PICKER DE FECHA PARA ANDROID --- */}
             {datePickerConfig.visible && Platform.OS === 'android' && (
-                <DateTimePicker
-                    value={datePickerConfig.currentValue}
-                    mode="date"
-                    display="default"
-                    onChange={datePickerConfig.onChange}
-                />
+                <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="default" onChange={datePickerConfig.onChange} />
             )}
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
-            <QrScannerModal 
-                visible={isScannerVisible}
-                onClose={() => setScannerVisible(false)}
-                onBarcodeScanned={handleGeneralScan}
-            />  
+            <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleGeneralScan} />  
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
 
         </ThemedView>
@@ -737,136 +805,31 @@ const ManageClientsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     
-    modalOverlayWrapper: {
-        ...StyleSheet.absoluteFillObject, 
-        zIndex: 1000, 
-        
-    },
+    modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000, },
     container: { flex: 1 },
-    headerContainer: {
-        backgroundColor: gymColor,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
+    headerContainer: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
-    // --- NUEVO ESTILO: BOTÓN TOGGLE ESTADÍSTICAS ---
-    toggleStatsButton: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 8,
-        backgroundColor: Colors[colorScheme].background,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-    },
-    toggleStatsText: {
-        fontSize: 14,
-        color: Colors[colorScheme].text,
-        fontWeight: '600',
-        marginRight: 5,
-    },
-    // ----------------------------------------------
+    toggleStatsButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, backgroundColor: Colors[colorScheme].background, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, },
+    toggleStatsText: { fontSize: 14, color: Colors[colorScheme].text, fontWeight: '600', marginRight: 5, },
 
-    statsContainer: {
-        flexDirection: 'row', 
-        paddingHorizontal: 15, 
-        paddingTop: 15, 
-        justifyContent: 'space-between', 
-        gap: 12
-    },
+    statsContainer: { flexDirection: 'row', paddingHorizontal: 15, paddingTop: 15, justifyContent: 'space-between', gap: 12 },
 
-    // --- NUEVO STAT CARD (Dashboard Style) ---
-    statCard: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 12,
-        padding: 12,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-        shadowOffset: { width: 0, height: 2 },
-        justifyContent: 'space-between',
-        borderWidth: 1, borderColor: Colors[colorScheme].border
-    },
-    statHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8
-    },
-    statLabel: {
-        fontSize: 11,
-        color: Colors[colorScheme].icon,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5
-    },
-    statContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8
-    },
-    iconCircle: {
-        width: 32, height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-    statValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        letterSpacing: 0.5
-    },
-    statAction: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderRadius: 6,
-        alignSelf: 'flex-start'
-    },
-    statActionText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        marginRight: 4
-    },
-    // ----------------------------------------
+    statCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 12, padding: 12, elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, justifyContent: 'space-between', borderWidth: 1, borderColor: Colors[colorScheme].border },
+    statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    statLabel: { fontSize: 11, color: Colors[colorScheme].icon, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+    statContent: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    iconCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+    statValue: { fontSize: 18, fontWeight: 'bold', letterSpacing: 0.5 },
+    statAction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, alignSelf: 'flex-start' },
+    statActionText: { fontSize: 10, fontWeight: 'bold', marginRight: 4 },
 
-    searchInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        margin: 15,
-        height: 50,
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 15,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        color: Colors[colorScheme].text,
-        fontSize: 16
-    }, 
-    searchInput: {
-        height: 50,
-        color: Colors[colorScheme].text,
-        fontSize: 16
-    },
-    searchIcon: {
-        marginRight: 15,
-    },
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', margin: 15, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 }, 
+    searchInput: { height: 50, color: Colors[colorScheme].text, fontSize: 16 },
+    searchIcon: { marginRight: 15, },
     card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    inactiveCard: {
-        opacity: 0.6,
-        backgroundColor: Colors[colorScheme].background,
-    },
+    inactiveCard: { opacity: 0.6, backgroundColor: Colors[colorScheme].background, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5, },
     userInfo: { flex: 1, marginRight: 10 },
     cardTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -880,10 +843,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     clienteBadge: { backgroundColor: '#e0f3ffff' },
     profesorBadge: { backgroundColor: '#d1e7dd' },
     adminBadge: { backgroundColor: '#eff7d3ff' },
-    balanceBadge: { 
-        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, 
-        flexDirection: 'row', alignItems: 'center', 
-    },
+    balanceBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center', },
     debtBadge: { backgroundColor: '#fdf2f2', borderColor: '#e74c3c', borderWidth: 1 },
     paidBadge: { backgroundColor: '#f0fdf4', borderColor: '#27ae60', borderWidth: 1 },
     balanceText: { fontSize: 10, fontWeight: 'bold' },
@@ -917,81 +877,32 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     buttonWrapper: { borderRadius: 8, overflow: 'hidden', marginTop: 10, },
     filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 45, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, marginBottom: 15, backgroundColor: Colors[colorScheme].background, },
     filterButtonText: { fontSize: 14, color: Colors[colorScheme].text, },
-    counterContainer: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, elevation: 1, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border, height: 60},
+    counterContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, elevation: 1, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border, height: 60},
     counterLabel: { fontSize: 12, color: Colors[colorScheme].text },
     counterText: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
     overLimitText: { color: '#e74c3c' },
-    upgradeButton: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: gymColor,
-        paddingVertical: 6, paddingHorizontal: 10, borderRadius: 5,
-    },
+    upgradeButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: gymColor, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 5, },
     upgradeButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 12 },
-    fabScanner: { 
-        position: 'absolute', width: 60, height: 60, alignItems: 'center',
-        justifyContent: 'center', right: 90, bottom: 20, 
-        backgroundColor:'#7f8c8d', 
-        borderRadius: 30, elevation: 8,
-    },
-    paseLibreContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#00ce9bff', 
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginTop: 6,
-        alignSelf: 'flex-start',
-    },
-    paseLibreText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 'bold',
-        marginLeft: 4,
-    },
-    dateFieldContainer: {
-        marginBottom: 15,
-    },
-    dateInputTouchable: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 50,
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        borderColor: Colors[colorScheme].border,
-        borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 15,
-    },
-    dateInputText: {
-        fontSize: 16,
-        color: Colors[colorScheme].text,
-    },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    iosPickerOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    iosPickerContainer: {
-        backgroundColor: Colors[colorScheme].background, 
-        borderTopLeftRadius: 15,
-        borderTopRightRadius: 15,
-        paddingBottom: 20, 
-        paddingHorizontal: 10,
-    },
-    iosPickerHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
-        marginBottom: 10,
-    },
+    fabScanner: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 90, bottom: 20, backgroundColor:'#7f8c8d', borderRadius: 30, elevation: 8, },
+    paseLibreContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00ce9bff', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6, alignSelf: 'flex-start', },
+    paseLibreText: { color: '#fff', fontSize: 10, fontWeight: 'bold', marginLeft: 4, },
+    dateFieldContainer: { marginBottom: 15, },
+    dateInputTouchable: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, },
+    dateInputText: { fontSize: 16, color: Colors[colorScheme].text, },
+    row: { flexDirection: 'row', justifyContent: 'space-between', },
+    iosPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)', },
+    iosPickerContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, paddingBottom: 20, paddingHorizontal: 10, },
+    iosPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, marginBottom: 10, },
+
+    // --- NUEVOS ESTILOS: TRANSFERENCIAS Y VISOR DE IMÁGENES ---
+    button: { flex: 1, paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+    cancelButton: { backgroundColor: '#6c757d' },
+    buttonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+    viewReceiptButton: { flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: gymColor + '10', borderRadius: 5, alignSelf: 'flex-start' },
+    
+    imageViewerOverlay: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
+    imageViewerImage: { width: '100%', height: '80%' },
 });
 
 export default ManageClientsScreen;

@@ -20,31 +20,10 @@ const settingsSchema = new mongoose.Schema({
             default: 1 
         }
     },
-    mercadoPago: {
-        isLinked: {
-            type: Boolean,
-            default: false
-        },
-        accessToken: {
-            type: String,
-            default: null
-        },
-        refreshToken: {
-            type: String,
-            default: null
-        },
-        publicKey: {
-            type: String,
-            default: null
-        },
-        userId: {
-            type: String,
-            default: null
-        },
-        linkedAt: {
-            type: Date,
-            default: null
-        }
+    bankDetails: {
+        cbu: { type: String, default: '' },
+        alias: { type: String, default: '' },
+        bankName: { type: String, default: '' }
     }
 });
 
