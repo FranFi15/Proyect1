@@ -229,6 +229,8 @@ const processTransferTicket = asyncHandler(async (req, res) => {
 export {
     createPackage,
     getPackages,
+    updatePackage,
+    deletePackage,
     submitTransferReceipt,
     getPendingRequests,
     processTransferTicket
