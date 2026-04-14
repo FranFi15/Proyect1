@@ -22,7 +22,20 @@ router.post('/packages', createPackage); // Solo admin (luego lo puedes proteger
 router.get('/packages', getPackages); // Clientes y Admin
 
 // Rutas de Tickets (Comprobantes)
-router.post('/ticket', upload.single('receipt'), submitTransferReceipt); // El cliente envía comprobante
+router.post('/ticket', (req, res, next) => {
+    // Envolvemos la subida para capturar errores de Cloudinary
+    upload.single('receipt')(req, res, (err) => {
+        if (err) {
+            console.error('🔥 ERROR DE MULTER/CLOUDINARY 🔥:', err);
+            return res.status(400).json({ 
+                message: 'Error al subir la imagen a Cloudinary', 
+                detalle: err.message 
+            });
+        }
+        // Si no hay error, pasamos al controlador
+        next();
+    });
+}, submitTransferReceipt); // El cliente envía comprobante
 router.get('/tickets/pending', getPendingRequests); // El admin ve los pendientes
 router.put('/ticket/:id/process', processTransferTicket); // El admin aprueba/rechaza
 
