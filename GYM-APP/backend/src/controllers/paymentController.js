@@ -21,6 +21,41 @@ const createPackage = asyncHandler(async (req, res) => {
     res.status(201).json(newPackage);
 });
 
+// @desc    Editar un paquete existente
+const updatePackage = asyncHandler(async (req, res) => {
+    const { PaymentPackage } = getModels(req.gymDBConnection);
+    const packageId = req.params.id;
+
+    const updatedPackage = await PaymentPackage.findByIdAndUpdate(
+        packageId, 
+        req.body, 
+        { new: true } // Devuelve el documento actualizado
+    );
+
+    if (!updatedPackage) {
+        res.status(404);
+        throw new Error('Paquete no encontrado.');
+    }
+    res.json(updatedPackage);
+});
+
+// @desc    "Eliminar" un paquete (Ocultarlo para no romper historiales)
+const deletePackage = asyncHandler(async (req, res) => {
+    const { PaymentPackage } = getModels(req.gymDBConnection);
+    const packageId = req.params.id;
+
+    const pkg = await PaymentPackage.findById(packageId);
+    if (!pkg) {
+        res.status(404);
+        throw new Error('Paquete no encontrado.');
+    }
+
+    pkg.isActive = false; // Lo ocultamos
+    await pkg.save();
+
+    res.json({ message: 'Paquete eliminado correctamente.' });
+});
+
 // @desc    Obtener todos los paquetes activos (Clientes y Admin)
 const getPackages = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
