@@ -192,9 +192,9 @@ const TransferPaymentModal = ({ onClose }) => {
                 
                 {gymBankDetails && (gymBankDetails.cbu || gymBankDetails.alias) ? (
                     <View style={styles.bankInfoCard}>
-                        {gymBankDetails.cbu ? <Text style={styles.bankInfoText}>💳 CBU/CVU: {gymBankDetails.cbu}</Text> : null}
-                        {gymBankDetails.alias ? <Text style={styles.bankInfoText}>🏷️ Alias: {gymBankDetails.alias}</Text> : null}
-                        {gymBankDetails.bankName ? <Text style={styles.bankInfoText}>🏦 Banco: {gymBankDetails.bankName}</Text> : null}
+                        {gymBankDetails.cbu ? <Text style={styles.bankInfoText}>CBU/CVU: {gymBankDetails.cbu}</Text> : null}
+                        {gymBankDetails.alias ? <Text style={styles.bankInfoText}>Alias: {gymBankDetails.alias}</Text> : null}
+                        {gymBankDetails.bankName ? <Text style={styles.bankInfoText}>Banco: {gymBankDetails.bankName}</Text> : null}
                     </View>
                 ) : (
                     <View style={styles.bankInfoCard}>
