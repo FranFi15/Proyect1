@@ -584,7 +584,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
             } catch (error) {
                 console.error("Error en la notificación retrasada de 0 créditos:", error);
             }
-        }, 2500); 
+        }, 5000); 
     }
 });
 
