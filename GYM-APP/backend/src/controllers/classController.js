@@ -553,8 +553,8 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 
     // 🔥 3. Comprobamos si tiene 0 (Y descartamos si usó pase libre o universal)
     if (!tienePaseLibreValidoParaEsteTurno && creditosRestantes === 0) {
-        const title = "¡Te quedaste sin créditos! 🏃‍♂️";
-        const message = `Has usado tu último crédito para ${classItem.tipoClase.nombre}. ¡Adquiere un nuevo paquete para no perder tu ritmo!`;
+        const title = "¡Te quedaste sin créditos! ";
+        const message = `Usaste tu último crédito para ${classItem.tipoClase.nombre}. `;
 
         await sendSingleNotification(
             Notification, 
@@ -562,7 +562,8 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
             user._id, 
             title, 
             message, 
-            'out_of_credits'
+            'out_of_credits',
+            true,
         );
 
         if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
