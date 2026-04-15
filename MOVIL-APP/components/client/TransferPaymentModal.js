@@ -5,6 +5,7 @@ import {
     TextInput, ActivityIndicator, ScrollView, useColorScheme, Platform 
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard'; // 🔥 NUEVO: Importamos el portapapeles
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient'; 
@@ -27,18 +28,18 @@ const TransferPaymentModal = ({ onClose }) => {
     const [image, setImage] = useState(null);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '' });
     const [gymBankDetails, setGymBankDetails] = useState(null);
+    
+    // 🔥 NUEVO: Estado para ocultar/mostrar los datos bancarios
+    const [showBankDetails, setShowBankDetails] = useState(false);
 
-    // 🔥 MEJORA: Peticiones independientes para que un error no rompa todo el modal
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Cargar Tipos de Clase
                 try {
                     const typesResponse = await apiClient.get('/tipos-clase');
                     setClassTypes(typesResponse.data.tiposClase || []);
                 } catch (e) { console.log("Error cargando tipos de clase:", e.message); }
 
-                // 2. Cargar Datos Bancarios
                 try {
                     const settingsResponse = await apiClient.get('/settings');
                     if (settingsResponse.data && settingsResponse.data.bankDetails) {
@@ -46,7 +47,6 @@ const TransferPaymentModal = ({ onClose }) => {
                     }
                 } catch (e) { console.log("Error cargando settings:", e.message); }
 
-                // 3. Cargar Paquetes de Pago
                 try {
                     const pkgResponse = await apiClient.get('/payments/packages');
                     setPackages(pkgResponse.data);
@@ -83,7 +83,13 @@ const TransferPaymentModal = ({ onClose }) => {
         }
     };
 
-  const handleSubmit = async () => {
+    // 🔥 NUEVA FUNCIÓN: Para copiar al portapapeles
+    const handleCopy = async (text, fieldName) => {
+        await Clipboard.setStringAsync(text);
+        
+    };
+
+    const handleSubmit = async () => {
         let amountToPay = 0;
         if (selectedPackage) {
             amountToPay = Number(selectedPackage.price);
@@ -108,17 +114,13 @@ const TransferPaymentModal = ({ onClose }) => {
             }
             formData.append('amountTransferred', String(amountToPay));
             
-            // 🔥 PREPARAMOS LA IMAGEN SEGÚN LA PLATAFORMA 🔥
             let filename = image.fileName || 'comprobante.png';
 
             if (Platform.OS === 'web') {
-                // EN LA WEB: Convertimos la URI en un Blob real
                 const response = await fetch(image.uri);
                 const blob = await response.blob();
                 formData.append('receipt', blob, filename);
-                console.log("Armando imagen para WEB...");
             } else {
-                // EN CELULARES: Estructura nativa de React Native
                 const localUri = image.uri;
                 if (!filename.includes('.')) filename = 'comprobante.jpg';
 
@@ -134,18 +136,13 @@ const TransferPaymentModal = ({ onClose }) => {
                     name: filename,
                     type: mimeType
                 });
-                console.log("Armando imagen para CELULAR...");
             }
 
-            // 🔥 CONFIGURAMOS LOS HEADERS INTELIGENTEMENTE 🔥
             const headers = { 'Accept': 'application/json' };
-            // En la Web NO debemos forzar el Content-Type para que el navegador ponga el boundary automático.
-            // En Celulares SÍ debemos ponerlo.
             if (Platform.OS !== 'web') {
                 headers['Content-Type'] = 'multipart/form-data';
             }
 
-            // Volvemos a usar tu apiClient para que inyecte los Tokens automáticamente
             await apiClient.post('/payments/ticket', formData, { headers });
 
             setAlertInfo({ 
@@ -156,7 +153,6 @@ const TransferPaymentModal = ({ onClose }) => {
                     text: 'Genial', 
                     style: 'primary', 
                     onPress: () => {
-                        // 1. Ocultamos la alerta primero para evitar el freeze
                         setAlertInfo(prev => ({ ...prev, visible: false }));
                         setTimeout(() => {
                             if (onClose) onClose();
@@ -190,11 +186,44 @@ const TransferPaymentModal = ({ onClose }) => {
 
                 <Text style={styles.title}>Informar Pago</Text>
                 
+                {/* 🔥 SECCIÓN BANCARIA MEJORADA CON TOGGLE Y BOTONES DE COPIAR 🔥 */}
                 {gymBankDetails && (gymBankDetails.cbu || gymBankDetails.alias) ? (
-                    <View style={styles.bankInfoCard}>
-                        {gymBankDetails.cbu ? <Text style={styles.bankInfoText}>CBU/CVU: {gymBankDetails.cbu}</Text> : null}
-                        {gymBankDetails.alias ? <Text style={styles.bankInfoText}>Alias: {gymBankDetails.alias}</Text> : null}
-                        {gymBankDetails.bankName ? <Text style={styles.bankInfoText}>Banco: {gymBankDetails.bankName}</Text> : null}
+                    <View style={styles.bankSection}>
+                        <TouchableOpacity 
+                            style={styles.toggleBankBtn} 
+                            onPress={() => setShowBankDetails(!showBankDetails)}
+                        >
+                            <Ionicons name={showBankDetails ? "eye-off-outline" : "eye-outline"} size={20} color={gymColor} />
+                            <Text style={[styles.toggleBankText, {color: gymColor}]}>
+                                {showBankDetails ? 'Ocultar datos para transferencia' : 'Ver datos para transferencia'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {showBankDetails && (
+                            <View style={styles.bankInfoCard}>
+                                {gymBankDetails.cbu ? (
+                                    <View style={styles.copyRow}>
+                                        <Text style={styles.bankInfoText}>CBU/CVU: {gymBankDetails.cbu}</Text>
+                                        <TouchableOpacity style={styles.copyIcon} onPress={() => handleCopy(gymBankDetails.cbu, 'CBU/CVU')}>
+                                            <Ionicons name="copy-outline" size={20} color={gymColor} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null}
+                                
+                                {gymBankDetails.alias ? (
+                                    <View style={styles.copyRow}>
+                                        <Text style={styles.bankInfoText}>Alias: {gymBankDetails.alias}</Text>
+                                        <TouchableOpacity style={styles.copyIcon} onPress={() => handleCopy(gymBankDetails.alias, 'Alias')}>
+                                            <Ionicons name="copy-outline" size={20} color={gymColor} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null}
+                                
+                                {gymBankDetails.bankName ? (
+                                    <Text style={styles.bankInfoText}>Banco: {gymBankDetails.bankName}</Text>
+                                ) : null}
+                            </View>
+                        )}
                     </View>
                 ) : (
                     <View style={styles.bankInfoCard}>
@@ -268,7 +297,6 @@ const TransferPaymentModal = ({ onClose }) => {
                                 </TouchableOpacity>
                             )}
 
-                            {/* 🔥 MEJORA: Filtro más robusto a prueba de errores de base de datos */}
                             {packages
                                 .filter(pkg => {
                                     if (selectedCategory === 'all') return true;
@@ -347,19 +375,21 @@ const TransferPaymentModal = ({ onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: { 
-        position: 'absolute', 
-        top: 0, left: 0, right: 0, bottom: 0, 
-        backgroundColor: 'rgba(0,0,0,0.5)', 
-        justifyContent: 'flex-end',
-        zIndex: 9999, 
-        elevation: 9999
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+        backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 9999, elevation: 9999
     },
     modalView: { backgroundColor: Colors[colorScheme].background, height: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     title: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 15, textAlign: 'center' },
     
-    bankInfoCard: { backgroundColor: '#eef2f3', padding: 15, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#d0d8dc' },
-    bankInfoText: { fontSize: 14, color: '#2c3e50', marginBottom: 5, fontWeight: '600' },
+    // 🔥 Estilos nuevos para la sección bancaria
+    bankSection: { marginBottom: 20 },
+    toggleBankBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, backgroundColor: gymColor + '15', borderRadius: 8, borderWidth: 1, borderColor: gymColor + '30' },
+    toggleBankText: { fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
+    bankInfoCard: { padding: 15, marginTop: 10, borderRadius: 8, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    copyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    bankInfoText: { fontSize: 15, color: Colors[colorScheme].text, flex: 1, fontWeight: '600' },
+    copyIcon: { padding: 5 },
     
     debtAlert: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf2f2', padding: 10, borderRadius: 8, borderColor: '#e74c3c', borderWidth: 1, marginBottom: 15 },
     debtText: { color: '#c0392b', fontWeight: 'bold', marginLeft: 8 },
@@ -367,15 +397,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginTop: 10, marginBottom: 10 },
     
     filterChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        marginRight: 8,
-        justifyContent: 'center',
-        alignItems: 'center'
+        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+        borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground,
+        marginRight: 8, justifyContent: 'center', alignItems: 'center'
     },
 
     packagesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },

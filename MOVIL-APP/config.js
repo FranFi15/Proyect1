@@ -1,5 +1,5 @@
 
-const ENV = process.env.EXPO_PUBLIC_ENV || 'staging'; // Valor por defecto a 'staging' si no se define
+const ENV = process.env.EXPO_PUBLIC_ENV || 'prod'; // Valor por defecto a 'staging' si no se define
 
 const environments = {
   staging: {
