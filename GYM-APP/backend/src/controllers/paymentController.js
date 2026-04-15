@@ -3,6 +3,8 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 import { format } from 'date-fns';
+import { Expo } from 'expo-server-sdk';
+const expo = new Expo();
 
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
@@ -65,17 +67,15 @@ const getPackages = asyncHandler(async (req, res) => {
 });
 
 // @desc    El cliente envía el comprobante de transferencia
+// @desc    El cliente envía el comprobante de transferencia
 const submitTransferReceipt = asyncHandler(async (req, res) => {
-    const { PaymentRequest, PaymentPackage } = getModels(req.gymDBConnection);
+    const { PaymentRequest, PaymentPackage, User } = getModels(req.gymDBConnection);
     const { packageId, amountTransferred } = req.body;
 
-    // 🔥 FIX: Buscar la URL en las diferentes propiedades que puede devolver Cloudinary
     let receiptUrl = null;
     if (req.file) {
         receiptUrl = req.file.secure_url || req.file.path || req.file.url;
     }
-
-    console.log("Datos recibidos en el servidor:", { packageId, amountTransferred, receiptUrl }); // <-- Agrega este log para depurar
 
     if (!amountTransferred || !receiptUrl) {
         res.status(400);
@@ -97,6 +97,40 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
         receiptUrl,
         status: 'pending'
     });
+
+    // 🔥 LA MAGIA DE LAS NOTIFICACIONES PUSH 🔥
+    try {
+        // Buscamos a todos los Admins que tengan un Token de celular guardado
+        const admins = await User.find({ 
+            roles: 'admin', 
+            pushToken: { $exists: true, $ne: '' } 
+        });
+
+        if (admins.length > 0) {
+            let messages = [];
+            for (let admin of admins) {
+                // Verificamos que el token sea válido para Expo
+                if (!Expo.isExpoPushToken(admin.pushToken)) continue;
+
+                messages.push({
+                    to: admin.pushToken,
+                    sound: 'default',
+                    title: '¡Nueva Transferencia!',
+                    body: `${req.user.nombre} ha informado un pago de $${amountTransferred}.`,
+                    data: { route: 'ManageClients' },
+                });
+            }
+
+            // Expo recomienda enviar los mensajes en "bloques" por si son muchos
+            let chunks = expo.chunkPushNotifications(messages);
+            for (let chunk of chunks) {
+                await expo.sendPushNotificationsAsync(chunk);
+            }
+            console.log("Notificación push enviada a administradores.");
+        }
+    } catch (pushError) {
+        console.error("Error enviando notificaciones push:", pushError);
+    }
 
     res.status(201).json({ message: 'Comprobante enviado con éxito. Esperando aprobación del administrador.', ticket });
 });
@@ -214,7 +248,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
 
         await sendSingleNotification(
             Notification, User, user._id, 
-            "Transferencia Aprobada ✅", 
+            "Transferencia Aprobada ", 
             `Hemos verificado tu pago de $${ticket.amountTransferred}. Tu saldo ha sido actualizado.`, 
             'transaction_payment', false
         );
