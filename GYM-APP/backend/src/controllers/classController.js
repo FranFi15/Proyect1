@@ -545,41 +545,46 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     user.markModified('creditosPorTipo');
     await user.save();
     await classItem.save();
+    
+    // El cliente recibe su éxito inmediatamente
     res.json({ message: 'Inscripción exitosa.', class: classItem });
 
-    // 🔥 2. SOLUCIÓN: Obtenemos el ID de forma segura después de guardar
+    // Obtenemos los créditos restantes
     const tipoClaseId = classItem.tipoClase._id.toString();
     const creditosRestantes = user.creditosPorTipo.get(tipoClaseId);
 
-    // 🔥 3. Comprobamos si tiene 0 (Y descartamos si usó pase libre o universal)
+    // Comprobamos si tiene 
     if (!tienePaseLibreValidoParaEsteTurno && creditosRestantes === 0) {
-        const title = "¡Te quedaste sin créditos! ";
-        const message = `Usaste tu último crédito para ${classItem.tipoClase.nombre}. `;
 
-        await sendSingleNotification(
-            Notification, 
-            User, 
-            user._id, 
-            title, 
-            message, 
-            'out_of_credits',
-            true,
-        );
-
-        if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
+        setTimeout(async () => {
             try {
-                await expo.sendPushNotificationsAsync([{
-                    to: user.pushToken,
-                    sound: 'default',
-                    title: title,
-                    body: message,
-                    data: { route: 'Packages' },
-                }]);
-                console.log(`Aviso de 0 créditos enviado a ${user.email}`);
-            } catch (pushError) {
-                console.error("Error enviando push de sin créditos:", pushError);
+                const title = "¡Te quedaste sin créditos! ";
+                const message = `Usaste tu último crédito para ${classItem.tipoClase.nombre}. `;
+
+                await sendSingleNotification(
+                    Notification, 
+                    User, 
+                    user._id, 
+                    title, 
+                    message, 
+                    'out_of_credits',
+                    true,
+                );
+
+                if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
+                    await expo.sendPushNotificationsAsync([{
+                        to: user.pushToken,
+                        sound: 'default',
+                        title: title,
+                        body: message,
+                        data: { route: 'Packages' },
+                    }]);
+                    console.log(`Aviso de 0 créditos enviado a ${user.email}`);
+                }
+            } catch (error) {
+                console.error("Error en la notificación retrasada de 0 créditos:", error);
             }
-        }
+        }, 2500); 
     }
 });
 
