@@ -195,7 +195,8 @@ const processTransferTicket = asyncHandler(async (req, res) => {
             type: 'payment',
             amount: ticket.amountTransferred,
             description: ticket.package ? `Transferencia por: ${ticket.package.name}` : 'Abono de deuda por transferencia',
-            createdBy: req.user._id 
+            createdBy: req.user._id ,
+            receiptUrl: ticket.receiptUrl
         });
 
         // --- 2. ENTREGAR EL PAQUETE (Si compró uno) ---
