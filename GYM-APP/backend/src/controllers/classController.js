@@ -545,6 +545,39 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     await user.save();
     await classItem.save();
     res.json({ message: 'Inscripción exitosa.', class: classItem });
+
+    const creditosRestantes = user.creditosPorTipo.get(tipoClaseId.toString());
+
+    if (creditosRestantes === 0) {
+    const title = "¡Te quedaste sin créditos! 🏃‍♂️";
+    const message = `Has usado tu último crédito para ${tipoClase.nombre}. ¡Adquiere un nuevo paquete para no perder tu ritmo!`;
+
+    // 1. Guardamos la notificación en la base de datos (campanita de la app)
+    await sendSingleNotification(
+        Notification, 
+        User, 
+        user._id, 
+        title, 
+        message, 
+        'out_of_credits'
+    );
+
+    // 2. Disparamos la Notificación Push al celular del cliente
+    if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
+        try {
+            await expo.sendPushNotificationsAsync([{
+                to: user.pushToken,
+                sound: 'default',
+                title: title,
+                body: message,
+                data: { route: 'Packages' }, // Opcional: para que al tocar la noti los lleve a comprar
+            }]);
+            console.log(`Aviso de 0 créditos enviado a ${user.email}`);
+        } catch (pushError) {
+            console.error("Error enviando push de sin créditos:", pushError);
+        }
+    }
+}
 });
 
 const unenrollUserFromClass = asyncHandler(async (req, res) => {
