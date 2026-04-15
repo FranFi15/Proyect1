@@ -179,7 +179,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
         await sendSingleNotification(
             Notification, User, user._id, 
             "Transferencia Rechazada", 
-            `Tu comprobante por $${ticket.amountTransferred} ha sido rechazado. Motivo: ${ticket.adminNotes}`, 
+            `Tu comprobante por $${ticket.amountTransferred} fue rechazado. Motivo: ${ticket.adminNotes}`, 
             'transaction_rejected', true
         );
 
@@ -250,7 +250,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
         await sendSingleNotification(
             Notification, User, user._id, 
             "Transferencia Aprobada ", 
-            `Hemos verificado tu pago de $${ticket.amountTransferred}. Tu saldo ha sido actualizado.`, 
+            `Verificamos tu pago de $${ticket.amountTransferred}. Tu saldo fue actualizado.`, 
             'transaction_payment', false
         );
 

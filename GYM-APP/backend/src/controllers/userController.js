@@ -334,8 +334,8 @@ const updateUserPlan = asyncHandler(async (req, res) => {
 
         const title = "Actualización de Créditos";
         const message = creditsToAddNum > 0 
-            ? `Se te han acreditado ${creditsToAddNum} créditos para ${tipoClase.nombre}.`
-            : `Se han descontado ${Math.abs(creditsToAddNum)} créditos de ${tipoClase.nombre}.`;
+            ? `Se te acreditaron ${creditsToAddNum} créditos para ${tipoClase.nombre}.`
+            : `Se te descotaron ${Math.abs(creditsToAddNum)} créditos de ${tipoClase.nombre}.`;
         
         await sendSingleNotification(Notification, User, userId, title, message, 'credit_update', false);
     }
@@ -532,7 +532,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
     // 4. Notificar al usuario sobre su nuevo plan.
     const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Has sido inscrito en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${format(new Date(fechaFin), 'dd/MM/yyyy')}.`;
+    const message = `Se te inscribió en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${format(new Date(fechaFin), 'dd/MM/yyyy')}.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
 
     res.status(200).json({

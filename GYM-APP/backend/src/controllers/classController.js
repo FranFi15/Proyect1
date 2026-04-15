@@ -260,8 +260,8 @@ const updateClass = asyncHandler(async (req, res) => {
                 Notification,
                 User,
                 user._id,
-                "⚠️ Cambio de Horario",
-                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} ha sido reprogramado a las ${updatedClass.horaInicio}hs.`,
+                "Cambio de Horario",
+                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} fue reprogramado a las ${updatedClass.horaInicio}hs.`,
                 'class_update', 
                 true,
                 updatedClass._id
@@ -389,7 +389,7 @@ const deleteClass = asyncHandler(async (req, res) => {
                     User,
                     user._id,
                     "Turno Eliminado",
-                    `El turno de "${classItem.nombre}" del día ${fechaLegible} a las ${classItem.horaInicio}hs ha sido eliminado por el administrador.${mensajeExtra}`,
+                    `El turno de "${classItem.nombre}" del día ${fechaLegible} a las ${classItem.horaInicio}hs fue eliminado por el administrador.${mensajeExtra}`,
                     'class_deletion',
                     true,
                     null
@@ -568,7 +568,6 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
                     title, 
                     message, 
                     'out_of_credits',
-                    true,
                 );
 
                 if (user.pushToken && Expo.isExpoPushToken(user.pushToken)) {
@@ -656,7 +655,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     
     if (clase.waitlist && clase.waitlist.length > 0) {
         const title = "¡Lugar Disponible!";
-        const message = `Se ha liberado un lugar en el turno de "${clase.nombre || clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs. ¡Corre a inscribirte!`;
+        const message = `Se libero un lugar en el turno de "${clase.nombre || clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs. ¡Corre a inscribirte!`;
 
         for (const waitingUserId of clase.waitlist) {
             await sendSingleNotification(
@@ -856,7 +855,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                         const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
                         user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
                         await user.save();
-                        mensajeExtra = " Se te ha reembolsado 1 crédito.";
+                        mensajeExtra = " Se te reembolso 1 crédito.";
                     }
 
                     // Notificación al usuario
@@ -865,7 +864,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                         User,
                         user._id,
                         "Turno Reprogramado/Cancelado",
-                        `El administrador ha modificado los días del turno "${inst.nombre}". La clase del ${fechaLegible} a las ${inst.horaInicio}hs ha sido cancelada.${mensajeExtra}`,
+                        `El administrador modifico los días del turno "${inst.nombre}". El turno del ${fechaLegible} a las ${inst.horaInicio}hs fue reprogramado/cancelado.${mensajeExtra}`,
                         'class_deletion',
                         false,
                         null
@@ -1158,7 +1157,7 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
     }
 
     if (allAffectedUserIds.size > 0) {
-        const notificationMessage = `Atención: Todas los turnos del día ${startOfDay.toLocaleDateString('es-AR')} han sido cancelados. ${refundCredits ? 'Se te ha reembolsado el crédito por los turnos a los que estabas inscrito.' : ''}`;
+        const notificationMessage = `Atención: Todos los turnos del día ${startOfDay.toLocaleDateString('es-AR')} fueron cancelados. ${refundCredits ? 'Se te rembolso el crédito por los turnos inscritos.' : ''}`;
         const notificationPromises = Array.from(allAffectedUserIds).map(userId =>
             sendSingleNotification(Notification, User, userId, "Clases Canceladas", notificationMessage, 'class_cancellation', true)
         );
@@ -1287,7 +1286,7 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
 
     try {
         const title = `Confirmación de lista de espera`;
-        const message = `Te has apuntado a la lista de espera para el turno de "${clase.nombre}" del día ${format(new Date(clase.fecha), 'dd/MM')}. ¡Te avisaremos si se libera un lugar!`;
+        const message = `Te anotaste a la lista de espera para el turno de "${clase.nombre}" del día ${format(new Date(clase.fecha), 'dd/MM')}. ¡Te avisamos cundo se libere un lugar!`;
 
         await sendSingleNotification(
             Notification, User, req.user._id, title, message, 'waitlist_subscription', true, clase._id
@@ -1297,7 +1296,7 @@ const subscribeToWaitlist = asyncHandler(async (req, res) => {
     }
 
     await clase.save();
-    res.status(200).json({ message: 'Te has apuntado a la lista de espera. Se te notificará si hay un lugar.' });
+    res.status(200).json({ message: 'Anotado en lista de espera' });
 });
 
 const unsubscribeFromWaitlist = asyncHandler(async (req, res) => {
@@ -1438,7 +1437,7 @@ const removeUserFromClass = asyncHandler(async (req, res) => {
     await user.save();
 
     const title = "Anulación de turno";
-    const message = `Se te ha dado de baja del turno de "${clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs.`;
+    const message = `Se te dio de baja del turno de "${clase.tipoClase.nombre}" del día ${format(clase.fecha, 'dd/MM')} a las ${clase.horaInicio}hs.`;
     await sendSingleNotification(Notification, User, userId, title, message, 'manual_unenrollment');
 
     res.status(200).json({ message: 'Usuario eliminado de la clase.' });

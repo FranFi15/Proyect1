@@ -70,7 +70,7 @@ const runDebtorNotificationJob = async () => {
                 for (const user of debtorsToNotify) {
                     const title = 'Recordatorio de Saldo Pendiente';
                     const debtAmount = Math.abs(user.balance);
-                    const message = `Hola ${user.nombre}, te recordamos que tienes un saldo pendiente de $${debtAmount.toFixed(2)}.`;
+                    const message = `Hola ${user.nombre}, te recordamos que tenes un saldo pendiente de $${debtAmount.toFixed(2)}.`;
                     
                     await sendSingleNotification(
                         Notification, User, user._id, 
