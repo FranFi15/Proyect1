@@ -128,7 +128,8 @@ const registerUser = asyncHandler(async (req, res) => {
                     user._id,
                     "¡Bienvenido/a! ",
                     `Te regalamos ${courtesyNotificationData.amount} crédito(s) de "${nombreCredito}" para que comiences a entrenar.`,
-                    'welcome_gift'
+                    'welcome_gift',
+                    true
                 );
             } catch (notifError) {
                 console.error("Error enviando notificación de bienvenida:", notifError);
