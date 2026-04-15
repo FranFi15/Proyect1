@@ -1,12 +1,13 @@
+// components/BalanceModal.js
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl, Modal, Image } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import apiClient from '../../services/apiClient';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
 
 const BalanceModal = ({ onClose }) => {
     const { user, gymColor } = useAuth();
@@ -14,16 +15,14 @@ const BalanceModal = ({ onClose }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    
+    // 🔥 NUEVO: Estado para el visor de imágenes
+    const [imageViewerData, setImageViewerData] = useState(null); 
+    
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
-    });
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     const fetchData = useCallback(async () => {
         if (!user?._id) {
@@ -39,13 +38,7 @@ const BalanceModal = ({ onClose }) => {
             setProfile(profileResponse.data);
             setTransactions(transactionsResponse.data);
         } catch (error) {
-            console.error("Error al cargar datos del modal de saldo:", error.response?.data || error.message);
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: 'No se pudo cargar tu información de saldo.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo cargar tu información de saldo.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -66,6 +59,17 @@ const BalanceModal = ({ onClose }) => {
             <View style={styles.transactionInfo}>
                 <Text style={styles.transactionDescription}>{item.description}</Text>
                 <Text style={styles.transactionDate}>{format(new Date(item.createdAt), "d MMM yyyy, HH:mm", { locale: es })}</Text>
+                
+                {/* 🔥 NUEVO: Botón para ver comprobante si existe */}
+                {item.receiptUrl && (
+                    <TouchableOpacity 
+                        style={styles.viewReceiptBtn} 
+                        onPress={() => setImageViewerData(item.receiptUrl)}
+                    >
+                        <Ionicons name="image-outline" size={14} color={Colors[colorScheme].text} />
+                        <Text style={{ color: Colors[colorScheme].text, fontSize: 12, marginLeft: 4, fontWeight: 'bold' }}>Ver Comprobante</Text>
+                    </TouchableOpacity>
+                )}
             </View>
             <Text style={[styles.transactionAmount, item.type === 'charge' ? styles.debtText : styles.okText]}>
                 {item.type === 'charge' ? '-' : '+'} ${parseFloat(item.amount).toFixed(2)}
@@ -79,7 +83,7 @@ const BalanceModal = ({ onClose }) => {
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <Ionicons name="close-circle" size={30} color="#ccc" />
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>Mi Saldo y Movimientos</Text>
+                <Text style={styles.modalTitle}>Historial de Saldo</Text>
                 
                 {loading ? <ActivityIndicator color={gymColor} size="large" /> : (
                     <>
@@ -99,14 +103,20 @@ const BalanceModal = ({ onClose }) => {
                     </>
                 )}
             </View>
-            <CustomAlert
-                visible={alertInfo.visible}
-                title={alertInfo.title}
-                message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
-            />
+
+            {/* 🔥 NUEVO: Modal visor de imágenes a pantalla completa */}
+            {imageViewerData && (
+                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
+                    <View style={styles.imageViewerOverlay}>
+                        <TouchableOpacity style={styles.imageViewerClose} onPress={() => setImageViewerData(null)}>
+                            <Ionicons name="close" size={40} color="#fff" />
+                        </TouchableOpacity>
+                        <Image source={{ uri: imageViewerData }} style={styles.imageViewerImage} resizeMode="contain" />
+                    </View>
+                </Modal>
+            )}
+
+            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
         </View>
     );
 };
@@ -127,6 +137,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     debtText: { color: '#a72828ff'  },
     okText: { color: '#28a745' },
     emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
+    
+    // Estilos del visor
+    viewReceiptBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 6, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: gymColor + '15', borderRadius: 4 },
+    imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+    imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
+    imageViewerImage: { width: '100%', height: '80%' },
 });
 
 export default BalanceModal;

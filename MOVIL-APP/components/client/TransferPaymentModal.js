@@ -17,38 +17,41 @@ const TransferPaymentModal = ({ onClose }) => {
     const styles = getStyles(colorScheme, gymColor);
 
     const [packages, setPackages] = useState([]);
-    const [classTypes, setClassTypes] = useState([]); // Tipos de crédito para el filtro
+    const [classTypes, setClassTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
-    // Filtro activo (Por defecto 'all')
     const [selectedCategory, setSelectedCategory] = useState('all'); 
-
-    // Estados del formulario
     const [selectedPackage, setSelectedPackage] = useState(null);
     const [customAmount, setCustomAmount] = useState('');
     const [image, setImage] = useState(null);
-
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '' });
-
     const [gymBankDetails, setGymBankDetails] = useState(null);
 
+    // 🔥 MEJORA: Peticiones independientes para que un error no rompa todo el modal
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Traemos los paquetes y los tipos de clase al mismo tiempo
-                const [pkgResponse, typesResponse, settingsResponse] = await Promise.all([
-                    apiClient.get('/payments/packages'),
-                    apiClient.get('/tipos-clase'),
-                    apiClient.get('/settings')
-                ]);
-                setPackages(pkgResponse.data);
-                setClassTypes(typesResponse.data.tiposClase || []);
-                if (settingsResponse.data && settingsResponse.data.bankDetails) {
-                    setGymBankDetails(settingsResponse.data.bankDetails);
-                }
-            } catch (error) {
-                console.error("Error cargando datos:", error);
+                // 1. Cargar Tipos de Clase
+                try {
+                    const typesResponse = await apiClient.get('/tipos-clase');
+                    setClassTypes(typesResponse.data.tiposClase || []);
+                } catch (e) { console.log("Error cargando tipos de clase:", e.message); }
+
+                // 2. Cargar Datos Bancarios
+                try {
+                    const settingsResponse = await apiClient.get('/settings');
+                    if (settingsResponse.data && settingsResponse.data.bankDetails) {
+                        setGymBankDetails(settingsResponse.data.bankDetails);
+                    }
+                } catch (e) { console.log("Error cargando settings:", e.message); }
+
+                // 3. Cargar Paquetes de Pago
+                try {
+                    const pkgResponse = await apiClient.get('/payments/packages');
+                    setPackages(pkgResponse.data);
+                } catch (e) { console.log("Error cargando paquetes:", e.message); }
+
             } finally {
                 setLoading(false);
             }
@@ -56,7 +59,6 @@ const TransferPaymentModal = ({ onClose }) => {
         fetchData();
     }, []);
 
-    // Cuando cambia de categoría, limpiamos la selección para no generar errores
     const handleCategoryChange = (categoryId) => {
         setSelectedCategory(categoryId);
         setSelectedPackage(null);
@@ -81,10 +83,15 @@ const TransferPaymentModal = ({ onClose }) => {
         }
     };
 
-    const handleSubmit = async () => {
-        const amountToPay = selectedPackage ? selectedPackage.price : customAmount;
+  const handleSubmit = async () => {
+        let amountToPay = 0;
+        if (selectedPackage) {
+            amountToPay = Number(selectedPackage.price);
+        } else {
+            amountToPay = Number(customAmount);
+        }
 
-        if (!amountToPay || Number(amountToPay) <= 0) {
+        if (!amountToPay || isNaN(amountToPay) || amountToPay <= 0) {
             return setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, ingresa o selecciona un monto válido.' });
         }
         if (!image) {
@@ -97,33 +104,69 @@ const TransferPaymentModal = ({ onClose }) => {
             const formData = new FormData();
             
             if (selectedPackage) {
-                formData.append('packageId', selectedPackage._id);
+                formData.append('packageId', String(selectedPackage._id));
             }
-            formData.append('amountTransferred', amountToPay.toString());
+            formData.append('amountTransferred', String(amountToPay));
             
-            const localUri = image.uri;
-            const filename = localUri.split('/').pop();
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : `image`;
+            // 🔥 PREPARAMOS LA IMAGEN SEGÚN LA PLATAFORMA 🔥
+            let filename = image.fileName || 'comprobante.png';
 
-            formData.append('receipt', {
-                uri: Platform.OS === 'ios' ? localUri.replace('file://', '') : localUri,
-                name: filename,
-                type
-            });
+            if (Platform.OS === 'web') {
+                // EN LA WEB: Convertimos la URI en un Blob real
+                const response = await fetch(image.uri);
+                const blob = await response.blob();
+                formData.append('receipt', blob, filename);
+                console.log("Armando imagen para WEB...");
+            } else {
+                // EN CELULARES: Estructura nativa de React Native
+                const localUri = image.uri;
+                if (!filename.includes('.')) filename = 'comprobante.jpg';
 
-            await apiClient.post('/payments/ticket', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+                let mimeType = image.mimeType;
+                if (!mimeType) {
+                    const match = /\.(\w+)$/.exec(filename);
+                    mimeType = match ? `image/${match[1]}` : `image/jpeg`;
+                }
+                if (mimeType === 'image/jpg') mimeType = 'image/jpeg';
+
+                formData.append('receipt', {
+                    uri: Platform.OS === 'ios' ? localUri.replace('file://', '') : localUri,
+                    name: filename,
+                    type: mimeType
+                });
+                console.log("Armando imagen para CELULAR...");
+            }
+
+            // 🔥 CONFIGURAMOS LOS HEADERS INTELIGENTEMENTE 🔥
+            const headers = { 'Accept': 'application/json' };
+            // En la Web NO debemos forzar el Content-Type para que el navegador ponga el boundary automático.
+            // En Celulares SÍ debemos ponerlo.
+            if (Platform.OS !== 'web') {
+                headers['Content-Type'] = 'multipart/form-data';
+            }
+
+            // Volvemos a usar tu apiClient para que inyecte los Tokens automáticamente
+            await apiClient.post('/payments/ticket', formData, { headers });
 
             setAlertInfo({ 
                 visible: true, 
                 title: '¡Enviado!', 
                 message: 'Tu comprobante fue enviado con éxito. Un administrador lo revisará pronto.',
-                buttons: [{ text: 'Genial', style: 'primary', onPress: onClose }]
+                buttons: [{ 
+                    text: 'Genial', 
+                    style: 'primary', 
+                    onPress: () => {
+                        // 1. Ocultamos la alerta primero para evitar el freeze
+                        setAlertInfo(prev => ({ ...prev, visible: false }));
+                        setTimeout(() => {
+                            if (onClose) onClose();
+                        }, 300);
+                    } 
+                }]
             });
 
         } catch (error) {
+            console.error("Error en submit:", error.response?.data || error.message);
             setAlertInfo({ 
                 visible: true, 
                 title: 'Error', 
@@ -136,12 +179,10 @@ const TransferPaymentModal = ({ onClose }) => {
 
     const owesMoney = user?.balance < 0;
     const debtAmount = owesMoney ? Math.abs(user.balance) : 0;
-    
-    // Verificamos si hay pases libres para saber si mostrar su filtro
     const hasPasesLibres = packages.some(pkg => pkg.isPaseLibre);
 
     return (
-        <View style={styles.modalOverlay}  animationType="fade">
+        <View style={styles.modalOverlay}>
             <View style={styles.modalView}>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
@@ -173,7 +214,6 @@ const TransferPaymentModal = ({ onClose }) => {
 
                         <Text style={styles.sectionTitle}>1. ¿Qué estás pagando?</Text>
                         
-                        {/* --- BARRA DE FILTROS --- */}
                         <View style={{ marginBottom: 15 }}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 <TouchableOpacity 
@@ -213,16 +253,13 @@ const TransferPaymentModal = ({ onClose }) => {
                             </ScrollView>
                         </View>
 
-                        {/* --- LISTA DE PAQUETES FILTRADA --- */}
                         <View style={styles.packagesContainer}>
-                            
-                            {/* Opción Libre (Solo aparece si el filtro es 'all' o 'libre') */}
                             {(selectedCategory === 'all' || selectedCategory === 'libre') && (
                                 <TouchableOpacity 
                                     style={[styles.packageCard, (!selectedPackage && customAmount !== '') && styles.selectedPackage]} 
                                     onPress={() => {
                                         setSelectedPackage(null);
-                                        setCustomAmount(owesMoney ? debtAmount.toString() : '0'); // Activamos la opción libre
+                                        setCustomAmount(owesMoney ? debtAmount.toString() : '0'); 
                                     }}
                                 >
                                     <Text style={(!selectedPackage && customAmount !== '') ? styles.selectedText : styles.normalText}>
@@ -231,13 +268,15 @@ const TransferPaymentModal = ({ onClose }) => {
                                 </TouchableOpacity>
                             )}
 
-                            {/* Paquetes del servidor filtrados */}
+                            {/* 🔥 MEJORA: Filtro más robusto a prueba de errores de base de datos */}
                             {packages
                                 .filter(pkg => {
                                     if (selectedCategory === 'all') return true;
-                                    if (selectedCategory === 'libre') return false; // Si elige monto libre, ocultamos paquetes
+                                    if (selectedCategory === 'libre') return false; 
                                     if (selectedCategory === 'pase_libre') return pkg.isPaseLibre;
-                                    return pkg.tipoClase && pkg.tipoClase._id === selectedCategory;
+                                    
+                                    const classTypeId = typeof pkg.tipoClase === 'object' && pkg.tipoClase !== null ? pkg.tipoClase._id : pkg.tipoClase;
+                                    return classTypeId === selectedCategory;
                                 })
                                 .map(pkg => (
                                 <TouchableOpacity 
@@ -255,7 +294,6 @@ const TransferPaymentModal = ({ onClose }) => {
                             ))}
                         </View>
 
-                        {/* Input de monto libre (Aparece si tocó "Saldar Deuda" o "Monto Libre") */}
                         {(!selectedPackage && customAmount !== '') && (
                             <TextInput
                                 style={styles.input}
@@ -265,13 +303,6 @@ const TransferPaymentModal = ({ onClose }) => {
                                 value={customAmount}
                                 onChangeText={setCustomAmount}
                             />
-                        )}
-
-                        {/* Si no hay paquetes para ese filtro, mostramos un aviso */}
-                        {(selectedCategory !== 'libre' && packages.filter(p => selectedCategory === 'all' ? true : (selectedCategory === 'pase_libre' ? p.isPaseLibre : p.tipoClase?._id === selectedCategory)).length === 0) && (
-                            <Text style={{textAlign: 'center', opacity: 0.6, marginBottom: 15, color: Colors[colorScheme].text}}>
-                                No hay paquetes disponibles para esta categoría.
-                            </Text>
                         )}
 
                         <Text style={styles.sectionTitle}>2. Adjunta el Comprobante</Text>
@@ -335,7 +366,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
 
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginTop: 10, marginBottom: 10 },
     
-    // --- ESTILOS DE LOS FILTROS ---
     filterChip: {
         paddingHorizontal: 16,
         paddingVertical: 8,

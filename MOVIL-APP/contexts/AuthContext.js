@@ -74,6 +74,15 @@ export const AuthProvider = ({ children }) => {
                     // --- LLAMADA AL REFRESCO SILENCIOSO ---
                     // Como encontramos un usuario guardado, intentamos extender su sesión
                     await refreshSessionToken(storedUser);
+                    if (storedUser) {
+                    setUser(storedUser);
+                    await refreshSessionToken(storedUser);
+                    
+                    // 🔥 NUEVO: Refrescar el token de notificaciones cada vez que abre la app
+                    try { 
+                        await notificationService.registerForPushNotificationsAsync(); 
+                    } catch(e) { console.log("No se pudo registrar notificaciones", e) }
+                }
                 }
             } catch (e) {
                 console.error("No se pudo verificar el estado inicial", e);
@@ -105,11 +114,16 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const login = async (credentials) => {
+   const login = async (credentials) => {
         const userDataFromServer = await authService.login(credentials);
         if (userDataFromServer && userDataFromServer.token) {
             setUser(userDataFromServer);
             await AsyncStorage.setItem('user', JSON.stringify(userDataFromServer));
+        
+            try { 
+                await notificationService.registerForPushNotificationsAsync(); 
+            } catch(e) { console.log("No se pudo registrar notificaciones", e) }
+            
         } else {
             throw new Error('La respuesta del servidor no fue válida.');
         }

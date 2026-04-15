@@ -259,6 +259,7 @@ const ClassTypeManagementScreen = () => {
 
     // --- ESTADOS PAQUETES ---
     const [packages, setPackages] = useState([]);
+    const [editingPackage, setEditingPackage] = useState(null);
     const [searchPackageTerm, setSearchPackageTerm] = useState('');
     const [isPackageModalVisible, setIsPackageModalVisible] = useState(false);
     const [packageFormData, setPackageFormData] = useState({
@@ -379,6 +380,37 @@ const ClassTypeManagementScreen = () => {
     const handlePackageFormChange = (name, value) => {
         setPackageFormData(prev => ({ ...prev, [name]: value }));
     };
+    const handleEditPackage = (pkg) => {
+        setEditingPackage(pkg);
+        setPackageFormData({
+            name: pkg.name,
+            description: pkg.description || '',
+            price: pkg.price.toString(),
+            isPaseLibre: pkg.isPaseLibre,
+            durationDays: pkg.durationDays?.toString() || '30',
+            creditsAmount: pkg.creditsAmount?.toString() || '1',
+            tipoClase: pkg.tipoClase?._id || pkg.tipoClase || ''
+        });
+        setIsPackageModalVisible(true);
+    };
+
+    const handleDeletePackage = (pkg) => {
+        setAlertInfo({
+            visible: true, title: 'Confirmar', message: `¿Eliminar el paquete "${pkg.name}"?`,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                    try {
+                        await apiClient.delete(`/payments/packages/${pkg._id}`);
+                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete eliminado.' });
+                        performDataFetch();
+                    } catch (error) {
+                        setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo eliminar.' });
+                    }
+                }}
+            ]
+        });
+    };
 
     const handlePackageSubmit = async () => {
         if (!packageFormData.name || !packageFormData.price) {
@@ -396,24 +428,29 @@ const ClassTypeManagementScreen = () => {
         };
 
         try {
-            await apiClient.post('/payments/packages', payload);
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete de venta creado exitosamente.' });
+            if (editingPackage) {
+                await apiClient.put(`/payments/packages/${editingPackage._id}`, payload);
+                setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete actualizado exitosamente.' });
+            } else {
+                await apiClient.post('/payments/packages', payload);
+                setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete de venta creado exitosamente.' });
+            }
             setIsPackageModalVisible(false);
             performDataFetch();
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'Error al crear el paquete.' });
+            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'Error al guardar el paquete.' });
         }
     };
 
     // --- LÓGICA FAB MULTIUSO ---
     const handleAdd = () => {
         if (index === 0) {
-            // Añadir Crédito Base
             setEditingClassType(null);
             setFormData({ nombre: '', price: '0', resetMensual: true });
             setIsModalVisible(true);
         } else {
-            // Añadir Paquete
+            // 🔥 Aseguramos limpiar el formulario al crear uno nuevo
+            setEditingPackage(null);
             setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
             setIsPackageModalVisible(true);
         }
@@ -511,6 +548,15 @@ const ClassTypeManagementScreen = () => {
                             <ThemedText style={styles.cardDescription}>
                                 {item.isPaseLibre ? `Pase Libre (${item.durationDays} días)` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'Clase'}`}
                             </ThemedText>
+                        </View>
+                        {/* 🔥 NUEVOS BOTONES 🔥 */}
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity onPress={() => handleEditPackage(item)} style={styles.actionButton}>
+                                <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleDeletePackage(item)} style={styles.actionButton}>
+                                <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
                         </View>
                     </View>
                 )}

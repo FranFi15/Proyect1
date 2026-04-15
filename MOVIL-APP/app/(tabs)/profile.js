@@ -247,11 +247,11 @@ const ProfileScreen = () => {
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('balance')}>
                         <Ionicons name="logo-usd" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.menuButtonText}>Mi Saldo y Movimientos</ThemedText>
+                        <ThemedText style={styles.menuButtonText}>Historial de Saldo</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('payment')}>
-                        <Ionicons name="cash-outline" size={24} color={Colors[colorScheme].icon}  />
-                        <ThemedText style={[styles.menuButtonText, ]}>Informar Pago </ThemedText>
+                        <Ionicons name="cart" size={24} color={Colors[colorScheme].icon}  />
+                        <ThemedText style={[styles.menuButtonText, ]}>Comprar </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('plans')}>

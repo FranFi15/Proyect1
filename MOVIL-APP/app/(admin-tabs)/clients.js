@@ -94,10 +94,6 @@ const ManageClientsScreen = () => {
 
     // --- ESTADOS TABVIEW ---
     const [index, setIndex] = useState(0);
-    const [routes] = useState([
-        { key: 'clients', title: 'Usuarios' },
-        { key: 'transfers', title: 'Transferencias' },
-    ]);
 
     // --- ESTADOS GENERALES ---
     const [users, setUsers] = useState([]);
@@ -110,6 +106,11 @@ const ManageClientsScreen = () => {
     // --- ESTADOS TRANSFERENCIAS ---
     const [pendingTransfers, setPendingTransfers] = useState([]);
     const [imageViewerData, setImageViewerData] = useState(null); 
+
+    const routes = useMemo(() => [
+        { key: 'clients', title: 'Usuarios' },
+        { key: 'transfers', title: 'Transferencias', badge: pendingTransfers.length },
+    ], [pendingTransfers.length]);
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -403,8 +404,8 @@ const ManageClientsScreen = () => {
                     style={dynamicStyles.viewReceiptButton}
                     onPress={() => setImageViewerData(item.receiptUrl)}
                 >
-                    <Ionicons name="image-outline" size={20} color={gymColor} />
-                    <ThemedText style={{color: gymColor, fontWeight: 'bold', marginLeft: 8}}>Ver Comprobante</ThemedText>
+                    <Ionicons name="image-outline" size={20} color={Colors[colorScheme].text} />
+                    <ThemedText style={{color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 8}}>Ver Comprobante</ThemedText>
                 </TouchableOpacity>
 
                 <View style={{flexDirection: 'row', gap: 10, marginTop: 15}}>
@@ -497,11 +498,9 @@ const ManageClientsScreen = () => {
 
     return (
         <ThemedView style={dynamicStyles.container} >
-            <View style={dynamicStyles.headerContainer}>
-                <ThemedText style={dynamicStyles.headerTitle}>Gestión de Usuarios</ThemedText>
-            </View>
+            
 
-            {/* 🔥 NUEVO: TabView Integrado 🔥 */}
+           
             <TabView 
                 navigationState={{ index, routes }} 
                 renderScene={renderScene} 
@@ -512,7 +511,38 @@ const ManageClientsScreen = () => {
                         {...props} 
                         style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} 
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} 
-                        labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none' }} 
+                        renderLabel={({ route, focused }) => (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ 
+                                    color: focused ? '#ffffff' : 'rgba(255,255,255,0.7)', 
+                                    fontSize: 13, 
+                                    fontWeight: 'bold', 
+                                    textTransform: 'none' 
+                                }}>
+                                    {route.title}
+                                </Text>
+                                
+                                {/* Badge de notificación leyendo directamente de la ruta */}
+                                {route.badge > 0 && (
+                                    <View style={{
+                                        backgroundColor: '#e74c3c',
+                                        minWidth: 18,
+                                        height: 18,
+                                        borderRadius: 9,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        marginLeft: 6,
+                                        paddingHorizontal: 4,
+                                        borderWidth: 1,
+                                        borderColor: gymColor // Borde del mismo color del fondo para que resalte
+                                    }}>
+                                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                                            {route.badge}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
                     />
                 )} 
             />
