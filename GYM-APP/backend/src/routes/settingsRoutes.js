@@ -5,7 +5,7 @@ import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 router.route('/')
-    .get(protect, authorizeRoles('admin'), getSettings)
+    .get(protect, getSettings)
     .put(protect, authorizeRoles('admin'), updateSettings);
 
 export default router;

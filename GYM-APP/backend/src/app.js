@@ -6,7 +6,7 @@ import helmet from 'helmet';
 
 
 import gymTenantMiddleware from './middlewares/gymTenantMiddleware.js';
-import initializeFirebaseAdmin from './config/firebaseAdmin.js';
+
 
 // Importación de rutas
 import authRoutes from './routes/authRoutes.js';
@@ -22,6 +22,7 @@ import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import scoreboardRoutes from './routes/scoreboardRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -45,7 +46,7 @@ const app = express();
 
 app.use(helmet());
 
-initializeFirebaseAdmin();
+
 
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
 
@@ -100,6 +101,7 @@ app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
+app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);

@@ -16,9 +16,9 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
 
     // Colores para los íconos (puedes personalizarlos)
     const colors = {
-        error: '#c50216ff',    
-        success: '#008a20ff',   
-        warning: '#ffbf00ff',   
+        error: 'rgb(197, 60, 73)',    
+        success: 'rgb(13, 175, 51)',   
+        warning: 'rgb(255, 211, 77)',   
         info: gymColor,       
     };
 
@@ -38,6 +38,14 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             case 'transaction_charge':
             iconName = 'money-bill-wave';
             baseColor = Colors[colorScheme].icon;
+            break;
+            case 'transaction_rejected':
+            iconName = 'money-bill-wave';
+            baseColor = colors.error;
+            break;
+            case 'class_reminder_2h':
+            iconName = 'clock';
+            baseColor = colors.info;
             break;
         case 'class_cancellation':
             iconName = 'calendar-times';
@@ -80,13 +88,30 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             baseColor = Colors[colorScheme].text;
             break;
             case 'pase_libre_expiration':
-            iconName = 'alert-circle';
+            iconName = 'star';
+            baseColor = colors.error;
+            break;
+            case 'welcome_gift':
+            iconName = 'gift';
+            baseColor = colors.success;
+            break;
+            case 'class_update':
+            iconName = 'calendar';
+            baseColor = colors.info;
+            break;
+            case 'class_deletion':
+            iconName = 'calendar-xmark';
+            baseColor = colors.error;
+            break;
+            case 'out_of_credits':
+            iconName = 'coins';
             baseColor = colors.error;
             break;
         default:
             iconName = 'info';
             baseColor = Colors[colorScheme].icon; // Color neutro por defecto
             break;
+
     }
 
     return <FontAwesome6 name={iconName} size={size} color={baseColor} />;

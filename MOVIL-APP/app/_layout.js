@@ -47,27 +47,6 @@ export default function RootLayout() {
             `;
             document.head.appendChild(style);
         }
-
-        // 2. Lógica del UI Buffer para evitar Crash en Android
-        const subscription = AppState.addEventListener('change', nextAppState => {
-            // Detectamos si la app vuelve de 'background' o 'inactive' a 'active'
-            if (
-                appState.current.match(/inactive|background/) &&
-                nextAppState === 'active'
-            ) {
-                setIsReady(false); // Desmontamos la app
-                
-                // Esperamos 100ms para que Android prepare la vista
-                setTimeout(() => {
-                    setIsReady(true); // Volvemos a montar
-                }, 100);
-            }
-            appState.current = nextAppState;
-        });
-
-        return () => {
-            subscription.remove();
-        };
     }, []);
     
     // 3. Renderizado condicional: Si no está lista, mostramos Spinner

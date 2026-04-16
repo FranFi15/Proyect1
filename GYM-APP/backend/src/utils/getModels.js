@@ -9,6 +9,8 @@ import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
 import getSettingsModel from '../models/Settings.js';
 import getScoreboardModel from '../models/Scoreboard.js';
+import getPaymentPackageModel from '../models/PaymentPackage.js';
+import getPaymentRequestModel from '../models/PaymentRequest.js';
 
 
 
@@ -33,7 +35,9 @@ const getModels = (dbConnection) => {
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
         Scoreboard,
-        ScoreboardEntry
+        ScoreboardEntry,
+        PaymentPackage: getPaymentPackageModel(dbConnection),
+        PaymentRequest: getPaymentRequestModel(dbConnection)
 
         
     };

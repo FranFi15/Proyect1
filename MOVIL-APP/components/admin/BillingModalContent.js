@@ -1,5 +1,6 @@
+// components/admin/BillingModalContent.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, useColorScheme, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, useColorScheme, ActivityIndicator, ScrollView, Modal, Image } from 'react-native';
 import { getUserTransactions, createTransaction } from '../../services/managementApi';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
@@ -7,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
-import CustomAlert from '@/components/CustomAlert'; // Importamos el componente de alerta personalizado
+import CustomAlert from '@/components/CustomAlert';
 
 const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [transactions, setTransactions] = useState([]);
@@ -15,17 +16,14 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [newTransaction, setNewTransaction] = useState({ type: 'payment', amount: '', description: '' });
     const [currentClient, setCurrentClient] = useState(client);
     
+    // 🔥 NUEVO: Estado para el visor de imágenes
+    const [imageViewerData, setImageViewerData] = useState(null); 
+    
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
-    // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
-    });
+    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     const fetchData = async () => {
         if (!client?._id) return;
@@ -61,10 +59,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                 type: type 
             });
             
-            setCurrentClient(prevClient => ({
-                ...prevClient,
-                balance: response.data.newUserBalance 
-            }));
+            setCurrentClient(prevClient => ({ ...prevClient, balance: response.data.newUserBalance }));
             setTransactions(prevTransactions => [response.data.transaction, ...prevTransactions]);
             setNewTransaction({ type: 'payment', amount: '', description: '' });
             
@@ -81,6 +76,17 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
             <View style={styles.transactionInfo}>
                 <Text style={styles.transactionDescription}>{item.description}</Text>
                 <Text style={styles.transactionDate}>{format(new Date(item.createdAt), "d MMM yyyy, HH:mm", { locale: es })}</Text>
+                
+                {/* 🔥 NUEVO: Botón para ver comprobante si existe */}
+                {item.receiptUrl && (
+                    <TouchableOpacity 
+                        style={styles.viewReceiptBtn} 
+                        onPress={() => setImageViewerData(item.receiptUrl)}
+                    >
+                        <Ionicons name="image-outline" size={14} color={Colors[colorScheme].text} />
+                        <Text style={{ color: Colors[colorScheme].text, fontSize: 12, marginLeft: 4, fontWeight: 'bold' }}>Ver Comprobante</Text>
+                    </TouchableOpacity>
+                )}
             </View>
             <Text style={[styles.transactionAmount, item.type === 'charge' ? styles.charge : styles.payment]}>
                 {item.type === 'charge' ? '-' : '+'} ${parseFloat(item.amount).toFixed(2)}
@@ -130,14 +136,20 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     )}
                 </ScrollView>
             </View>
-            <CustomAlert
-                visible={alertInfo.visible}
-                title={alertInfo.title}
-                message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
-            />
+
+            {/* 🔥 NUEVO: Modal visor de imágenes a pantalla completa */}
+            {imageViewerData && (
+                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
+                    <View style={styles.imageViewerOverlay}>
+                        <TouchableOpacity style={styles.imageViewerClose} onPress={() => setImageViewerData(null)}>
+                            <Ionicons name="close" size={40} color="#fff" />
+                        </TouchableOpacity>
+                        <Image source={{ uri: imageViewerData }} style={styles.imageViewerImage} resizeMode="contain" />
+                    </View>
+                </Modal>
+            )}
+
+            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
         </View>
     );
 };
@@ -154,24 +166,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     formTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text, marginBottom: 10 },
     input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, marginBottom: 10, color: Colors[colorScheme].text },
     buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 5, gap: 10 },
-    styledButton: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 5,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    paymentButton: {
-        backgroundColor: '#28a745',
-    },
-    chargeButton: {
-        backgroundColor: '#a72828ff',
-    },
-    styledButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    styledButton: { flex: 1, paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+    paymentButton: { backgroundColor: '#28a745' },
+    chargeButton: { backgroundColor: '#a72828ff' },
+    styledButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
     historyTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: Colors[colorScheme].text },
     transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     transactionInfo: { flex: 1, marginRight: 10, fontWeight: 'bold' },
@@ -181,6 +179,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     charge: { color: '#a72828ff'  },
     payment: { color: '#28a745' },
     emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
+    
+    // Estilos del visor
+    viewReceiptBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 6, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: gymColor + '15', borderRadius: 4 },
+    imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+    imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
+    imageViewerImage: { width: '100%', height: '80%' },
 });
 
 export default BillingModalContent;
