@@ -159,7 +159,7 @@ const ManageClientsScreen = () => {
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/users/subscription-info'),
                 apiClient.get('/users/financial-stats'),
-                apiClient.get('/payments/tickets/pending') // <-- Llamada a transferencias
+                apiClient.get('/payments/tickets/pending') 
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
