@@ -28,7 +28,7 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, parseISO, isValid, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
@@ -425,6 +425,7 @@ const ManageClientsScreen = () => {
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
     const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} /> </TouchableOpacity> </View> ); };
     const handlePaseLibreDateChange = (field, dateString) => { setPaseLibreData(prev => ({ ...prev, [field]: dateString })); };
+    const handleQuickAddMembership = (months) => { const today = new Date(); const startStr = format(today, 'yyyy-MM-dd'); const endStr = format(months === 12 ? addYears(today, 1) : addMonths(today, months), 'yyyy-MM-dd'); setPaseLibreData({ desde: startStr, hasta: endStr }); };
     const handleSavePaseLibre = async () => { if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/pase-libre`, { paseLibreDesde: paseLibreData.desde, paseLibreHasta: paseLibreData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' }); } };
     const handleMassEnrollDateChange = (field, dateString) => { setMassEnrollFilters(prev => ({ ...prev, [field]: dateString })); };
     const handleGeneralScan = async ({ data }) => { setScannerVisible(false); try { const response = await apiClient.post('/check-in/scan', { userId: data }); let messageDetail = 'No hay turnos pendientes para hoy.'; if (response.data.classes && response.data.classes.length > 0) { messageDetail = response.data.classes.map(c => `${c.nombre} ${c.horario}`).join('\n'); } else if (response.data.message.includes('finalizaron')) { messageDetail = 'Todos sus turnos de hoy ya finalizaron.'; } setAlertInfo({ visible: true, title: response.data.message, message: messageDetail, }); } catch (error) { setAlertInfo({ visible: true, title: 'Error de Check-in', message: error.response?.data?.message || 'No se pudo verificar al cliente.', }); } };
@@ -763,7 +764,22 @@ const ManageClientsScreen = () => {
                                 <View style={dynamicStyles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                             </View>
                             <View style={dynamicStyles.section}>
-                                <ThemedText style={dynamicStyles.sectionTitle}>Asignar Pase Libre</ThemedText>
+                                <ThemedText style={dynamicStyles.sectionTitle}>Membresía de Acceso Libre / Musculación</ThemedText>
+                                <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 6 }]}>Duración rápida (desde hoy):</ThemedText>
+                                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(1)}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Mes</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(3)}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+3 Meses</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(6)}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+6 Meses</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(12)}>
+                                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Año</Text>
+                                    </TouchableOpacity>
+                                </View>
                                 <View style={dynamicStyles.row}>
                                     <View style={{flex: 1, marginRight: 5}}>
                                         {renderDateField('Desde', paseLibreData.desde, (val) => handlePaseLibreDateChange('desde', val))}
@@ -773,7 +789,7 @@ const ManageClientsScreen = () => {
                                     </View>
                                 </View>
                                 <View style={dynamicStyles.buttonWrapper}>
-                                    <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                                    <Button title="Activar Membresía Libre" onPress={handleSavePaseLibre} color={gymColor} />
                                 </View>
                             </View>
                             <View style={dynamicStyles.section}>
