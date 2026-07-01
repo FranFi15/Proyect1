@@ -187,10 +187,10 @@ const NotificationAdminScreen = () => {
             cls.nombre.toLowerCase().includes(classSearchTerm.toLowerCase())
         );
     }, [allClasses, classSearchTerm]);
-    
+
     const handleSendNotification = () => {
         if (!title || !message) {
-            setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]});
+            setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         let payload = { title, message, isImportant, targetType };
@@ -224,42 +224,44 @@ const NotificationAdminScreen = () => {
             message: confirmationMessage,
             buttons: [
                 { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                { text: 'Enviar', style: 'primary', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    setSending(true);
-                    try {
-                        await apiClient.post('/notifications', payload);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        setTitle('');
-                        setMessage('');
-                        setIsImportant(false);
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                    } finally {
-                        setSending(false);
+                {
+                    text: 'Enviar', style: 'primary', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        setSending(true);
+                        try {
+                            await apiClient.post('/notifications', payload);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            setTitle('');
+                            setMessage('');
+                            setIsImportant(false);
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        } finally {
+                            setSending(false);
+                        }
                     }
-                }}
+                }
             ]
         });
     };
-    
+
     const getModalConfig = useMemo(() => {
-        const targetTypeOptions = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}];
-        const roleOptions = [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}];
+        const targetTypeOptions = [{ _id: 'all', nombre: 'Todos los Usuarios' }, { _id: 'user', nombre: 'Usuario Específico' }, { _id: 'role', nombre: 'Rol Específico' }, { _id: 'class', nombre: 'Turno Específico' }];
+        const roleOptions = [{ _id: '', nombre: 'Selecciona un rol' }, { _id: 'cliente', nombre: 'Clientes' }, { _id: 'profesor', nombre: 'Profesionales' }, { _id: 'admin', nombre: 'Admins' }];
         switch (activeModal) {
             case 'targetType': return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: handleTargetTypeSelect, selectedValue: targetType };
             case 'role': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: setSelectedRoleId, selectedValue: selectedRoleId };
             default: return null;
         }
     }, [activeModal, targetType, selectedRoleId]);
-    
+
     const getDisplayName = (id, type) => {
         if (type === 'targetType') {
-            const options = [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}];
+            const options = [{ _id: 'all', nombre: 'Todos los Usuarios' }, { _id: 'user', nombre: 'Usuario Específico' }, { _id: 'role', nombre: 'Rol Específico' }, { _id: 'class', nombre: 'Turno Específico' }];
             return options.find(o => o._id === id)?.nombre || 'Seleccionar';
         }
         if (type === 'role') {
-            const options = [{_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}];
+            const options = [{ _id: 'cliente', nombre: 'Clientes' }, { _id: 'profesor', nombre: 'Profesionales' }, { _id: 'admin', nombre: 'Admins' }];
             return options.find(o => o._id === id)?.nombre || 'Seleccionar un rol';
         }
         return 'Seleccionar';
@@ -288,20 +290,20 @@ const NotificationAdminScreen = () => {
     );
 
     const renderClassItem = ({ item }) => (
-         <TouchableOpacity style={styles.listItem} onPress={() => {
+        <TouchableOpacity style={styles.listItem} onPress={() => {
             setSelectedClassId(item._id);
             closeSearchModal();
-         }}>
+        }}>
             <Text style={styles.listItemText}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre}</Text>
             <Text style={styles.listItemSubtext}>{item.profesor?.nombre} {item.profesor?.apellido}</Text>
             <Text style={styles.listItemSubtext}>{new Date(item.fecha).toLocaleDateString()} - {item.horaInicio}</Text>
         </TouchableOpacity>
     );
-    
+
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
-    
+
     return (
         <ThemedView style={styles.container}>
             <KeyboardAvoidingView
@@ -310,7 +312,7 @@ const NotificationAdminScreen = () => {
                 keyboardVerticalOffset={80}
             >
                 {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
-                <ScrollView 
+                <ScrollView
                     contentContainerStyle={{ flexGrow: 1 }}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag"
@@ -318,7 +320,6 @@ const NotificationAdminScreen = () => {
                     {/* Header Banner */}
                     <View style={styles.headerBox}>
                         <Text style={styles.headerTitle}>Enviar Notificación</Text>
-                        <Text style={styles.headerSubtitle}>Comunica avisos, novedades o recordatorios generales o específicos</Text>
                     </View>
 
                     <View style={styles.formContainer}>
@@ -328,7 +329,7 @@ const NotificationAdminScreen = () => {
                                 <Ionicons name="people" size={20} color={gymColor || '#007bff'} />
                                 <Text style={styles.sectionTitle}>1. Seleccionar Destinatario</Text>
                             </View>
-                            
+
                             <ThemedText style={styles.label}>Grupo o Destinatario</ThemedText>
                             <TouchableOpacity style={styles.selectorBox} onPress={() => setActiveModal('targetType')}>
                                 <Text style={styles.selectorText}>{getDisplayName(targetType, 'targetType')}</Text>
@@ -378,22 +379,22 @@ const NotificationAdminScreen = () => {
                             </View>
 
                             <ThemedText style={styles.label}>Título del Aviso</ThemedText>
-                            <TextInput 
-                                style={styles.input} 
-                                placeholder="Ej: ¡Apertura en feriado!" 
-                                value={title} 
-                                onChangeText={setTitle} 
-                                placeholderTextColor={Colors[colorScheme].icon} 
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Ej: ¡Apertura en feriado!"
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholderTextColor={Colors[colorScheme].icon}
                             />
 
                             <ThemedText style={styles.label}>Cuerpo del Mensaje</ThemedText>
-                            <TextInput 
-                                style={[styles.input, { height: 110, textAlignVertical: 'top' }]} 
-                                multiline 
-                                placeholder="Escribe aquí toda la información que desees comunicar..." 
-                                value={message} 
-                                onChangeText={setMessage} 
-                                placeholderTextColor={Colors[colorScheme].icon} 
+                            <TextInput
+                                style={[styles.input, { height: 110, textAlignVertical: 'top' }]}
+                                multiline
+                                placeholder="Escribe aquí toda la información que desees comunicar..."
+                                value={message}
+                                onChangeText={setMessage}
+                                placeholderTextColor={Colors[colorScheme].icon}
                             />
                         </View>
 
@@ -404,19 +405,19 @@ const NotificationAdminScreen = () => {
                                     <Text style={styles.switchTitle}>⚠️ Aviso Emergente Importante</Text>
                                     <Text style={styles.switchSub}>Se mostrará como un modal emergente cuando el usuario abra la aplicación.</Text>
                                 </View>
-                                <Switch 
-                                    trackColor={{ false: "#767577", true: gymColor || '#007bff' }} 
-                                    thumbColor={"#f4f3f4"} 
-                                    onValueChange={setIsImportant} 
-                                    value={isImportant} 
+                                <Switch
+                                    trackColor={{ false: "#767577", true: gymColor || '#007bff' }}
+                                    thumbColor={"#f4f3f4"}
+                                    onValueChange={setIsImportant}
+                                    value={isImportant}
                                 />
                             </View>
                         </View>
 
                         {/* BOTÓN ENVIAR */}
-                        <TouchableOpacity 
-                            style={[styles.sendButton, sending && styles.sendButtonDisabled]} 
-                            onPress={handleSendNotification} 
+                        <TouchableOpacity
+                            style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+                            onPress={handleSendNotification}
                             disabled={sending}
                             activeOpacity={0.85}
                         >
@@ -439,9 +440,9 @@ const NotificationAdminScreen = () => {
             >
                 <ThemedView style={styles.modalContainer}>
                     <KeyboardAvoidingView
-                         style={{ flex: 1 }}
-                         behavior={Platform.OS === "ios" ? "padding" : "height"}
-                         keyboardVerticalOffset={20}
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        keyboardVerticalOffset={20}
                     >
                         <View style={styles.modalHeader}>
                             <ThemedText style={styles.modalTitle}>
@@ -472,7 +473,7 @@ const NotificationAdminScreen = () => {
                     </KeyboardAvoidingView>
                 </ThemedView>
             </Modal>
-            
+
             <FilterModal
                 visible={!!activeModal}
                 onClose={() => setActiveModal(null)}
@@ -485,7 +486,7 @@ const NotificationAdminScreen = () => {
                     }
                 }}
                 title={activeModal === 'targetType' ? 'Seleccionar Destinatario' : 'Seleccionar Rol'}
-                options={activeModal === 'targetType' ? [{_id: 'all', nombre: 'Todos los Usuarios'}, {_id: 'user', nombre: 'Usuario Específico'}, {_id: 'role', nombre: 'Rol Específico'}, {_id: 'class', nombre: 'Turno Específico'}] : [{_id: '', nombre: 'Selecciona un rol'}, {_id: 'cliente', nombre: 'Clientes'}, {_id: 'profesor', nombre: 'Profesionales'}, {_id: 'admin', nombre: 'Admins'}]}
+                options={activeModal === 'targetType' ? [{ _id: 'all', nombre: 'Todos los Usuarios' }, { _id: 'user', nombre: 'Usuario Específico' }, { _id: 'role', nombre: 'Rol Específico' }, { _id: 'class', nombre: 'Turno Específico' }] : [{ _id: '', nombre: 'Selecciona un rol' }, { _id: 'cliente', nombre: 'Clientes' }, { _id: 'profesor', nombre: 'Profesionales' }, { _id: 'admin', nombre: 'Admins' }]}
                 selectedValue={activeModal === 'targetType' ? targetType : selectedRoleId}
                 theme={{ colors: Colors[colorScheme], gymColor }}
             />
@@ -495,7 +496,7 @@ const NotificationAdminScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );

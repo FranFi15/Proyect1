@@ -126,8 +126,8 @@ const NotificationTeacherScreen = () => {
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [isImportant, setIsImportant] = useState(false);
-    
-    const [targetType, setTargetType] = useState('class'); 
+
+    const [targetType, setTargetType] = useState('class');
     const [selectedUserId, setSelectedUserId] = useState('');
     const [selectedClassId, setSelectedClassId] = useState('');
 
@@ -140,8 +140,8 @@ const NotificationTeacherScreen = () => {
     const [sending, setSending] = useState(false);
 
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
-    const [activeModal, setActiveModal] = useState(null); 
-    const [searchModalVisible, setSearchModalVisible] = useState(false); 
+    const [activeModal, setActiveModal] = useState(null);
+    const [searchModalVisible, setSearchModalVisible] = useState(false);
 
     const openSearchModal = () => setSearchModalVisible(true);
     const closeSearchModal = () => {
@@ -182,7 +182,7 @@ const NotificationTeacherScreen = () => {
     }, [user]);
 
     useFocusEffect(useCallback(() => { fetchTeacherData(); }, [fetchTeacherData]));
-    
+
     const filteredStudents = useMemo(() => {
         if (!userSearchTerm) return myStudents;
         return myStudents.filter(student => `${student.nombre} ${student.apellido}`.toLowerCase().includes(userSearchTerm.toLowerCase()));
@@ -192,10 +192,10 @@ const NotificationTeacherScreen = () => {
         if (!classSearchTerm) return myClasses;
         return myClasses.filter(cls => (cls.nombre || 'Turno').toLowerCase().includes(classSearchTerm.toLowerCase()));
     }, [myClasses, classSearchTerm]);
-    
+
     const handleSendNotification = () => {
-         if (!title || !message) {
-            setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]});
+        if (!title || !message) {
+            setAlertInfo({ visible: true, title: 'Campos incompletos', message: 'Por favor, ingresa un título y un mensaje.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
             return;
         }
         let payload = { title, message, isImportant, targetType };
@@ -221,25 +221,27 @@ const NotificationTeacherScreen = () => {
             message: confirmationMessage,
             buttons: [
                 { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                { text: 'Enviar', style: 'primary', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    setSending(true);
-                    try {
-                        await apiClient.post('/notifications', payload);
-                        setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                        setTitle('');
-                        setMessage('');
-                        setIsImportant(false);
-                    } catch (error) {
-                        setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
-                    } finally {
-                        setSending(false);
+                {
+                    text: 'Enviar', style: 'primary', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        setSending(true);
+                        try {
+                            await apiClient.post('/notifications', payload);
+                            setAlertInfo({ visible: true, title: 'Éxito', message: 'Notificación enviada correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            setTitle('');
+                            setMessage('');
+                            setIsImportant(false);
+                        } catch (error) {
+                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo enviar la notificación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        } finally {
+                            setSending(false);
+                        }
                     }
-                }}
+                }
             ]
         });
     };
-    
+
     const getModalConfig = useMemo(() => {
         const targetTypeOptions = [{ _id: 'class', nombre: 'Turno Específico' }, { _id: 'user', nombre: 'Cliente Específico' }];
         if (activeModal === 'targetType') {
@@ -277,10 +279,10 @@ const NotificationTeacherScreen = () => {
     );
 
     const renderClassItem = ({ item }) => (
-         <TouchableOpacity style={styles.listItem} onPress={() => {
+        <TouchableOpacity style={styles.listItem} onPress={() => {
             setSelectedClassId(item._id);
             closeSearchModal();
-         }}>
+        }}>
             <Text style={styles.listItemText}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre}</Text>
             <Text style={styles.listItemSubtext}>{new Date(item.fecha).toLocaleDateString()} - {item.horaInicio}</Text>
         </TouchableOpacity>
@@ -289,7 +291,7 @@ const NotificationTeacherScreen = () => {
     if (loading) {
         return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
     }
-    
+
     return (
         <ThemedView style={styles.container}>
             <KeyboardAvoidingView
@@ -298,7 +300,7 @@ const NotificationTeacherScreen = () => {
                 keyboardVerticalOffset={80}
             >
                 {/* --- CAMBIO AQUÍ: Añadido keyboardShouldPersistTaps y keyboardDismissMode --- */}
-                <ScrollView 
+                <ScrollView
                     contentContainerStyle={{ flexGrow: 1 }}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag"
@@ -306,7 +308,6 @@ const NotificationTeacherScreen = () => {
                     {/* Header Banner */}
                     <View style={styles.headerBox}>
                         <Text style={styles.headerTitle}>Enviar Notificación</Text>
-                        <Text style={styles.headerSubtitle}>Comunícate al instante con tus alumnos o turnos</Text>
                     </View>
 
                     <View style={styles.formContainer}>
@@ -316,7 +317,7 @@ const NotificationTeacherScreen = () => {
                                 <Ionicons name="people" size={20} color={gymColor || '#007bff'} />
                                 <Text style={styles.sectionTitle}>1. Seleccionar Destinatario</Text>
                             </View>
-                            
+
                             <ThemedText style={styles.label}>Tipo de Envío</ThemedText>
                             <TouchableOpacity style={styles.selectorBox} onPress={() => setActiveModal('targetType')}>
                                 <Text style={styles.selectorText}>{getDisplayName(targetType)}</Text>
@@ -356,22 +357,22 @@ const NotificationTeacherScreen = () => {
                             </View>
 
                             <ThemedText style={styles.label}>Título del Aviso</ThemedText>
-                            <TextInput 
-                                style={styles.input} 
-                                placeholder="Ej: ¡Cambio de horario este viernes!" 
-                                value={title} 
-                                onChangeText={setTitle} 
-                                placeholderTextColor={Colors[colorScheme].icon} 
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Ej: ¡Cambio de horario este viernes!"
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholderTextColor={Colors[colorScheme].icon}
                             />
 
                             <ThemedText style={styles.label}>Cuerpo del Mensaje</ThemedText>
-                            <TextInput 
-                                style={[styles.input, { height: 110, textAlignVertical: 'top' }]} 
-                                multiline 
-                                placeholder="Escribe aquí toda la información relevante para tus alumnos..." 
-                                value={message} 
-                                onChangeText={setMessage} 
-                                placeholderTextColor={Colors[colorScheme].icon} 
+                            <TextInput
+                                style={[styles.input, { height: 110, textAlignVertical: 'top' }]}
+                                multiline
+                                placeholder="Escribe aquí toda la información relevante para tus alumnos..."
+                                value={message}
+                                onChangeText={setMessage}
+                                placeholderTextColor={Colors[colorScheme].icon}
                             />
                         </View>
 
@@ -382,19 +383,19 @@ const NotificationTeacherScreen = () => {
                                     <Text style={styles.switchTitle}>⚠️ Aviso Emergente Importante</Text>
                                     <Text style={styles.switchSub}>Se mostrará en una ventana modal en el centro de la pantalla al abrir la app.</Text>
                                 </View>
-                                <Switch 
-                                    trackColor={{ false: "#767577", true: gymColor || '#007bff' }} 
-                                    thumbColor={"#f4f3f4"} 
-                                    onValueChange={setIsImportant} 
-                                    value={isImportant} 
+                                <Switch
+                                    trackColor={{ false: "#767577", true: gymColor || '#007bff' }}
+                                    thumbColor={"#f4f3f4"}
+                                    onValueChange={setIsImportant}
+                                    value={isImportant}
                                 />
                             </View>
                         </View>
 
                         {/* BOTÓN ENVIAR */}
-                        <TouchableOpacity 
-                            style={[styles.sendButton, sending && styles.sendButtonDisabled]} 
-                            onPress={handleSendNotification} 
+                        <TouchableOpacity
+                            style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+                            onPress={handleSendNotification}
                             disabled={sending}
                             activeOpacity={0.85}
                         >
@@ -417,9 +418,9 @@ const NotificationTeacherScreen = () => {
             >
                 <ThemedView style={styles.modalContainer}>
                     <KeyboardAvoidingView
-                         style={{ flex: 1 }}
-                         behavior={Platform.OS === "ios" ? "padding" : "height"}
-                         keyboardVerticalOffset={20}
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        keyboardVerticalOffset={20}
                     >
                         <View style={styles.modalHeader}>
                             <ThemedText style={styles.modalTitle}>
@@ -450,7 +451,7 @@ const NotificationTeacherScreen = () => {
                     </KeyboardAvoidingView>
                 </ThemedView>
             </Modal>
-            
+
             {getModalConfig && (
                 <FilterModal
                     visible={!!activeModal}
@@ -468,7 +469,7 @@ const NotificationTeacherScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );
