@@ -424,7 +424,38 @@ const ManageClientsScreen = () => {
 
     const getTypeName = (typeId) => { const classType = classTypes.find(t => t._id === typeId); return classType?.nombre || 'Desconocido'; };
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
-    const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} /> </TouchableOpacity> </View> ); };
+    const renderDateField = (label, value, onChange) => {
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`;
+        if (Platform.OS === 'web') {
+            return (
+                <View style={dynamicStyles.dateFieldContainer}>
+                    <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText>
+                    <WebDatePicker
+                        selected={value ? parseISO(value) : null}
+                        onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))}
+                        dateFormat="dd/MM/yyyy"
+                        popperPlacement="top-start"
+                        customInput={
+                            <TouchableOpacity style={dynamicStyles.dateInputTouchable}>
+                                <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
+                            </TouchableOpacity>
+                        }
+                    />
+                </View>
+            );
+        }
+        return (
+            <View style={dynamicStyles.dateFieldContainer}>
+                <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText>
+                <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
+                        <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+        );
+    };
     const handlePaseLibreDateChange = (field, dateString) => { setPaseLibreData(prev => ({ ...prev, [field]: dateString })); };
     const handleQuickAddMembership = (months) => { const today = new Date(); const startStr = format(today, 'yyyy-MM-dd'); const endStr = format(months === 12 ? addYears(today, 1) : addMonths(today, months), 'yyyy-MM-dd'); setPaseLibreData({ desde: startStr, hasta: endStr }); };
     const handleSavePaseLibre = async () => { if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/pase-libre`, { paseLibreDesde: paseLibreData.desde, paseLibreHasta: paseLibreData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' }); } };
