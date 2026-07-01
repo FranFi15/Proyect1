@@ -25,20 +25,90 @@ import FilterModal from '@/components/FilterModal';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 
-// ... (getStyles se mantiene igual)
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    pageTitle: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', alignSelf: 'center', width: '100%', textAlign: 'center', fontWeight: 'bold', color: '#fff', fontSize: 18,  },
-    formContainer: { paddingHorizontal: 20, paddingTop: 10 , marginTop: 20},
-    label: { fontSize: 14, color: Colors[colorScheme].icon, marginBottom: 8 },
-    input: { backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, padding: 15, borderRadius: 5, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    filterButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 5, marginBottom: 20, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    filterButtonText: { color: Colors[colorScheme].text, fontSize: 16 },
-    placeholderText: { color: Colors[colorScheme].icon },
-    actionsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border },
-    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    buttonWrapper: { borderRadius: 5, overflow: 'hidden' },
+    headerBox: {
+        backgroundColor: gymColor || '#007bff',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 15,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
+    },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
+    headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: 4 },
+    formContainer: { paddingHorizontal: 16, paddingBottom: 30 },
+    cardSection: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 14,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3
+    },
+    sectionTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginLeft: 8 },
+    label: { fontSize: 13, color: Colors[colorScheme].icon, marginBottom: 6, fontWeight: '600' },
+    input: {
+        backgroundColor: colorScheme === 'dark' ? '#2c2c2c' : '#f8f9fa',
+        color: Colors[colorScheme].text,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderRadius: 10,
+        fontSize: 15,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border
+    },
+    selectorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: colorScheme === 'dark' ? '#2c2c2c' : '#f8f9fa',
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        marginBottom: 12
+    },
+    selectorText: { fontSize: 15, fontWeight: '600', color: Colors[colorScheme].text, flex: 1 },
+    placeholderText: { color: Colors[colorScheme].icon, fontWeight: '400' },
+    switchCardRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4
+    },
+    switchInfo: { flex: 1, marginRight: 15 },
+    switchTitle: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text },
+    switchSub: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 3 },
+    sendButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: gymColor || '#007bff',
+        paddingVertical: 16,
+        borderRadius: 12,
+        elevation: 3,
+        shadowColor: gymColor || '#007bff',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5
+    },
+    sendButtonDisabled: { opacity: 0.6 },
+    sendButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
     modalContainer: { flex: 1, padding: 20, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 22, fontWeight: 'bold' },
@@ -233,53 +303,108 @@ const NotificationTeacherScreen = () => {
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag"
                 >
-                    <ThemedText type="title" style={styles.pageTitle}>Notificar</ThemedText>
-
-                    <View style={styles.formContainer}>
-                        <TextInput style={styles.input} placeholder="Título" value={title} onChangeText={setTitle} placeholderTextColor={Colors[colorScheme].icon} />
-                        <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} multiline placeholder="Mensaje" value={message} onChangeText={setMessage} placeholderTextColor={Colors[colorScheme].icon} />
-                        
-                        <ThemedText style={styles.label}>Destinatarios</ThemedText>
-                        <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('targetType')}>
-                            <ThemedText style={styles.filterButtonText}>{getDisplayName(targetType)}</ThemedText>
-                            <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-
-                        {targetType === 'user' && (
-                            <>
-                                <ThemedText style={styles.label}>Alumno Específico</ThemedText>
-                                <TouchableOpacity style={styles.filterButton} onPress={openSearchModal}>
-                                    <ThemedText style={[styles.filterButtonText, !selectedUserId && styles.placeholderText]}>
-                                        {selectedUserId ? getSelectedItemDisplay() : 'Seleccionar un Cliente...'}
-                                    </ThemedText>
-                                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        {targetType === 'class' && (
-                             <>
-                                <ThemedText style={styles.label}>Clase Específica</ThemedText>
-                                <TouchableOpacity style={styles.filterButton} onPress={openSearchModal}>
-                                    <ThemedText style={[styles.filterButtonText, !selectedClassId && styles.placeholderText]}>
-                                        {selectedClassId ? getSelectedItemDisplay() : 'Seleccionar un Turno...'}
-                                    </ThemedText>
-                                    <FontAwesome5 name="search" size={16} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-                            </>
-                        )}
+                    {/* Header Banner */}
+                    <View style={styles.headerBox}>
+                        <Text style={styles.headerTitle}>Enviar Notificación</Text>
+                        <Text style={styles.headerSubtitle}>Comunícate al instante con tus alumnos o turnos</Text>
                     </View>
 
-                    <View style={{ flex: 1 }} />
+                    <View style={styles.formContainer}>
+                        {/* SECCIÓN 1: DESTINATARIO */}
+                        <View style={styles.cardSection}>
+                            <View style={styles.sectionTitleRow}>
+                                <Ionicons name="people" size={20} color={gymColor || '#007bff'} />
+                                <Text style={styles.sectionTitle}>1. Seleccionar Destinatario</Text>
+                            </View>
+                            
+                            <ThemedText style={styles.label}>Tipo de Envío</ThemedText>
+                            <TouchableOpacity style={styles.selectorBox} onPress={() => setActiveModal('targetType')}>
+                                <Text style={styles.selectorText}>{getDisplayName(targetType)}</Text>
+                                <FontAwesome5 name="chevron-down" size={14} color={Colors[colorScheme].icon} />
+                            </TouchableOpacity>
 
-                    <View style={styles.actionsContainer}>
-                        <View style={styles.switchContainer}>
-                            <ThemedText>Marcar como Importante (modal)</ThemedText>
-                            <Switch trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} onValueChange={setIsImportant} value={isImportant} />
+                            {targetType === 'user' && (
+                                <>
+                                    <ThemedText style={styles.label}>Alumno Específico</ThemedText>
+                                    <TouchableOpacity style={styles.selectorBox} onPress={openSearchModal}>
+                                        <Text style={[styles.selectorText, !selectedUserId && styles.placeholderText]}>
+                                            {selectedUserId ? getSelectedItemDisplay() : 'Buscar alumno...'}
+                                        </Text>
+                                        <Ionicons name="search" size={18} color={Colors[colorScheme].icon} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {targetType === 'class' && (
+                                <>
+                                    <ThemedText style={styles.label}>Turno / Clase Específica</ThemedText>
+                                    <TouchableOpacity style={styles.selectorBox} onPress={openSearchModal}>
+                                        <Text style={[styles.selectorText, !selectedClassId && styles.placeholderText]}>
+                                            {selectedClassId ? getSelectedItemDisplay() : 'Buscar turno...'}
+                                        </Text>
+                                        <Ionicons name="search" size={18} color={Colors[colorScheme].icon} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
-                        <View style={styles.buttonWrapper}>
-                            <Button title={sending ? "Enviando..." : "Enviar Notificación"} onPress={handleSendNotification} disabled={sending} color={gymColor} />
+
+                        {/* SECCIÓN 2: CONTENIDO */}
+                        <View style={styles.cardSection}>
+                            <View style={styles.sectionTitleRow}>
+                                <Ionicons name="chatbubble-ellipses" size={20} color={gymColor || '#007bff'} />
+                                <Text style={styles.sectionTitle}>2. Contenido del Mensaje</Text>
+                            </View>
+
+                            <ThemedText style={styles.label}>Título del Aviso</ThemedText>
+                            <TextInput 
+                                style={styles.input} 
+                                placeholder="Ej: ¡Cambio de horario este viernes!" 
+                                value={title} 
+                                onChangeText={setTitle} 
+                                placeholderTextColor={Colors[colorScheme].icon} 
+                            />
+
+                            <ThemedText style={styles.label}>Cuerpo del Mensaje</ThemedText>
+                            <TextInput 
+                                style={[styles.input, { height: 110, textAlignVertical: 'top' }]} 
+                                multiline 
+                                placeholder="Escribe aquí toda la información relevante para tus alumnos..." 
+                                value={message} 
+                                onChangeText={setMessage} 
+                                placeholderTextColor={Colors[colorScheme].icon} 
+                            />
                         </View>
+
+                        {/* SECCIÓN 3: PRIORIDAD */}
+                        <View style={styles.cardSection}>
+                            <View style={styles.switchCardRow}>
+                                <View style={styles.switchInfo}>
+                                    <Text style={styles.switchTitle}>⚠️ Aviso Emergente Importante</Text>
+                                    <Text style={styles.switchSub}>Se mostrará en una ventana modal en el centro de la pantalla al abrir la app.</Text>
+                                </View>
+                                <Switch 
+                                    trackColor={{ false: "#767577", true: gymColor || '#007bff' }} 
+                                    thumbColor={"#f4f3f4"} 
+                                    onValueChange={setIsImportant} 
+                                    value={isImportant} 
+                                />
+                            </View>
+                        </View>
+
+                        {/* BOTÓN ENVIAR */}
+                        <TouchableOpacity 
+                            style={[styles.sendButton, sending && styles.sendButtonDisabled]} 
+                            onPress={handleSendNotification} 
+                            disabled={sending}
+                            activeOpacity={0.85}
+                        >
+                            {sending ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Ionicons name="send" size={20} color="#fff" />
+                            )}
+                            <Text style={styles.sendButtonText}>{sending ? "Enviando Notificación..." : "Enviar Notificación Ahora"}</Text>
+                        </TouchableOpacity>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
