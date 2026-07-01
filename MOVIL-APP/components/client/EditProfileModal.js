@@ -81,7 +81,7 @@ const EditProfileModal = ({ userProfile, onClose }) => {
                 await apiClient.put('/users/profile/change-password', { currentPassword, newPassword });
             }
             await refreshUser();
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Tu perfil ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => { setAlertInfo({ visible: false }); onClose(); } }] });
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Tu perfil ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => { setAlertInfo({ visible: false }); setTimeout(() => { if (onClose) onClose(); }, 350); } }] });
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el perfil.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         }
