@@ -14,6 +14,7 @@ import {
     ScrollView,
     Linking,
     Alert,
+    Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
@@ -169,11 +170,15 @@ const ProfessorMyClassesScreen = () => {
     const renderStudentListItem = ({ item }) => (
         <Pressable onPress={() => handleViewStudentDetails(item)}>
             <View style={styles.studentCard}>
-                <View style={[styles.studentAvatar, { backgroundColor: gymColor || '#007bff' }]}>
-                    <Text style={styles.studentAvatarText}>
-                        {(item.nombre?.[0] || '').toUpperCase()}{(item.apellido?.[0] || '').toUpperCase()}
-                    </Text>
-                </View>
+                {item.fotoPerfil ? (
+                    <Image source={{ uri: item.fotoPerfil }} style={styles.studentAvatar} />
+                ) : (
+                    <View style={[styles.studentAvatar, { backgroundColor: gymColor || '#007bff' }]}>
+                        <Text style={styles.studentAvatarText}>
+                            {(item.nombre?.[0] || '').toUpperCase()}{(item.apellido?.[0] || '').toUpperCase()}
+                        </Text>
+                    </View>
+                )}
                 <View style={styles.studentCardInfo}>
                     <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
                     <Text style={styles.studentSub}>{item.email || 'Sin email'}</Text>
@@ -223,11 +228,15 @@ const ProfessorMyClassesScreen = () => {
         return (
             <View style={styles.studentDetailContainer}>
                 {/* Detail Header */}
-                <View style={[styles.detailAvatarLarge, { backgroundColor: gymColor || '#007bff' }]}>
-                    <Text style={styles.detailAvatarText}>
-                        {(selectedStudent.nombre?.[0] || '').toUpperCase()}{(selectedStudent.apellido?.[0] || '').toUpperCase()}
-                    </Text>
-                </View>
+                {selectedStudent.fotoPerfil ? (
+                    <Image source={{ uri: selectedStudent.fotoPerfil }} style={styles.detailAvatarLarge} />
+                ) : (
+                    <View style={[styles.detailAvatarLarge, { backgroundColor: gymColor || '#007bff' }]}>
+                        <Text style={styles.detailAvatarText}>
+                            {(selectedStudent.nombre?.[0] || '').toUpperCase()}{(selectedStudent.apellido?.[0] || '').toUpperCase()}
+                        </Text>
+                    </View>
+                )}
                 <Text style={styles.detailTitle}>{selectedStudent.nombre} {selectedStudent.apellido}</Text>
 
                 {/* Info Cards */}
