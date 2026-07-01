@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Image, View, Text, useColorScheme, Platform } from 'react-native';
-import { Ionicons, FontAwesome6} from '@expo/vector-icons';
+import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 
@@ -16,9 +16,9 @@ export default function ProfessorTabsLayout() {
   const colorScheme = useColorScheme() ?? 'light';
 
   return (
-    <Tabs 
+    <Tabs
       screenOptions={{
-        tabBarActiveTintColor: gymColor, 
+        tabBarActiveTintColor: gymColor,
         tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].cardBackground,
@@ -33,62 +33,62 @@ export default function ProfessorTabsLayout() {
           }),
         },
         headerTitleAlign: 'center',
-        headerTitle: (props) => <HeaderLogoTitle {...props} />, 
+        headerTitle: (props) => <HeaderLogoTitle {...props} />,
       }}
     >
-      <Tabs.Screen 
-        name="my-classes" 
-        options={{ 
+      <Tabs.Screen
+        name="my-classes"
+        options={{
           title: 'Mis Turnos',
           tabBarIcon: ({ color, size, focused }) => (
-           <Ionicons 
-              name={focused ? 'list' : 'list-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
-      />
-      
-      
-      <Tabs.Screen 
-        name="clients" 
-        options={{ 
-          title: 'Planes',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'people' : 'people-outline'} 
-              size={size} 
-              color={color} 
-            />
-          ),
-        }} 
-      />
-     
-       <Tabs.Screen 
-        name="notificar" 
-        options={{ 
-          title: 'Notificar',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} 
-              size={size} 
-              color={color} 
-            />
-          ),
-        }} 
+        }}
       />
 
-      <Tabs.Screen 
-        name="notifications" 
-        options={{ 
+
+      <Tabs.Screen
+        name="clients"
+        options={{
+          title: 'Planes',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'people' : 'people-outline'}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="notificar"
+        options={{
+          title: 'Notificar',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="notifications"
+        options={{
           title: 'Notificaciones',
           tabBarIcon: ({ color, size, focused }) => (
             <View>
               <Ionicons
-                name={focused ? 'notifications' : 'notifications-outline'} 
-                size={size} 
-                color={color} 
+                name={focused ? 'notifications' : 'notifications-outline'}
+                size={size}
+                color={color}
               />
               {user?.unreadNotificationsCount > 0 && (
                 <View style={{
@@ -102,10 +102,10 @@ export default function ProfessorTabsLayout() {
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                  <Text style={{ 
-                    color: 'white', 
-                    fontSize: 10, 
-                    fontWeight: 'bold' 
+                  <Text style={{
+                    color: 'white',
+                    fontSize: 10,
+                    fontWeight: 'bold'
                   }}>
                     {user.unreadNotificationsCount}
                   </Text>
@@ -113,20 +113,20 @@ export default function ProfessorTabsLayout() {
               )}
             </View>
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
+      <Tabs.Screen
+        name="profile"
+        options={{
           title: 'Mi Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
       <Tabs.Screen
         name="index"

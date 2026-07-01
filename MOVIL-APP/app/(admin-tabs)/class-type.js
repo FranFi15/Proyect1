@@ -587,7 +587,7 @@ const ClassTypeManagementScreen = () => {
                 renderTabBar={props => (
                     <TabBar 
                         {...props} 
-                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} 
+                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} 
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} 
                         labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none' }} 
                     />
@@ -791,16 +791,16 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     
     searchInputContainer: { 
         flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, 
-        borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border,
+        borderRadius: 10, borderWidth: 1, borderColor: Colors[colorScheme].border,
         marginTop: 15, marginHorizontal: 15, marginBottom: 5
     },
     searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15 },
     
     itemCard: {
-        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15,
+        backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18,
         marginVertical: 8, marginHorizontal: 15, flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41 
+        alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border 
     },
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },

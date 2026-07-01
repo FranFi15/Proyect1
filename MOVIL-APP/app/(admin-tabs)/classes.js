@@ -1010,7 +1010,7 @@ const ManageClassesScreen = () => {
                 onIndexChange={setIndex}
                 initialLayout={{ width: layout.width }}
                 renderTabBar={props => (
-                    <TabBar {...props} style={{ backgroundColor: gymColor }}
+                    <TabBar {...props} style={{ backgroundColor: gymColor, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3, }}
                         labelStyle={styles.tabLabel}
                         tabStyle={styles.tabStyle}
@@ -1297,7 +1297,7 @@ const ManageClassesScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
     expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },
     cancelledCard: { backgroundColor: Colors[colorScheme].cardBackground, opacity: 0.7, borderWidth: 1, borderColor: Colors[colorScheme].border},
     actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },

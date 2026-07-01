@@ -16,9 +16,9 @@ export default function ProfessorTabsLayout() {
   const colorScheme = useColorScheme() ?? 'light';
 
   return (
-    <Tabs 
+    <Tabs
       screenOptions={{
-        tabBarActiveTintColor: gymColor, 
+        tabBarActiveTintColor: gymColor,
         tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].cardBackground,
@@ -28,78 +28,78 @@ export default function ProfessorTabsLayout() {
           shadowColor: 'transparent',
           // 2. Añade la altura condicional aquí
           height: Platform.select({
-            ios: 120, 
-            android: 80, 
+            ios: 120,
+            android: 80,
           }),
         },
         headerTitleAlign: 'center',
-        headerTitle: (props) => <HeaderLogoTitle {...props} />, 
+        headerTitle: (props) => <HeaderLogoTitle {...props} />,
       }}
     >
-      <Tabs.Screen 
-        name="clients" 
-        options={{ 
+      <Tabs.Screen
+        name="clients"
+        options={{
           title: 'Usuarios',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'people' : 'people-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'people' : 'people-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-       <Tabs.Screen 
-        name="class-type" 
-        options={{ 
+      <Tabs.Screen
+        name="class-type"
+        options={{
           title: 'Créditos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'list' : 'list-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="classes" 
-        options={{ 
+      <Tabs.Screen
+        name="classes"
+        options={{
           title: 'Turnos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'calendar' : 'calendar-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'calendar' : 'calendar-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="notifications" 
-        options={{ 
+      <Tabs.Screen
+        name="notifications"
+        options={{
           title: 'Notificar',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
+      <Tabs.Screen
+        name="profile"
+        options={{
           title: 'Mi Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
       <Tabs.Screen
         name="index"

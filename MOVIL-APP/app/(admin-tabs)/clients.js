@@ -964,7 +964,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     
     modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000, },
     container: { flex: 1 },
-    headerContainer: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
+    },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
@@ -973,7 +986,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
 
     statsContainer: { flexDirection: 'row', paddingHorizontal: 15, paddingTop: 15, justifyContent: 'space-between', gap: 12 },
 
-    statCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 12, padding: 12, elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, justifyContent: 'space-between', borderWidth: 1, borderColor: Colors[colorScheme].border },
+    statCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 14, elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, justifyContent: 'space-between', borderWidth: 1, borderColor: Colors[colorScheme].border },
     statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     statLabel: { fontSize: 11, color: Colors[colorScheme].icon, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
     statContent: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
@@ -982,10 +995,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     statAction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, alignSelf: 'flex-start' },
     statActionText: { fontSize: 10, fontWeight: 'bold', marginRight: 4 },
 
-    searchInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', margin: 15, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 }, 
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', margin: 15, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 }, 
     searchInput: { height: 50, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15, },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
     inactiveCard: { opacity: 0.6, backgroundColor: Colors[colorScheme].background, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5, },
     userInfo: { flex: 1, marginRight: 10 },

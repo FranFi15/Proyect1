@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Octicons, Ionicons, FontAwesome6 } from '@expo/vector-icons';
-import CustomAlert from '@/components/CustomAlert'; 
+import CustomAlert from '@/components/CustomAlert';
 import apiClient from '../../services/apiClient';
 
 const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
@@ -16,10 +16,10 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
 
     // Colores para los íconos (puedes personalizarlos)
     const colors = {
-        error: 'rgb(197, 60, 73)',    
-        success: 'rgb(13, 175, 51)',   
-        warning: 'rgb(255, 211, 77)',   
-        info: gymColor,       
+        error: 'rgb(197, 60, 73)',
+        success: 'rgb(13, 175, 51)',
+        warning: 'rgb(255, 211, 77)',
+        info: gymColor,
     };
 
     switch (type) {
@@ -31,19 +31,19 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'credit-card';
             baseColor = Colors[colorScheme].icon;
             break;
-            case 'transaction_payment':
+        case 'transaction_payment':
             iconName = 'money-bill-wave';
             baseColor = colors.success;
             break;
-            case 'transaction_charge':
+        case 'transaction_charge':
             iconName = 'money-bill-wave';
             baseColor = Colors[colorScheme].icon;
             break;
-            case 'transaction_rejected':
+        case 'transaction_rejected':
             iconName = 'money-bill-wave';
             baseColor = colors.error;
             break;
-            case 'class_reminder_2h':
+        case 'class_reminder_2h':
             iconName = 'clock';
             baseColor = colors.info;
             break;
@@ -65,7 +65,7 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             break;
         case 'waitlist_subscription':
             iconName = 'hourglass';
-            baseColor = Colors[colorScheme].icon; 
+            baseColor = Colors[colorScheme].icon;
             break;
         case 'manual_enrollment':
             iconName = 'user-plus';
@@ -83,27 +83,27 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'star';
             baseColor = colors.error;
             break;
-            case 'new_plan':
+        case 'new_plan':
             iconName = 'dumbbell';
             baseColor = Colors[colorScheme].text;
             break;
-            case 'pase_libre_expiration':
+        case 'pase_libre_expiration':
             iconName = 'star';
             baseColor = colors.error;
             break;
-            case 'welcome_gift':
+        case 'welcome_gift':
             iconName = 'gift';
             baseColor = colors.success;
             break;
-            case 'class_update':
+        case 'class_update':
             iconName = 'calendar';
             baseColor = colors.info;
             break;
-            case 'class_deletion':
+        case 'class_deletion':
             iconName = 'calendar-xmark';
             baseColor = colors.error;
             break;
-            case 'out_of_credits':
+        case 'out_of_credits':
             iconName = 'coins';
             baseColor = colors.error;
             break;
@@ -145,14 +145,14 @@ const NotificationsScreen = () => {
     const { user, refreshUser, gymColor } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
-    const styles = getStyles(colorScheme , gymColor);
+    const styles = getStyles(colorScheme, gymColor);
 
     // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: []
     });
 
     const fetchNotifications = useCallback(async () => {
@@ -177,25 +177,25 @@ const NotificationsScreen = () => {
     useFocusEffect(
         useCallback(() => {
             const markAndRefresh = async () => {
-                    try {
-                  
-                   await apiClient.put('/notifications/mark-all-read');
-                   
-                   await refreshUser();
-                    } catch (error) {
-                   console.error("Error marking notifications as read:", error);
-                    } finally {
-                
-                   await fetchNotifications(); 
-               }
+                try {
+
+                    await apiClient.put('/notifications/mark-all-read');
+
+                    await refreshUser();
+                } catch (error) {
+                    console.error("Error marking notifications as read:", error);
+                } finally {
+
+                    await fetchNotifications();
+                }
             };
 
             if (user) {
                 markAndRefresh();
             }
-        }, [user]) 
+        }, [user])
     );
-    
+
     const onRefresh = useCallback(() => {
         setIsRefreshing(true);
         fetchNotifications().finally(() => setIsRefreshing(false));
@@ -219,15 +219,17 @@ const NotificationsScreen = () => {
             message: "¿Estás seguro?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Eliminar", style: 'destructive', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await notificationService.deleteNotification(notificationId);
-                        setNotifications(prev => prev.map(s => ({ ...s, data: s.data.filter(n => n._id !== notificationId) })).filter(s => s.data.length > 0));
-                    } catch (err) { 
-                        setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudo eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Eliminar", style: 'destructive', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await notificationService.deleteNotification(notificationId);
+                            setNotifications(prev => prev.map(s => ({ ...s, data: s.data.filter(n => n._id !== notificationId) })).filter(s => s.data.length > 0));
+                        } catch (err) {
+                            setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudo eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }},
+                },
             ]
         });
     };
@@ -239,15 +241,17 @@ const NotificationsScreen = () => {
             message: "¿Seguro que quieres eliminar TODAS tus notificaciones?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Confirmar", style: 'destructive', onPress: async () => {
-                    setAlertInfo({ visible: false });
-                    try {
-                        await notificationService.deleteAllNotifications();
-                        setNotifications([]);
-                    } catch (err) { 
-                        setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudieron eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                {
+                    text: "Confirmar", style: 'destructive', onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await notificationService.deleteAllNotifications();
+                            setNotifications([]);
+                        } catch (err) {
+                            setAlertInfo({ visible: true, title: 'Error', message: err.message || 'No se pudieron eliminar.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                        }
                     }
-                }},
+                },
             ]
         });
     };
@@ -259,7 +263,7 @@ const NotificationsScreen = () => {
         return (
             <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
                 <View style={styles.iconContainer}>
-                <NotificationIcon type={item.type} size={20} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme}/>
+                    <NotificationIcon type={item.type} size={20} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme} />
                 </View>
                 <View style={styles.notificationContent}>
                     <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
@@ -276,17 +280,17 @@ const NotificationsScreen = () => {
     return (
         <ThemedView style={styles.container}>
             <View style={styles.headerContainer}>
-                                            <Text style={styles.headerTitle}>   Notificaciones</Text>
-                                        </View>
+                <Text style={styles.headerTitle}>   Notificaciones</Text>
+            </View>
             <View style={styles.header}>
                 {notifications.length > 0 && (
                     <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllButton}>
-                        <Octicons name="trash" size={16} color={Colors[colorScheme].text}/>
+                        <Octicons name="trash" size={16} color={Colors[colorScheme].text} />
                         <ThemedText style={styles.deleteAllButtonText}>Eliminar Todas</ThemedText>
                     </TouchableOpacity>
                 )}
             </View>
-            
+
             {notifications.length === 0 ? (
                 <ThemedView style={styles.centered}><ThemedText style={styles.noNotificationsText}>No tienes notificaciones.</ThemedText></ThemedView>
             ) : (
@@ -305,7 +309,7 @@ const NotificationsScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );
@@ -313,47 +317,50 @@ const NotificationsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => {
     return StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', },
-    headerContainer: {
-        backgroundColor: gymColor,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-        textAlign: 'center',
-    },
-    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 1, paddingTop: 10, paddingBottom: 0},
-    title: { fontSize: 20, fontWeight: 'bold' },
-    deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
-    deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 10,},
-    noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
-    listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
-    sectionHeader: { fontSize: 16, fontWeight: 'bold', backgroundColor: Colors[colorScheme].background, paddingTop: 20, paddingBottom: 10, color: Colors[colorScheme].text },
-    notificationItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 5, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,borderWidth: 1, borderColor: Colors[colorScheme].border },
-    unreadNotification: {
-        borderLeftWidth: 4,
-        borderColor: gymColor || '#1a5276', 
-    },
-    icon: { marginRight: 15 },
-    notificationContent: { flex: 1 },
-    notificationTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-    notificationMessage: { fontSize: 12, opacity: 0.9 },
-    notificationTime: { fontSize: 12, opacity: 0.6, marginTop: 8, alignSelf: 'flex-end' },
-    deleteButton: { padding: 10, marginLeft: 10 },
-    errorText: { color: Colors.light.error },
-    iconContainer: {
+        container: { flex: 1, backgroundColor: Colors[colorScheme].background },
+        centered: { flex: 1, justifyContent: 'center', alignItems: 'center', },
+        headerContainer: {
+            backgroundColor: gymColor,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+        },
+        headerTitle: {
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: '#fff',
+            textAlign: 'center',
+        },
+        header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', paddingHorizontal: 1, paddingTop: 10, paddingBottom: 0 },
+        title: { fontSize: 20, fontWeight: 'bold' },
+        deleteAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
+        deleteAllButtonText: { color: Colors[colorScheme].text, fontSize: 13, fontWeight: '600', marginLeft: 10, },
+        noNotificationsText: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
+        listContentContainer: { paddingHorizontal: 15, paddingBottom: 20 },
+        sectionHeader: { fontSize: 16, fontWeight: 'bold', backgroundColor: Colors[colorScheme].background, paddingTop: 20, paddingBottom: 10, color: Colors[colorScheme].text },
+        notificationItem: {
+            backgroundColor: Colors[colorScheme].cardBackground, padding: 15, borderRadius: 5, marginBottom: 10, flexDirection: 'row', alignItems: 'center', elevation: 2,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border
+        },
+        unreadNotification: {
+            borderLeftWidth: 4,
+            borderColor: gymColor || '#1a5276',
+        },
+        icon: { marginRight: 15 },
+        notificationContent: { flex: 1 },
+        notificationTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+        notificationMessage: { fontSize: 12, opacity: 0.9 },
+        notificationTime: { fontSize: 12, opacity: 0.6, marginTop: 8, alignSelf: 'flex-end' },
+        deleteButton: { padding: 10, marginLeft: 10 },
+        errorText: { color: Colors.light.error },
+        iconContainer: {
             marginRight: 15,
             justifyContent: 'center',
             alignItems: 'center',
         },
-});}
+    });
+}
 
 export default NotificationsScreen;
