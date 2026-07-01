@@ -38,10 +38,17 @@ const StructuredPlanViewer = ({ days, colorScheme }) => {
         }
     };
 
-    const primaryColor = gymColor || '#007bff';
-    const textColor = Colors[colorScheme || 'light'].text;
-    const borderColor = Colors[colorScheme || 'light'].border || '#e0e0e0';
-    const cardBg = colorScheme === 'dark' ? '#1e1e1e' : '#f8f9fa';
+    const isDark = colorScheme === 'dark';
+    const textColor = isDark ? '#ffffff' : '#111111';
+    const subTextColor = isDark ? '#aaaaaa' : '#666666';
+    const borderColor = isDark ? '#333333' : '#e0e0e0';
+    const cardBg = isDark ? '#1e1e1e' : '#ffffff';
+    const activeTabBg = isDark ? '#ffffff' : '#111111';
+    const activeTabText = isDark ? '#111111' : '#ffffff';
+    const badgeBg = isDark ? '#2c2c2c' : '#f1f3f5';
+    const badgeText = isDark ? '#ffffff' : '#111111';
+    const checkBg = isDark ? '#ffffff' : '#111111';
+    const checkIcon = isDark ? '#111111' : '#ffffff';
 
     const completedCount = exercises.filter((_, idx) => completedExercises[`${selectedDayIndex}-${idx}`]).length;
     const progressPercent = exercises.length > 0 ? (completedCount / exercises.length) * 100 : 0;
@@ -55,10 +62,10 @@ const StructuredPlanViewer = ({ days, colorScheme }) => {
                     return (
                         <TouchableOpacity
                             key={day.id || idx}
-                            style={[styles.dayTab, isActive ? { backgroundColor: primaryColor, borderColor: primaryColor } : { borderColor: borderColor }]}
+                            style={[styles.dayTab, isActive ? { backgroundColor: activeTabBg, borderColor: activeTabBg } : { backgroundColor: cardBg, borderColor: borderColor }]}
                             onPress={() => setSelectedDayIndex(idx)}
                         >
-                            <Text style={[styles.dayTabText, isActive ? { color: '#fff' } : { color: textColor }]}>
+                            <Text style={[styles.dayTabText, { color: isActive ? activeTabText : textColor }]}>
                                 {day.name || `Día ${idx + 1}`}
                             </Text>
                         </TouchableOpacity>
@@ -72,18 +79,18 @@ const StructuredPlanViewer = ({ days, colorScheme }) => {
                     <Text style={[styles.progressTitle, { color: textColor }]}>
                         {currentDay.name || `Día ${selectedDayIndex + 1}`}
                     </Text>
-                    <Text style={[styles.progressStats, { color: primaryColor }]}>
+                    <Text style={[styles.progressStats, { color: subTextColor }]}>
                         {completedCount} de {exercises.length} listos
                     </Text>
                 </View>
                 <View style={styles.progressBarBg}>
-                    <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: primaryColor }]} />
+                    <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: activeTabBg }]} />
                 </View>
             </View>
 
             {/* Lista de Ejercicios */}
             {exercises.length === 0 ? (
-                <Text style={{ color: textColor, fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>
+                <Text style={{ color: subTextColor, fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>
                     Este día no tiene ejercicios asignados.
                 </Text>
             ) : (
@@ -97,15 +104,15 @@ const StructuredPlanViewer = ({ days, colorScheme }) => {
                             activeOpacity={0.8}
                             style={[
                                 styles.exerciseCard,
-                                { backgroundColor: cardBg, borderColor: isDone ? primaryColor : borderColor },
+                                { backgroundColor: cardBg, borderColor: isDone ? activeTabBg : borderColor },
                                 isDone && styles.exerciseCardDone
                             ]}
                             onPress={() => toggleCompletion(idx)}
                         >
                             <View style={styles.exerciseTopRow}>
                                 {/* Checkbox */}
-                                <View style={[styles.checkbox, isDone ? { backgroundColor: primaryColor, borderColor: primaryColor } : { borderColor: '#888' }]}>
-                                    {isDone && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                <View style={[styles.checkbox, isDone ? { backgroundColor: checkBg, borderColor: checkBg } : { borderColor: subTextColor }]}>
+                                    {isDone && <Ionicons name="checkmark" size={16} color={checkIcon} />}
                                 </View>
 
                                 {/* Nombre del ejercicio */}
@@ -119,35 +126,35 @@ const StructuredPlanViewer = ({ days, colorScheme }) => {
                             {/* Detalles: Series, Reps, Peso/Notas */}
                             <View style={styles.badgesRow}>
                                 {exercise.series ? (
-                                    <View style={[styles.badge, { backgroundColor: primaryColor + '15' }]}>
-                                        <Text style={[styles.badgeText, { color: primaryColor }]}>Series: {exercise.series}</Text>
+                                    <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+                                        <Text style={[styles.badgeText, { color: badgeText }]}>Series: {exercise.series}</Text>
                                     </View>
                                 ) : null}
 
                                 {exercise.reps ? (
-                                    <View style={[styles.badge, { backgroundColor: primaryColor + '15' }]}>
-                                        <Text style={[styles.badgeText, { color: primaryColor }]}>Reps: {exercise.reps}</Text>
+                                    <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+                                        <Text style={[styles.badgeText, { color: badgeText }]}>Reps: {exercise.reps}</Text>
                                     </View>
                                 ) : null}
                             </View>
 
                             {exercise.notes ? (
-                                <Text style={[styles.exerciseNotes, { color: textColor }]}>
-                                    💡 <Text style={{ fontWeight: '600' }}>Nota/Peso:</Text> {exercise.notes}
+                                <Text style={[styles.exerciseNotes, { color: subTextColor }]}>
+                                    💡 <Text style={{ fontWeight: '600', color: textColor }}>Nota/Peso:</Text> {exercise.notes}
                                 </Text>
                             ) : null}
 
                             {/* Botón de Video si existe URL */}
                             {exercise.videoUrl ? (
                                 <TouchableOpacity
-                                    style={[styles.videoButton, { borderColor: primaryColor }]}
+                                    style={[styles.videoButton, { borderColor: borderColor, backgroundColor: isDark ? '#2a2a2a' : '#f8f9fa' }]}
                                     onPress={(e) => {
                                         e.stopPropagation();
                                         handleOpenVideo(exercise.videoUrl);
                                     }}
                                 >
-                                    <MaterialCommunityIcons name="play-circle" size={20} color={primaryColor} />
-                                    <Text style={[styles.videoButtonText, { color: primaryColor }]}>Ver Video Explicativo</Text>
+                                    <MaterialCommunityIcons name="play-circle" size={20} color={textColor} />
+                                    <Text style={[styles.videoButtonText, { color: textColor }]}>Ver Video Explicativo</Text>
                                 </TouchableOpacity>
                             ) : null}
                         </TouchableOpacity>
