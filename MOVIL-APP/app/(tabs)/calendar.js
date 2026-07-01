@@ -18,6 +18,7 @@
     import CustomAlert from '@/components/CustomAlert';
     import FilterModal from '@/components/FilterModal';
     import QrModal from '../../components/client/QrModal';
+    import QrScannerModal from '../../components/profesor/QrScannerModal';
 
     // Servicios y Contexto
     import apiClient from '../../services/apiClient';
@@ -365,7 +366,24 @@
         const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
         const [isFilterModalVisible, setFilterModalVisible] = useState(false);
         const [isQrModalVisible, setQrModalVisible] = useState(false);
+        const [isScannerVisible, setScannerVisible] = useState(false);
         
+        const handleClientReceptionScan = async ({ data }) => {
+            setScannerVisible(false);
+            try {
+                const response = await apiClient.post('/check-in/client-scan', { qrData: data });
+                let detail = 'Asistencia registrada correctamente.';
+                if (response.data.classes && response.data.classes.length > 0) {
+                    detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
+                } else if (response.data.message) {
+                    detail = response.data.message;
+                }
+                setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
+            } catch (error) {
+                setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            }
+        };
+
         // SCOREBOARD STATES
         const [isScoreboardVisible, setScoreboardVisible] = useState(false);
         const [hasActiveScoreboards, setHasActiveScoreboards] = useState(false);
@@ -558,9 +576,9 @@
             <ThemedView style={{ flex: 1 }}>
                 <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
                 <View style={styles.headerActions}>
-                    <TouchableOpacity style={styles.qrButton} onPress={() => setQrModalVisible(true)}>
-                        <Ionicons name="qr-code" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.qrButtonText}>Mi Credencial</ThemedText>
+                    <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
+                        <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.qrButtonText}>Escanear QR</ThemedText>
                     </TouchableOpacity>
                 </View>
             </ThemedView>
@@ -608,6 +626,7 @@
                 <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={handleSelectClassType} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
                 <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
                 <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
+                <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
             </View>
         );
     };

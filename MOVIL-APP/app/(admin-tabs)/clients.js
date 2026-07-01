@@ -35,6 +35,8 @@ import FilterModal from '@/components/FilterModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
+import OrdenMedicaAdminModal from '@/components/admin/OrdenMedicaAdminModal';
+import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
 const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
@@ -143,6 +145,8 @@ const ManageClientsScreen = () => {
 
     const [activeModal, setActiveModal] = useState(null);
     const [isScannerVisible, setScannerVisible] = useState(false);
+    const [isReceptionQrVisible, setIsReceptionQrVisible] = useState(false);
+    const [selectedMedicalOrderClient, setSelectedMedicalOrderClient] = useState(null);
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
     
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
@@ -318,6 +322,14 @@ const ManageClientsScreen = () => {
                                     </Text>
                                 </View>
                             )}
+                            {item.roles.includes('cliente') && (
+                                <View style={[dynamicStyles.balanceBadge, { backgroundColor: '#e8f4f8' }]}>
+                                    <FontAwesome6 name="clipboard-check" size={12} color="#007bff" style={{marginRight: 4}} />
+                                    <Text style={[dynamicStyles.balanceText, { color: '#007bff' }]}>
+                                        Asistencias: {item.historialAsistencias?.length || 0}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     </View>
                     <View style={dynamicStyles.actionsContainer}>
@@ -336,9 +348,9 @@ const ManageClientsScreen = () => {
                                 <Ionicons name="star" size={22} color="#e74c3c" />
                             </TouchableOpacity>
                         )}
-                        {item?.ordenMedicaRequerida && (
-                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
-                                <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={22} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'} />
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedMedicalOrderClient(item)}>
+                                <Ionicons name="document-text" size={22} color={(item.ordenMedicaUrl || item.ordenMedicaEntregada) ? '#28a745' : '#dc3545'} />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
@@ -461,7 +473,7 @@ const ManageClientsScreen = () => {
                 keyboardDismissMode="none"
             />
             
-            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setScannerVisible(true)}>
+            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setIsReceptionQrVisible(true)}>
                 <Ionicons name="qr-code" size={28} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity style={dynamicStyles.fab} onPress={handleOpenAddModal}>
@@ -598,16 +610,6 @@ const ManageClientsScreen = () => {
                                 <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(newClientData.roles[0], 'role')}</ThemedText>
                                 <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
-                            <View style={dynamicStyles.switchRow}>
-                                <ThemedText style={dynamicStyles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                <Switch value={newClientData.ordenMedicaRequerida} onValueChange={(value) => handleNewClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                            </View>
-                            {newClientData.ordenMedicaRequerida && (
-                                <View style={dynamicStyles.switchRow}>
-                                    <ThemedText style={dynamicStyles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                    <Switch value={newClientData.ordenMedicaEntregada} onValueChange={(value) => handleNewClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                </View>
-                            )}
                             <View style={dynamicStyles.modalActions}><View style={dynamicStyles.buttonWrapper}><Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} /></View></View>
                         </ScrollView>
                     </Pressable>
@@ -629,6 +631,8 @@ const ManageClientsScreen = () => {
                                 <TextInput style={dynamicStyles.input} value={editingClientData.nombre} onChangeText={(text) => handleEditingClientChange('nombre', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>Apellido</ThemedText>
                                 <TextInput style={dynamicStyles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
+                                <ThemedText style={dynamicStyles.inputLabel}>Email</ThemedText>
+                                <TextInput style={dynamicStyles.input} keyboardType="email-address" autoCapitalize="none" value={editingClientData.email} onChangeText={(text) => handleEditingClientChange('email', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>DNI</ThemedText>
                                 <TextInput style={dynamicStyles.input} keyboardType="numeric" value={editingClientData.dni} onChangeText={(text) => handleEditingClientChange('dni', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>Fecha de Nacimiento</ThemedText>
@@ -648,18 +652,6 @@ const ManageClientsScreen = () => {
                                     <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(editingClientData.roles[0], 'role')}</ThemedText>
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                                {editingClientData.roles.includes('cliente') && (
-                                <View style={dynamicStyles.switchRow}>
-                                    <ThemedText style={dynamicStyles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                    <Switch value={editingClientData.ordenMedicaRequerida} onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                </View>
-                                 )}
-                                {editingClientData.ordenMedicaRequerida && (
-                                    <View style={dynamicStyles.switchRow}>
-                                            <ThemedText style={dynamicStyles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                            <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                    </View>
-                                )}
                                <View style={dynamicStyles.switchRow}>
                             <ThemedText style={dynamicStyles.inputLabel}>Cuenta Activa</ThemedText>
                             <Switch value={editingClientData.isActive} onValueChange={(value) => handleToggleUserStatus(editingClientData, value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
@@ -827,6 +819,8 @@ const ManageClientsScreen = () => {
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleGeneralScan} />  
+            <ReceptionQrModal visible={isReceptionQrVisible} onClose={() => setIsReceptionQrVisible(false)} gymColor={gymColor} />
+            <OrdenMedicaAdminModal visible={!!selectedMedicalOrderClient} onClose={() => setSelectedMedicalOrderClient(null)} client={selectedMedicalOrderClient} gymColor={gymColor} />
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
 
         </ThemedView>

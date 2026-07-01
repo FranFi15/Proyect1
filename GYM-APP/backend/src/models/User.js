@@ -132,6 +132,15 @@ const userSchema = mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    ordenMedicaUrl: {
+        type: String,
+        default: null,
+    },
+    historialAsistencias: [{
+        claseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
+        fecha: { type: Date, default: Date.now },
+        nombreClase: String
+    }],
     isActive: {
     type: Boolean,
     default: true, 

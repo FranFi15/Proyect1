@@ -20,7 +20,8 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import QrScannerModal from '../../components/profesor/QrScannerModal';
 
 // --- AÑADIDO: Importaciones para TabView ---
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -61,6 +62,8 @@ const MyClassesScreen = () => {
     // const [activeTab, setActiveTab] = useState('upcoming'); // <-- ELIMINADO
 
     const [enrolledClasses, setEnrolledClasses] = useState([]);
+    const [userProfile, setUserProfile] = useState(null);
+    const [isScannerVisible, setScannerVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -75,6 +78,36 @@ const MyClassesScreen = () => {
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
+    const totalAsistencias = useMemo(() => {
+        return userProfile?.historialAsistencias?.length || 0;
+    }, [userProfile]);
+
+    const asistenciasMes = useMemo(() => {
+        if (!userProfile?.historialAsistencias) return 0;
+        const now = new Date();
+        return userProfile.historialAsistencias.filter(a => {
+            const d = new Date(a.fecha);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length;
+    }, [userProfile]);
+
+    const handleClientScan = async ({ data }) => {
+        setScannerVisible(false);
+        try {
+            const response = await apiClient.post('/check-in/client-scan', { qrData: data });
+            let detail = 'Asistencia registrada correctamente.';
+            if (response.data.classes && response.data.classes.length > 0) {
+                detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
+            } else if (response.data.message) {
+                detail = response.data.message;
+            }
+            setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
+            fetchMyClasses();
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+        }
+    };
+
     const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
         <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: color }]}
@@ -88,6 +121,7 @@ const MyClassesScreen = () => {
     const fetchMyClasses = useCallback(async () => {
         try {
             const userResponse = await apiClient.get('/users/me');
+            setUserProfile(userResponse.data);
             const enrolledIds = new Set(userResponse.data.clasesInscritas || []);
             const classesResponse = await apiClient.get('/classes?includePast=true');
             const myClasses = classesResponse.data.filter(cls => enrolledIds.has(cls._id));
@@ -204,10 +238,19 @@ const MyClassesScreen = () => {
         const now = new Date();
         const canUnenroll = item.dateTime >= now;
         const isCancelled = item.estado === 'cancelada';
+        const didAttend = item.asistencias?.includes(user?._id) || userProfile?.historialAsistencias?.some(h => h.claseId === item._id);
 
         return (
             <ThemedView style={styles.classItem}>
-                <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                    {didAttend && (
+                        <View style={styles.presentBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color="#28a745" />
+                            <Text style={styles.presentText}>PRESENTE</Text>
+                        </View>
+                    )}
+                </View>
                 <ThemedText style={styles.classInfoText}>
                                     A cargo de: {formatTeachers(item)}
                                 </ThemedText>
@@ -215,20 +258,25 @@ const MyClassesScreen = () => {
                 
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
-                    : index === 0 && canUnenroll && ( // <-- LÓGICA ACTUALIZADA
+                    : index === 0 && canUnenroll ? (
                         <ActionButton 
                             title="Anular Inscripción" 
                             color="#e74c3c" 
                             onPress={() => handleUnenroll(item._id)}
                             iconName="calendar-times"
                         />
-                    )}
+                    ) : index === 1 && !didAttend ? (
+                        <View style={styles.absentBadge}>
+                            <Ionicons name="close-circle" size={14} color="#dc3545" />
+                            <Text style={styles.absentText}>AUSENTE</Text>
+                        </View>
+                    ) : null}
                 </View>
             </ThemedView>
         );
     };
 
-  const UpcomingScene = () => (
+    const UpcomingScene = () => (
         <SectionList
             sections={upcomingClasses}
             keyExtractor={(item, index) => item._id + index}
@@ -246,6 +294,22 @@ const MyClassesScreen = () => {
             keyExtractor={(item, index) => item._id + index}
             renderItem={renderClassItem}
             renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+            ListHeaderComponent={
+                <View style={styles.summaryCard}>
+                    <ThemedText style={styles.summaryTitle}>Progreso y Asistencias</ThemedText>
+                    <View style={styles.statsRow}>
+                        <View style={styles.statBox}>
+                            <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{asistenciasMes}</ThemedText>
+                            <ThemedText style={styles.statLabel}>Este Mes</ThemedText>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statBox}>
+                            <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{totalAsistencias}</ThemedText>
+                            <ThemedText style={styles.statLabel}>Total Presentes</ThemedText>
+                        </View>
+                    </View>
+                </View>
+            }
             ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en el historial.</ThemedText>}
             contentContainerStyle={{ paddingBottom: 20 }}
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
@@ -367,6 +431,96 @@ const getStyles = (colorScheme, gymColor) => {
             fontWeight: 'bold',
             marginLeft: 10,
             fontSize: 14,
+        },
+        headerBar: {
+            padding: 12,
+            backgroundColor: Colors[colorScheme].cardBackground,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors[colorScheme].border,
+        },
+        scanBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 10,
+            borderRadius: 8,
+        },
+        scanBtnText: {
+            color: '#fff',
+            fontWeight: 'bold',
+            marginLeft: 8,
+            fontSize: 15,
+        },
+        summaryCard: {
+            backgroundColor: Colors[colorScheme].cardBackground,
+            marginHorizontal: 16,
+            marginVertical: 18,
+            paddingVertical: 22,
+            paddingHorizontal: 16,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: Colors[colorScheme].border,
+        },
+        summaryTitle: {
+            fontSize: 17,
+            fontWeight: 'bold',
+            marginBottom: 22,
+            textAlign: 'center',
+            color: Colors[colorScheme].text,
+        },
+        statsRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            paddingVertical: 6,
+        },
+        statBox: {
+            alignItems: 'center',
+            flex: 1,
+        },
+        statValue: {
+            fontSize: 32,
+            lineHeight: 38,
+            fontWeight: 'bold',
+            marginBottom: 4,
+        },
+        statLabel: {
+            fontSize: 13,
+            opacity: 0.8,
+            marginTop: 4,
+        },
+        statDivider: {
+            width: 1,
+            height: 45,
+            backgroundColor: Colors[colorScheme].border,
+        },
+        presentBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#e8f7ee',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+        },
+        presentText: {
+            color: '#28a745',
+            fontSize: 11,
+            fontWeight: 'bold',
+            marginLeft: 4,
+        },
+        absentBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#fdeeea',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+        },
+        absentText: {
+            color: '#dc3545',
+            fontSize: 11,
+            fontWeight: 'bold',
+            marginLeft: 4,
         },
     });
 };

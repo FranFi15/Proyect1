@@ -29,6 +29,7 @@ import EditProfileModal from '@/components/client/EditProfileModal';
 import TransferPaymentModal from '../../components/client/TransferPaymentModal';
 import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert'; 
+import OrdenMedicaModal from '@/components/client/OrdenMedicaModal'; 
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -264,6 +265,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('ordenMedica')}>
+                        <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Estudio / Orden Médica</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
                         <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
@@ -296,6 +302,15 @@ const ProfileScreen = () => {
             </Modal>
             <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
+            </Modal>
+
+            <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+                <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
+                    try {
+                        const res = await apiClient.get('/users/me');
+                        setProfile(res.data);
+                    } catch(e) {}
+                }} />
             </Modal>
 
             <Modal visible={activeModal === 'edit'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>

@@ -52,6 +52,25 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         });
     }
 
+    // Registrar asistencia
+    for (const clase of upcomingClasses) {
+        if (!clase.asistencias.some(id => id.toString() === user._id.toString())) {
+            clase.asistencias.push(user._id);
+            await clase.save();
+        }
+        const alreadyRecordedToday = user.historialAsistencias.some(h => 
+            h.claseId && h.claseId.toString() === clase._id.toString() && new Date(h.fecha) >= todayStart
+        );
+        if (!alreadyRecordedToday) {
+            user.historialAsistencias.push({
+                claseId: clase._id,
+                fecha: new Date(),
+                nombreClase: clase.tipoClase?.nombre || 'Turno General'
+            });
+        }
+    }
+    await user.save();
+
     // 3. Si se encuentran clases válidas, respondemos con la lista.
     res.status(200).json({
         success: true,
@@ -59,8 +78,83 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         classes: upcomingClasses.map(c => ({ 
             nombre: c.tipoClase?.nombre || 'General',
             horario: `${c.horaInicio}hs - ${c.horaFin}hs`
-        }))
+        })),
+        totalAsistencias: user.historialAsistencias.length
     });
 });
 
-export { processGeneralCheckIn };
+const processClientReceptionScan = asyncHandler(async (req, res) => {
+    const { Clase, User } = getModels(req.gymDBConnection);
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    const enrolledClassesToday = await Clase.find({
+        fecha: { $gte: todayStart, $lte: todayEnd },
+        usuariosInscritos: userId,
+        estado: 'activa',
+    }).populate('tipoClase', 'nombre').sort({ horaInicio: 'asc' });
+
+    if (enrolledClassesToday.length === 0) {
+        return res.status(403).json({
+            success: false,
+            message: `❌ No estás inscripto en ningún turno hoy.`,
+        });
+    }
+
+    const now = new Date();
+    const timeFormatter = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+    const currentTime = timeFormatter.format(now);
+    const upcomingClasses = enrolledClassesToday.filter(clase => clase.horaFin > currentTime);
+
+    if (upcomingClasses.length === 0) {
+        return res.status(200).json({
+            success: true,
+            message: `✅ Tus turnos de hoy ya finalizaron.`,
+            classes: []
+        });
+    }
+
+    // Registrar asistencia
+    for (const clase of upcomingClasses) {
+        if (!clase.asistencias.some(id => id.toString() === user._id.toString())) {
+            clase.asistencias.push(user._id);
+            await clase.save();
+        }
+        const alreadyRecordedToday = user.historialAsistencias.some(h => 
+            h.claseId && h.claseId.toString() === clase._id.toString() && new Date(h.fecha) >= todayStart
+        );
+        if (!alreadyRecordedToday) {
+            user.historialAsistencias.push({
+                claseId: clase._id,
+                fecha: new Date(),
+                nombreClase: clase.tipoClase?.nombre || 'Turno General'
+            });
+        }
+    }
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: `✅ Presentismo registrado con éxito para:`,
+        classes: upcomingClasses.map(c => ({ 
+            nombre: c.tipoClase?.nombre || 'General',
+            horario: `${c.horaInicio}hs - ${c.horaFin}hs`
+        })),
+        totalAsistencias: user.historialAsistencias.length
+    });
+});
+
+export { processGeneralCheckIn, processClientReceptionScan };

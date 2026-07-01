@@ -28,10 +28,13 @@ import {
     removeUserPaseLibre,
     updateRMs,
     getFinancialStats,
+    uploadOrdenMedica,
 } from '../controllers/userController.js'; 
-
+import { upload } from '../utils/cloudinary.js';
 
 const router = express.Router();
+
+router.post('/upload-orden-medica', protect, upload.single('ordenMedica'), uploadOrdenMedica);
 
 
 
