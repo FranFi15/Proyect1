@@ -676,8 +676,12 @@ const ManageClassesScreen = () => {
 
         return (
             <ThemedView style={[styles.classItem, dynamicStyle]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <View style={{ flex: 1 }}>
                         <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
                            {item.nombre || "Turno"} - {item.tipoClase?.nombre}
                         </ThemedText>
@@ -691,48 +695,38 @@ const ManageClassesScreen = () => {
                             Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}
                         </ThemedText>
                     </View>
-                    <TouchableOpacity 
-                        style={styles.cardMenuBtn} 
-                        onPress={() => setExpandedCardId(isExpanded ? null : item._id)}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name={isExpanded ? "chevron-up" : "ellipsis-vertical"} size={18} color={Colors[colorScheme].text} />
-                    </TouchableOpacity>
-                </View>
+                    <View style={{ paddingLeft: 10 }}>
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                    </View>
+                </TouchableOpacity>
 
                 {isExpanded && (
-                    <View style={styles.cardDropdownContainer}>
+                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
                         {isCancelled ? (
-                            <View style={styles.dropdownOptionsList}>
-                                <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
-                                    <Text style={styles.badgeCancelled}>TURNO CANCELADO</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <Text style={styles.badgeCancelled}>CANCELADO</Text>
+                                <View style={{ flexDirection: 'row', gap: 15 }}>
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
+                                        <Ionicons name="refresh-circle" size={24} color="#2ecc71" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
+                                        <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                                    </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleReactivateClass(item); }}>
-                                    <Ionicons name="refresh-circle" size={22} color="#2ecc71" />
-                                    <ThemedText style={styles.dropdownItemText}>Reactivar Turno</ThemedText>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setExpandedCardId(null); handleDeleteClass(item); }}>
-                                    <Octicons name="trash" size={18} color="#e74c3c" />
-                                    <ThemedText style={[styles.dropdownItemText, { color: '#e74c3c' }]}>Eliminar</ThemedText>
-                                </TouchableOpacity>
                             </View>
                         ) : (
-                            <View style={styles.dropdownOptionsList}>
-                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleViewRoster(item._id); }}>
-                                    <Ionicons name="people" size={20} color={gymColor || '#1a5276'} />
-                                    <ThemedText style={styles.dropdownItemText}>Ver / Gestionar Inscriptos</ThemedText>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
+                                    <Ionicons name="people" size={22} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleEdit(item); }}>
-                                    <FontAwesome6 name="edit" size={16} color={Colors[colorScheme].text} />
-                                    <ThemedText style={styles.dropdownItemText}>Editar Turno</ThemedText>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
+                                    <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleCancelClass(item); }}>
-                                    <Ionicons name="close-circle" size={20} color="#f39c12" />
-                                    <ThemedText style={styles.dropdownItemText}>Cancelar Turno</ThemedText>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
+                                    <Ionicons name="close-circle" size={22} color={'#e74c3c'} />
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setExpandedCardId(null); handleDeleteClass(item); }}>
-                                    <Octicons name="trash" size={18} color="#e74c3c" />
-                                    <ThemedText style={[styles.dropdownItemText, { color: '#e74c3c' }]}>Eliminar Turno</ThemedText>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
+                                    <Octicons name="trash" size={21} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -903,8 +897,12 @@ const ManageClassesScreen = () => {
         const isExpanded = expandedCardId === item._id;
         return (
             <View style={[styles.card, item.cantidadDeInstancias === 1 && styles.expiringCard]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <View style={{ flex: 1 }}>
                         <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
                         <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
                         <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
@@ -912,29 +910,22 @@ const ManageClassesScreen = () => {
                         <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
                         <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
                     </View>
-                    <TouchableOpacity 
-                        style={styles.cardMenuBtn} 
-                        onPress={() => setExpandedCardId(isExpanded ? null : item._id)}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name={isExpanded ? "chevron-up" : "ellipsis-vertical"} size={18} color={Colors[colorScheme].text} />
-                    </TouchableOpacity>
-                </View>
+                    <View style={{ paddingLeft: 10 }}>
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                    </View>
+                </TouchableOpacity>
 
                 {isExpanded && (
-                    <View style={styles.cardDropdownContainer}>
-                        <View style={styles.dropdownOptionsList}>
-                            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleOpenBulkEditModal(item); }}>
-                                <FontAwesome6 name="edit" size={16} color={Colors[colorScheme].text} />
-                                <ThemedText style={styles.dropdownItemText}>Editar Grupo Recurrente</ThemedText>
+                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
+                                <FontAwesome6 name="edit" size={22} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.dropdownItem} onPress={() => { setExpandedCardId(null); handleOpenExtendModal(item); }}>
-                                <Ionicons name="add-circle" size={20} color={gymColor || '#1a5276'} />
-                                <ThemedText style={styles.dropdownItemText}>Extender Turnos</ThemedText>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
+                                <Ionicons name="add-circle" size={24} color={gymColor || '#1a5276'} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setExpandedCardId(null); handleBulkDelete(item); }}>
-                                <Octicons name="trash" size={18} color="#e74c3c" />
-                                <ThemedText style={[styles.dropdownItemText, { color: '#e74c3c' }]}>Eliminar Grupo</ThemedText>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
+                                <Octicons name="trash" size={23} color="#e74c3c" />
                             </TouchableOpacity>
                         </View>
                     </View>
