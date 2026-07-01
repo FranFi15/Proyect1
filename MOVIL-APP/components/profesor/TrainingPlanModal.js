@@ -23,6 +23,7 @@ import CustomAlert from '@/components/CustomAlert';
 import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 
 import RichTextEditor from '@/components/RichTextEditor';
+import PlanContentEditor from './PlanContentEditor';
 import TemplateManagerModal from './TemplateManagerModal'; 
 
 // --- COMPONENTE INTERNO: EDITOR DE PLANES ---
@@ -92,13 +93,12 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                 </View>
 
                 <Text style={styles.label}>Contenido <Text style={{color:'red'}}>*</Text></Text>
-                <RichTextEditor
+                <PlanContentEditor
                     key={plan.templateId || 'custom-plan'} 
                     initialContent={plan.content}
-                    onChange={(html) => setPlan(p => ({ ...p, content: html }))}
+                    onChange={(contentStr) => setPlan(p => ({ ...p, content: contentStr }))}
                     colorScheme={colorScheme}
                     gymColor={gymColor}
-                    placeholder="Escribe la rutina aquí..."
                 />
             </ScrollView>
 

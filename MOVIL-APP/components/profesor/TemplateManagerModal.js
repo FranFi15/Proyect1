@@ -8,8 +8,8 @@ import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { ThemedText } from '@/components/ThemedText';
 
-// 1. IMPORTAR COMPONENTES
 import RichTextEditor from '@/components/RichTextEditor';
+import PlanContentEditor from './PlanContentEditor';
 import CustomAlert from '@/components/CustomAlert'; // <--- IMPORTANTE
 
 const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, colorScheme }) => {
@@ -207,13 +207,12 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                             <ThemedText style={styles.label}>Contenido (Plan) <Text style={{color:'red'}}>*</Text></ThemedText>
                             
                             {/* EDITOR */}
-                            <RichTextEditor
+                            <PlanContentEditor
                                 key={formData.id || 'new'} 
                                 initialContent={formData.content}
-                                onChange={(html) => setFormData(prev => ({...prev, content: html}))}
+                                onChange={(contentStr) => setFormData(prev => ({...prev, content: contentStr}))}
                                 colorScheme={colorScheme}
                                 gymColor={gymColor}
-                                placeholder="Diseña tu plantilla aquí..."
                             />
 
                             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
