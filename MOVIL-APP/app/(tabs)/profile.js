@@ -34,7 +34,7 @@ import OrdenMedicaModal from '@/components/client/OrdenMedicaModal';
 import FotoPerfilModal from '@/components/client/FotoPerfilModal'; 
 
 const ProfileScreen = () => {
-    const { logout, user, gymColor, loading: authLoading } = useAuth();
+    const { logout, user, gymColor, loading: authLoading, refreshUser } = useAuth();
     const [profile, setProfile] = useState(user);
     
     // Estado para manejar la alerta personalizada
@@ -328,6 +328,7 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
                     try {
+                        if (refreshUser) await refreshUser();
                         const res = await apiClient.get('/users/me');
                         setProfile(res.data);
                     } catch(e) {}
@@ -337,6 +338,7 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'fotoPerfil'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <FotoPerfilModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
                     try {
+                        if (refreshUser) await refreshUser();
                         const res = await apiClient.get('/users/me');
                         setProfile(res.data);
                     } catch(e) {}

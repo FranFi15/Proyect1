@@ -43,6 +43,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
         monthlySubscriptions: user.monthlySubscriptions || [],
         ordenMedicaRequerida: user.ordenMedicaRequerida,
         ordenMedicaEntregada: user.ordenMedicaEntregada,
+        ordenMedica: user.ordenMedica,
+        fotoPerfil: user.fotoPerfil,
+        historialAsistencias: user.historialAsistencias || [],
         isActive: user.isActive,
         paseLibreDesde: user.paseLibreDesde,
         paseLibreHasta: user.paseLibreHasta,
@@ -50,7 +53,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         rmRecords: user.rmRecords || [],
-        
     }));
     res.json(usersWithCalculatedAge);
 });
@@ -106,6 +108,9 @@ const getMe = asyncHandler(async (req, res) => {
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
+            fotoPerfil: user.fotoPerfil,
+            ordenMedica: user.ordenMedica,
+            historialAsistencias: user.historialAsistencias || [],
         };
         res.json(userProfile);
     } else {

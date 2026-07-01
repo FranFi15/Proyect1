@@ -194,7 +194,10 @@ const loginUser = asyncHandler(async (req, res) => {
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre),
-            puedeGestionarEjercicios: user.puedeGestionarEjercicios || false
+            puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
+            fotoPerfil: user.fotoPerfil,
+            ordenMedica: user.ordenMedica,
+            historialAsistencias: user.historialAsistencias || [],
         });
     } else {
         res.status(401);
