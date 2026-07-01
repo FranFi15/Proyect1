@@ -12,7 +12,10 @@ import {
     SectionList,
     TouchableOpacity,
     ScrollView,
+    Linking,
+    Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -197,10 +200,25 @@ const ProfessorMyClassesScreen = () => {
             { icon: 'id-card', label: 'DNI', value: selectedStudent.dni || 'No provisto' },
             { icon: 'calendar-alt', label: 'Edad', value: `${calculateAge(selectedStudent.fechaNacimiento)} años` },
             { icon: 'envelope', label: 'Email', value: selectedStudent.email || 'No provisto' },
-            { icon: 'phone-alt', label: 'Teléfono', value: selectedStudent.numeroTelefono || 'No provisto' },
-            { icon: 'ambulance', label: 'Tel. Emergencia', value: selectedStudent.telefonoEmergencia || 'No provisto' },
+            { icon: 'phone-alt', label: 'Teléfono', value: selectedStudent.numeroTelefono || 'No provisto', phone: !!selectedStudent.numeroTelefono },
+            { icon: 'ambulance', label: 'Tel. Emergencia', value: selectedStudent.telefonoEmergencia || 'No provisto', phone: !!selectedStudent.telefonoEmergencia },
             { icon: 'hospital', label: 'Obra Social', value: selectedStudent.obraSocial || 'No provisto' },
         ];
+
+        const handlePhoneTap = (number) => {
+            Alert.alert(
+                number,
+                '¿Qué deseas hacer?',
+                [
+                    { text: 'Llamar', onPress: () => Linking.openURL(`tel:${number}`) },
+                    { text: 'Copiar número', onPress: async () => {
+                        await Clipboard.setStringAsync(number);
+                        Alert.alert('Copiado', 'Número copiado al portapapeles.');
+                    }},
+                    { text: 'Cancelar', style: 'cancel' },
+                ]
+            );
+        };
 
         return (
             <View style={styles.studentDetailContainer}>
@@ -215,17 +233,22 @@ const ProfessorMyClassesScreen = () => {
                 {/* Info Cards */}
                 <ScrollView style={{ width: '100%', flex: 1 }} showsVerticalScrollIndicator={false}>
                     <View style={styles.detailInfoCard}>
-                        {infoRows.map((row, idx) => (
-                            <View key={idx} style={[styles.detailInfoRow, idx < infoRows.length - 1 && styles.detailInfoRowBorder]}>
-                                <View style={styles.detailInfoIcon}>
-                                    <FontAwesome5 name={row.icon} size={16} color={gymColor || '#007bff'} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.detailInfoLabel}>{row.label}</Text>
-                                    <Text style={styles.detailInfoValue}>{row.value}</Text>
-                                </View>
-                            </View>
-                        ))}
+                        {infoRows.map((row, idx) => {
+                            const RowWrapper = row.phone ? TouchableOpacity : View;
+                            const wrapperProps = row.phone ? { onPress: () => handlePhoneTap(row.value), activeOpacity: 0.6 } : {};
+                            return (
+                                <RowWrapper key={idx} style={[styles.detailInfoRow, idx < infoRows.length - 1 && styles.detailInfoRowBorder]} {...wrapperProps}>
+                                    <View style={styles.detailInfoIcon}>
+                                        <FontAwesome5 name={row.icon} size={16} color={gymColor || '#007bff'} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.detailInfoLabel}>{row.label}</Text>
+                                        <Text style={[styles.detailInfoValue, row.phone && { color: gymColor || '#007bff', textDecorationLine: 'underline' }]}>{row.value}</Text>
+                                    </View>
+                                    {row.phone && <Ionicons name="call-outline" size={20} color={gymColor || '#007bff'} />}
+                                </RowWrapper>
+                            );
+                        })}
                     </View>
                 </ScrollView>
 
