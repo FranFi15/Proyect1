@@ -206,10 +206,17 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                         <>
                             <TouchableOpacity 
                                 style={[styles.createButtonHeader, { backgroundColor: gymColor || '#007bff' }]} 
+                                activeOpacity={0.85}
                                 onPress={() => openForm()}
                             >
-                                <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                                <Text style={styles.createButtonHeaderText}>+ Crear Nueva Plantilla</Text>
+                                <View style={styles.createButtonIconWrapper}>
+                                    <Ionicons name="add" size={24} color={gymColor || '#007bff'} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.createButtonTitle}>Crear Nueva Plantilla</Text>
+                                    <Text style={styles.createButtonSub}>Diseña y guarda una rutina en tu biblioteca</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
                             </TouchableOpacity>
 
                             <FlatList 
@@ -288,6 +295,39 @@ const getStyles = (ColorScheme, gymColor) => StyleSheet.create({
     cardActions: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 10,  },
     iconBtn: { padding: 10 },
     fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: gymColor, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+    createButtonHeader: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 16, 
+        marginHorizontal: 15, 
+        marginTop: 15, 
+        marginBottom: 10,
+        borderRadius: 14, 
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4
+    },
+    createButtonIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 14
+    },
+    createButtonTitle: { 
+        color: '#fff', 
+        fontWeight: 'bold', 
+        fontSize: 16 
+    },
+    createButtonSub: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 12,
+        marginTop: 2
+    },
     emptyText: { textAlign: 'center', marginTop: 50, color: Colors[ColorScheme].text, opacity: 0.5 },
     formContainer: { padding: 20, flex: 1 },
     label: { fontSize: 14, marginBottom: 5, color: Colors[ColorScheme].text, fontWeight: '600' },
