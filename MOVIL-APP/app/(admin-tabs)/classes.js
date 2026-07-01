@@ -1050,77 +1050,129 @@ const ManageClassesScreen = () => {
             {showAddModal && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
-                    <Pressable style={styles.modalView}>
-                        <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</ThemedText>
-                            <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
-                            <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholderTextColor={Colors[colorScheme].icon} />
-                            <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
-                                <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
-                            <View style={styles.weekDayContainer}> 
-                                {teachers.map(teacher => (
-                                    <TouchableOpacity 
-                                        key={teacher._id} 
-                                        onPress={() => handleProfessorSelection(teacher._id)} 
-                                        style={[
-                                            styles.dayChip, 
-                                            formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
-                                        ]}
-                                    >
-                                        <Text style={
-                                            formData.profesores && formData.profesores.includes(teacher._id) 
-                                            ? styles.dayChipTextSelected 
-                                            : styles.dayChipText
-                                        }>
-                                            {teacher.nombre} {teacher.apellido}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                    <Pressable style={styles.addClassModalView}>
+                        {/* Header Banner */}
+                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#007bff' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.addClassHeaderTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</Text>
+                                <Text style={styles.addClassHeaderSub}>{editingClass ? 'Modifica los parámetros y profesores' : 'Programa un turno individual o recurrente'}</Text>
                             </View>
-                            <ThemedText style={styles.inputLabel}>Capacidad</ThemedText>
-                            <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} />
-                            <ThemedText style={styles.inputLabel}>Tipo de Inscripción</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
-                                <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                            <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.addClassCloseBtn}>
+                                <Ionicons name="close" size={22} color="#fff" />
                             </TouchableOpacity>
-                            {formData.tipoInscripcion === 'libre' ? (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Fecha</ThemedText>
-                                {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
-                                    <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                    <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                </>
-                            ) : (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
-                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
-                                    <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                        <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                    <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
-                                    <View style={styles.weekDayContainer}>
-                                        {daysOfWeekOptions.map(day => (
-                                            <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
-                                                <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </>
-                            )}
-                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title={editingClass ? 'Actualizar' : 'Guardar'} onPress={handleFormSubmit} color={gymColor || '#1a5276'} /></View></View>
+                        </View>
+
+                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
+                            {/* Sección 1: Información Principal */}
+                            <View style={styles.formCard}>
+                                <View style={styles.formSectionHeader}>
+                                    <Ionicons name="information-circle" size={20} color={gymColor || '#007bff' />
+                                    <ThemedText style={styles.formSectionTitle}>1. Información General</ThemedText>
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
+                                <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholder="Ej: Crossfit Matutino" placeholderTextColor={Colors[colorScheme].icon} />
+
+                                <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
+                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
+                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
+                                    <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+
+                                <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
+                                <View style={styles.weekDayContainer}> 
+                                    {teachers.map(teacher => (
+                                        <TouchableOpacity 
+                                            key={teacher._id} 
+                                            onPress={() => handleProfessorSelection(teacher._id)} 
+                                            style={[
+                                                styles.dayChip, 
+                                                formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
+                                            ]}
+                                        >
+                                            <Text style={
+                                                formData.profesores && formData.profesores.includes(teacher._id) 
+                                                ? styles.dayChipTextSelected 
+                                                : styles.dayChipText
+                                            }>
+                                                {teacher.nombre} {teacher.apellido}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Capacidad Máxima (Cupos)</ThemedText>
+                                <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} placeholder="Ej: 20" placeholderTextColor={Colors[colorScheme].icon} />
+                            </View>
+
+                            {/* Sección 2: Programación */}
+                            <View style={styles.formCard}>
+                                <View style={styles.formSectionHeader}>
+                                    <Ionicons name="time" size={20} color={gymColor || '#007bff'} />
+                                    <ThemedText style={styles.formSectionTitle}>2. Programación y Horarios</ThemedText>
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Tipo de Programación</ThemedText>
+                                <TouchableOpacity style={[styles.filterButton, !!editingClass && { opacity: 0.6 }]} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
+                                    <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
+                                    <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                                </TouchableOpacity>
+
+                                {formData.tipoInscripcion === 'libre' ? (
+                                    <>
+                                        <ThemedText style={styles.inputLabel}>Fecha de la Clase</ThemedText>
+                                        {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
+                                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
+                                            </View>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                        </View>
+                                        <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
+                                        <View style={styles.weekDayContainer}>
+                                            {daysOfWeekOptions.map(day => (
+                                                <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
+                                                    <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit} activeOpacity={0.85}>
+                                    <Ionicons name={editingClass ? "checkmark-circle-outline" : "add-circle-outline"} size={22} color="#fff" />
+                                    <Text style={styles.submitActionBtnText}>{editingClass ? 'Actualizar Turno' : 'Crear Turno'}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </ScrollView>
                     </Pressable>
                 </Pressable>
@@ -1309,44 +1361,54 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,},
     modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
     modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 20, elevation: 5 },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, elevation: 5 },
+    addClassModalView: { height: '88%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 8, overflow: 'hidden' },
+    addClassHeader: { paddingVertical: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    addClassHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+    addClassHeaderSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+    addClassCloseBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+    addClassScrollContent: { padding: 18, paddingBottom: 40 },
+    formCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors[colorScheme].border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
+    formSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10 },
+    formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
+    submitActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, paddingHorizontal: 24, borderRadius: 14, width: '100%', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+    submitActionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     modalContent: { paddingBottom: 40 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
     modalSubtitle: { fontSize: 16, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
-    modalActions: { width: '100%', flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
+    modalActions: { width: '100%', flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 15 },
     confirmationModal: { height: 'auto', width: '90%', borderRadius: 5, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
-    inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500', marginTop: 15 },
-    input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16, marginTop:10 },
-    dateInputTouchable: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' },
-    dateInputText: { fontSize: 16, color: Colors[colorScheme].text },
-    weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 5, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4 },
-    dayChipSelected: { backgroundColor: gymColor || '#1a5276' },
-    dayChipText: { color :Colors[colorScheme].text, fontSize: 14 },
-    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
+    inputLabel: { fontSize: 14, marginBottom: 6, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '600', marginTop: 12 },
+    input: { height: 48, backgroundColor: Colors[colorScheme].background, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, color: Colors[colorScheme].text, fontSize: 15, marginTop: 4 },
+    dateInputTouchable: { height: 48, backgroundColor: Colors[colorScheme].background, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, marginTop: 4, marginBottom: 10, justifyContent: 'center' },
+    dateInputText: { fontSize: 15, color: Colors[colorScheme].text },
+    weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 8, marginBottom: 10 },
+    dayChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors[colorScheme].border, margin: 4, backgroundColor: Colors[colorScheme].background },
+    dayChipSelected: { backgroundColor: gymColor || '#1a5276', borderColor: gymColor || '#1a5276' },
+    dayChipText: { color :Colors[colorScheme].text, fontSize: 13 },
+    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
     rosterItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     rosterText: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 3 },
     rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon,  marginBottom: 5 },
     dayManagementContainer: { flex: 1, alignItems: 'center', padding: 20 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 20, marginTop: 10, color: Colors[colorScheme].text },
     dayActions: { marginTop: 20, width: '100%', gap: 15 },
-    buttonWrapper: { borderRadius: 5, overflow: 'hidden', marginTop: 10 },
+    buttonWrapper: { borderRadius: 10, overflow: 'hidden', marginTop: 10 },
     filterButton:{ 
-        marginTop: 15,
+        marginTop: 4,
+        marginBottom: 10,
         alignSelf: 'center',
         flexDirection: 'row', 
         alignItems: 'center', 
         justifyContent: 'space-between', 
-        height: 50, 
+        height: 48, 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 5, 
-        paddingHorizontal: 15,  
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        color: Colors[colorScheme].text, 
-        fontSize: 16, 
-        width: '95%',
+        borderRadius: 10, 
+        paddingHorizontal: 14,  
+        backgroundColor: Colors[colorScheme].background, 
+        width: '100%',
     },
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
