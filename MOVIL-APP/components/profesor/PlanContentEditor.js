@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import RichTextEditor from '@/components/RichTextEditor';
 import StructuredPlanBuilder from './StructuredPlanBuilder';
 
-const PlanContentEditor = ({ initialContent, onChange, colorScheme, gymColor }) => {
+const PlanContentEditor = ({ initialContent, onChange, colorScheme, gymColor, mode: externalMode, onModeChange }) => {
     const parseStructured = (content) => {
         if (!content) return null;
         try {
@@ -20,7 +20,17 @@ const PlanContentEditor = ({ initialContent, onChange, colorScheme, gymColor }) 
     };
 
     const parsedDays = parseStructured(initialContent);
-    const [mode, setMode] = useState(() => parsedDays || !initialContent ? 'structured' : 'html');
+    const [internalMode, setInternalMode] = useState(() => parsedDays || !initialContent ? 'structured' : 'html');
+
+    const mode = externalMode !== undefined ? externalMode : internalMode;
+
+    const handleModeSwitch = (newMode) => {
+        if (onModeChange) {
+            onModeChange(newMode);
+        } else {
+            setInternalMode(newMode);
+        }
+    };
 
     const primaryColor = gymColor || '#007bff';
     const textColor = Colors[colorScheme || 'light'].text;
@@ -31,7 +41,7 @@ const PlanContentEditor = ({ initialContent, onChange, colorScheme, gymColor }) 
             <View style={styles.toggleContainer}>
                 <TouchableOpacity
                     style={[styles.toggleBtn, mode === 'structured' && { backgroundColor: primaryColor }]}
-                    onPress={() => setMode('structured')}
+                    onPress={() => handleModeSwitch('structured')}
                 >
                     <MaterialCommunityIcons name="calendar-multiselect" size={16} color={mode === 'structured' ? '#fff' : textColor} />
                     <Text style={[styles.toggleText, mode === 'structured' ? { color: '#fff' } : { color: textColor }]}>
@@ -41,11 +51,11 @@ const PlanContentEditor = ({ initialContent, onChange, colorScheme, gymColor }) 
 
                 <TouchableOpacity
                     style={[styles.toggleBtn, mode === 'html' && { backgroundColor: primaryColor }]}
-                    onPress={() => setMode('html')}
+                    onPress={() => handleModeSwitch('html')}
                 >
                     <Ionicons name="document-text-outline" size={16} color={mode === 'html' ? '#fff' : textColor} />
                     <Text style={[styles.toggleText, mode === 'html' ? { color: '#fff' } : { color: textColor }]}>
-                        Texto Libre / HTML
+                        Texto Libre
                     </Text>
                 </TouchableOpacity>
             </View>

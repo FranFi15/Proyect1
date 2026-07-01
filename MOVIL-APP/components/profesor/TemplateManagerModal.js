@@ -23,6 +23,12 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     const [formData, setFormData] = useState({ id: null, name: '', description: '', content: '' });
 
+    const parseStructured = (content) => {
+        if (!content) return false;
+        try { return JSON.parse(content).type === 'structured'; } catch (e) { return false; }
+    };
+    const [editorMode, setEditorMode] = useState('structured');
+
     useEffect(() => {
         if (visible) {
             fetchTemplates();
@@ -48,21 +54,30 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     };
 
     const handleSave = async () => {
-        if (!formData.name || !formData.content) {
+        let nameToSave = formData.name?.trim();
+        try {
+            const parsed = JSON.parse(formData.content);
+            if (parsed && parsed.type === 'structured' && !nameToSave) {
+                nameToSave = `Plantilla: ${parsed.days?.[0]?.name || 'Por Días'}`;
+            }
+        } catch (e) {}
+
+        if (!nameToSave || !formData.content) {
             setAlertInfo({ 
                 visible: true, 
                 title: "Campos Incompletos", 
-                message: "El nombre y el contenido son obligatorios.",
+                message: "Asegúrate de completar el contenido de la plantilla.",
                 buttons: [{ text: "Entendido", onPress: () => setAlertInfo({ visible: false }) }]
             });
             return;
         }
         setLoading(true);
         try {
+            const dataToSave = { ...formData, name: nameToSave };
             if (formData.id) {
-                await apiClient.put(`/plans/templates/${formData.id}`, formData);
+                await apiClient.put(`/plans/templates/${formData.id}`, dataToSave);
             } else {
-                await apiClient.post('/plans/templates', formData);
+                await apiClient.post('/plans/templates', dataToSave);
             }
             await fetchTemplates();
             setViewMode('list');
@@ -113,8 +128,11 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     const openForm = (template = null) => {
         if (template) {
+            const isStruct = parseStructured(template.content);
+            setEditorMode(isStruct ? 'structured' : 'html');
             setFormData({ id: template._id, name: template.name, description: template.description || '', content: template.content });
         } else {
+            setEditorMode('structured');
             setFormData({ id: null, name: '', description: '', content: '' });
         }
         setViewMode('form');
@@ -186,23 +204,27 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
                     {!loading && viewMode === 'form' && (
                         <ScrollView style={styles.formContainer} contentContainerStyle={{paddingBottom: 20}}>
-                            <ThemedText style={styles.label}>Nombre <Text style={{color:'red'}}>*</Text></ThemedText>
-                            <TextInput 
-                                style={styles.input} 
-                                value={formData.name} 
-                                onChangeText={t => setFormData({...formData, name: t})} 
-                                placeholder="Ej: Hipertrofia Intermedia"
-                                placeholderTextColor={Colors[colorScheme].icon}
-                            />
+                            {editorMode === 'html' && (
+                                <>
+                                    <ThemedText style={styles.label}>Nombre <Text style={{color:'red'}}>*</Text></ThemedText>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.name} 
+                                        onChangeText={t => setFormData({...formData, name: t})} 
+                                        placeholder="Ej: Hipertrofia Intermedia"
+                                        placeholderTextColor={Colors[colorScheme].icon}
+                                    />
 
-                            <ThemedText style={styles.label}>Descripción</ThemedText>
-                            <TextInput 
-                                style={styles.input} 
-                                value={formData.description} 
-                                onChangeText={t => setFormData({...formData, description: t})} 
-                                placeholder="Breve descripción..."
-                                placeholderTextColor={Colors[colorScheme].icon}
-                            />
+                                    <ThemedText style={styles.label}>Descripción</ThemedText>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.description} 
+                                        onChangeText={t => setFormData({...formData, description: t})} 
+                                        placeholder="Breve descripción..."
+                                        placeholderTextColor={Colors[colorScheme].icon}
+                                    />
+                                </>
+                            )}
 
                             <ThemedText style={styles.label}>Contenido (Plan) <Text style={{color:'red'}}>*</Text></ThemedText>
                             
@@ -213,6 +235,8 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                                 onChange={(contentStr) => setFormData(prev => ({...prev, content: contentStr}))}
                                 colorScheme={colorScheme}
                                 gymColor={gymColor}
+                                mode={editorMode}
+                                onModeChange={setEditorMode}
                             />
 
                             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>

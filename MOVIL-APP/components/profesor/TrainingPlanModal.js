@@ -32,8 +32,16 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
     const styles = getStyles(colorScheme, gymColor);
     const [templatesVisible, setTemplatesVisible] = useState(false);
 
+    const parseStructured = (content) => {
+        if (!content) return false;
+        try { return JSON.parse(content).type === 'structured'; } catch (e) { return false; }
+    };
+    const [editorMode, setEditorMode] = useState(() => parseStructured(plan.content) || !plan.content ? 'structured' : 'html');
+
     // Función para cuando se selecciona una plantilla
     const handleTemplateSelected = (template) => {
+        const isStruct = parseStructured(template.content);
+        setEditorMode(isStruct ? 'structured' : 'html');
         setPlan(prev => ({
             ...prev,
             name: template.name,
@@ -68,24 +76,28 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                     <Text style={styles.templateButtonText}>Cargar desde Plantilla</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={plan.name} 
-                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
-                    placeholder="Ej: Hipertrofia Mes 1" 
-                    placeholderTextColor={Colors[colorScheme].icon}
-                    returnKeyType="next"
-                />
-                
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={plan.description} 
-                    onChangeText={t => setPlan(p => ({ ...p, description: t }))} 
-                    placeholder="Opcional..." 
-                    placeholderTextColor={Colors[colorScheme].icon}
-                />
+                {editorMode === 'html' && (
+                    <>
+                        <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={plan.name} 
+                            onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
+                            placeholder="Ej: Hipertrofia Mes 1" 
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            returnKeyType="next"
+                        />
+                        
+                        <Text style={styles.label}>Descripción</Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={plan.description} 
+                            onChangeText={t => setPlan(p => ({ ...p, description: t }))} 
+                            placeholder="Opcional..." 
+                            placeholderTextColor={Colors[colorScheme].icon}
+                        />
+                    </>
+                )}
 
                 <View style={styles.switchContainer}>
                     <Text style={styles.label}>Visible para el Cliente</Text>
@@ -99,6 +111,8 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                     onChange={(contentStr) => setPlan(p => ({ ...p, content: contentStr }))}
                     colorScheme={colorScheme}
                     gymColor={gymColor}
+                    mode={editorMode}
+                    onModeChange={setEditorMode}
                 />
             </ScrollView>
 
@@ -263,19 +277,27 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     };
 
     const handleSaveChanges = async (planToSave) => {
+        let nameToSave = planToSave.name?.trim();
+        try {
+            const parsed = JSON.parse(planToSave.content);
+            if (parsed && parsed.type === 'structured' && !nameToSave) {
+                nameToSave = `Rutina: ${parsed.days?.[0]?.name || 'Por Días'}`;
+            }
+        } catch (e) {}
+
         // --- CORRECCIÓN 2: Validación de campos vacíos ---
-        if (!planToSave.name?.trim() || !planToSave.content?.trim()) {
+        if (!nameToSave || !planToSave.content?.trim()) {
             setAlertInfo({
                 visible: true,
                 title: 'Campos Requeridos',
-                message: 'Por favor, asegúrate de ingresar un título y el contenido del plan antes de guardar.',
+                message: 'Por favor, asegúrate de completar el contenido del plan antes de guardar.',
                 buttons: [{ text: 'Entendido', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
             });
             return;
         }
 
         try {
-            const payload = { ...planToSave };
+            const payload = { ...planToSave, name: nameToSave };
             if (isManualSelection) {
                 if (planToSave._id) {
                     await apiClient.put(`/plans/${planToSave._id}`, payload);
