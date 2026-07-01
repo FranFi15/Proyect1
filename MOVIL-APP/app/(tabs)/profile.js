@@ -267,7 +267,7 @@ const ProfileScreen = () => {
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('ordenMedica')}>
                         <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.menuButtonText}>Estudio / Orden Médica</ThemedText>
+                        <ThemedText style={styles.menuButtonText}>Orden Médica</ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>

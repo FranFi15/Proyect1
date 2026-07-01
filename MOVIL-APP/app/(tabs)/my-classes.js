@@ -296,7 +296,7 @@ const MyClassesScreen = () => {
             renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
             ListHeaderComponent={
                 <View style={styles.summaryCard}>
-                    <ThemedText style={styles.summaryTitle}>Progreso y Asistencias</ThemedText>
+                    <ThemedText style={styles.summaryTitle}>Asistencias</ThemedText>
                     <View style={styles.statsRow}>
                         <View style={styles.statBox}>
                             <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{asistenciasMes}</ThemedText>

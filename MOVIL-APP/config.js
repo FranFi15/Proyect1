@@ -1,10 +1,10 @@
 
-const ENV = process.env.EXPO_PUBLIC_ENV || 'prod'; // Valor por defecto a 'staging' si no se define
+const ENV = process.env.EXPO_PUBLIC_ENV || 'staging'; // Valor por defecto a 'staging' si no se define
 
 const environments = {
   staging: {
-    gymAppBackend: 'https://staiging-gym-app.onrender.com/api', 
-    superAdminBackend: 'https://staiging-super-admin.onrender.com/api/public', 
+    gymAppBackend: 'https://staiging-gym-app.onrender.com/api',
+    superAdminBackend: 'https://staiging-super-admin.onrender.com/api/public',
   },
   prod: {
     gymAppBackend: 'https://gym-app-bnhx.onrender.com/api',
