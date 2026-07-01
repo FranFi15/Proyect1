@@ -86,6 +86,144 @@ const formatDateUTC = (dateString) => {
     return `${day}/${month}/${year}`;
 };
 
+const UserCardItem = React.memo(({
+    item,
+    dynamicStyles,
+    gymColor,
+    colorScheme,
+    handleOpenBillingModal,
+    handleOpenCreditsModal,
+    handleQuickRemovePaseLibre,
+    setSelectedMedicalOrderClient,
+    handleOpenEditModal,
+    handleDeleteClient,
+    getTypeName
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
+    const today = startOfDay(new Date()); 
+    const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
+    const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
+    const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
+    const balance = item.balance || 0;
+    const isDebtor = balance < 0; 
+
+    return (
+        <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
+            <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setIsExpanded(!isExpanded)} 
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+            >
+                {item.fotoPerfil ? (
+                    <Image source={{ uri: item.fotoPerfil }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#eee' }} />
+                ) : (
+                    <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
+                        <Ionicons name="person" size={22} color="#fff" />
+                    </View>
+                )}
+                <View style={{ flex: 1 }}>
+                    <Text style={dynamicStyles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <View style={[dynamicStyles.roleBadge, item.roles.includes('admin') ? dynamicStyles.adminBadge : (item.roles.includes('profesor') ? dynamicStyles.profesorBadge : dynamicStyles.clienteBadge)]}>
+                            <Text style={dynamicStyles.roleText}>{item.roles.join(', ')}</Text>
+                        </View>
+                    </View>
+                </View>
+                <View style={{ paddingLeft: 10 }}>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                </View>
+            </TouchableOpacity>
+
+            {isExpanded && (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                    <Text style={[dynamicStyles.cardSubtitle, { marginBottom: 8 }]}>{item.email}</Text>
+                    
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap:'wrap', marginBottom: 10}}>
+                        {item.roles.includes('cliente') && (
+                            <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
+                                <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
+                                <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
+                                    {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
+                                </Text>
+                            </View>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <View style={[dynamicStyles.balanceBadge, { backgroundColor: '#e8f4f8' }]}>
+                                <FontAwesome6 name="clipboard-check" size={12} color="#007bff" style={{marginRight: 4}} />
+                                <Text style={[dynamicStyles.balanceText, { color: '#007bff' }]}>
+                                    Asistencias: {item.historialAsistencias?.length || 0}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {hasCredits && (
+                        <View style={[dynamicStyles.creditsContainer, { paddingBottom: 8 }]}>
+                            {Object.entries(item.creditosPorTipo || {}).map(([typeId, amount]) => {
+                                if (amount > 0) {
+                                    return (
+                                        <View key={typeId} style={dynamicStyles.creditChip}>
+                                            <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
+                                        </View>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </View>
+                    )}
+
+                    {isPaseLibreActive && (
+                        <View style={[dynamicStyles.paseLibreContainer, { marginBottom: 8 }]}>
+                            <Ionicons name="star" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                               Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
+                            </Text>
+                        </View>
+                    )}
+                    {isPaseLibreExpired && (
+                        <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c', marginBottom: 8 }]}> 
+                            <Ionicons name="alert-circle" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                                Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
+                            </Text>
+                        </View>
+                    )}
+
+                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
+                                <Ionicons name="logo-usd" size={22} color='#28a745' />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
+                                <Ionicons name="card" size={22} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        )}
+                        {(isPaseLibreActive || isPaseLibreExpired) && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
+                                <Ionicons name="star" size={22} color="#e74c3c" />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedMedicalOrderClient(item)}>
+                                <Ionicons name="document-text" size={22} color={(item.ordenMedicaUrl || item.ordenMedicaEntregada) ? '#28a745' : '#dc3545'} />
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
+                            <FontAwesome name="user" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleDeleteClient(item)}>
+                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+});
+
 const ManageClientsScreen = () => {
     const layout = useWindowDimensions();
     const { gymColor } = useAuth();
@@ -294,113 +432,21 @@ const ManageClientsScreen = () => {
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
-    const renderUserCard = useCallback(({ item }) => {
-        const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
-        const today = startOfDay(new Date()); 
-        const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
-        const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
-        const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
-        const balance = item.balance || 0;
-        const isDebtor = balance < 0; 
-
-        return (
-            <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
-                <View style={dynamicStyles.cardTopRow}>
-                    {item.fotoPerfil ? (
-                        <Image source={{ uri: item.fotoPerfil }} style={{ width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: '#eee' }} />
-                    ) : (
-                        <View style={{ width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
-                            <Ionicons name="person" size={24} color="#fff" />
-                        </View>
-                    )}
-                    <View style={[dynamicStyles.userInfo, { flex: 1 }]}>
-                        <Text style={dynamicStyles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                        <Text style={dynamicStyles.cardSubtitle}>{item.email}</Text>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap:'wrap', marginTop: 5}}>
-                            <View style={[dynamicStyles.roleBadge, item.roles.includes('admin') ? dynamicStyles.adminBadge : (item.roles.includes('profesor') ? dynamicStyles.profesorBadge : dynamicStyles.clienteBadge)]}>
-                                <Text style={dynamicStyles.roleText}>{item.roles.join(', ')}</Text>
-                            </View>
-
-                            {item.roles.includes('cliente') && (
-                                <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
-                                    <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
-                                    <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
-                                        {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
-                                    </Text>
-                                </View>
-                            )}
-                            {item.roles.includes('cliente') && (
-                                <View style={[dynamicStyles.balanceBadge, { backgroundColor: '#e8f4f8' }]}>
-                                    <FontAwesome6 name="clipboard-check" size={12} color="#007bff" style={{marginRight: 4}} />
-                                    <Text style={[dynamicStyles.balanceText, { color: '#007bff' }]}>
-                                        Asistencias: {item.historialAsistencias?.length || 0}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                    <View style={dynamicStyles.actionsContainer}>
-                        {item.roles.includes('cliente') && (
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                            <Ionicons name="logo-usd" size={22} color='#28a745' />
-                        </TouchableOpacity>
-                         )}
-                        {item.roles.includes('cliente') && (
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
-                            <Ionicons name="card" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                         )}
-                         {(isPaseLibreActive || isPaseLibreExpired) && (
-                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
-                                <Ionicons name="star" size={22} color="#e74c3c" />
-                            </TouchableOpacity>
-                        )}
-                        {item.roles.includes('cliente') && (
-                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedMedicalOrderClient(item)}>
-                                <Ionicons name="document-text" size={22} color={(item.ordenMedicaUrl || item.ordenMedicaEntregada) ? '#28a745' : '#dc3545'} />
-                            </TouchableOpacity>
-                        )}
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                            <FontAwesome name="user" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleDeleteClient(item)}>
-                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                {hasCredits && (
-                    <View style={dynamicStyles.creditsContainer}>
-                        {Object.entries(item.creditosPorTipo || {}).map(([typeId, amount]) => {
-                            if (amount > 0) {
-                                return (
-                                    <View key={typeId} style={dynamicStyles.creditChip}>
-                                        <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
-                                    </View>
-                                );
-                            }
-                            return null;
-                        })}
-                    </View>
-                )}
-                {isPaseLibreActive && (
-                    <View style={dynamicStyles.paseLibreContainer}>
-                        <Ionicons name="star" size={14} color="#fff" />
-                        <Text style={dynamicStyles.paseLibreText}>
-                           Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
-                        </Text>
-                    </View>
-                )}
-                {isPaseLibreExpired && (
-                    <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c' }]}> 
-                        <Ionicons name="alert-circle" size={14} color="#fff" />
-                        <Text style={dynamicStyles.paseLibreText}>
-                            Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
-                        </Text>
-                    </View>
-                )}
-            </View>
-        );
-    }, [dynamicStyles, classTypes, colorScheme, gymColor]);
+    const renderUserCard = useCallback(({ item }) => (
+        <UserCardItem
+            item={item}
+            dynamicStyles={dynamicStyles}
+            gymColor={gymColor}
+            colorScheme={colorScheme}
+            handleOpenBillingModal={handleOpenBillingModal}
+            handleOpenCreditsModal={handleOpenCreditsModal}
+            handleQuickRemovePaseLibre={handleQuickRemovePaseLibre}
+            setSelectedMedicalOrderClient={setSelectedMedicalOrderClient}
+            handleOpenEditModal={handleOpenEditModal}
+            handleDeleteClient={handleDeleteClient}
+            getTypeName={getTypeName}
+        />
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, getTypeName]);
 
     const renderTransferCard = useCallback(({ item }) => {
         return (
