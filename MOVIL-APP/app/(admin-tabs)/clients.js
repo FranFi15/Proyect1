@@ -607,7 +607,7 @@ const ManageClientsScreen = () => {
                 renderTabBar={props => (
                     <TabBar 
                         {...props} 
-                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} 
+                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} 
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} 
                         renderLabel={({ route, focused }) => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>

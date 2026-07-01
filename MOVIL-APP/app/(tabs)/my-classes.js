@@ -345,7 +345,7 @@ const MyClassesScreen = () => {
                 renderTabBar={props => (
                     <TabBar
                         {...props}
-                        style={{ backgroundColor: gymColor, paddingTop: 10 }}
+                        style={{ backgroundColor: gymColor, paddingTop: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
                          labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none'  }}
                     />
@@ -390,9 +390,9 @@ const getStyles = (colorScheme, gymColor) => {
             padding: 20,
             marginHorizontal: 16,
             marginVertical: 8,
-            borderRadius: 5,
+            borderRadius: 14,
             elevation: 2,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,
              borderWidth: 1, borderColor: Colors[colorScheme].border 
         },
         className: {
