@@ -1066,7 +1066,7 @@ const ManageClassesScreen = () => {
                             {/* Sección 1: Información Principal */}
                             <View style={styles.formCard}>
                                 <View style={styles.formSectionHeader}>
-                                    <Ionicons name="information-circle" size={20} color={gymColor || '#007bff' />
+                                    <Ionicons name="information-circle" size={20} color={gymColor || '#007bff'} />
                                     <ThemedText style={styles.formSectionTitle}>1. Información General</ThemedText>
                                 </View>
 
