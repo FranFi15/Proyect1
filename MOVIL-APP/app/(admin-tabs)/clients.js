@@ -425,7 +425,7 @@ const ManageClientsScreen = () => {
     const getTypeName = (typeId) => { const classType = classTypes.find(t => t._id === typeId); return classType?.nombre || 'Desconocido'; };
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
     const renderDateField = (label, value, onChange) => {
-        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`;
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : label;
         if (Platform.OS === 'web') {
             return (
                 <View style={dynamicStyles.dateFieldContainer}>
