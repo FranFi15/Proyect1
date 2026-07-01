@@ -236,9 +236,9 @@ const MyClassesScreen = () => {
 
     const renderClassItem = ({ item }) => {
         const now = new Date();
-        const canUnenroll = item.dateTime >= now;
+        const didAttend = item.asistencias?.some(id => id?.toString() === user?._id?.toString()) || userProfile?.historialAsistencias?.some(h => (h.claseId === item._id || h.claseId?._id === item._id || h.claseId?.toString() === item._id?.toString()));
+        const canUnenroll = item.dateTime >= now && !didAttend;
         const isCancelled = item.estado === 'cancelada';
-        const didAttend = item.asistencias?.includes(user?._id) || userProfile?.historialAsistencias?.some(h => h.claseId === item._id);
 
         return (
             <ThemedView style={styles.classItem}>
@@ -258,6 +258,12 @@ const MyClassesScreen = () => {
                 
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
+                    : didAttend ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
+                            <Ionicons name="checkmark-circle" size={16} color="#28a745" />
+                            <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
+                        </View>
+                    )
                     : index === 0 && canUnenroll ? (
                         <ActionButton 
                             title="Anular Inscripción" 

@@ -372,6 +372,8 @@
             setScannerVisible(false);
             try {
                 const response = await apiClient.post('/check-in/client-scan', { qrData: data });
+                await refreshUser();
+                fetchData();
                 let detail = 'Asistencia registrada correctamente.';
                 if (response.data.classes && response.data.classes.length > 0) {
                     detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
@@ -483,6 +485,7 @@
                     isFull: (cls.usuariosInscritos || []).length >= cls.capacidad,
                     isCancelled: cls.estado === 'cancelada',
                     isFinished: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaFin}:00`).getTime() < nowTime,
+                    didAttend: (cls.asistencias || []).some(id => id?.toString() === user?._id?.toString()) || user?.historialAsistencias?.some(h => (h.claseId === cls._id || h.claseId?._id === cls._id || h.claseId?.toString() === cls._id?.toString())),
                     dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
                 }))
                 .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
@@ -557,16 +560,24 @@
         }, [visibleClasses, selectedDate]);
 
         const renderClassItem = ({ item }) => {
-            const { isEnrolled, isFull, isWaiting, isCancelled, isFinished } = item;
+            const { isEnrolled, isFull, isWaiting, isCancelled, isFinished, didAttend } = item;
             const dynamicStyle = getClassStyle(item, styles, colorScheme);
             return (
                 <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
-                    <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText, { flex: 1 }]}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                        {didAttend && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f7ee', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 8 }}>
+                                <Ionicons name="checkmark-circle" size={14} color="#28a745" />
+                                <Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 11, marginLeft: 4 }}>PRESENTE</Text>
+                            </View>
+                        )}
+                    </View>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
                     <View style={styles.buttonContainer}>
-                        {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADO</Text> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
+                        {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text> : didAttend ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}><Ionicons name="checkmark-circle" size={16} color="#28a745" /><Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6 }}>PRESENTISMO REGISTRADO</Text></View> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
                     </View>
                 </ThemedView>
             );
