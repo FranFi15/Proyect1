@@ -958,6 +958,36 @@ const uploadOrdenMedica = asyncHandler(async (req, res) => {
     });
 });
 
+const uploadFotoPerfil = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+
+    let fotoPerfilUrl = null;
+    if (req.file) {
+        fotoPerfilUrl = req.file.secure_url || req.file.path || req.file.url;
+    }
+
+    if (!fotoPerfilUrl) {
+        res.status(400);
+        throw new Error('La imagen de perfil es obligatoria.');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.fotoPerfil = fotoPerfilUrl;
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Foto de perfil actualizada correctamente',
+        fotoPerfil: fotoPerfilUrl,
+        user
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -986,4 +1016,5 @@ export {
     updateRMs,
     getFinancialStats,
     uploadOrdenMedica,
+    uploadFotoPerfil,
 };

@@ -9,7 +9,7 @@ import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
 import { useAuth } from '../../contexts/AuthContext';
 
-const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
+const FotoPerfilModal = ({ onClose, profile, onUpdate }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
@@ -21,13 +21,14 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
     const handlePickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            setAlertInfo({ visible: true, title: 'Permiso denegado', message: 'Necesitamos acceso a tu galería para adjuntar el estudio médico.' });
+            setAlertInfo({ visible: true, title: 'Permiso denegado', message: 'Necesitamos acceso a tu galería para cambiar tu foto de perfil.' });
             return;
         }
 
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false,
+            allowsEditing: true,
+            aspect: [1, 1],
             quality: 0.6,
         });
 
@@ -38,21 +39,21 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
 
     const handleSubmit = async () => {
         if (!image) {
-            return setAlertInfo({ visible: true, title: 'Atención', message: 'Por favor selecciona una foto o archivo de tu estudio médico.' });
+            return setAlertInfo({ visible: true, title: 'Atención', message: 'Por favor selecciona una foto de perfil.' });
         }
 
         setSubmitting(true);
         try {
             const formData = new FormData();
-            let filename = image.fileName || 'orden_medica.jpg';
+            let filename = image.uri.split('/').pop() || 'profile.jpg';
 
             if (Platform.OS === 'web') {
                 const response = await fetch(image.uri);
                 const blob = await response.blob();
-                formData.append('ordenMedica', blob, filename);
+                formData.append('fotoPerfil', blob, filename);
             } else {
                 const localUri = image.uri;
-                if (!filename.includes('.')) filename = 'orden_medica.jpg';
+                if (!filename.includes('.')) filename = 'profile.jpg';
 
                 let mimeType = image.mimeType;
                 if (!mimeType) {
@@ -61,21 +62,21 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
                 }
                 if (mimeType === 'image/jpg') mimeType = 'image/jpeg';
 
-                formData.append('ordenMedica', {
+                formData.append('fotoPerfil', {
                     uri: Platform.OS === 'ios' ? localUri.replace('file://', '') : localUri,
                     name: filename,
                     type: mimeType
                 });
             }
 
-            await apiClient.post('/users/upload-orden-medica', formData, {
+            await apiClient.post('/users/upload-foto-perfil', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
             setAlertInfo({
                 visible: true,
                 title: '¡Éxito!',
-                message: 'Tu orden médica se cargó correctamente.',
+                message: 'Tu foto de perfil se actualizó correctamente.',
                 buttons: [{
                     text: 'Genial',
                     style: 'primary',
@@ -87,11 +88,11 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
                 }]
             });
         } catch (error) {
-            console.error('Error uploading orden medica:', error);
+            console.error('Error uploading foto perfil:', error);
             setAlertInfo({
                 visible: true,
                 title: 'Error',
-                message: error.response?.data?.message || 'No se pudo subir la orden médica. Intenta nuevamente.',
+                message: error.response?.data?.message || 'No se pudo subir la foto de perfil. Intenta nuevamente.',
                 buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ ...alertInfo, visible: false }) }]
             });
         } finally {
@@ -99,13 +100,13 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
         }
     };
 
-    const currentUrl = image?.uri || profile?.ordenMedicaUrl;
+    const currentUrl = image?.uri || profile?.fotoPerfil;
 
     return (
         <View style={styles.modalOverlay}>
             <ThemedView style={styles.modalView}>
                 <View style={styles.header}>
-                    <ThemedText style={styles.modalTitle}>Orden Médica</ThemedText>
+                    <ThemedText style={styles.modalTitle}>Foto de Perfil</ThemedText>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                         <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
                     </TouchableOpacity>
@@ -113,33 +114,36 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
 
                 <ScrollView contentContainerStyle={styles.content}>
                     <ThemedText style={styles.description}>
-                        Adjunta aquí la foto del certificado o apto médico emitido por tu profesional de salud.
+                        Selecciona una foto para personalizar tu perfil y tu credencial.
                     </ThemedText>
 
                     {currentUrl ? (
                         <View style={styles.imageContainer}>
-                            <Image source={{ uri: currentUrl }} style={styles.previewImage} resizeMode="contain" />
+                            <Image source={{ uri: currentUrl }} style={styles.previewAvatar} resizeMode="cover" />
                             <TouchableOpacity style={styles.changeImageBtn} onPress={handlePickImage}>
                                 <Ionicons name="camera" size={18} color="#fff" />
-                                <Text style={styles.changeImageBtnText}>Cambiar Imagen</Text>
+                                <Text style={styles.changeImageBtnText}>Elegir Otra Foto</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <TouchableOpacity style={styles.uploadPlaceholder} onPress={handlePickImage}>
-                            <Ionicons name="cloud-upload-outline" size={48} color={gymColor || '#007bff'} />
-                            <ThemedText style={styles.uploadText}>Toca para elegir de la galería</ThemedText>
+                            <Ionicons name="person-circle-outline" size={72} color={gymColor || '#007bff'} />
+                            <ThemedText style={styles.uploadText}>Toca para elegir foto de perfil</ThemedText>
                         </TouchableOpacity>
                     )}
 
                     <TouchableOpacity
-                        style={[styles.submitBtn, (!image || submitting) && styles.disabledBtn]}
+                        style={[styles.submitBtn, (!image || submitting) && styles.disabledBtn, { backgroundColor: gymColor || '#007bff' }]}
                         onPress={handleSubmit}
                         disabled={!image || submitting}
                     >
                         {submitting ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <Text style={styles.submitBtnText}>Subir Orden Médica</Text>
+                            <>
+                                <Ionicons name="cloud-upload" size={20} color="#fff" />
+                                <Text style={styles.submitBtnText}>Guardar Foto</Text>
+                            </>
                         )}
                     </TouchableOpacity>
                 </ScrollView>
@@ -160,45 +164,71 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 15,
+        padding: 20,
     },
     modalView: {
         width: '100%',
-        maxWidth: 420,
         maxHeight: '85%',
-        borderRadius: 12,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].cardBackground,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
+        color: Colors[colorScheme].text,
     },
     closeButton: {
-        padding: 5,
+        padding: 4,
     },
     content: {
+        padding: 20,
         alignItems: 'center',
-        paddingBottom: 10,
     },
     description: {
-        fontSize: 14,
         textAlign: 'center',
-        opacity: 0.8,
         marginBottom: 20,
+        opacity: 0.8,
+        fontSize: 14,
+    },
+    imageContainer: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    previewAvatar: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        marginBottom: 12,
+        borderWidth: 3,
+        borderColor: gymColor || '#007bff',
+    },
+    changeImageBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#6c757d',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+    },
+    changeImageBtnText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 6,
+        fontSize: 13,
     },
     uploadPlaceholder: {
         width: '100%',
@@ -206,48 +236,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 2,
         borderColor: gymColor || '#007bff',
         borderStyle: 'dashed',
-        borderRadius: 10,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: colorScheme === 'dark' ? '#1e1e1e' : '#f8f9fa',
-        marginBottom: 20,
+        marginBottom: 24,
+        padding: 20,
     },
     uploadText: {
         marginTop: 10,
-        fontWeight: '500',
-    },
-    imageContainer: {
-        width: '100%',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    previewImage: {
-        width: '100%',
-        height: 220,
-        borderRadius: 8,
-        backgroundColor: '#eee',
-        marginBottom: 10,
-    },
-    changeImageBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#6c757d',
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 6,
-    },
-    changeImageBtnText: {
-        color: '#fff',
         fontWeight: '600',
-        marginLeft: 6,
     },
     submitBtn: {
-        width: '100%',
-        backgroundColor: gymColor || '#007bff',
-        paddingVertical: 14,
-        borderRadius: 8,
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 5,
+        justifyContent: 'center',
+        width: '100%',
+        paddingVertical: 14,
+        borderRadius: 10,
     },
     disabledBtn: {
         opacity: 0.5,
@@ -256,7 +261,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
+        marginLeft: 8,
     },
 });
 
-export default OrdenMedicaModal;
+export default FotoPerfilModal;

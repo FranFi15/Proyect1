@@ -31,7 +31,7 @@ const OrdenMedicaAdminModal = ({ visible, onClose, client, gymColor }) => {
                         <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
                     </TouchableOpacity>
 
-                    <ThemedText style={styles.modalTitle}>Estudios / Orden Médica</ThemedText>
+                    <ThemedText style={styles.modalTitle}>Orden Médica</ThemedText>
                     <ThemedText style={styles.clientName}>{client.nombre} {client.apellido}</ThemedText>
 
                     {imageUrl ? (

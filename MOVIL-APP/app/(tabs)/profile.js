@@ -9,6 +9,7 @@ import {
     useColorScheme,
     Modal,
     Linking,
+    Image,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -30,6 +31,7 @@ import TransferPaymentModal from '../../components/client/TransferPaymentModal';
 import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert'; 
 import OrdenMedicaModal from '@/components/client/OrdenMedicaModal'; 
+import FotoPerfilModal from '@/components/client/FotoPerfilModal'; 
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -196,7 +198,26 @@ const ProfileScreen = () => {
                     <ThemedText style={styles.headerTitle}>{profile.nombre} {profile.apellido}</ThemedText>
                 </View>
                   <ThemedView style={styles.card}>
-                      <ThemedText style={styles.cardTitle}>Mis Datos</ThemedText>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                          <TouchableOpacity onPress={() => setActiveModal('fotoPerfil')} style={{ position: 'relative', marginRight: 16 }}>
+                              {profile.fotoPerfil ? (
+                                  <Image source={{ uri: profile.fotoPerfil }} style={styles.avatarImage} />
+                              ) : (
+                                  <View style={[styles.avatarPlaceholder, { backgroundColor: gymColor || '#007bff' }]}>
+                                      <Ionicons name="person" size={32} color="#fff" />
+                                  </View>
+                              )}
+                              <View style={styles.avatarEditBadge}>
+                                  <Ionicons name="camera" size={12} color="#fff" />
+                              </View>
+                          </TouchableOpacity>
+                          <View style={{ flex: 1 }}>
+                              <ThemedText style={[styles.cardTitle, { marginBottom: 4 }]}>Mis Datos</ThemedText>
+                              <TouchableOpacity onPress={() => setActiveModal('fotoPerfil')}>
+                                  <Text style={{ fontSize: 13, color: gymColor || '#007bff', fontWeight: '600' }}>Cambiar Foto de Perfil</Text>
+                              </TouchableOpacity>
+                          </View>
+                      </View>
                       <View style={styles.infoRow}>
                           <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
                           <ThemedText style={styles.infoLabel}>DNI</ThemedText>
@@ -306,6 +327,15 @@ const ProfileScreen = () => {
 
             <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
+                    try {
+                        const res = await apiClient.get('/users/me');
+                        setProfile(res.data);
+                    } catch(e) {}
+                }} />
+            </Modal>
+
+            <Modal visible={activeModal === 'fotoPerfil'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+                <FotoPerfilModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
                     try {
                         const res = await apiClient.get('/users/me');
                         setProfile(res.data);
@@ -436,6 +466,31 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         width: '100%',
         margin: 0,
         padding: 0,
+    },
+    avatarImage: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+    },
+    avatarPlaceholder: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarEditBadge: {
+        position: 'absolute',
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#28a745',
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
 });
 

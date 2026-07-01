@@ -306,7 +306,14 @@ const ManageClientsScreen = () => {
         return (
             <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
                 <View style={dynamicStyles.cardTopRow}>
-                    <View style={dynamicStyles.userInfo}>
+                    {item.fotoPerfil ? (
+                        <Image source={{ uri: item.fotoPerfil }} style={{ width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: '#eee' }} />
+                    ) : (
+                        <View style={{ width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
+                            <Ionicons name="person" size={24} color="#fff" />
+                        </View>
+                    )}
+                    <View style={[dynamicStyles.userInfo, { flex: 1 }]}>
                         <Text style={dynamicStyles.cardTitle}>{item.nombre} {item.apellido}</Text>
                         <Text style={dynamicStyles.cardSubtitle}>{item.email}</Text>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap:'wrap', marginTop: 5}}>
