@@ -140,19 +140,11 @@ const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
     
-    const stripHtml = (html) => {
-        if (!html) return '';
-        return html.replace(/<[^>]+>/g, ' ').substring(0, 50) + '...';
-    };
-
     const renderItem = ({ item }) => (
         <View style={styles.planCard}>
             <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{item.name}</Text>
                 <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
-                <Text style={{color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2}}>
-                    {stripHtml(item.content)}
-                </Text>
             </View>
             <View style={styles.planActions}>
                 <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>

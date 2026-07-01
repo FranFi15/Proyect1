@@ -138,26 +138,41 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
         setViewMode('form');
     };
 
-    const renderItem = ({ item }) => (
-        <View style={styles.card}>
-            <TouchableOpacity 
-                style={styles.cardContent} 
-                onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
-            >
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                {item.description ? <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-            </TouchableOpacity>
-            
-            <View style={styles.cardActions}>
-                <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn}>
-                    <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn}>
-                    <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
+    const renderItem = ({ item }) => {
+        const hasValidDesc = item.description && !item.description.trim().startsWith('{') && !item.description.trim().startsWith('<');
+        return (
+            <View style={[styles.card, { flexDirection: 'column' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <TouchableOpacity 
+                        style={[styles.cardContent, { flex: 1 }]} 
+                        onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
+                    >
+                        <Text style={styles.cardTitle}>{item.name}</Text>
+                        {hasValidDesc ? <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
+                    </TouchableOpacity>
+                    
+                    <View style={styles.cardActions}>
+                        <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn}>
+                            <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn}>
+                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {onSelectTemplate && (
+                    <TouchableOpacity 
+                        style={[styles.useButton, { backgroundColor: gymColor || '#007bff' }]}
+                        onPress={() => onSelectTemplate(item)}
+                    >
+                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                        <Text style={styles.useButtonText}>Seleccionar y Asignar esta Plantilla</Text>
+                    </TouchableOpacity>
+                )}
             </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
@@ -177,7 +192,7 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                             <View style={{width: 24}} /> 
                         )}
                         <Text style={styles.headerTitle}>
-                            {viewMode === 'list' ? 'Plantillas' : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
+                            {viewMode === 'list' ? (onSelectTemplate ? 'Seleccionar Plantilla' : 'Plantillas') : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
                         </Text>
                         <TouchableOpacity onPress={onClose}>
                             <Ionicons name="close" size={28} color={Colors[colorScheme].text} />
@@ -189,42 +204,43 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                     
                     {!loading && viewMode === 'list' && (
                         <>
+                            <TouchableOpacity 
+                                style={[styles.createButtonHeader, { backgroundColor: gymColor || '#007bff' }]} 
+                                onPress={() => openForm()}
+                            >
+                                <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                                <Text style={styles.createButtonHeaderText}>+ Crear Nueva Plantilla</Text>
+                            </TouchableOpacity>
+
                             <FlatList 
                                 data={templates} 
                                 renderItem={renderItem} 
                                 keyExtractor={item => item._id}
                                 contentContainerStyle={{padding: 15, paddingBottom: 80}}
-                                ListEmptyComponent={<Text style={styles.emptyText}>No hay plantillas creadas.</Text>}
+                                ListEmptyComponent={<Text style={styles.emptyText}>No hay plantillas creadas. ¡Presiona el botón de arriba para crear una!</Text>}
                             />
-                            <TouchableOpacity style={styles.fab} onPress={() => openForm()}>
-                                <Ionicons name="add" size={30} color="#fff" />
-                            </TouchableOpacity>
                         </>
                     )}
 
                     {!loading && viewMode === 'form' && (
                         <ScrollView style={styles.formContainer} contentContainerStyle={{paddingBottom: 20}}>
-                            {editorMode === 'html' && (
-                                <>
-                                    <ThemedText style={styles.label}>Nombre <Text style={{color:'red'}}>*</Text></ThemedText>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        value={formData.name} 
-                                        onChangeText={t => setFormData({...formData, name: t})} 
-                                        placeholder="Ej: Hipertrofia Intermedia"
-                                        placeholderTextColor={Colors[colorScheme].icon}
-                                    />
+                            <ThemedText style={styles.label}>Nombre de la Plantilla <Text style={{color:'red'}}>*</Text></ThemedText>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.name} 
+                                onChangeText={t => setFormData({...formData, name: t})} 
+                                placeholder="Ej: Rutina Hipertrofia 3 Días"
+                                placeholderTextColor={Colors[colorScheme].icon}
+                            />
 
-                                    <ThemedText style={styles.label}>Descripción</ThemedText>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        value={formData.description} 
-                                        onChangeText={t => setFormData({...formData, description: t})} 
-                                        placeholder="Breve descripción..."
-                                        placeholderTextColor={Colors[colorScheme].icon}
-                                    />
-                                </>
-                            )}
+                            <ThemedText style={styles.label}>Descripción / Notas (Opcional)</ThemedText>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.description} 
+                                onChangeText={t => setFormData({...formData, description: t})} 
+                                placeholder="Ej: Recomendado para nivel intermedio/avanzado"
+                                placeholderTextColor={Colors[colorScheme].icon}
+                            />
 
                             <ThemedText style={styles.label}>Contenido (Plan) <Text style={{color:'red'}}>*</Text></ThemedText>
                             
