@@ -43,7 +43,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         monthlySubscriptions: user.monthlySubscriptions || [],
         ordenMedicaRequerida: user.ordenMedicaRequerida,
         ordenMedicaEntregada: user.ordenMedicaEntregada,
-        ordenMedica: user.ordenMedica,
+        ordenMedicaUrl: user.ordenMedicaUrl,
+        ordenMedica: user.ordenMedicaUrl,
         fotoPerfil: user.fotoPerfil,
         historialAsistencias: user.historialAsistencias || [],
         isActive: user.isActive,
@@ -109,7 +110,8 @@ const getMe = asyncHandler(async (req, res) => {
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
             fotoPerfil: user.fotoPerfil,
-            ordenMedica: user.ordenMedica,
+            ordenMedicaUrl: user.ordenMedicaUrl,
+            ordenMedica: user.ordenMedicaUrl,
             historialAsistencias: user.historialAsistencias || [],
         };
         res.json(userProfile);

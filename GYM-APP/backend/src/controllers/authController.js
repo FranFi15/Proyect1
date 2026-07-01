@@ -196,7 +196,8 @@ const loginUser = asyncHandler(async (req, res) => {
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre),
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             fotoPerfil: user.fotoPerfil,
-            ordenMedica: user.ordenMedica,
+            ordenMedicaUrl: user.ordenMedicaUrl,
+            ordenMedica: user.ordenMedicaUrl,
             historialAsistencias: user.historialAsistencias || [],
         });
     } else {

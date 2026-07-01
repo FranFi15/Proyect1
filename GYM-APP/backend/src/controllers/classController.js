@@ -1334,7 +1334,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(classId)
         .populate({
             path: 'usuariosInscritos',
-            select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocial ordenMedicaRequerida ordenMedicaEntregada fotoPerfil', 
+            select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocial ordenMedicaRequerida ordenMedicaEntregada ordenMedicaUrl fotoPerfil', 
         })
         .select('profesores profesor usuariosInscritos'); 
 
