@@ -301,24 +301,21 @@
         return (
             <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
                     <View style={styles.modalOverlay}>
-                        <View style={styles.modalContainer}>
-                            {/* HEADER DEL MODAL (Estilo RM) */}
-                            <View style={styles.header}>
+                        <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                            <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
                                 {viewMode === 'detail' && (
-                                    <TouchableOpacity onPress={() => setViewMode('list')} style={{padding: 10}}>
-                                        <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
+                                    <TouchableOpacity onPress={() => setViewMode('list')} style={{marginRight: 12}}>
+                                        <Ionicons name="arrow-back" size={24} color="#fff" />
                                     </TouchableOpacity>
                                 )}
-                                <View style={{flex: 1, paddingLeft: 15}}>
-                                    <ThemedText style={{fontSize: 20, fontWeight: 'bold'}}>
-                                        {viewMode === 'list' ? 'Desafíos' :  ''}
-                                    </ThemedText>
+                                <View style={{flex: 1}}>
+                                    <Text style={styles.headerBannerTitle}>
+                                        {viewMode === 'list' ? 'Desafíos' : 'Detalle del Desafío'}
+                                    </Text>
+                                    <Text style={styles.headerBannerSub}>Retos y puntuaciones del gimnasio</Text>
                                 </View>
-                                
-                                
-                                
-                                <TouchableOpacity onPress={onClose} style={{padding: 10, marginRight: 5}}>
-                                    <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
+                                <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                                    <Ionicons name="close" size={24} color="#fff" />
                                 </TouchableOpacity>
                             </View>
 
@@ -739,7 +736,27 @@
         rankingHeadText: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text },
         rankingRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: gymColor},
         rankingText: { fontSize: 14, color: Colors[colorScheme].text },
-
+        headerBanner: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 20,
+            justifyContent: 'space-between',
+        },
+        headerBannerTitle: {
+            fontSize: 19,
+            fontWeight: 'bold',
+            color: '#fff',
+        },
+        headerBannerSub: {
+            fontSize: 13,
+            color: '#fff',
+            opacity: 0.85,
+            marginTop: 2,
+        },
+        closeButtonBanner: {
+            padding: 4,
+        }
     });
 
     export default CalendarScreen;

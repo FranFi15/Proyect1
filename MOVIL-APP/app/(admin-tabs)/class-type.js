@@ -111,15 +111,22 @@ const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => 
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
                 <Pressable style={styles.modalBackdrop} onPress={onClose} />
-                <View style={styles.modalContainerFull}>
-                    <View style={styles.modalHeader}>
-                        <TouchableOpacity onPress={viewMode === 'form' ? () => setViewMode('list') : onClose} style={{padding: 5}}>
-                            <Ionicons name={viewMode === 'form' ? "arrow-back" : "close"} size={26} color={Colors[colorScheme].text} />
+                <View style={[styles.modalContainerFull, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                        {viewMode === 'form' && (
+                            <TouchableOpacity onPress={() => setViewMode('list')} style={{marginRight: 12}}>
+                                <Ionicons name="arrow-back" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        )}
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerBannerTitle}>
+                                {viewMode === 'list' ? 'Desafíos' : (editingId ? 'Editar Desafío' : 'Nuevo Desafío')}
+                            </Text>
+                            <Text style={styles.headerBannerSub}>Retos y clasificaciones del gimnasio</Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                            <Ionicons name="close" size={24} color="#fff" />
                         </TouchableOpacity>
-                        <ThemedText style={styles.modalTitle}>
-                            {viewMode === 'list' ? 'Desafios' : (editingId ? 'Editar Desafío' : 'Nuevo Desafío')}
-                        </ThemedText>
-                        <View style={{width: 26}} /> 
                     </View>
 
                     {viewMode === 'list' ? (
@@ -720,12 +727,17 @@ const ClassTypeManagementScreen = () => {
             <Modal visible={isSettingsModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsSettingsModalVisible(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
                 <Pressable style={styles.modalBackdrop} onPress={() => setIsSettingsModalVisible(false)} />
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                    </TouchableOpacity>
-                    <ScrollView>
-                        <ThemedText style={styles.modalTitle}>Configuración General</ThemedText>
+                <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerBannerTitle}>Configuración General</Text>
+                            <Text style={styles.headerBannerSub}>Calendario, bienvenida y datos bancarios</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButtonBanner}>
+                            <Ionicons name="close" size={24} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
                         
                         <ThemedText style={styles.sectionTitle}>Calendario</ThemedText>
                         <ThemedText style={styles.cardDescription}>
@@ -852,6 +864,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     iosPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
     iosPickerContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, paddingBottom: 20, paddingHorizontal: 10 },
     iosPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, marginBottom: 10 },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default ClassTypeManagementScreen;

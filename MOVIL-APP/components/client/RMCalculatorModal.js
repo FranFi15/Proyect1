@@ -188,12 +188,16 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
+                    <View style={[styles.modalContainer, { borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
                         
-                        {/* HEADER */}
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={onClose}>
-                                <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
+                        {/* HEADER BANNER */}
+                        <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.headerBannerTitle}>Mis RMs</Text>
+                                <Text style={styles.headerBannerSub}>Calculadora y registros máximos</Text>
+                            </View>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                                <Ionicons name="close" size={24} color="#fff" />
                             </TouchableOpacity>
                         </View>
 
@@ -378,6 +382,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     percentageRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderBottomWidth: 1, borderColor: Colors[colorScheme].border },
     percentageLabel: { color: Colors[colorScheme].text, fontWeight: '600' },
     percentageValue: { color: Colors[colorScheme].text },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default RMCalculatorModal;

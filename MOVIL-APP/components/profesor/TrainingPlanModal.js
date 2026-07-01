@@ -381,39 +381,56 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     return (
         <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={() => onClose()}>
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>
-                            {isSingleClient ? `Planes de ${clients[0].nombre}` : `Gestión de Planes`}
-                        </Text>
-                        <TouchableOpacity onPress={() => onClose()}><Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} /></TouchableOpacity>
+                <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerBannerTitle}>
+                                {isSingleClient ? `Planes de ${clients[0].nombre}` : `Gestión de Planes`}
+                            </Text>
+                            <Text style={styles.headerBannerSub}>Asignación y rutinas</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => onClose()} style={styles.closeButtonBanner}>
+                            <Ionicons name="close" size={24} color="#fff" />
+                        </TouchableOpacity>
                     </View>
                     
-                    {renderTargetSelector()}
-                    {renderContent()}
+                    <View style={{ flex: 1, padding: 15 }}>
+                        {renderTargetSelector()}
+                        {renderContent()}
+                    </View>
                 </View>
 
                 {/* Modal selector de clase */}
                 <Modal visible={showClassSelector} transparent={true} animationType="fade">
                     <View style={styles.modalOverlay}>
-                        <View style={[styles.modalContainer, {height: '50%'}]}>
-                            <Text style={styles.headerTitle}>Seleccionar Clase</Text>
-                            <FlatList 
-                                data={availableClasses}
-                                keyExtractor={item => item._id}
-                                renderItem={({item}) => (
-                                    <TouchableOpacity style={styles.listItem} onPress={() => {
-                                        setTargetConfig({ type: 'class', id: item._id, name: `${item.nombre} ${item.horaInicio}` });
-                                        setShowClassSelector(false);
-                                    }}>
-                                        <Text style={styles.listItemText}>{item.nombre} - {item.tipoClase?.nombre}</Text>
-                                        <Text style={styles.listItemSubtext}>{item.diaDeSemana[0]} {format(new Date(item.fecha), 'dd/MM')} {item.horaInicio}hs</Text>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                            <TouchableOpacity onPress={() => setShowClassSelector(false)} style={{padding: 15, alignItems: 'center'}}>
-                                <Text style={{color: 'red'}}>Cancelar</Text>
-                            </TouchableOpacity>
+                        <View style={[styles.modalContainer, {height: '50%', padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24}]}>
+                            <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.headerBannerTitle}>Seleccionar Clase</Text>
+                                    <Text style={styles.headerBannerSub}>Elige un turno de la lista</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowClassSelector(false)} style={styles.closeButtonBanner}>
+                                    <Ionicons name="close" size={24} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flex: 1, padding: 15 }}>
+                                <FlatList 
+                                    data={availableClasses}
+                                    keyExtractor={item => item._id}
+                                    renderItem={({item}) => (
+                                        <TouchableOpacity style={styles.listItem} onPress={() => {
+                                            setTargetConfig({ type: 'class', id: item._id, name: `${item.nombre} ${item.horaInicio}` });
+                                            setShowClassSelector(false);
+                                        }}>
+                                            <Text style={styles.listItemText}>{item.nombre} - {item.tipoClase?.nombre}</Text>
+                                            <Text style={styles.listItemSubtext}>{item.diaDeSemana[0]} {format(new Date(item.fecha), 'dd/MM')} {item.horaInicio}hs</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                                <TouchableOpacity onPress={() => setShowClassSelector(false)} style={{padding: 15, alignItems: 'center'}}>
+                                    <Text style={{color: 'red'}}>Cancelar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Modal>
@@ -467,6 +484,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 10,
         fontSize: 16
+    },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
     }
 });
 

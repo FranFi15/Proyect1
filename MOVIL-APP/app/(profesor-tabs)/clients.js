@@ -8,7 +8,8 @@ import {
     TouchableOpacity, 
     useColorScheme, 
     Text,
-    RefreshControl 
+    RefreshControl,
+    Image
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -152,9 +153,18 @@ const ProfessorClientsScreen = () => {
                 activeOpacity={0.7}
             >
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <View>
-                        <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                        <Text style={styles.cardSubtitle}>{item.email}</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                        {item.fotoPerfil ? (
+                            <Image source={{ uri: item.fotoPerfil }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#eee' }} />
+                        ) : (
+                            <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="person" size={22} color="#fff" />
+                            </View>
+                        )}
+                        <View style={{flex: 1}}>
+                            <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                            <Text style={styles.cardSubtitle}>{item.email}</Text>
+                        </View>
                     </View>
                     {isSelectionMode && (
                         <MaterialCommunityIcons 

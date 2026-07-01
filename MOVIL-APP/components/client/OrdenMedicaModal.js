@@ -103,11 +103,14 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
 
     return (
         <View style={styles.modalOverlay}>
-            <ThemedView style={styles.modalView}>
-                <View style={styles.header}>
-                    <ThemedText style={styles.modalTitle}>Orden Médica</ThemedText>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+            <ThemedView style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Orden Médica</Text>
+                        <Text style={styles.headerBannerSub}>Certificado o apto médico</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
                     </TouchableOpacity>
                 </View>
 
@@ -143,16 +146,15 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
                         )}
                     </TouchableOpacity>
                 </ScrollView>
-
-                <CustomAlert
-                    visible={alertInfo.visible}
-                    title={alertInfo.title}
-                    message={alertInfo.message}
-                    buttons={alertInfo.buttons}
-                    onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                    gymColor={gymColor}
-                />
             </ThemedView>
+
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={[{ text: 'OK', onPress: () => setAlertInfo({ ...alertInfo, visible: false }) }]}
+                gymColor={gymColor}
+            />
         </View>
     );
 };
@@ -160,45 +162,41 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 15,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
     },
     modalView: {
-        width: '100%',
-        maxWidth: 420,
-        maxHeight: '85%',
-        borderRadius: 12,
+        height: '85%',
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
         padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 15,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: colorScheme === 'dark' ? '#333' : '#eee',
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
     },
     closeButton: {
-        padding: 5,
+        padding: 4,
     },
     content: {
         alignItems: 'center',
-        paddingBottom: 10,
+        paddingBottom: 30,
+        padding: 20,
     },
     description: {
         fontSize: 14,
         textAlign: 'center',
-        opacity: 0.8,
         marginBottom: 20,
+        opacity: 0.8,
     },
     uploadPlaceholder: {
         width: '100%',
@@ -206,7 +204,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 2,
         borderColor: gymColor || '#007bff',
         borderStyle: 'dashed',
-        borderRadius: 10,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: colorScheme === 'dark' ? '#1e1e1e' : '#f8f9fa',
@@ -257,6 +255,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 16,
     },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default OrdenMedicaModal;

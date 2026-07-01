@@ -79,29 +79,36 @@ const BalanceModal = ({ onClose }) => {
 
     return (
         <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color="#ccc" />
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Historial de Saldo</Text>
+            <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Historial de Saldo</Text>
+                        <Text style={styles.headerBannerSub}>Tus cargos y pagos registrados</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
                 
-                {loading ? <ActivityIndicator color={gymColor} size="large" /> : (
-                    <>
-                        <View style={styles.summaryContainer}>
-                            <Text style={styles.summaryLabel}>Saldo Actual:</Text>
-                            <Text style={[styles.summaryBalance, (profile?.balance ?? 0) < 0 ? styles.debtText : styles.okText]}>
-                                ${(profile?.balance ?? 0).toFixed(2)}
-                            </Text>
-                        </View>
-                        <FlatList
-                            data={transactions}
-                            renderItem={renderTransaction}
-                            keyExtractor={(item) => item._id}
-                            ListEmptyComponent={<Text style={styles.emptyText}>No tienes movimientos recientes.</Text>}
-                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-                        />
-                    </>
-                )}
+                <View style={{ flex: 1, padding: 20 }}>
+                    {loading ? <ActivityIndicator color={gymColor} size="large" /> : (
+                        <>
+                            <View style={styles.summaryContainer}>
+                                <Text style={styles.summaryLabel}>Saldo Actual:</Text>
+                                <Text style={[styles.summaryBalance, (profile?.balance ?? 0) < 0 ? styles.debtText : styles.okText]}>
+                                    ${(profile?.balance ?? 0).toFixed(2)}
+                                </Text>
+                            </View>
+                            <FlatList
+                                data={transactions}
+                                renderItem={renderTransaction}
+                                keyExtractor={(item) => item._id}
+                                ListEmptyComponent={<Text style={styles.emptyText}>No tienes movimientos recientes.</Text>}
+                                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                            />
+                        </>
+                    )}
+                </View>
             </View>
 
             {/* 🔥 NUEVO: Modal visor de imágenes a pantalla completa */}
@@ -123,7 +130,7 @@ const BalanceModal = ({ onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, elevation: 5 },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
     modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
     summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
@@ -143,6 +150,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
     imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
     imageViewerImage: { width: '100%', height: '80%' },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default BalanceModal;

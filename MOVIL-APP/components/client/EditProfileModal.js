@@ -89,18 +89,22 @@ const EditProfileModal = ({ userProfile, onClose }) => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.modalContainer}
+            style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            // Este valor puede necesitar ajuste si el modal no sube lo suficiente
-            keyboardVerticalOffset={20} 
+            keyboardVerticalOffset={20}
         >
-        <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color="#ccc" />
-                </TouchableOpacity>
-                <ScrollView>
-                    <Text style={styles.modalTitle}>Editar Mis Datos</Text>
+            <View style={styles.modalContainer}>
+                <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderRadius: 20 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Editar Mis Datos</Text>
+                        <Text style={styles.headerBannerSub}>Modifica tu información personal y contraseña</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
                     
                     <Text style={styles.inputLabel}>Nombre</Text>
                     <TextInput style={styles.input} value={editableProfile.nombre} onChangeText={text => setEditableProfile(p => ({ ...p, nombre: text }))} />
@@ -261,6 +265,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 5,
         overflow: 'hidden',
         marginTop: 20,
+    },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
     }
 });
 
