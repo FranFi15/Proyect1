@@ -8,7 +8,7 @@ import { Colors } from '@/constants/Colors';
 function HeaderLogoTitle() {
   const { gymLogo } = useAuth();
   if (!gymLogo) return null;
-  return <Image style={{ width: 120, height: 70, resizeMode: 'contain'  }} source={{ uri: gymLogo }} />;
+  return <Image style={{ width: 120, height: 70, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
 }
 
 export default function TabsLayout() {
@@ -16,9 +16,9 @@ export default function TabsLayout() {
   const colorScheme = useColorScheme() ?? 'light';
 
   return (
-   <Tabs 
+    <Tabs
       screenOptions={{
-        tabBarActiveTintColor: gymColor, 
+        tabBarActiveTintColor: gymColor,
         tabBarInactiveTintColor: Colors[colorScheme].icon,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].cardBackground,
@@ -33,59 +33,59 @@ export default function TabsLayout() {
           }),
         },
         headerTitleAlign: 'center',
-        headerTitle: (props) => <HeaderLogoTitle {...props} />, 
+        headerTitle: (props) => <HeaderLogoTitle {...props} />,
       }}
     >
-      <Tabs.Screen 
-        name="calendar" 
-        options={{ 
+      <Tabs.Screen
+        name="calendar"
+        options={{
           title: 'Calendario',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'calendar' : 'calendar-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'calendar' : 'calendar-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="my-classes" 
-        options={{ 
+      <Tabs.Screen
+        name="my-classes"
+        options={{
           title: 'Mis Turnos',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'list' : 'list-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'list' : 'list-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      
-      <Tabs.Screen 
-        name="my-plan" 
-        options={{ 
+
+      <Tabs.Screen
+        name="my-plan"
+        options={{
           title: 'Mi Plan',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'document-text' : 'document-text-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'document-text' : 'document-text-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="notifications" 
-        options={{ 
+      <Tabs.Screen
+        name="notifications"
+        options={{
           title: 'Notificaciones',
           tabBarIcon: ({ color, size, focused }) => (
             <View>
               <Ionicons
-                name={focused ? 'notifications' : 'notifications-outline'} 
-                size={size} 
-                color={color} 
+                name={focused ? 'notifications' : 'notifications-outline'}
+                size={size}
+                color={color}
               />
               {user?.unreadNotificationsCount > 0 && (
                 <View style={{
@@ -101,20 +101,20 @@ export default function TabsLayout() {
               )}
             </View>
           ),
-        }} 
+        }}
       />
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
+      <Tabs.Screen
+        name="profile"
+        options={{
           title: 'Mi Perfil',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? 'person' : 'person-outline'} 
-              size={size} 
-              color={color} 
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={size}
+              color={color}
             />
           ),
-        }} 
+        }}
       />
       <Tabs.Screen
         name="index"

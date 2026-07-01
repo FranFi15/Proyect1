@@ -8,8 +8,8 @@ import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { ThemedText } from '@/components/ThemedText';
 
-// 1. IMPORTAR COMPONENTES
 import RichTextEditor from '@/components/RichTextEditor';
+import PlanContentEditor from './PlanContentEditor';
 import CustomAlert from '@/components/CustomAlert'; // <--- IMPORTANTE
 
 const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, colorScheme }) => {
@@ -22,6 +22,12 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     const [formData, setFormData] = useState({ id: null, name: '', description: '', content: '' });
+
+    const parseStructured = (content) => {
+        if (!content) return false;
+        try { return JSON.parse(content).type === 'structured'; } catch (e) { return false; }
+    };
+    const [editorMode, setEditorMode] = useState('structured');
 
     useEffect(() => {
         if (visible) {
@@ -48,21 +54,30 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     };
 
     const handleSave = async () => {
-        if (!formData.name || !formData.content) {
+        let nameToSave = formData.name?.trim();
+        try {
+            const parsed = JSON.parse(formData.content);
+            if (parsed && parsed.type === 'structured' && !nameToSave) {
+                nameToSave = `Plantilla: ${parsed.days?.[0]?.name || 'Por Días'}`;
+            }
+        } catch (e) {}
+
+        if (!nameToSave || !formData.content) {
             setAlertInfo({ 
                 visible: true, 
                 title: "Campos Incompletos", 
-                message: "El nombre y el contenido son obligatorios.",
+                message: "Asegúrate de completar el contenido de la plantilla.",
                 buttons: [{ text: "Entendido", onPress: () => setAlertInfo({ visible: false }) }]
             });
             return;
         }
         setLoading(true);
         try {
+            const dataToSave = { ...formData, name: nameToSave };
             if (formData.id) {
-                await apiClient.put(`/plans/templates/${formData.id}`, formData);
+                await apiClient.put(`/plans/templates/${formData.id}`, dataToSave);
             } else {
-                await apiClient.post('/plans/templates', formData);
+                await apiClient.post('/plans/templates', dataToSave);
             }
             await fetchTemplates();
             setViewMode('list');
@@ -113,33 +128,51 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     const openForm = (template = null) => {
         if (template) {
+            const isStruct = parseStructured(template.content);
+            setEditorMode(isStruct ? 'structured' : 'html');
             setFormData({ id: template._id, name: template.name, description: template.description || '', content: template.content });
         } else {
+            setEditorMode('structured');
             setFormData({ id: null, name: '', description: '', content: '' });
         }
         setViewMode('form');
     };
 
-    const renderItem = ({ item }) => (
-        <View style={styles.card}>
-            <TouchableOpacity 
-                style={styles.cardContent} 
-                onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
-            >
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                {item.description ? <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-            </TouchableOpacity>
-            
-            <View style={styles.cardActions}>
-                <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn}>
-                    <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn}>
-                    <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
+    const renderItem = ({ item }) => {
+        const hasValidDesc = item.description && !item.description.trim().startsWith('{') && !item.description.trim().startsWith('<');
+        return (
+            <View style={[styles.card, { flexDirection: 'column' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <TouchableOpacity 
+                        style={[styles.cardContent, { flex: 1 }]} 
+                        onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
+                    >
+                        <Text style={styles.cardTitle}>{item.name}</Text>
+                        {hasValidDesc ? <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
+                    </TouchableOpacity>
+                    
+                    <View style={styles.cardActions}>
+                        <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn}>
+                            <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn}>
+                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {onSelectTemplate && (
+                    <TouchableOpacity 
+                        style={[styles.useButton, { backgroundColor: gymColor || '#007bff' }]}
+                        onPress={() => onSelectTemplate(item)}
+                    >
+                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                        <Text style={styles.useButtonText}>Seleccionar y Asignar esta Plantilla</Text>
+                    </TouchableOpacity>
+                )}
             </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
@@ -159,7 +192,7 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                             <View style={{width: 24}} /> 
                         )}
                         <Text style={styles.headerTitle}>
-                            {viewMode === 'list' ? 'Plantillas' : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
+                            {viewMode === 'list' ? (onSelectTemplate ? 'Seleccionar Plantilla' : 'Plantillas') : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
                         </Text>
                         <TouchableOpacity onPress={onClose}>
                             <Ionicons name="close" size={28} color={Colors[colorScheme].text} />
@@ -171,49 +204,62 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                     
                     {!loading && viewMode === 'list' && (
                         <>
+                            <TouchableOpacity 
+                                style={[styles.createButtonHeader, { backgroundColor: gymColor || '#007bff' }]} 
+                                activeOpacity={0.85}
+                                onPress={() => openForm()}
+                            >
+                                <View style={styles.createButtonIconWrapper}>
+                                    <Ionicons name="add" size={24} color={gymColor || '#007bff'} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.createButtonTitle}>Crear Nueva Plantilla</Text>
+                                    <Text style={styles.createButtonSub}>Diseña y guarda una rutina en tu biblioteca</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+                            </TouchableOpacity>
+
                             <FlatList 
                                 data={templates} 
                                 renderItem={renderItem} 
                                 keyExtractor={item => item._id}
                                 contentContainerStyle={{padding: 15, paddingBottom: 80}}
-                                ListEmptyComponent={<Text style={styles.emptyText}>No hay plantillas creadas.</Text>}
+                                ListEmptyComponent={<Text style={styles.emptyText}>No hay plantillas creadas. ¡Presiona el botón de arriba para crear una!</Text>}
                             />
-                            <TouchableOpacity style={styles.fab} onPress={() => openForm()}>
-                                <Ionicons name="add" size={30} color="#fff" />
-                            </TouchableOpacity>
                         </>
                     )}
 
                     {!loading && viewMode === 'form' && (
                         <ScrollView style={styles.formContainer} contentContainerStyle={{paddingBottom: 20}}>
-                            <ThemedText style={styles.label}>Nombre <Text style={{color:'red'}}>*</Text></ThemedText>
+                            <ThemedText style={styles.label}>Nombre de la Plantilla <Text style={{color:'red'}}>*</Text></ThemedText>
                             <TextInput 
                                 style={styles.input} 
                                 value={formData.name} 
                                 onChangeText={t => setFormData({...formData, name: t})} 
-                                placeholder="Ej: Hipertrofia Intermedia"
+                                placeholder="Ej: Rutina Hipertrofia 3 Días"
                                 placeholderTextColor={Colors[colorScheme].icon}
                             />
 
-                            <ThemedText style={styles.label}>Descripción</ThemedText>
+                            <ThemedText style={styles.label}>Descripción / Notas (Opcional)</ThemedText>
                             <TextInput 
                                 style={styles.input} 
                                 value={formData.description} 
                                 onChangeText={t => setFormData({...formData, description: t})} 
-                                placeholder="Breve descripción..."
+                                placeholder="Ej: Recomendado para nivel intermedio/avanzado"
                                 placeholderTextColor={Colors[colorScheme].icon}
                             />
 
                             <ThemedText style={styles.label}>Contenido (Plan) <Text style={{color:'red'}}>*</Text></ThemedText>
                             
                             {/* EDITOR */}
-                            <RichTextEditor
+                            <PlanContentEditor
                                 key={formData.id || 'new'} 
                                 initialContent={formData.content}
-                                onChange={(html) => setFormData(prev => ({...prev, content: html}))}
+                                onChange={(contentStr) => setFormData(prev => ({...prev, content: contentStr}))}
                                 colorScheme={colorScheme}
                                 gymColor={gymColor}
-                                placeholder="Diseña tu plantilla aquí..."
+                                mode={editorMode}
+                                onModeChange={setEditorMode}
                             />
 
                             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -249,6 +295,39 @@ const getStyles = (ColorScheme, gymColor) => StyleSheet.create({
     cardActions: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 10,  },
     iconBtn: { padding: 10 },
     fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: gymColor, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+    createButtonHeader: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 16, 
+        marginHorizontal: 15, 
+        marginTop: 15, 
+        marginBottom: 10,
+        borderRadius: 14, 
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4
+    },
+    createButtonIconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 14
+    },
+    createButtonTitle: { 
+        color: '#fff', 
+        fontWeight: 'bold', 
+        fontSize: 16 
+    },
+    createButtonSub: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 12,
+        marginTop: 2
+    },
     emptyText: { textAlign: 'center', marginTop: 50, color: Colors[ColorScheme].text, opacity: 0.5 },
     formContainer: { padding: 20, flex: 1 },
     label: { fontSize: 14, marginBottom: 5, color: Colors[ColorScheme].text, fontWeight: '600' },

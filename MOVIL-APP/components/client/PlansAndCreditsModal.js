@@ -148,16 +148,18 @@ const PlansAndCreditsModal = ({ onClose }) => {
 
     return (
         <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                </TouchableOpacity>
-                
-                <View style={styles.header}>
-                    <ThemedText style={styles.modalTitle}>Mis Créditos y Planes</ThemedText>
+            <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Mis Créditos y Planes</Text>
+                        <Text style={styles.headerBannerSub}>Revisa tus pases y créditos disponibles</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 20}}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{padding: 20}}>
 
                     {/* --- SECCIÓN PASE LIBRE --- */}
                     {hasPaseLibre && (
@@ -176,57 +178,81 @@ const PlansAndCreditsModal = ({ onClose }) => {
                         </ThemedView>
                     )}
 
-                    {/* --- SECCIÓN CRÉDITOS DETALLADOS --- */}
-                    {detailedCredits.length > 0 ? (
-                        detailedCredits.map((group, index) => (
-                            <ThemedView key={index} style={styles.card}>
-                                <View style={styles.cardHeaderRow}>
-                                    <ThemedText style={styles.cardTitle}>{group.name}</ThemedText>
-                                    <View style={[styles.badge, {backgroundColor: gymColor + '20'}]}>
-                                        <Text style={[styles.badgeText, {color: gymColor}]}>Total: {group.total}</Text>
-                                    </View>
+                    {/* --- SECCIÓN PASE LIBRE HORARIO (OFF-PEAK) --- */}
+                    {profile?.hasPaseLibreHorario && (
+                        <ThemedView style={[styles.paseLibreCard, { borderColor: '#00bcd4' }]}>
+                            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+                                <Ionicons name="time" size={22} color="#00bcd4" style={{marginRight: 10}} />
+                                <View style={{flex: 1}}>
+                                    <ThemedText style={styles.cardTitle}>Acceso Libre Horario</ThemedText>
+                                    <Text style={{fontSize: 12, color: Colors[colorScheme].text, opacity: 0.8}}>
+                                        {profile.paseLibreHorarioDias?.length > 0 ? profile.paseLibreHorarioDias.join(', ') : 'Días seleccionados'}
+                                    </Text>
                                 </View>
-                                
-                                <View style={styles.divider} />
-                                
-                                {group.batches.map((batch, i) => (
-                                    <View key={i} style={styles.batchRow}>
-                                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                            <Ionicons name="ticket-outline" size={16} color={Colors[colorScheme].text} style={{marginRight: 8}} />
-                                            <ThemedText style={styles.batchAmount}>{batch.amount} créditos</ThemedText>
-                                        </View>
-                                        
-                                        <ThemedText style={styles.batchDate}>
-                                            {/* Si hay fecha (porque resetMensual=true), la mostramos. Si no, "Sin vencimiento" */}
-                                            {batch.date 
-                                                ? `Vence: ${formatDateUTC(batch.date)}` 
-                                                : 'Sin vencimiento'
-                                            }
-                                        </ThemedText>
-                                        
-                                    </View>
-                                ))}
-                            </ThemedView>
-                        ))
-                    ) : (
-                        !hasPaseLibre && (
-                            <View style={styles.emptyContainer}>
-                                <Ionicons name="wallet-outline" size={50} color={Colors[colorScheme].icon} style={{opacity: 0.5}} />
-                                <ThemedText style={styles.emptyText}>
-                                    No tienes créditos disponibles actualmente.
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.infoRow}>
+                                <ThemedText style={styles.infoLabel}>Horario permitido:</ThemedText>
+                                <ThemedText style={[styles.infoValueBold, { color: '#00bcd4' }]}>
+                                    {profile.paseLibreHorarioInicio || '00:00'} - {profile.paseLibreHorarioFin || '23:59'} hs
                                 </ThemedText>
                             </View>
-                        )
+                        </ThemedView>
                     )}
 
+                    {/* --- SECCIÓN CRÉDITOS --- */}
+                    {classTypes && classTypes.length > 0 ? (
+                        classTypes.map((type) => {
+                            const detail = profile.creditosDetalle ? profile.creditosDetalle[type._id] : null;
+                            const totalCredits = profile.creditos ? profile.creditos[type._id] || 0 : 0;
+
+                            if (totalCredits <= 0 && (!detail || detail.length === 0)) {
+                                return null;
+                            }
+
+                            return (
+                                <ThemedView key={type._id} style={styles.card}>
+                                    <View style={styles.cardHeaderRow}>
+                                        <ThemedText style={styles.cardTitle}>{type.nombre}</ThemedText>
+                                        <View style={[styles.badge, { backgroundColor: totalCredits > 0 ? (gymColor || '#28a745') : '#dc3545' }]}>
+                                            <Text style={[styles.badgeText, { color: '#fff' }]}>
+                                                {totalCredits} disponibles
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    
+                                    {detail && detail.length > 0 && (
+                                        <>
+                                            <View style={styles.divider} />
+                                            {detail.map((lote, index) => (
+                                                <View key={index} style={styles.batchRow}>
+                                                    <ThemedText style={styles.batchAmount}>
+                                                        + {lote.cantidad} créditos
+                                                    </ThemedText>
+                                                    <ThemedText style={styles.batchDate}>
+                                                        Vence: {formatDateUTC(lote.fechaExpiracion)}
+                                                    </ThemedText>
+                                                </View>
+                                            ))}
+                                        </>
+                                    )}
+                                </ThemedView>
+                            );
+                        })
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <FontAwesome5 name="ticket-alt" size={40} color={Colors[colorScheme].icon} />
+                            <ThemedText style={styles.emptyText}>No tienes planes ni créditos activos.</ThemedText>
+                        </View>
+                    )}
                 </ScrollView>
             </View>
 
-            <CustomAlert
-                visible={alertInfo.visible}
-                title={alertInfo.title}
-                message={alertInfo.message}
-                buttons={alertInfo.buttons}
+            <CustomAlert 
+                visible={alertInfo.visible} 
+                title={alertInfo.title} 
+                message={alertInfo.message} 
+                buttons={alertInfo.buttons || [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ ...alertInfo, visible: false }) }]} 
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor} 
             />
@@ -236,7 +262,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 20, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, elevation: 5 },
     
     header: { alignItems: 'center', marginBottom: 20, marginTop: 10 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },
@@ -283,6 +309,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     // Empty state
     emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
     emptyText: { marginTop: 15, fontSize: 16, color: Colors[colorScheme].text, opacity: 0.7 },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default PlansAndCreditsModal;

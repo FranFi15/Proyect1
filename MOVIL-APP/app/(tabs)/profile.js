@@ -9,6 +9,7 @@ import {
     useColorScheme,
     Modal,
     Linking,
+    Image,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -19,7 +20,7 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
 import * as Notifications from 'expo-notifications';
-import {registerForPushNotificationsAsync} from '../../services/notificationService';
+import { registerForPushNotificationsAsync } from '../../services/notificationService';
 import apiClient from '../../services/apiClient';
 
 // Importamos los componentes para los modales
@@ -28,23 +29,25 @@ import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
 import TransferPaymentModal from '../../components/client/TransferPaymentModal';
 import RMCalculatorModal from '@/components/client/RMCalculatorModal';
-import CustomAlert from '@/components/CustomAlert'; 
+import CustomAlert from '@/components/CustomAlert';
+import OrdenMedicaModal from '@/components/client/OrdenMedicaModal';
+import FotoPerfilModal from '@/components/client/FotoPerfilModal';
 
 const ProfileScreen = () => {
-    const { logout, user, gymColor, loading: authLoading } = useAuth();
+    const { logout, user, gymColor, loading: authLoading, refreshUser } = useAuth();
     const [profile, setProfile] = useState(user);
-    
+
     // Estado para manejar la alerta personalizada
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: []
     });
 
-     const [activeModal, setActiveModal] = useState(null); // 'balance', 'plans', 'edit', 'rm'
+    const [activeModal, setActiveModal] = useState(null); // 'balance', 'plans', 'edit', 'rm'
 
-     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
@@ -71,7 +74,7 @@ const ProfileScreen = () => {
         }));
     };
 
-     const handleNotificationsPress = async () => {
+    const handleNotificationsPress = async () => {
         if (notificationsEnabled) {
             // INTENTO DE DESACTIVAR
             setAlertInfo({
@@ -79,13 +82,13 @@ const ProfileScreen = () => {
                 title: "Desactivar Notificaciones",
                 message: "Hemos guardado tu preferencia. Para dejar de recibir notificaciones por completo, también debes desactivarlas en los ajustes de tu teléfono.",
                 buttons: [
-                    { 
-                        text: "Cancelar", 
+                    {
+                        text: "Cancelar",
                         style: "cancel",
                         onPress: () => setAlertInfo({ visible: false })
                     },
-                    { 
-                        text: "Ir a Ajustes", 
+                    {
+                        text: "Ir a Ajustes",
                         style: "primary",
                         onPress: async () => {
                             try {
@@ -100,17 +103,17 @@ const ProfileScreen = () => {
                     }
                 ]
             });
-        } else { 
+        } else {
             // INTENTO DE ACTIVAR
             try {
                 const result = await registerForPushNotificationsAsync();
 
                 if (result.status === 'granted') {
                     setNotificationsEnabled(true);
-                    setAlertInfo({ 
-                        visible: true, 
-                        title: '¡Listo!', 
-                        message: 'Has activado las notificaciones.' 
+                    setAlertInfo({
+                        visible: true,
+                        title: '¡Listo!',
+                        message: 'Has activado las notificaciones.'
                     });
                 } else if (result.status === 'denied') {
                     setAlertInfo({
@@ -119,8 +122,8 @@ const ProfileScreen = () => {
                         message: "Para activar las notificaciones, necesitas conceder el permiso desde los ajustes de tu teléfono.",
                         buttons: [
                             { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                            { 
-                                text: "Ir a Ajustes", 
+                            {
+                                text: "Ir a Ajustes",
                                 style: "primary",
                                 onPress: () => {
                                     Linking.openSettings();
@@ -144,17 +147,17 @@ const ProfileScreen = () => {
             message: "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción es permanente y no se puede deshacer.",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { 
-                    text: "Sí, Eliminar", 
-                    style: "destructive", 
+                {
+                    text: "Sí, Eliminar",
+                    style: "destructive",
                     onPress: async () => {
                         try {
-                            await apiClient.delete('/users/me'); 
+                            await apiClient.delete('/users/me');
                             setAlertInfo({
                                 visible: true,
                                 title: "Cuenta Eliminada",
                                 message: "Tu cuenta ha sido eliminada exitosamente.",
-                                buttons: [{ text: "OK", onPress: logout }] 
+                                buttons: [{ text: "OK", onPress: logout }]
                             });
                         } catch (error) {
                             setAlertInfo({
@@ -176,10 +179,12 @@ const ProfileScreen = () => {
             message: "¿Estás seguro de que quieres salir?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Salir", style: "destructive", onPress: () => {
-                    setAlertInfo({ visible: false });
-                    logout();
-                }}
+                {
+                    text: "Salir", style: "destructive", onPress: () => {
+                        setAlertInfo({ visible: false });
+                        logout();
+                    }
+                }
             ]
         });
     };
@@ -194,55 +199,74 @@ const ProfileScreen = () => {
                 <View style={styles.headerContainer}>
                     <ThemedText style={styles.headerTitle}>{profile.nombre} {profile.apellido}</ThemedText>
                 </View>
-                  <ThemedView style={styles.card}>
-                      <ThemedText style={styles.cardTitle}>Mis Datos</ThemedText>
-                      <View style={styles.infoRow}>
-                          <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>DNI</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.dni}</ThemedText>
-                      </View>
-                      {profile.fechaNacimiento && isValid(parseISO(profile.fechaNacimiento)) && (
-                          <View style={styles.infoRow}>
-                              <Ionicons name="calendar" size={20} color={Colors[colorScheme].icon} />
-                              <ThemedText style={styles.infoLabel}>Fecha de Nacimiento</ThemedText>
-                              <ThemedText style={styles.infoValue}>
-                                  {format(parseISO(profile.fechaNacimiento), 'dd/MM/yyyy')}
-                              </ThemedText>
-                          </View>
-                          
-                      )}
-                      <View style={styles.infoRow}>
-                          <Ionicons name="phone-portrait" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Telefono</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.numeroTelefono}</ThemedText>
-                      </View>
-                      <View style={styles.infoRow}>
-                          <Ionicons name="call" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
-                      </View>
+                <ThemedView style={styles.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                        <TouchableOpacity onPress={() => setActiveModal('fotoPerfil')} style={{ position: 'relative', marginRight: 16 }}>
+                            {profile.fotoPerfil ? (
+                                <Image source={{ uri: profile.fotoPerfil }} style={styles.avatarImage} />
+                            ) : (
+                                <View style={[styles.avatarPlaceholder, { backgroundColor: gymColor || '#007bff' }]}>
+                                    <Ionicons name="person" size={32} color="#fff" />
+                                </View>
+                            )}
+                            <View style={styles.avatarEditBadge}>
+                                <Ionicons name="camera" size={12} color="#fff" />
+                            </View>
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }}>
+                            <ThemedText style={[styles.cardTitle, { marginBottom: 4 }]}>Mis Datos</ThemedText>
+                            <TouchableOpacity onPress={() => setActiveModal('fotoPerfil')}>
+                                <Text style={{ fontSize: 13, color: gymColor || '#007bff', fontWeight: '600' }}>Cambiar Foto de Perfil</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="id-card" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>DNI</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.dni}</ThemedText>
+                    </View>
+                    {profile.fechaNacimiento && isValid(parseISO(profile.fechaNacimiento)) && (
                         <View style={styles.infoRow}>
-                          <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Email</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
-                      </View>
-                      <View style={styles.infoRow}>
-                          <Ionicons name="home" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Direccion</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.direccion}</ThemedText>
-                      </View>
-                      <View style={styles.infoRow}>
-                          <Ionicons name="fitness" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Obra Social</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.obraSocial}</ThemedText>
-                      </View>
-                      <View style={styles.infoRow}>
-                          <Ionicons name="male-female-sharp" size={20} color={Colors[colorScheme].icon} />
-                          <ThemedText style={styles.infoLabel}>Sexo</ThemedText>
-                          <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
-                      </View>
-                  </ThemedView>
-                  
+                            <Ionicons name="calendar" size={20} color={Colors[colorScheme].icon} />
+                            <ThemedText style={styles.infoLabel}>Fecha de Nacimiento</ThemedText>
+                            <ThemedText style={styles.infoValue}>
+                                {format(parseISO(profile.fechaNacimiento), 'dd/MM/yyyy')}
+                            </ThemedText>
+                        </View>
+
+                    )}
+                    <View style={styles.infoRow}>
+                        <Ionicons name="phone-portrait" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Telefono</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.numeroTelefono}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="call" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Telefono Emergencia</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.telefonoEmergencia}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="mail" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Email</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.email}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="home" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Direccion</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.direccion}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="fitness" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Obra Social</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.obraSocial}</ThemedText>
+                    </View>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="male-female-sharp" size={20} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.infoLabel}>Sexo</ThemedText>
+                        <ThemedText style={styles.infoValue}>{profile.sexo}</ThemedText>
+                    </View>
+                </ThemedView>
+
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('balance')}>
@@ -250,8 +274,8 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Historial de Saldo</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('payment')}>
-                        <Ionicons name="cart" size={24} color={Colors[colorScheme].icon}  />
-                        <ThemedText style={[styles.menuButtonText, ]}>Comprar </ThemedText>
+                        <Ionicons name="cart" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={[styles.menuButtonText,]}>Comprar </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('plans')}>
@@ -260,16 +284,21 @@ const ProfileScreen = () => {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
-                        <FontAwesome6 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{marginLeft:1, marginRight:1}} />
+                        <FontAwesome6 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{ marginLeft: 1, marginRight: 1 }} />
                         <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('ordenMedica')}>
+                        <Ionicons name="document-text" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Orden Médica</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
-                        <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
+                        <Ionicons name="person" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
                     </TouchableOpacity>
 
-                      <TouchableOpacity style={styles.menuButton} onPress={handleNotificationsPress}>
+                    <TouchableOpacity style={styles.menuButton} onPress={handleNotificationsPress}>
                         <Ionicons name={notificationsEnabled ? "notifications" : "notifications-off"} size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>
                             {notificationsEnabled ? 'Desactivar Notificaciones' : 'Activar Notificaciones'}
@@ -277,7 +306,7 @@ const ProfileScreen = () => {
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={handleDeleteAccount}>
                         <Octicons name="trash" size={20} color={'#ff4040ff'} />
-                        <ThemedText style={[styles.menuButtonText, { color: '#ff4040ff'}]}>Eliminar mi Cuenta</ThemedText>
+                        <ThemedText style={[styles.menuButtonText, { color: '#ff4040ff' }]}>Eliminar mi Cuenta</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.menuButton} onPress={handleLogout}>
                         <Ionicons name="log-out" size={24} color={Colors[colorScheme].icon} />
@@ -292,10 +321,30 @@ const ProfileScreen = () => {
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
             <Modal visible={activeModal === 'payment'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
-                 <TransferPaymentModal onClose={() => setActiveModal(null)} />
+                <TransferPaymentModal onClose={() => setActiveModal(null)} />
             </Modal>
             <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
+            </Modal>
+
+            <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+                <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
+                    try {
+                        if (refreshUser) await refreshUser();
+                        const res = await apiClient.get('/users/me');
+                        setProfile(res.data);
+                    } catch (e) { }
+                }} />
+            </Modal>
+
+            <Modal visible={activeModal === 'fotoPerfil'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+                <FotoPerfilModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
+                    try {
+                        if (refreshUser) await refreshUser();
+                        const res = await apiClient.get('/users/me');
+                        setProfile(res.data);
+                    } catch (e) { }
+                }} />
             </Modal>
 
             <Modal visible={activeModal === 'edit'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
@@ -318,8 +367,8 @@ const ProfileScreen = () => {
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
-                
+                gymColor={gymColor}
+
             />
         </ThemedView>
     );
@@ -330,16 +379,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 10,
+        paddingVertical: 18,
         paddingHorizontal: 20,
         alignItems: 'center',
-
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
     },
     headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#fff',
-        
+
     },
     headerSubtitle: {
         fontSize: 16,
@@ -357,14 +413,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 18,
         paddingHorizontal: 15,
-        borderRadius: 5,
+        borderRadius: 14,
         marginBottom: 12,
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-         borderWidth: 1, borderColor: Colors[colorScheme].border
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     menuButtonText: {
         flex: 1,
@@ -383,7 +439,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 1.41,
-         borderWidth: 1, borderColor: Colors[colorScheme].border
+        borderWidth: 1, borderColor: Colors[colorScheme].border
     },
     cardTitle: {
         fontSize: 20,
@@ -414,13 +470,38 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginTop: 10,
         marginBottom: 30,
     },
-    settingRow: { 
+    settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
         width: '100%',
         margin: 0,
         padding: 0,
+    },
+    avatarImage: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+    },
+    avatarPlaceholder: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarEditBadge: {
+        position: 'absolute',
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#28a745',
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
 });
 

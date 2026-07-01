@@ -117,7 +117,7 @@ const ManageClassesScreen = () => {
     const [extendingGroup, setExtendingGroup] = useState(null);
     const [extendUntilDate, setExtendUntilDate] = useState('');
     const [dayToManage, setDayToManage] = useState(new Date());
-    
+    const [expandedCardId, setExpandedCardId] = useState(null);
 
     const [activeModal, setActiveModal] = useState(null);
     const [datePickerConfig, setDatePickerConfig] = useState({
@@ -672,51 +672,66 @@ const ManageClassesScreen = () => {
     const renderClassItem = ({ item }) => {
         const dynamicStyle = getClassStyle(item);
         const isCancelled = item.estado === 'cancelada';
+        const isExpanded = expandedCardId === item._id;
 
         return (
             <ThemedView style={[styles.classItem, dynamicStyle]}>
-                <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
-                   {item.nombre || "Turno"} - {item.tipoClase?.nombre}
-                </ThemedText>
-                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                    Horario: {item.horaInicio}hs - {item.horaFin}hs
-                </ThemedText>
-                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                    A cargo de: {formatTeachers(item)}
-                </ThemedText>
-                <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                    Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}
-                </ThemedText>
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <View style={{ flex: 1 }}>
+                        <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
+                           {item.nombre || "Turno"} - {item.tipoClase?.nombre}
+                        </ThemedText>
+                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                            Horario: {item.horaInicio}hs - {item.horaFin}hs
+                        </ThemedText>
+                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                            A cargo de: {formatTeachers(item)}
+                        </ThemedText>
+                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
+                            Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}
+                        </ThemedText>
+                    </View>
+                    <View style={{ paddingLeft: 10 }}>
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                    </View>
+                </TouchableOpacity>
 
-                <View style={styles.buttonContainer}>
-                    {isCancelled ? (
-                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
-                             <Text style={styles.badgeCancelled}>CANCELADO</Text>
-                             <TouchableOpacity style={styles.iconButton} onPress={() => handleReactivateClass(item)}>
-                                <ThemedText style={{fontSize: 12, marginRight: 5}}>Reactivar</ThemedText>
-                                <Ionicons name="refresh-circle" size={24} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconButton} onPress={() => handleDeleteClass(item)}>
-                                    <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                {isExpanded && (
+                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                        {isCancelled ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <Text style={styles.badgeCancelled}>CANCELADO</Text>
+                                <View style={{ flexDirection: 'row', gap: 15 }}>
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
+                                        <Ionicons name="refresh-circle" size={24} color="#2ecc71" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
+                                        <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
+                                    <Ionicons name="people" size={22} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <View style={styles.adminActionsRow}>
-                            <TouchableOpacity style={styles.iconButton} onPress={() => handleViewRoster(item._id)}>
-                                <Ionicons name="people" size={23} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>
-                                <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconButton} onPress={() => handleCancelClass(item)}>
-                                <Ionicons name="close-circle" size={23} color={'#e74c3c'} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconButton} onPress={() => handleDeleteClass(item)}>
-                                <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
+                                    <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
+                                    <Ionicons name="close-circle" size={22} color={'#e74c3c'} />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
+                                    <Octicons name="trash" size={21} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                )}
             </ThemedView>
         );
     };
@@ -878,27 +893,46 @@ const ManageClassesScreen = () => {
         });
     };
 
-    const renderGroupedClassItem = ({ item }) => (
-        <View style={[styles.card, item.cantidadDeInstancias === 1 && styles.expiringCard]}>
-            <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
-            <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
-            <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-            <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
-            <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
-            <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
-            <View style={styles.actionsContainer}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
-                    <FontAwesome6 name="edit" size={23} color={Colors[colorScheme].text} />
+    const renderGroupedClassItem = ({ item }) => {
+        const isExpanded = expandedCardId === item._id;
+        return (
+            <View style={[styles.card, item.cantidadDeInstancias === 1 && styles.expiringCard]}>
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
+                        <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
+                        <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
+                        <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
+                        <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
+                        <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
+                    </View>
+                    <View style={{ paddingLeft: 10 }}>
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                    </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
-                    <Ionicons name="add-circle" size={24} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
-                    <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
+
+                {isExpanded && (
+                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
+                                <FontAwesome6 name="edit" size={22} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
+                                <Ionicons name="add-circle" size={24} color={gymColor || '#1a5276'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
+                                <Octicons name="trash" size={23} color="#e74c3c" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
             </View>
-        </View>
-    );
+        );
+    };
 
 
     const renderScene = ({ route }) => {
@@ -1010,7 +1044,7 @@ const ManageClassesScreen = () => {
                 onIndexChange={setIndex}
                 initialLayout={{ width: layout.width }}
                 renderTabBar={props => (
-                    <TabBar {...props} style={{ backgroundColor: gymColor }}
+                    <TabBar {...props} style={{ backgroundColor: gymColor, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3, }}
                         labelStyle={styles.tabLabel}
                         tabStyle={styles.tabStyle}
@@ -1050,77 +1084,129 @@ const ManageClassesScreen = () => {
             {showAddModal && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
-                    <Pressable style={styles.modalView}>
-                        <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</ThemedText>
-                            <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
-                            <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholderTextColor={Colors[colorScheme].icon} />
-                            <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
-                                <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
-                            <View style={styles.weekDayContainer}> 
-                                {teachers.map(teacher => (
-                                    <TouchableOpacity 
-                                        key={teacher._id} 
-                                        onPress={() => handleProfessorSelection(teacher._id)} 
-                                        style={[
-                                            styles.dayChip, 
-                                            formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
-                                        ]}
-                                    >
-                                        <Text style={
-                                            formData.profesores && formData.profesores.includes(teacher._id) 
-                                            ? styles.dayChipTextSelected 
-                                            : styles.dayChipText
-                                        }>
-                                            {teacher.nombre} {teacher.apellido}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                    <Pressable style={styles.addClassModalView}>
+                        {/* Header Banner */}
+                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#007bff' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.addClassHeaderTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</Text>
+                                <Text style={styles.addClassHeaderSub}>{editingClass ? 'Modifica los parámetros y profesores' : 'Programa un turno individual o recurrente'}</Text>
                             </View>
-                            <ThemedText style={styles.inputLabel}>Capacidad</ThemedText>
-                            <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} />
-                            <ThemedText style={styles.inputLabel}>Tipo de Inscripción</ThemedText>
-                            <TouchableOpacity style={styles.filterButton} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
-                                <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
-                                <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                            <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.addClassCloseBtn}>
+                                <Ionicons name="close" size={22} color="#fff" />
                             </TouchableOpacity>
-                            {formData.tipoInscripcion === 'libre' ? (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Fecha</ThemedText>
-                                {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
-                                    <ThemedText style={styles.inputLabel}>Hora de Inicio</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                    <ThemedText style={styles.inputLabel}>Hora de Fin</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                </>
-                            ) : (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
-                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
-                                    <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                        <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
-                                    <TextInput style={styles.input} placeholder="HH:MM" value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                    <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
-                                    <View style={styles.weekDayContainer}>
-                                        {daysOfWeekOptions.map(day => (
-                                            <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
-                                                <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </>
-                            )}
-                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title={editingClass ? 'Actualizar' : 'Guardar'} onPress={handleFormSubmit} color={gymColor || '#1a5276'} /></View></View>
+                        </View>
+
+                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
+                            {/* Sección 1: Información Principal */}
+                            <View style={styles.formCard}>
+                                <View style={styles.formSectionHeader}>
+                                    <Ionicons name="information-circle" size={20} color={gymColor || '#007bff'} />
+                                    <ThemedText style={styles.formSectionTitle}>1. Información General</ThemedText>
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
+                                <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholder="Ej: Crossfit Matutino" placeholderTextColor={Colors[colorScheme].icon} />
+
+                                <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
+                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
+                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
+                                    <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+
+                                <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
+                                <View style={styles.weekDayContainer}> 
+                                    {teachers.map(teacher => (
+                                        <TouchableOpacity 
+                                            key={teacher._id} 
+                                            onPress={() => handleProfessorSelection(teacher._id)} 
+                                            style={[
+                                                styles.dayChip, 
+                                                formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
+                                            ]}
+                                        >
+                                            <Text style={
+                                                formData.profesores && formData.profesores.includes(teacher._id) 
+                                                ? styles.dayChipTextSelected 
+                                                : styles.dayChipText
+                                            }>
+                                                {teacher.nombre} {teacher.apellido}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Capacidad Máxima (Cupos)</ThemedText>
+                                <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} placeholder="Ej: 20" placeholderTextColor={Colors[colorScheme].icon} />
+                            </View>
+
+                            {/* Sección 2: Programación */}
+                            <View style={styles.formCard}>
+                                <View style={styles.formSectionHeader}>
+                                    <Ionicons name="time" size={20} color={gymColor || '#007bff'} />
+                                    <ThemedText style={styles.formSectionTitle}>2. Programación y Horarios</ThemedText>
+                                </View>
+
+                                <ThemedText style={styles.inputLabel}>Tipo de Programación</ThemedText>
+                                <TouchableOpacity style={[styles.filterButton, !!editingClass && { opacity: 0.6 }]} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
+                                    <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
+                                    <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                                </TouchableOpacity>
+
+                                {formData.tipoInscripcion === 'libre' ? (
+                                    <>
+                                        <ThemedText style={styles.inputLabel}>Fecha de la Clase</ThemedText>
+                                        {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
+                                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
+                                            </View>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                            </View>
+                                        </View>
+                                        <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
+                                        <View style={styles.weekDayContainer}>
+                                            {daysOfWeekOptions.map(day => (
+                                                <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
+                                                    <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit} activeOpacity={0.85}>
+                                    <Ionicons name={editingClass ? "checkmark-circle-outline" : "add-circle-outline"} size={22} color="#fff" />
+                                    <Text style={styles.submitActionBtnText}>{editingClass ? 'Actualizar Turno' : 'Crear Turno'}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </ScrollView>
                     </Pressable>
                 </Pressable>
@@ -1130,14 +1216,18 @@ const ManageClassesScreen = () => {
            {showRosterModal && viewingClassRoster && (
                 <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)} animationType='fade'>
                     <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>  
-                        <Pressable style={styles.modalView}>
-                             <TouchableOpacity onPress={() =>  setShowRosterModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                            <ThemedText style={styles.modalTitle}>Gestionar Inscriptos</ThemedText>
-                            <ThemedText style={styles.modalSubtitle}>{viewingClassRoster.nombre} - {viewingClassRoster.horaInicio}hs</ThemedText>
+                        <Pressable style={styles.addClassModalView}>
+                            <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.addClassHeaderTitle}>Gestionar Inscriptos</Text>
+                                    <Text style={styles.addClassHeaderSub}>{viewingClassRoster.nombre} - {viewingClassRoster.horaInicio}hs</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.addClassCloseBtn}>
+                                    <Ionicons name="close" size={22} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
 
-                            <ScrollView>
+                            <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
                                 <View style={styles.rosterSection}>
                                     <ThemedText style={styles.sectionTitle}>Inscriptos ({viewingClassRoster.usuariosInscritos.length})</ThemedText>
                                     {viewingClassRoster.usuariosInscritos.map(user => (
@@ -1156,6 +1246,7 @@ const ManageClassesScreen = () => {
                                     <TextInput
                                         style={styles.input}
                                         placeholder="Buscar por nombre o DNI..."
+                                        placeholderTextColor={Colors[colorScheme].icon}
                                         value={rosterSearchTerm}
                                         onChangeText={setRosterSearchTerm}
                                     />
@@ -1176,16 +1267,27 @@ const ManageClassesScreen = () => {
             )}
 
             {showCancelModal && (
-                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)} animationType='fade'>
-                    <Pressable style={[styles.modalView, styles.confirmationModal]}>
-                        <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ThemedText style={styles.modalTitle}>Confirmar Cancelación</ThemedText>
-                        <ThemedText>¿Deseas devolver los créditos a los usuarios inscritos?</ThemedText>
-                        <View style={styles.modalActions}>
-                            <View style={styles.buttonWrapper}><Button title="Sí, con reembolso" onPress={() => confirmCancelClass(true)} color={'#005013ff'} /></View>
-                            <View style={styles.buttonWrapper}><Button title="No, sin reembolso" onPress={() => confirmCancelClass(false)} color={'#500000ff'} /></View>
+                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
+                    <Pressable style={[styles.addClassModalView, { height: 'auto', maxHeight: '55%', paddingBottom: 20 }]}>
+                        <View style={[styles.addClassHeader, { backgroundColor: '#e74c3c' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.addClassHeaderTitle}>Confirmar Cancelación</Text>
+                                <Text style={styles.addClassHeaderSub}>Devolución de créditos</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.addClassCloseBtn}>
+                                <Ionicons name="close" size={22} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={{ padding: 24, alignItems: 'center' }}>
+                            <ThemedText style={{ fontSize: 16, textAlign: 'center', marginBottom: 25 }}>¿Deseas devolver los créditos a los usuarios inscritos en este turno?</ThemedText>
+                            <View style={{ flexDirection: 'row', gap: 15, width: '100%' }}>
+                                <TouchableOpacity style={[styles.submitActionBtn, { flex: 1, backgroundColor: '#2ecc71', paddingVertical: 12 }]} onPress={() => confirmCancelClass(true)}>
+                                    <Text style={styles.submitActionBtnText}>Sí, reembolsar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.submitActionBtn, { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12 }]} onPress={() => confirmCancelClass(false)}>
+                                    <Text style={styles.submitActionBtnText}>No reembolsar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </Pressable>
                 </Pressable>
@@ -1194,12 +1296,17 @@ const ManageClassesScreen = () => {
             {showBulkEditModal && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowBulkEditModal(false)}>
-                    <Pressable style={styles.modalView}>
-                        <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>Editar Grupo: {editingGroup?.nombre}</ThemedText>
+                    <Pressable style={styles.addClassModalView}>
+                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.addClassHeaderTitle}>Editar Grupo Recurrente</Text>
+                                <Text style={styles.addClassHeaderSub}>{editingGroup?.nombre}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.addClassCloseBtn}>
+                                <Ionicons name="close" size={22} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
                             <ThemedText style={styles.inputLabel}>Nuevo Horario de Inicio:</ThemedText>
                             <TextInput style={styles.input} value={bulkUpdates.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
                             <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin:</ThemedText>
@@ -1235,7 +1342,12 @@ const ManageClassesScreen = () => {
                                     </TouchableOpacity>
                                 ))}
                             </View>
-                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleBulkUpdate} color={gymColor || '#1a5276'} /></View></View>
+                            <View style={[styles.modalActions, { marginTop: 20 }]}>
+                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleBulkUpdate}>
+                                    <FontAwesome6 name="save" size={18} color="#fff" />
+                                    <Text style={styles.submitActionBtnText}>Guardar Cambios</Text>
+                                </TouchableOpacity>
+                            </View>
                         </ScrollView>
                     </Pressable>
                 </Pressable>
@@ -1245,20 +1357,30 @@ const ManageClassesScreen = () => {
             {showExtendModal && (
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
                 <Pressable style={styles.modalOverlay} onPress={() => setShowExtendModal(false)}>
-                    <Pressable style={styles.modalView}>
-                        <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
-                            <ThemedText style={styles.modalTitle}>Extender Turnos de {extendingGroup?.nombre}</ThemedText>
+                    <Pressable style={[styles.addClassModalView, { height: 'auto', maxHeight: '60%' }]}>
+                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.addClassHeaderTitle}>Extender Turnos Recurrentes</Text>
+                                <Text style={styles.addClassHeaderSub}>{extendingGroup?.nombre}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.addClassCloseBtn}>
+                                <Ionicons name="close" size={22} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
                             <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
                             {renderDateField(
-                        'Fecha de extensión',
-                        'extendUntilDate',
-                        extendUntilDate, // Este ya es un string 'yyyy-MM-dd'
-                        (date) => setExtendUntilDate(format(date, 'yyyy-MM-dd')) // Formateamos al guardar
-                    )}
-                            <View style={styles.modalActions}><View style={styles.buttonWrapper}><Button title="Confirmar Extensión" onPress={() => handleExtendSubmit()} color={gymColor || '#1a5276'} /></View></View>
+                                'Fecha de extensión',
+                                'extendUntilDate',
+                                extendUntilDate, // Este ya es un string 'yyyy-MM-dd'
+                                (date) => setExtendUntilDate(format(date, 'yyyy-MM-dd')) // Formateamos al guardar
+                            )}
+                            <View style={[styles.modalActions, { marginTop: 20 }]}>
+                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={() => handleExtendSubmit()}>
+                                    <Ionicons name="calendar-outline" size={20} color="#fff" />
+                                    <Text style={styles.submitActionBtnText}>Confirmar Extensión</Text>
+                                </TouchableOpacity>
+                            </View>
                         </ScrollView>
                     </Pressable>
                 </Pressable>
@@ -1297,7 +1419,7 @@ const ManageClassesScreen = () => {
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background },
     placeholderText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, paddingHorizontal: 20, color: Colors[colorScheme].text },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 15, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 8, marginHorizontal: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
     expiringCard: { borderColor: '#f0ad4e', borderWidth: 2 },
     cancelledCard: { backgroundColor: Colors[colorScheme].cardBackground, opacity: 0.7, borderWidth: 1, borderColor: Colors[colorScheme].border},
     actionsContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
@@ -1309,44 +1431,54 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,},
     modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
     modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, padding: 20, elevation: 5 },
+    modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, elevation: 5 },
+    addClassModalView: { height: '88%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 8, overflow: 'hidden' },
+    addClassHeader: { paddingVertical: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    addClassHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+    addClassHeaderSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+    addClassCloseBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+    addClassScrollContent: { padding: 18, paddingBottom: 40 },
+    formCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors[colorScheme].border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
+    formSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10 },
+    formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
+    submitActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, paddingHorizontal: 24, borderRadius: 14, width: '100%', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+    submitActionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     modalContent: { paddingBottom: 40 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 25, textAlign: 'center', paddingTop: 10, color: Colors[colorScheme].text },
     modalSubtitle: { fontSize: 16, marginBottom: 15, textAlign: 'center', color: Colors[colorScheme].text },
-    modalActions: { width: '100%', flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 15 },
+    modalActions: { width: '100%', flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 15 },
     confirmationModal: { height: 'auto', width: '90%', borderRadius: 5, padding: 25, alignItems: "center", elevation: 5, justifyContent: 'center' },
-    inputLabel: { fontSize: 16, marginBottom: 8, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '500', marginTop: 15 },
-    input: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16, marginTop:10 },
-    dateInputTouchable: { height: 50, backgroundColor: Colors[colorScheme].cardBackground, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, marginBottom: 20, justifyContent: 'center' },
-    dateInputText: { fontSize: 16, color: Colors[colorScheme].text },
-    weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-    dayChip: { paddingVertical: 4, paddingHorizontal: 4, borderRadius: 5, borderWidth: 1.5, borderColor: Colors[colorScheme].border, margin: 4 },
-    dayChipSelected: { backgroundColor: gymColor || '#1a5276' },
-    dayChipText: { color :Colors[colorScheme].text, fontSize: 14 },
-    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold' },
+    inputLabel: { fontSize: 14, marginBottom: 6, color: Colors[colorScheme].text, opacity: 0.9, fontWeight: '600', marginTop: 12 },
+    input: { height: 48, backgroundColor: Colors[colorScheme].background, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, color: Colors[colorScheme].text, fontSize: 15, marginTop: 4 },
+    dateInputTouchable: { height: 48, backgroundColor: Colors[colorScheme].background, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, marginTop: 4, marginBottom: 10, justifyContent: 'center' },
+    dateInputText: { fontSize: 15, color: Colors[colorScheme].text },
+    weekDayContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 8, marginBottom: 10 },
+    dayChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors[colorScheme].border, margin: 4, backgroundColor: Colors[colorScheme].background },
+    dayChipSelected: { backgroundColor: gymColor || '#1a5276', borderColor: gymColor || '#1a5276' },
+    dayChipText: { color :Colors[colorScheme].text, fontSize: 13 },
+    dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
     rosterItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     rosterText: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 3 },
     rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon,  marginBottom: 5 },
     dayManagementContainer: { flex: 1, alignItems: 'center', padding: 20 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 20, marginTop: 10, color: Colors[colorScheme].text },
     dayActions: { marginTop: 20, width: '100%', gap: 15 },
-    buttonWrapper: { borderRadius: 5, overflow: 'hidden', marginTop: 10 },
+    buttonWrapper: { borderRadius: 10, overflow: 'hidden', marginTop: 10 },
     filterButton:{ 
-        marginTop: 15,
+        marginTop: 4,
+        marginBottom: 10,
         alignSelf: 'center',
         flexDirection: 'row', 
         alignItems: 'center', 
         justifyContent: 'space-between', 
-        height: 50, 
+        height: 48, 
         borderColor: Colors[colorScheme].border, 
         borderWidth: 1, 
-        borderRadius: 5, 
-        paddingHorizontal: 15,  
-        backgroundColor: Colors[colorScheme].cardBackground, 
-        color: Colors[colorScheme].text, 
-        fontSize: 16, 
-        width: '95%',
+        borderRadius: 10, 
+        paddingHorizontal: 14,  
+        backgroundColor: Colors[colorScheme].background, 
+        width: '100%',
     },
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
@@ -1407,7 +1539,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     
     buttonContainer: { marginTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 10 },
     adminActionsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' , gap: 10, alignSelf: 'flex-end' },
-    iconButton: { flexDirection: 'row', marginLeft: 5 },                                                                                 
+    iconButton: { flexDirection: 'row', marginLeft: 5 },
+    cardMenuBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border, justifyContent: 'center', alignItems: 'center' },
+    cardDropdownContainer: { marginTop: 14, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border, paddingTop: 12 },
+    dropdownOptionsList: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 12, borderWidth: 1, borderColor: Colors[colorScheme].border, overflow: 'hidden' },
+    dropdownItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    dropdownItemText: { fontSize: 15, fontWeight: '500', color: Colors[colorScheme].text },                                                                                 
 });
 
 export default ManageClassesScreen;

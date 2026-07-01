@@ -11,7 +11,12 @@ import {
     RefreshControl,
     SectionList,
     TouchableOpacity,
+    ScrollView,
+    Linking,
+    Alert,
+    Image,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -164,17 +169,29 @@ const ProfessorMyClassesScreen = () => {
 
     const renderStudentListItem = ({ item }) => (
         <Pressable onPress={() => handleViewStudentDetails(item)}>
-            <View style={styles.studentListItem}>
-                <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
+            <View style={styles.studentCard}>
+                {item.fotoPerfil ? (
+                    <Image source={{ uri: item.fotoPerfil }} style={styles.studentAvatar} />
+                ) : (
+                    <View style={[styles.studentAvatar, { backgroundColor: gymColor || '#007bff' }]}>
+                        <Text style={styles.studentAvatarText}>
+                            {(item.nombre?.[0] || '').toUpperCase()}{(item.apellido?.[0] || '').toUpperCase()}
+                        </Text>
+                    </View>
+                )}
+                <View style={styles.studentCardInfo}>
+                    <Text style={styles.studentName}>{item.nombre} {item.apellido}</Text>
+                    <Text style={styles.studentSub}>{item.email || 'Sin email'}</Text>
+                </View>
                 <View style={styles.studentListActions}>
                     {item.ordenMedicaRequerida && (
                         <Ionicons
                             name="document-text"
-                            size={22}
+                            size={20}
                             color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'}
                         />
                     )}
-                    <FontAwesome5 name="info-circle" size={22} color={Colors[colorScheme].icon} />
+                    <Ionicons name="chevron-forward" size={20} color={Colors[colorScheme].icon} />
                 </View>
             </View>
         </Pressable>
@@ -184,23 +201,71 @@ const ProfessorMyClassesScreen = () => {
     const StudentDetailView = () => {
         if (!selectedStudent) return null;
 
+        const infoRows = [
+            { icon: 'id-card', label: 'DNI', value: selectedStudent.dni || 'No provisto' },
+            { icon: 'calendar-alt', label: 'Edad', value: `${calculateAge(selectedStudent.fechaNacimiento)} años` },
+            { icon: 'envelope', label: 'Email', value: selectedStudent.email || 'No provisto' },
+            { icon: 'phone-alt', label: 'Teléfono', value: selectedStudent.numeroTelefono || 'No provisto', phone: !!selectedStudent.numeroTelefono },
+            { icon: 'ambulance', label: 'Tel. Emergencia', value: selectedStudent.telefonoEmergencia || 'No provisto', phone: !!selectedStudent.telefonoEmergencia },
+            { icon: 'hospital', label: 'Obra Social', value: selectedStudent.obraSocial || 'No provisto' },
+        ];
+
+        const handlePhoneTap = (number) => {
+            Alert.alert(
+                number,
+                '¿Qué deseas hacer?',
+                [
+                    { text: 'Llamar', onPress: () => Linking.openURL(`tel:${number}`) },
+                    { text: 'Copiar número', onPress: async () => {
+                        await Clipboard.setStringAsync(number);
+                        Alert.alert('Copiado', 'Número copiado al portapapeles.');
+                    }},
+                    { text: 'Cancelar', style: 'cancel' },
+                ]
+            );
+        };
+
         return (
             <View style={styles.studentDetailContainer}>
+                {/* Detail Header */}
+                {selectedStudent.fotoPerfil ? (
+                    <Image source={{ uri: selectedStudent.fotoPerfil }} style={styles.detailAvatarLarge} />
+                ) : (
+                    <View style={[styles.detailAvatarLarge, { backgroundColor: gymColor || '#007bff' }]}>
+                        <Text style={styles.detailAvatarText}>
+                            {(selectedStudent.nombre?.[0] || '').toUpperCase()}{(selectedStudent.apellido?.[0] || '').toUpperCase()}
+                        </Text>
+                    </View>
+                )}
                 <Text style={styles.detailTitle}>{selectedStudent.nombre} {selectedStudent.apellido}</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>DNI:</Text> {selectedStudent.dni || 'No provisto'}</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Edad:</Text> {calculateAge(selectedStudent.fechaNacimiento)} años</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Email:</Text> {selectedStudent.email || 'No provisto'}</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Teléfono:</Text> {selectedStudent.numeroTelefono || 'No provisto'}</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Tel. Emergencia:</Text> {selectedStudent.telefonoEmergencia || 'No provisto'}</Text>
-                <Text style={styles.studentInfo}><Text style={styles.infoLabel}>Obra Social:</Text> {selectedStudent.obraSocial || 'No provisto'}</Text>
 
-                {/* This is the new Pressable to go back to the list */}
-                <Pressable
-                    style={({ pressed }) => [styles.button, styles.buttonBack, { opacity: pressed ? 0.7 : 1 }]}
-                    onPress={handleBackToList}
-                >
-                    <Text style={styles.textStyle}>Volver</Text>
-                </Pressable>
+                {/* Info Cards */}
+                <ScrollView style={{ width: '100%', flex: 1 }} showsVerticalScrollIndicator={false}>
+                    <View style={styles.detailInfoCard}>
+                        {infoRows.map((row, idx) => {
+                            const RowWrapper = row.phone ? TouchableOpacity : View;
+                            const wrapperProps = row.phone ? { onPress: () => handlePhoneTap(row.value), activeOpacity: 0.6 } : {};
+                            return (
+                                <RowWrapper key={idx} style={[styles.detailInfoRow, idx < infoRows.length - 1 && styles.detailInfoRowBorder]} {...wrapperProps}>
+                                    <View style={styles.detailInfoIcon}>
+                                        <FontAwesome5 name={row.icon} size={16} color={gymColor || '#007bff'} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.detailInfoLabel}>{row.label}</Text>
+                                        <Text style={[styles.detailInfoValue, row.phone && { color: gymColor || '#007bff', textDecorationLine: 'underline' }]}>{row.value}</Text>
+                                    </View>
+                                    {row.phone && <Ionicons name="call-outline" size={20} color={gymColor || '#007bff'} />}
+                                </RowWrapper>
+                            );
+                        })}
+                    </View>
+                </ScrollView>
+
+                {/* Back Button */}
+                <TouchableOpacity style={styles.backButton} onPress={handleBackToList} activeOpacity={0.8}>
+                    <Ionicons name="arrow-back" size={18} color="#fff" />
+                    <Text style={styles.backButtonText}>Volver a la Lista</Text>
+                </TouchableOpacity>
             </View>
         );
     };
@@ -224,40 +289,50 @@ const ProfessorMyClassesScreen = () => {
             />
 
             <Modal
-                animationType="fade"
+                animationType="slide"
                 transparent={true}
                 visible={isListModalVisible}
                 onRequestClose={handleCloseModal}
             >
-                <View style={styles.modalContainer}>
+                <View style={styles.modalOverlay}>
                     <View style={styles.modalView}>
                         {selectedStudent ? (
                             <StudentDetailView /> 
                         ) : (
                             <>
-                                <ThemedText style={styles.modalTitle}>Clientes Inscritos</ThemedText>
+                                {/* Modal Header */}
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalHeaderTitle}>Clientes Inscritos</Text>
+                                    <Text style={styles.modalHeaderSubtitle}>{selectedClassStudents.length} alumno{selectedClassStudents.length !== 1 ? 's' : ''}</Text>
+                                </View>
 
+                                {/* QR Scan Button */}
                                 <TouchableOpacity style={styles.scanButton} onPress={() => {setListModalVisible(false); setScannerVisible(true);}}>
                                     <FontAwesome5 name="qrcode" size={18} color="#fff" />
                                     <Text style={styles.scanButtonText}>Escanear Ingreso (QR)</Text>
                                 </TouchableOpacity>
 
                                 {loadingStudents ? (
-                                    <ActivityIndicator size="large" color={gymColor} />
+                                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                        <ActivityIndicator size="large" color={gymColor} />
+                                    </View>
                                 ) : (
                                     <FlatList
                                         data={selectedClassStudents}
                                         renderItem={renderStudentListItem}
                                         keyExtractor={(item) => item._id}
                                         ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay clientes inscritos.</ThemedText>}
-                                        style={{ width: '100%' }}
+                                        style={{ width: '100%', flex: 1 }}
+                                        contentContainerStyle={{ paddingBottom: 10 }}
+                                        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
                                     />
                                 )}
                             </>
                         )}
-                        <Pressable style={({ pressed }) => [styles.button, styles.buttonClose, { opacity: pressed ? 0.7 : 1 }]} onPress={handleCloseModal}>
-                            <Text style={styles.textStyle}>Cerrar</Text>
-                        </Pressable>
+                        {/* Close Button */}
+                        <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal} activeOpacity={0.8}>
+                            <Text style={styles.closeButtonText}>Cerrar</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -284,9 +359,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors[colorScheme].background, },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 10,
+        paddingVertical: 18,
         paddingHorizontal: 20,
         alignItems: 'center',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
     },
     headerTitle: {backgroundColor: gymColor,
         
@@ -299,44 +382,142 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
        fontSize: 18,},
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' , },
     sectionHeader: { marginTop: 15,fontSize: 20, fontWeight: 'bold', paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors[colorScheme].background, color: Colors[colorScheme].text, },
-    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.20, shadowRadius: 1.41,  borderWidth: 1, borderColor: Colors[colorScheme].border },
+    classItem: { backgroundColor: Colors[colorScheme].cardBackground, padding: 18, marginHorizontal: 16, marginVertical: 8, borderRadius: 14, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,  borderWidth: 1, borderColor: Colors[colorScheme].border },
     className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
     classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
-    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor || '#1a5276', paddingVertical: 10, borderRadius: 5, marginTop: 12 },
+    viewStudentsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor || '#1a5276', paddingVertical: 12, borderRadius: 10, marginTop: 12 },
     viewStudentsButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10 },
-    modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
-    modalView: {  backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 25, justifyContent: 'flex-end' , alignItems: 'center', elevation: 5, width: '100%', height: '85%' },
-    modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: Colors[colorScheme].text },
-    button: {
-        borderRadius: 5,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        elevation: 2,
-        width: '100%',
-        marginTop: 15,
-    },
-    buttonClose: {
-        backgroundColor: '#c0392b', // Un color rojo para cerrar
-    },
-    buttonBack: {
-        backgroundColor: '#2980b9', // Un color azul para volver
-    },
-    textStyle: { color: 'white', fontWeight: 'bold', textAlign: 'center' },
-    
-    studentListItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18,  width: '100%' },
-    studentName: { fontSize: 18, color: Colors[colorScheme].text },
-    studentListActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
 
-    studentDetailContainer: { width: '100%', alignItems: 'center' }, 
-    detailTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, textAlign: 'center', marginBottom: 15 },
-    studentInfo: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.9, marginTop: 8, alignSelf: 'flex-start' }, 
-    infoLabel: { fontWeight: 'bold' },
-    scanButton: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor,
-        paddingVertical: 12, borderRadius: 5, marginBottom: 15, width: '100%',
+    // --- MODAL STYLES ---
+    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalView: {
+        backgroundColor: Colors[colorScheme].background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingBottom: 20,
+        paddingHorizontal: 20,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        height: '85%',
     },
-    scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 16 }
+    modalHeader: {
+        backgroundColor: gymColor || '#007bff',
+        marginHorizontal: -20,
+        marginTop: 0,
+        paddingTop: 20,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+    modalHeaderSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
+
+    // --- STUDENT CARD LIST ITEM ---
+    studentCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors[colorScheme].cardBackground,
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 2,
+    },
+    studentAvatar: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    studentAvatarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    studentCardInfo: { flex: 1 },
+    studentName: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
+    studentSub: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
+    studentListActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+    // --- STUDENT DETAIL VIEW ---
+    studentDetailContainer: { flex: 1, width: '100%', alignItems: 'center', paddingTop: 20 },
+    detailAvatarLarge: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    detailAvatarText: { color: '#fff', fontSize: 26, fontWeight: 'bold' },
+    detailTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, textAlign: 'center', marginBottom: 20 },
+    detailInfoCard: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        overflow: 'hidden',
+    },
+    detailInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    detailInfoRowBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: Colors[colorScheme].border,
+    },
+    detailInfoIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: (gymColor || '#007bff') + '15',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+    },
+    detailInfoLabel: { fontSize: 11, color: Colors[colorScheme].icon, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+    detailInfoValue: { fontSize: 15, color: Colors[colorScheme].text, fontWeight: '500', marginTop: 2 },
+
+    // --- BUTTONS ---
+    scanButton: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor || '#007bff',
+        paddingVertical: 14, borderRadius: 12, marginBottom: 16, width: '100%',
+        elevation: 2, shadowColor: gymColor || '#007bff', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 4,
+    },
+    scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 15 },
+    closeButton: {
+        backgroundColor: colorScheme === 'dark' ? '#444' : '#e0e0e0',
+        paddingVertical: 14,
+        borderRadius: 12,
+        width: '100%',
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    closeButtonText: { color: Colors[colorScheme].text, fontWeight: 'bold', fontSize: 15 },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: gymColor || '#007bff',
+        paddingVertical: 14,
+        borderRadius: 12,
+        width: '100%',
+        marginTop: 12,
+        elevation: 2,
+    },
+    backButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
 });
 
 export default ProfessorMyClassesScreen;

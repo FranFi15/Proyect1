@@ -289,9 +289,17 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerContainer: {
         backgroundColor: gymColor,
-        paddingVertical: 10,
+        paddingVertical: 18,
         paddingHorizontal: 20,
         alignItems: 'center',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
     },
     headerTitle: {
         fontSize: 18,

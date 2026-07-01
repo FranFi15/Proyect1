@@ -18,6 +18,7 @@
     import CustomAlert from '@/components/CustomAlert';
     import FilterModal from '@/components/FilterModal';
     import QrModal from '../../components/client/QrModal';
+    import QrScannerModal from '../../components/profesor/QrScannerModal';
 
     // Servicios y Contexto
     import apiClient from '../../services/apiClient';
@@ -300,24 +301,21 @@
         return (
             <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
                     <View style={styles.modalOverlay}>
-                        <View style={styles.modalContainer}>
-                            {/* HEADER DEL MODAL (Estilo RM) */}
-                            <View style={styles.header}>
+                        <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                            <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
                                 {viewMode === 'detail' && (
-                                    <TouchableOpacity onPress={() => setViewMode('list')} style={{padding: 10}}>
-                                        <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
+                                    <TouchableOpacity onPress={() => setViewMode('list')} style={{marginRight: 12}}>
+                                        <Ionicons name="arrow-back" size={24} color="#fff" />
                                     </TouchableOpacity>
                                 )}
-                                <View style={{flex: 1, paddingLeft: 15}}>
-                                    <ThemedText style={{fontSize: 20, fontWeight: 'bold'}}>
-                                        {viewMode === 'list' ? 'Desafíos' :  ''}
-                                    </ThemedText>
+                                <View style={{flex: 1}}>
+                                    <Text style={styles.headerBannerTitle}>
+                                        {viewMode === 'list' ? 'Desafíos' : 'Detalle del Desafío'}
+                                    </Text>
+                                    <Text style={styles.headerBannerSub}>Retos y puntuaciones del gimnasio</Text>
                                 </View>
-                                
-                                
-                                
-                                <TouchableOpacity onPress={onClose} style={{padding: 10, marginRight: 5}}>
-                                    <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
+                                <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                                    <Ionicons name="close" size={24} color="#fff" />
                                 </TouchableOpacity>
                             </View>
 
@@ -365,7 +363,26 @@
         const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
         const [isFilterModalVisible, setFilterModalVisible] = useState(false);
         const [isQrModalVisible, setQrModalVisible] = useState(false);
+        const [isScannerVisible, setScannerVisible] = useState(false);
         
+        const handleClientReceptionScan = async ({ data }) => {
+            setScannerVisible(false);
+            try {
+                const response = await apiClient.post('/check-in/client-scan', { qrData: data });
+                await refreshUser();
+                fetchData();
+                let detail = 'Asistencia registrada correctamente.';
+                if (response.data.classes && response.data.classes.length > 0) {
+                    detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
+                } else if (response.data.message) {
+                    detail = response.data.message;
+                }
+                setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
+            } catch (error) {
+                setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            }
+        };
+
         // SCOREBOARD STATES
         const [isScoreboardVisible, setScoreboardVisible] = useState(false);
         const [hasActiveScoreboards, setHasActiveScoreboards] = useState(false);
@@ -465,6 +482,7 @@
                     isFull: (cls.usuariosInscritos || []).length >= cls.capacidad,
                     isCancelled: cls.estado === 'cancelada',
                     isFinished: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaFin}:00`).getTime() < nowTime,
+                    didAttend: (cls.asistencias || []).some(id => id?.toString() === user?._id?.toString()) || user?.historialAsistencias?.some(h => (h.claseId === cls._id || h.claseId?._id === cls._id || h.claseId?.toString() === cls._id?.toString())),
                     dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
                 }))
                 .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
@@ -539,16 +557,24 @@
         }, [visibleClasses, selectedDate]);
 
         const renderClassItem = ({ item }) => {
-            const { isEnrolled, isFull, isWaiting, isCancelled, isFinished } = item;
+            const { isEnrolled, isFull, isWaiting, isCancelled, isFinished, didAttend } = item;
             const dynamicStyle = getClassStyle(item, styles, colorScheme);
             return (
                 <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
-                    <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText]}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText, { flex: 1 }]}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
+                        {didAttend && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f7ee', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 8 }}>
+                                <Ionicons name="checkmark-circle" size={14} color="#28a745" />
+                                <Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 11, marginLeft: 4 }}>PRESENTE</Text>
+                            </View>
+                        )}
+                    </View>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
                     <View style={styles.buttonContainer}>
-                        {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADO</Text> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
+                        {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text> : didAttend ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}><Ionicons name="checkmark-circle" size={16} color="#28a745" /><Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6 }}>PRESENTISMO REGISTRADO</Text></View> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
                     </View>
                 </ThemedView>
             );
@@ -558,9 +584,9 @@
             <ThemedView style={{ flex: 1 }}>
                 <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
                 <View style={styles.headerActions}>
-                    <TouchableOpacity style={styles.qrButton} onPress={() => setQrModalVisible(true)}>
-                        <Ionicons name="qr-code" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.qrButtonText}>Mi Credencial</ThemedText>
+                    <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
+                        <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.qrButtonText}>Escanear QR</ThemedText>
                     </TouchableOpacity>
                 </View>
             </ThemedView>
@@ -583,7 +609,7 @@
         
         return (
             <View style={{ flex: 1 }}>
-                <TabView navigationState={{ index, routes }} renderScene={renderScene} onIndexChange={handleIndexChange} initialLayout={{ width: layout.width }} renderTabBar={props => <TabBar {...props} style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none' }} />} />
+                <TabView navigationState={{ index, routes }} renderScene={renderScene} onIndexChange={handleIndexChange} initialLayout={{ width: layout.width }} renderTabBar={props => <TabBar {...props} style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none' }} />} />
                 
                 {hasActiveScoreboards && (
                     <TouchableOpacity style={styles.fabScoreboard} onPress={() => setScoreboardVisible(true)}>
@@ -608,6 +634,7 @@
                 <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={handleSelectClassType} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
                 <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
                 <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
+                <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
             </View>
         );
     };
@@ -651,7 +678,7 @@
         listHeader: { textAlign: 'center', fontSize: 20, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background },
         sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
         
-        classItem: { padding: 20, marginHorizontal: 16, marginVertical: 8, borderRadius: 5, elevation: 2, backgroundColor: Colors[colorScheme].background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
+        classItem: { padding: 20, marginHorizontal: 16, marginVertical: 8, borderRadius: 14, elevation: 2, backgroundColor: Colors[colorScheme].background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
         className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
         classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
         buttonContainer: { marginTop: 12, alignSelf: 'flex-start' },
@@ -670,10 +697,10 @@
 
         centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         loadingText: { marginTop: 10, fontSize: 16, color: Colors[colorScheme].text },
-        filterButton: { height: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, paddingHorizontal: 15, borderRadius: 5, backgroundColor: Colors[colorScheme].background },
+        filterButton: { height: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, paddingHorizontal: 15, borderRadius: 10, backgroundColor: Colors[colorScheme].background },
         filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
         headerActions: { backgroundColor: Colors[colorScheme].background, paddingHorizontal: 15, paddingVertical: 10 },
-        qrButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, paddingVertical: 18, paddingHorizontal: 15, borderRadius: 5, elevation: 2, marginTop: 10,  shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
+        qrButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors[colorScheme].cardBackground, paddingVertical: 18, paddingHorizontal: 15, borderRadius: 14, elevation: 2, marginTop: 10,  shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
         qrButtonText: { marginLeft: 15, fontSize: 16, fontWeight: '500', color: Colors[colorScheme].text },
         
         // FABs
@@ -709,7 +736,27 @@
         rankingHeadText: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text },
         rankingRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: gymColor},
         rankingText: { fontSize: 14, color: Colors[colorScheme].text },
-
+        headerBanner: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 20,
+            justifyContent: 'space-between',
+        },
+        headerBannerTitle: {
+            fontSize: 19,
+            fontWeight: 'bold',
+            color: '#fff',
+        },
+        headerBannerSub: {
+            fontSize: 13,
+            color: '#fff',
+            opacity: 0.85,
+            marginTop: 2,
+        },
+        closeButtonBanner: {
+            padding: 4,
+        }
     });
 
     export default CalendarScreen;

@@ -23,6 +23,7 @@ import CustomAlert from '@/components/CustomAlert';
 import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 
 import RichTextEditor from '@/components/RichTextEditor';
+import PlanContentEditor from './PlanContentEditor';
 import TemplateManagerModal from './TemplateManagerModal'; 
 
 // --- COMPONENTE INTERNO: EDITOR DE PLANES ---
@@ -31,8 +32,16 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
     const styles = getStyles(colorScheme, gymColor);
     const [templatesVisible, setTemplatesVisible] = useState(false);
 
+    const parseStructured = (content) => {
+        if (!content) return false;
+        try { return JSON.parse(content).type === 'structured'; } catch (e) { return false; }
+    };
+    const [editorMode, setEditorMode] = useState(() => parseStructured(plan.content) || !plan.content ? 'structured' : 'html');
+
     // Función para cuando se selecciona una plantilla
     const handleTemplateSelected = (template) => {
+        const isStruct = parseStructured(template.content);
+        setEditorMode(isStruct ? 'structured' : 'html');
         setPlan(prev => ({
             ...prev,
             name: template.name,
@@ -67,24 +76,28 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                     <Text style={styles.templateButtonText}>Cargar desde Plantilla</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={plan.name} 
-                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
-                    placeholder="Ej: Hipertrofia Mes 1" 
-                    placeholderTextColor={Colors[colorScheme].icon}
-                    returnKeyType="next"
-                />
-                
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={plan.description} 
-                    onChangeText={t => setPlan(p => ({ ...p, description: t }))} 
-                    placeholder="Opcional..." 
-                    placeholderTextColor={Colors[colorScheme].icon}
-                />
+                {editorMode === 'html' && (
+                    <>
+                        <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={plan.name} 
+                            onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
+                            placeholder="Ej: Hipertrofia Mes 1" 
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            returnKeyType="next"
+                        />
+                        
+                        <Text style={styles.label}>Descripción</Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={plan.description} 
+                            onChangeText={t => setPlan(p => ({ ...p, description: t }))} 
+                            placeholder="Opcional..." 
+                            placeholderTextColor={Colors[colorScheme].icon}
+                        />
+                    </>
+                )}
 
                 <View style={styles.switchContainer}>
                     <Text style={styles.label}>Visible para el Cliente</Text>
@@ -92,13 +105,14 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                 </View>
 
                 <Text style={styles.label}>Contenido <Text style={{color:'red'}}>*</Text></Text>
-                <RichTextEditor
+                <PlanContentEditor
                     key={plan.templateId || 'custom-plan'} 
                     initialContent={plan.content}
-                    onChange={(html) => setPlan(p => ({ ...p, content: html }))}
+                    onChange={(contentStr) => setPlan(p => ({ ...p, content: contentStr }))}
                     colorScheme={colorScheme}
                     gymColor={gymColor}
-                    placeholder="Escribe la rutina aquí..."
+                    mode={editorMode}
+                    onModeChange={setEditorMode}
                 />
             </ScrollView>
 
@@ -126,19 +140,11 @@ const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
     
-    const stripHtml = (html) => {
-        if (!html) return '';
-        return html.replace(/<[^>]+>/g, ' ').substring(0, 50) + '...';
-    };
-
     const renderItem = ({ item }) => (
         <View style={styles.planCard}>
             <View style={{ flex: 1 }}>
                 <Text style={styles.planTitle}>{item.name}</Text>
                 <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
-                <Text style={{color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2}}>
-                    {stripHtml(item.content)}
-                </Text>
             </View>
             <View style={styles.planActions}>
                 <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
@@ -263,19 +269,27 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     };
 
     const handleSaveChanges = async (planToSave) => {
+        let nameToSave = planToSave.name?.trim();
+        try {
+            const parsed = JSON.parse(planToSave.content);
+            if (parsed && parsed.type === 'structured' && !nameToSave) {
+                nameToSave = `Rutina: ${parsed.days?.[0]?.name || 'Por Días'}`;
+            }
+        } catch (e) {}
+
         // --- CORRECCIÓN 2: Validación de campos vacíos ---
-        if (!planToSave.name?.trim() || !planToSave.content?.trim()) {
+        if (!nameToSave || !planToSave.content?.trim()) {
             setAlertInfo({
                 visible: true,
                 title: 'Campos Requeridos',
-                message: 'Por favor, asegúrate de ingresar un título y el contenido del plan antes de guardar.',
+                message: 'Por favor, asegúrate de completar el contenido del plan antes de guardar.',
                 buttons: [{ text: 'Entendido', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
             });
             return;
         }
 
         try {
-            const payload = { ...planToSave };
+            const payload = { ...planToSave, name: nameToSave };
             if (isManualSelection) {
                 if (planToSave._id) {
                     await apiClient.put(`/plans/${planToSave._id}`, payload);
@@ -367,39 +381,56 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     return (
         <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={() => onClose()}>
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerTitle}>
-                            {isSingleClient ? `Planes de ${clients[0].nombre}` : `Gestión de Planes`}
-                        </Text>
-                        <TouchableOpacity onPress={() => onClose()}><Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} /></TouchableOpacity>
+                <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerBannerTitle}>
+                                {isSingleClient ? `Planes de ${clients[0].nombre}` : `Gestión de Planes`}
+                            </Text>
+                            <Text style={styles.headerBannerSub}>Asignación y rutinas</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => onClose()} style={styles.closeButtonBanner}>
+                            <Ionicons name="close" size={24} color="#fff" />
+                        </TouchableOpacity>
                     </View>
                     
-                    {renderTargetSelector()}
-                    {renderContent()}
+                    <View style={{ flex: 1, padding: 15 }}>
+                        {renderTargetSelector()}
+                        {renderContent()}
+                    </View>
                 </View>
 
                 {/* Modal selector de clase */}
                 <Modal visible={showClassSelector} transparent={true} animationType="fade">
                     <View style={styles.modalOverlay}>
-                        <View style={[styles.modalContainer, {height: '50%'}]}>
-                            <Text style={styles.headerTitle}>Seleccionar Clase</Text>
-                            <FlatList 
-                                data={availableClasses}
-                                keyExtractor={item => item._id}
-                                renderItem={({item}) => (
-                                    <TouchableOpacity style={styles.listItem} onPress={() => {
-                                        setTargetConfig({ type: 'class', id: item._id, name: `${item.nombre} ${item.horaInicio}` });
-                                        setShowClassSelector(false);
-                                    }}>
-                                        <Text style={styles.listItemText}>{item.nombre} - {item.tipoClase?.nombre}</Text>
-                                        <Text style={styles.listItemSubtext}>{item.diaDeSemana[0]} {format(new Date(item.fecha), 'dd/MM')} {item.horaInicio}hs</Text>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                            <TouchableOpacity onPress={() => setShowClassSelector(false)} style={{padding: 15, alignItems: 'center'}}>
-                                <Text style={{color: 'red'}}>Cancelar</Text>
-                            </TouchableOpacity>
+                        <View style={[styles.modalContainer, {height: '50%', padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24}]}>
+                            <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.headerBannerTitle}>Seleccionar Clase</Text>
+                                    <Text style={styles.headerBannerSub}>Elige un turno de la lista</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowClassSelector(false)} style={styles.closeButtonBanner}>
+                                    <Ionicons name="close" size={24} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flex: 1, padding: 15 }}>
+                                <FlatList 
+                                    data={availableClasses}
+                                    keyExtractor={item => item._id}
+                                    renderItem={({item}) => (
+                                        <TouchableOpacity style={styles.listItem} onPress={() => {
+                                            setTargetConfig({ type: 'class', id: item._id, name: `${item.nombre} ${item.horaInicio}` });
+                                            setShowClassSelector(false);
+                                        }}>
+                                            <Text style={styles.listItemText}>{item.nombre} - {item.tipoClase?.nombre}</Text>
+                                            <Text style={styles.listItemSubtext}>{item.diaDeSemana[0]} {format(new Date(item.fecha), 'dd/MM')} {item.horaInicio}hs</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                                <TouchableOpacity onPress={() => setShowClassSelector(false)} style={{padding: 15, alignItems: 'center'}}>
+                                    <Text style={{color: 'red'}}>Cancelar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </Modal>
@@ -453,6 +484,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 10,
         fontSize: 16
+    },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
     }
 });
 

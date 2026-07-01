@@ -43,6 +43,10 @@ const getAllUsers = asyncHandler(async (req, res) => {
         monthlySubscriptions: user.monthlySubscriptions || [],
         ordenMedicaRequerida: user.ordenMedicaRequerida,
         ordenMedicaEntregada: user.ordenMedicaEntregada,
+        ordenMedicaUrl: user.ordenMedicaUrl,
+        ordenMedica: user.ordenMedicaUrl,
+        fotoPerfil: user.fotoPerfil,
+        historialAsistencias: user.historialAsistencias || [],
         isActive: user.isActive,
         paseLibreDesde: user.paseLibreDesde,
         paseLibreHasta: user.paseLibreHasta,
@@ -50,7 +54,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         rmRecords: user.rmRecords || [],
-        
     }));
     res.json(usersWithCalculatedAge);
 });
@@ -106,6 +109,10 @@ const getMe = asyncHandler(async (req, res) => {
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
+            fotoPerfil: user.fotoPerfil,
+            ordenMedicaUrl: user.ordenMedicaUrl,
+            ordenMedica: user.ordenMedicaUrl,
+            historialAsistencias: user.historialAsistencias || [],
         };
         res.json(userProfile);
     } else {
@@ -154,6 +161,9 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         }
         if (req.body.ordenMedicaEntregada !== undefined) {
             user.ordenMedicaEntregada = req.body.ordenMedicaEntregada;
+        }
+        if (req.body.ordenMedicaUrl !== undefined) {
+            user.ordenMedicaUrl = req.body.ordenMedicaUrl;
         }
 
         if (req.body.planesFijos && typeof req.body.planesFijos === 'object' && !Array.isArray(req.body.planesFijos)) {
@@ -951,6 +961,67 @@ const getFinancialStats = asyncHandler(async (req, res) => {
     });
 });
 
+const uploadOrdenMedica = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+
+    let ordenMedicaUrl = null;
+    if (req.file) {
+        ordenMedicaUrl = req.file.secure_url || req.file.path || req.file.url;
+    }
+
+    if (!ordenMedicaUrl) {
+        res.status(400);
+        throw new Error('La imagen de la orden médica es obligatoria.');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.ordenMedicaUrl = ordenMedicaUrl;
+    user.ordenMedicaEntregada = true;
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Orden médica subida correctamente',
+        ordenMedicaUrl,
+        user
+    });
+});
+
+const uploadFotoPerfil = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+
+    let fotoPerfilUrl = null;
+    if (req.file) {
+        fotoPerfilUrl = req.file.secure_url || req.file.path || req.file.url;
+    }
+
+    if (!fotoPerfilUrl) {
+        res.status(400);
+        throw new Error('La imagen de perfil es obligatoria.');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.fotoPerfil = fotoPerfilUrl;
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'Foto de perfil actualizada correctamente',
+        fotoPerfil: fotoPerfilUrl,
+        user
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -978,4 +1049,6 @@ export {
     removeUserPaseLibre,
     updateRMs,
     getFinancialStats,
+    uploadOrdenMedica,
+    uploadFotoPerfil,
 };

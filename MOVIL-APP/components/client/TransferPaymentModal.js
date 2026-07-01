@@ -175,18 +175,22 @@ const TransferPaymentModal = ({ onClose }) => {
 
     const owesMoney = user?.balance < 0;
     const debtAmount = owesMoney ? Math.abs(user.balance) : 0;
-    const hasPasesLibres = packages.some(pkg => pkg.isPaseLibre);
 
     return (
         <View style={styles.modalOverlay}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                </TouchableOpacity>
+            <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Informar Pago</Text>
+                        <Text style={styles.headerBannerSub}>Envía tu comprobante de transferencia</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
 
-                <Text style={styles.title}>Informar Pago</Text>
+                <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
                 
-                {/* 🔥 SECCIÓN BANCARIA MEJORADA CON TOGGLE Y BOTONES DE COPIAR 🔥 */}
                 {gymBankDetails && (gymBankDetails.cbu || gymBankDetails.alias) ? (
                     <View style={styles.bankSection}>
                         <TouchableOpacity 
@@ -195,7 +199,7 @@ const TransferPaymentModal = ({ onClose }) => {
                         >
                             <Ionicons name={showBankDetails ? "eye-off-outline" : "eye-outline"} size={20} color={gymColor} />
                             <Text style={[styles.toggleBankText, {color: gymColor}]}>
-                                {showBankDetails ? 'Ocultar datos para transferencia' : 'Ver datos para transferencia'}
+                                {showBankDetails ? 'Ocultar datos bancarios' : 'Ver datos para transferencia'}
                             </Text>
                         </TouchableOpacity>
 
@@ -204,171 +208,162 @@ const TransferPaymentModal = ({ onClose }) => {
                                 {gymBankDetails.cbu ? (
                                     <View style={styles.copyRow}>
                                         <Text style={styles.bankInfoText}>CBU/CVU: {gymBankDetails.cbu}</Text>
-                                        <TouchableOpacity style={styles.copyIcon} onPress={() => handleCopy(gymBankDetails.cbu, 'CBU/CVU')}>
+                                        <TouchableOpacity 
+                                            style={styles.copyIcon} 
+                                            onPress={async () => {
+                                                await Clipboard.setStringAsync(gymBankDetails.cbu);
+                                                setAlertInfo({visible: true, title: 'Copiado', message: 'CBU copiado al portapapeles.'});
+                                            }}
+                                        >
                                             <Ionicons name="copy-outline" size={20} color={gymColor} />
                                         </TouchableOpacity>
                                     </View>
                                 ) : null}
-                                
+
                                 {gymBankDetails.alias ? (
                                     <View style={styles.copyRow}>
                                         <Text style={styles.bankInfoText}>Alias: {gymBankDetails.alias}</Text>
-                                        <TouchableOpacity style={styles.copyIcon} onPress={() => handleCopy(gymBankDetails.alias, 'Alias')}>
+                                        <TouchableOpacity 
+                                            style={styles.copyIcon} 
+                                            onPress={async () => {
+                                                await Clipboard.setStringAsync(gymBankDetails.alias);
+                                                setAlertInfo({visible: true, title: 'Copiado', message: 'Alias copiado al portapapeles.'});
+                                            }}
+                                        >
                                             <Ionicons name="copy-outline" size={20} color={gymColor} />
                                         </TouchableOpacity>
                                     </View>
                                 ) : null}
-                                
+
                                 {gymBankDetails.bankName ? (
-                                    <Text style={styles.bankInfoText}>Banco: {gymBankDetails.bankName}</Text>
+                                    <Text style={{fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginTop: 4}}>
+                                        Entidad: {gymBankDetails.bankName}
+                                    </Text>
                                 ) : null}
                             </View>
                         )}
                     </View>
-                ) : (
-                    <View style={styles.bankInfoCard}>
-                        <Text style={styles.bankInfoText}>El administrador aún no ha configurado sus datos para transferencias.</Text>
+                ) : null}
+
+                {owesMoney && (
+                    <View style={styles.debtAlert}>
+                        <Ionicons name="warning" size={24} color="#c0392b" />
+                        <Text style={styles.debtText}>Tienes un saldo pendiente de ${debtAmount}.</Text>
                     </View>
                 )}
 
-                {loading ? <ActivityIndicator size="large" color={gymColor} /> : (
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        
-                        {owesMoney && (
-                            <View style={styles.debtAlert}>
-                                <Ionicons name="alert-circle" size={20} color="#c0392b" />
-                                <Text style={styles.debtText}>Deuda pendiente: ${debtAmount.toFixed(2)}</Text>
-                            </View>
-                        )}
-
-                        <Text style={styles.sectionTitle}>1. ¿Qué estás pagando?</Text>
-                        
-                        <View style={{ marginBottom: 15 }}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <TouchableOpacity 
-                                    style={[styles.filterChip, selectedCategory === 'all' && {backgroundColor: gymColor, borderColor: gymColor}]} 
-                                    onPress={() => handleCategoryChange('all')}
-                                >
-                                    <Text style={{fontWeight: 'bold', color: selectedCategory === 'all' ? '#fff' : Colors[colorScheme].text}}>Todos</Text>
-                                </TouchableOpacity>
-
-                                {hasPasesLibres && (
-                                    <TouchableOpacity 
-                                        style={[styles.filterChip, selectedCategory === 'pase_libre' && {backgroundColor: gymColor, borderColor: gymColor}]} 
-                                        onPress={() => handleCategoryChange('pase_libre')}
-                                    >
-                                        <Text style={{fontWeight: 'bold', color: selectedCategory === 'pase_libre' ? '#fff' : Colors[colorScheme].text}}>Pases Libres</Text>
-                                    </TouchableOpacity>
-                                )}
-                                
-                                {classTypes.map(type => (
-                                    <TouchableOpacity 
-                                        key={type._id} 
-                                        style={[styles.filterChip, selectedCategory === type._id && {backgroundColor: gymColor, borderColor: gymColor}]} 
-                                        onPress={() => handleCategoryChange(type._id)}
-                                    >
-                                        <Text style={{fontWeight: 'bold', color: selectedCategory === type._id ? '#fff' : Colors[colorScheme].text}}>{type.nombre}</Text>
-                                    </TouchableOpacity>
-                                ))}
-
-                                <TouchableOpacity 
-                                    style={[styles.filterChip, selectedCategory === 'libre' && {backgroundColor: gymColor, borderColor: gymColor}]} 
-                                    onPress={() => handleCategoryChange('libre')}
-                                >
-                                    <Text style={{fontWeight: 'bold', color: selectedCategory === 'libre' ? '#fff' : Colors[colorScheme].text}}>
-                                        {owesMoney ? 'Saldar Deuda' : 'Monto Libre'}
-                                    </Text>
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </View>
-
-                        <View style={styles.packagesContainer}>
-                            {(selectedCategory === 'all' || selectedCategory === 'libre') && (
-                                <TouchableOpacity 
-                                    style={[styles.packageCard, (!selectedPackage && customAmount !== '') && styles.selectedPackage]} 
-                                    onPress={() => {
-                                        setSelectedPackage(null);
-                                        setCustomAmount(owesMoney ? debtAmount.toString() : '0'); 
-                                    }}
-                                >
-                                    <Text style={(!selectedPackage && customAmount !== '') ? styles.selectedText : styles.normalText}>
-                                        {owesMoney ? 'Saldar Deuda / Otro monto' : 'Monto Libre'}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {packages
-                                .filter(pkg => {
-                                    if (selectedCategory === 'all') return true;
-                                    if (selectedCategory === 'libre') return false; 
-                                    if (selectedCategory === 'pase_libre') return pkg.isPaseLibre;
-                                    
-                                    const classTypeId = typeof pkg.tipoClase === 'object' && pkg.tipoClase !== null ? pkg.tipoClase._id : pkg.tipoClase;
-                                    return classTypeId === selectedCategory;
-                                })
-                                .map(pkg => (
-                                <TouchableOpacity 
-                                    key={pkg._id} 
-                                    style={[styles.packageCard, selectedPackage?._id === pkg._id && styles.selectedPackage]} 
-                                    onPress={() => {
-                                        setSelectedPackage(pkg);
-                                        setCustomAmount('');
-                                    }}
-                                >
-                                    <Text style={selectedPackage?._id === pkg._id ? styles.selectedText : styles.normalText}>
-                                        {pkg.name} - ${pkg.price}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {(!selectedPackage && customAmount !== '') && (
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Ingresa el monto a transferir"
-                                placeholderTextColor={Colors[colorScheme].icon}
-                                keyboardType="numeric"
-                                value={customAmount}
-                                onChangeText={setCustomAmount}
-                            />
-                        )}
-
-                        <Text style={styles.sectionTitle}>2. Adjunta el Comprobante</Text>
-                        
-                        <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
-                            <Ionicons name="cloud-upload-outline" size={24} color={gymColor} style={{marginRight: 8}}/>
-                            <Text style={[styles.imagePickerText, {color: gymColor}]}>
-                                {image ? 'Cambiar Imagen' : 'Subir Captura'}
+                <Text style={styles.sectionTitle}>1. ¿Qué estás pagando?</Text>
+                
+                <View style={{ marginBottom: 12 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <TouchableOpacity
+                            style={[
+                                styles.filterChip,
+                                selectedCategory === 'all' && { backgroundColor: gymColor, borderColor: gymColor }
+                            ]}
+                            onPress={() => setSelectedCategory('all')}
+                        >
+                            <Text style={[
+                                { fontSize: 13, fontWeight: '600' },
+                                selectedCategory === 'all' ? { color: '#fff' } : { color: Colors[colorScheme].text }
+                            ]}>
+                                Todos ({packages.length})
                             </Text>
                         </TouchableOpacity>
 
-                        {image && (
-                            <Image source={{ uri: image.uri }} style={styles.previewImage} />
-                        )}
+                        {classTypes.map(ct => {
+                            const count = packages.filter(pkg => 
+                                pkg.isPaseLibre || 
+                                (!pkg.tipoClase && ct.nombre.toLowerCase().includes('musculacion')) ||
+                                (pkg.tipoClase && pkg.tipoClase === ct._id) ||
+                                (pkg.tipoClase && pkg.tipoClase._id === ct._id)
+                            ).length;
 
-                        <TouchableOpacity 
-                            style={[styles.submitBtn, submitting && {opacity: 0.7}]} 
-                            onPress={handleSubmit} 
-                            disabled={submitting}
-                        >
-                            {submitting ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.submitBtnText}>Enviar Comprobante</Text>
-                            )}
-                        </TouchableOpacity>
+                            if (count === 0) return null;
 
+                            const isSelected = selectedCategory === ct._id;
+                            return (
+                                <TouchableOpacity
+                                    key={ct._id}
+                                    style={[
+                                        styles.filterChip,
+                                        isSelected && { backgroundColor: gymColor, borderColor: gymColor }
+                                    ]}
+                                    onPress={() => setSelectedCategory(ct._id)}
+                                >
+                                    <Text style={[
+                                        { fontSize: 13, fontWeight: '600' },
+                                        isSelected ? { color: '#fff' } : { color: Colors[colorScheme].text }
+                                    ]}>
+                                        {ct.nombre} ({count})
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </ScrollView>
-                )}
-            </View>
+                </View>
 
-            <CustomAlert 
-                visible={alertInfo.visible} 
-                title={alertInfo.title} 
-                message={alertInfo.message} 
-                buttons={alertInfo.buttons || [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({...alertInfo, visible: false}) }]} 
-                gymColor={gymColor} 
-            />
+                {loading ? <ActivityIndicator color={gymColor} /> : (
+                    <View style={styles.packagesContainer}>
+                        {packages
+                            .filter(pkg => {
+                                if (selectedCategory === 'all') return true;
+                                if (pkg.isPaseLibre) return true;
+                                const selectedTypeObj = classTypes.find(t => t._id === selectedCategory);
+                                const isMusculacionFilter = selectedTypeObj && selectedTypeObj.nombre.toLowerCase().includes('musculacion');
+                                if (!pkg.tipoClase && isMusculacionFilter) return true;
+                                const pkgTypeId = pkg.tipoClase && (pkg.tipoClase._id || pkg.tipoClase);
+                                return pkgTypeId === selectedCategory;
+                            })
+                            .map(pkg => (
+                                <TouchableOpacity
+                                    key={pkg._id}
+                                    style={[styles.packageCard, selectedPackage?._id === pkg._id && styles.selectedPackage]}
+                                    onPress={() => {
+                                        if (selectedPackage?._id === pkg._id) {
+                                            setSelectedPackage(null);
+                                            setCustomAmount('');
+                                        } else {
+                                            setSelectedPackage(pkg);
+                                            setCustomAmount(pkg.price?.toString() || '');
+                                        }
+                                    }}
+                                >
+                                    <Text style={selectedPackage?._id === pkg._id ? styles.selectedText : styles.normalText}>{pkg.name}</Text>
+                                    <Text style={selectedPackage?._id === pkg._id ? styles.selectedText : styles.normalText}>${pkg.price}</Text>
+                                </TouchableOpacity>
+                            ))
+                        }
+                    </View>
+                )}
+
+                <Text style={styles.sectionTitle}>2. Monto Transferido</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Ej: 15000"
+                    placeholderTextColor="#999"
+                    keyboardType="numeric"
+                    value={customAmount}
+                    onChangeText={setCustomAmount}
+                />
+
+                <Text style={styles.sectionTitle}>3. Comprobante (Captura)</Text>
+                <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
+                    <Ionicons name="camera" size={24} color={gymColor} style={{ marginRight: 10 }} />
+                    <Text style={[styles.imagePickerText, { color: gymColor }]}>
+                        {image ? 'Cambiar Imagen' : 'Seleccionar Comprobante'}
+                    </Text>
+                </TouchableOpacity>
+
+                {image && <Image source={{ uri: image }} style={styles.previewImage} />}
+
+                <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
+                    {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Enviar Comprobante</Text>}
+                </TouchableOpacity>
+                </ScrollView>
+
+                <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={[{ text: 'OK', onPress: () => setAlertInfo({ ...alertInfo, visible: false }) }]} gymColor={gymColor} />
+            </View>
         </View>
     );
 };
@@ -378,11 +373,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
         backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', zIndex: 9999, elevation: 9999
     },
-    modalView: { backgroundColor: Colors[colorScheme].background, height: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
-    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
-    title: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 15, textAlign: 'center' },
-    
-    // 🔥 Estilos nuevos para la sección bancaria
+    modalView: { backgroundColor: Colors[colorScheme].background, height: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20, elevation: 5 },
     bankSection: { marginBottom: 20 },
     toggleBankBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, backgroundColor: gymColor + '15', borderRadius: 8, borderWidth: 1, borderColor: gymColor + '30' },
     toggleBankText: { fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
@@ -390,32 +381,25 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     copyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     bankInfoText: { fontSize: 15, color: Colors[colorScheme].text, flex: 1, fontWeight: '600' },
     copyIcon: { padding: 5 },
-    
     debtAlert: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf2f2', padding: 10, borderRadius: 8, borderColor: '#e74c3c', borderWidth: 1, marginBottom: 15 },
     debtText: { color: '#c0392b', fontWeight: 'bold', marginLeft: 8 },
-
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginTop: 10, marginBottom: 10 },
-    
-    filterChip: {
-        paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-        borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground,
-        marginRight: 8, justifyContent: 'center', alignItems: 'center'
-    },
-
+    filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground, marginRight: 8, justifyContent: 'center', alignItems: 'center' },
     packagesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },
-    packageCard: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground, flexGrow: 1, alignItems: 'center' },
+    packageCard: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground, width: '47%', alignItems: 'center' },
     selectedPackage: { backgroundColor: gymColor, borderColor: gymColor },
     normalText: { color: Colors[colorScheme].text },
     selectedText: { color: '#fff', fontWeight: 'bold' },
-
     input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 15, color: Colors[colorScheme].text, marginBottom: 15, backgroundColor: Colors[colorScheme].cardBackground },
-    
     imagePickerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 8, borderWidth: 2, borderStyle: 'dashed', borderColor: gymColor, marginBottom: 15 },
     imagePickerText: { fontWeight: 'bold', fontSize: 16 },
     previewImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 20, resizeMode: 'contain' },
-
     submitBtn: { backgroundColor: gymColor, padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10, marginBottom: 30 },
-    submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
+    submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, justifyContent: 'space-between' },
+    headerBannerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
+    headerBannerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },
+    closeButtonBanner: { padding: 4 }
 });
 
 export default TransferPaymentModal;

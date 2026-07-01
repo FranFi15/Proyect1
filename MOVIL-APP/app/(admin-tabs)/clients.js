@@ -28,13 +28,15 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, parseISO, isValid, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
+import OrdenMedicaAdminModal from '@/components/admin/OrdenMedicaAdminModal';
+import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
 const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
@@ -83,6 +85,144 @@ const formatDateUTC = (dateString) => {
     const year = date.getUTCFullYear();
     return `${day}/${month}/${year}`;
 };
+
+const UserCardItem = React.memo(({
+    item,
+    dynamicStyles,
+    gymColor,
+    colorScheme,
+    handleOpenBillingModal,
+    handleOpenCreditsModal,
+    handleQuickRemovePaseLibre,
+    setSelectedMedicalOrderClient,
+    handleOpenEditModal,
+    handleDeleteClient,
+    getTypeName
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
+    const today = startOfDay(new Date()); 
+    const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
+    const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
+    const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
+    const balance = item.balance || 0;
+    const isDebtor = balance < 0; 
+
+    return (
+        <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
+            <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => setIsExpanded(!isExpanded)} 
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+            >
+                {item.fotoPerfil ? (
+                    <Image source={{ uri: item.fotoPerfil }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#eee' }} />
+                ) : (
+                    <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
+                        <Ionicons name="person" size={22} color="#fff" />
+                    </View>
+                )}
+                <View style={{ flex: 1 }}>
+                    <Text style={dynamicStyles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <View style={[dynamicStyles.roleBadge, item.roles.includes('admin') ? dynamicStyles.adminBadge : (item.roles.includes('profesor') ? dynamicStyles.profesorBadge : dynamicStyles.clienteBadge)]}>
+                            <Text style={dynamicStyles.roleText}>{item.roles.join(', ')}</Text>
+                        </View>
+                    </View>
+                </View>
+                <View style={{ paddingLeft: 10 }}>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
+                </View>
+            </TouchableOpacity>
+
+            {isExpanded && (
+                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                    <Text style={[dynamicStyles.cardSubtitle, { marginBottom: 8 }]}>{item.email}</Text>
+                    
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap:'wrap', marginBottom: 10}}>
+                        {item.roles.includes('cliente') && (
+                            <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
+                                <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
+                                <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
+                                    {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
+                                </Text>
+                            </View>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <View style={[dynamicStyles.balanceBadge, { backgroundColor: '#e8f4f8' }]}>
+                                <FontAwesome6 name="clipboard-check" size={12} color="#007bff" style={{marginRight: 4}} />
+                                <Text style={[dynamicStyles.balanceText, { color: '#007bff' }]}>
+                                    Asistencias: {item.historialAsistencias?.length || 0}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {hasCredits && (
+                        <View style={[dynamicStyles.creditsContainer, { paddingBottom: 8 }]}>
+                            {Object.entries(item.creditosPorTipo || {}).map(([typeId, amount]) => {
+                                if (amount > 0) {
+                                    return (
+                                        <View key={typeId} style={dynamicStyles.creditChip}>
+                                            <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
+                                        </View>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </View>
+                    )}
+
+                    {isPaseLibreActive && (
+                        <View style={[dynamicStyles.paseLibreContainer, { marginBottom: 8 }]}>
+                            <Ionicons name="star" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                               Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
+                            </Text>
+                        </View>
+                    )}
+                    {isPaseLibreExpired && (
+                        <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c', marginBottom: 8 }]}> 
+                            <Ionicons name="alert-circle" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                                Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
+                            </Text>
+                        </View>
+                    )}
+
+                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
+                                <Ionicons name="logo-usd" size={22} color='#28a745' />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
+                                <Ionicons name="card" size={22} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        )}
+                        {(isPaseLibreActive || isPaseLibreExpired) && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
+                                <Ionicons name="star" size={22} color="#e74c3c" />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedMedicalOrderClient(item)}>
+                                <Ionicons name="document-text" size={22} color={(item.ordenMedicaUrl || item.ordenMedicaEntregada) ? '#28a745' : '#dc3545'} />
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
+                            <FontAwesome name="user" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleDeleteClient(item)}>
+                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+});
 
 const ManageClientsScreen = () => {
     const layout = useWindowDimensions();
@@ -143,7 +283,10 @@ const ManageClientsScreen = () => {
 
     const [activeModal, setActiveModal] = useState(null);
     const [isScannerVisible, setScannerVisible] = useState(false);
+    const [isReceptionQrVisible, setIsReceptionQrVisible] = useState(false);
+    const [selectedMedicalOrderClient, setSelectedMedicalOrderClient] = useState(null);
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
+    const [creditsModalTab, setCreditsModalTab] = useState('credits');
     
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
     const [showStats, setShowStats] = useState(false);
@@ -204,7 +347,7 @@ const ManageClientsScreen = () => {
     const handleUpgradePlan = async () => { setIsSubmitting(true); try { const response = await apiClient.put('/users/upgrade-plan'); setAlertInfo({ visible: true, title: '¡Plan Ampliado!', message: `Tu límite de clientes ha sido aumentado a ${response.data.newLimit}.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); setActiveModal(null); await fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo ampliar el plan.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } finally { setIsSubmitting(false); } };
     const handleAddClientSubmit = async () => { setLoading(true); try { if (!newClientData.nombre || !newClientData.email || !newClientData.contraseña) throw new Error('Por favor, ingresa todos los campos obligatorios.'); await apiClient.post('/auth/register', newClientData); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'}); setActiveModal(null); await fetchAllData(); } catch (error) { let errorMessage = 'Ocurrió un error inesperado.'; if (error.response?.data?.message) errorMessage = error.response.data.message; else if (error.message) errorMessage = error.message; if (error.response?.status === 403) setActiveModal('upgrade'); else setAlertInfo({ visible: true, title: 'Error de Registro', message: errorMessage }); } finally { setLoading(false); } };
     const handleOpenBillingModal = (client) => { setSelectedClient(client); setBillingModalVisible(true); };
-    const handleOpenCreditsModal = (client) => { setSelectedClient(client); setPlanData({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' }); setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' }); setAvailableSlots([]); setSelectedSlot(null); setCreditsModalVisible(true); };
+    const handleOpenCreditsModal = (client) => { setSelectedClient(client); setPlanData({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' }); setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' }); setAvailableSlots([]); setSelectedSlot(null); setCreditsModalTab('credits'); setCreditsModalVisible(true); };
     const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
@@ -281,8 +424,40 @@ const ManageClientsScreen = () => {
 
     const getTypeName = (typeId) => { const classType = classTypes.find(t => t._id === typeId); return classType?.nombre || 'Desconocido'; };
     const showDatePickerFor = (field, initialDateString, onChangeCallback) => { const initialDate = initialDateString ? parseISO(initialDateString) : new Date(); const handleDateChange = (event, selectedDate) => { const currentDate = selectedDate || initialDate; if (Platform.OS === 'android') { setDatePickerConfig(prev => ({ ...prev, visible: false })); if (event.type !== 'dismissed') { onChangeCallback(format(currentDate, 'yyyy-MM-dd')); } } else { setDatePickerConfig(prev => ({ ...prev, currentValue: currentDate })); } }; const handleConfirmIos = (dateToConfirm) => { onChangeCallback(format(dateToConfirm, 'yyyy-MM-dd')); setDatePickerConfig(prev => ({ ...prev, visible: false })); }; setDatePickerConfig({ visible: true, field: field, currentValue: initialDate, onChange: handleDateChange, onConfirm: handleConfirmIos }); };
-    const renderDateField = (label, value, onChange) => { const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label}`; if (Platform.OS === 'web') { return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <WebDatePicker selected={value ? parseISO(value) : null} onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))} dateFormat="dd/MM/yyyy" popperPlacement="top-start" customInput={ <TouchableOpacity style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> </TouchableOpacity> } /> </View> ); } return ( <View style={dynamicStyles.dateFieldContainer}> <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText> <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}> <Text style={dynamicStyles.dateInputText}>{displayValue}</Text> <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} /> </TouchableOpacity> </View> ); };
+    const renderDateField = (label, value, onChange) => {
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : label;
+        if (Platform.OS === 'web') {
+            return (
+                <View style={dynamicStyles.dateFieldContainer}>
+                    <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText>
+                    <WebDatePicker
+                        selected={value ? parseISO(value) : null}
+                        onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))}
+                        dateFormat="dd/MM/yyyy"
+                        popperPlacement="top-start"
+                        customInput={
+                            <TouchableOpacity style={dynamicStyles.dateInputTouchable}>
+                                <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
+                            </TouchableOpacity>
+                        }
+                    />
+                </View>
+            );
+        }
+        return (
+            <View style={dynamicStyles.dateFieldContainer}>
+                <ThemedText style={dynamicStyles.inputLabel}>{label}</ThemedText>
+                <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
+                        <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+        );
+    };
     const handlePaseLibreDateChange = (field, dateString) => { setPaseLibreData(prev => ({ ...prev, [field]: dateString })); };
+    const handleQuickAddMembership = (months) => { const today = new Date(); const startStr = format(today, 'yyyy-MM-dd'); const endStr = format(months === 12 ? addYears(today, 1) : addMonths(today, months), 'yyyy-MM-dd'); setPaseLibreData({ desde: startStr, hasta: endStr }); };
     const handleSavePaseLibre = async () => { if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/pase-libre`, { paseLibreDesde: paseLibreData.desde, paseLibreHasta: paseLibreData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' }); } };
     const handleMassEnrollDateChange = (field, dateString) => { setMassEnrollFilters(prev => ({ ...prev, [field]: dateString })); };
     const handleGeneralScan = async ({ data }) => { setScannerVisible(false); try { const response = await apiClient.post('/check-in/scan', { userId: data }); let messageDetail = 'No hay turnos pendientes para hoy.'; if (response.data.classes && response.data.classes.length > 0) { messageDetail = response.data.classes.map(c => `${c.nombre} ${c.horario}`).join('\n'); } else if (response.data.message.includes('finalizaron')) { messageDetail = 'Todos sus turnos de hoy ya finalizaron.'; } setAlertInfo({ visible: true, title: response.data.message, message: messageDetail, }); } catch (error) { setAlertInfo({ visible: true, title: 'Error de Check-in', message: error.response?.data?.message || 'No se pudo verificar al cliente.', }); } };
@@ -290,98 +465,21 @@ const ManageClientsScreen = () => {
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
-    const renderUserCard = useCallback(({ item }) => {
-        const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
-        const today = startOfDay(new Date()); 
-        const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
-        const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
-        const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
-        const balance = item.balance || 0;
-        const isDebtor = balance < 0; 
-
-        return (
-            <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
-                <View style={dynamicStyles.cardTopRow}>
-                    <View style={dynamicStyles.userInfo}>
-                        <Text style={dynamicStyles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                        <Text style={dynamicStyles.cardSubtitle}>{item.email}</Text>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap:'wrap', marginTop: 5}}>
-                            <View style={[dynamicStyles.roleBadge, item.roles.includes('admin') ? dynamicStyles.adminBadge : (item.roles.includes('profesor') ? dynamicStyles.profesorBadge : dynamicStyles.clienteBadge)]}>
-                                <Text style={dynamicStyles.roleText}>{item.roles.join(', ')}</Text>
-                            </View>
-
-                            {item.roles.includes('cliente') && (
-                                <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
-                                    <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
-                                    <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
-                                        {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                    <View style={dynamicStyles.actionsContainer}>
-                        {item.roles.includes('cliente') && (
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
-                            <Ionicons name="logo-usd" size={22} color='#28a745' />
-                        </TouchableOpacity>
-                         )}
-                        {item.roles.includes('cliente') && (
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenCreditsModal(item)}>
-                            <Ionicons name="card" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                         )}
-                         {(isPaseLibreActive || isPaseLibreExpired) && (
-                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
-                                <Ionicons name="star" size={22} color="#e74c3c" />
-                            </TouchableOpacity>
-                        )}
-                        {item?.ordenMedicaRequerida && (
-                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleToggleMedicalOrder(item)}>
-                                <Ionicons name={item.ordenMedicaEntregada ? "document-text" : "document-text"} size={22} color={item.ordenMedicaEntregada ? '#28a745' : '#dc3545'} />
-                            </TouchableOpacity>
-                        )}
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
-                            <FontAwesome name="user" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleDeleteClient(item)}>
-                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                {hasCredits && (
-                    <View style={dynamicStyles.creditsContainer}>
-                        {Object.entries(item.creditosPorTipo || {}).map(([typeId, amount]) => {
-                            if (amount > 0) {
-                                return (
-                                    <View key={typeId} style={dynamicStyles.creditChip}>
-                                        <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
-                                    </View>
-                                );
-                            }
-                            return null;
-                        })}
-                    </View>
-                )}
-                {isPaseLibreActive && (
-                    <View style={dynamicStyles.paseLibreContainer}>
-                        <Ionicons name="star" size={14} color="#fff" />
-                        <Text style={dynamicStyles.paseLibreText}>
-                           Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
-                        </Text>
-                    </View>
-                )}
-                {isPaseLibreExpired && (
-                    <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c' }]}> 
-                        <Ionicons name="alert-circle" size={14} color="#fff" />
-                        <Text style={dynamicStyles.paseLibreText}>
-                            Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
-                        </Text>
-                    </View>
-                )}
-            </View>
-        );
-    }, [dynamicStyles, classTypes, colorScheme, gymColor]);
+    const renderUserCard = useCallback(({ item }) => (
+        <UserCardItem
+            item={item}
+            dynamicStyles={dynamicStyles}
+            gymColor={gymColor}
+            colorScheme={colorScheme}
+            handleOpenBillingModal={handleOpenBillingModal}
+            handleOpenCreditsModal={handleOpenCreditsModal}
+            handleQuickRemovePaseLibre={handleQuickRemovePaseLibre}
+            setSelectedMedicalOrderClient={setSelectedMedicalOrderClient}
+            handleOpenEditModal={handleOpenEditModal}
+            handleDeleteClient={handleDeleteClient}
+            getTypeName={getTypeName}
+        />
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, getTypeName]);
 
     const renderTransferCard = useCallback(({ item }) => {
         return (
@@ -461,7 +559,7 @@ const ManageClientsScreen = () => {
                 keyboardDismissMode="none"
             />
             
-            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setScannerVisible(true)}>
+            <TouchableOpacity style={dynamicStyles.fabScanner} onPress={() => setIsReceptionQrVisible(true)}>
                 <Ionicons name="qr-code" size={28} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity style={dynamicStyles.fab} onPress={handleOpenAddModal}>
@@ -509,7 +607,7 @@ const ManageClientsScreen = () => {
                 renderTabBar={props => (
                     <TabBar 
                         {...props} 
-                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0 }} 
+                        style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} 
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} 
                         renderLabel={({ route, focused }) => (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -598,16 +696,6 @@ const ManageClientsScreen = () => {
                                 <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(newClientData.roles[0], 'role')}</ThemedText>
                                 <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
-                            <View style={dynamicStyles.switchRow}>
-                                <ThemedText style={dynamicStyles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                <Switch value={newClientData.ordenMedicaRequerida} onValueChange={(value) => handleNewClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                            </View>
-                            {newClientData.ordenMedicaRequerida && (
-                                <View style={dynamicStyles.switchRow}>
-                                    <ThemedText style={dynamicStyles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                    <Switch value={newClientData.ordenMedicaEntregada} onValueChange={(value) => handleNewClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                </View>
-                            )}
                             <View style={dynamicStyles.modalActions}><View style={dynamicStyles.buttonWrapper}><Button title="Registrar" onPress={handleAddClientSubmit} color={gymColor} /></View></View>
                         </ScrollView>
                     </Pressable>
@@ -629,6 +717,8 @@ const ManageClientsScreen = () => {
                                 <TextInput style={dynamicStyles.input} value={editingClientData.nombre} onChangeText={(text) => handleEditingClientChange('nombre', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>Apellido</ThemedText>
                                 <TextInput style={dynamicStyles.input} value={editingClientData.apellido} onChangeText={(text) => handleEditingClientChange('apellido', text)} />
+                                <ThemedText style={dynamicStyles.inputLabel}>Email</ThemedText>
+                                <TextInput style={dynamicStyles.input} keyboardType="email-address" autoCapitalize="none" value={editingClientData.email} onChangeText={(text) => handleEditingClientChange('email', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>DNI</ThemedText>
                                 <TextInput style={dynamicStyles.input} keyboardType="numeric" value={editingClientData.dni} onChangeText={(text) => handleEditingClientChange('dni', text)} />
                                 <ThemedText style={dynamicStyles.inputLabel}>Fecha de Nacimiento</ThemedText>
@@ -648,18 +738,6 @@ const ManageClientsScreen = () => {
                                     <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(editingClientData.roles[0], 'role')}</ThemedText>
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                                {editingClientData.roles.includes('cliente') && (
-                                <View style={dynamicStyles.switchRow}>
-                                    <ThemedText style={dynamicStyles.inputLabel}>¿Requiere Orden Médica?</ThemedText>
-                                    <Switch value={editingClientData.ordenMedicaRequerida} onValueChange={(value) => handleEditingClientChange('ordenMedicaRequerida', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                </View>
-                                 )}
-                                {editingClientData.ordenMedicaRequerida && (
-                                    <View style={dynamicStyles.switchRow}>
-                                            <ThemedText style={dynamicStyles.inputLabel}>¿Orden Médica Entregada?</ThemedText>
-                                            <Switch value={editingClientData.ordenMedicaEntregada} onValueChange={(value) => handleEditingClientChange('ordenMedicaEntregada', value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                                    </View>
-                                )}
                                <View style={dynamicStyles.switchRow}>
                             <ThemedText style={dynamicStyles.inputLabel}>Cuenta Activa</ThemedText>
                             <Switch value={editingClientData.isActive} onValueChange={(value) => handleToggleUserStatus(editingClientData, value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
@@ -691,111 +769,158 @@ const ManageClientsScreen = () => {
                         </TouchableOpacity>
                         <ScrollView>
                             <ThemedText style={dynamicStyles.modalTitle}>Gestionar Plan de {selectedClient?.nombre}</ThemedText>
-                            {selectedClient && Object.values(selectedClient.creditosPorTipo || {}).some(amount => amount > 0) && (
-                    <View style={[dynamicStyles.creditsContainer, { marginBottom: 20, justifyContent: 'center' }]}>
-                        {Object.entries(selectedClient.creditosPorTipo || {}).map(([typeId, amount]) => {
-                            if (amount > 0) {
-                                return (
-                                    <View key={typeId} style={dynamicStyles.creditChip}>
-                                        <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
-                                    </View>
-                                );
-                            }
-                            return null;
-                        })}
-                    </View>
-                )}
-                            <View style={dynamicStyles.section}>
-                                <ThemedText style={dynamicStyles.sectionTitle}>Carga de Créditos </ThemedText>
-                                <ThemedText style={dynamicStyles.inputLabel}>Tipo de Clase</ThemedText>
-                                <TouchableOpacity style={dynamicStyles.filterButton} onPress={() => setActiveModal('creditsClassType')}>
-                                    <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(planData.tipoClaseId, 'classType')}</ThemedText>
-                                    <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                            
+                            <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].border || '#ddd', borderRadius: 8, padding: 4 }}>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'credits' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setCreditsModalTab('credits')}
+                                >
+                                    <Text style={{ color: creditsModalTab === 'credits' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Créditos</Text>
                                 </TouchableOpacity>
-                                <ThemedText style={dynamicStyles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
-                                <TextInput style={dynamicStyles.input}  value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
-                                
-                                <View style={dynamicStyles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
-                            </View>
-                            <View style={dynamicStyles.section}>
-                                <ThemedText style={dynamicStyles.sectionTitle}>Asignar Pase Libre</ThemedText>
-                                <View style={dynamicStyles.row}>
-                                    <View style={{flex: 1, marginRight: 5}}>
-                                        {renderDateField('Desde', paseLibreData.desde, (val) => handlePaseLibreDateChange('desde', val))}
-                                    </View>
-                                    <View style={{flex: 1, marginLeft: 5}}>
-                                        {renderDateField('Hasta', paseLibreData.hasta, (val) => handlePaseLibreDateChange('hasta', val))}
-                                    </View>
-                                </View>
-                                <View style={dynamicStyles.buttonWrapper}>
-                                    <Button title="Guardar Pase Libre" onPress={handleSavePaseLibre} color={gymColor} />
-                                </View>
-                            </View>
-                            <View style={dynamicStyles.section}>
-                                <ThemedText style={dynamicStyles.sectionTitle}>Inscripción a Horario Fijo</ThemedText>
-                                <ThemedText style={dynamicStyles.inputLabel}>Paso 1: Buscar horarios disponibles</ThemedText>
-                                <ThemedText style={dynamicStyles.inputLabel}>Tipo de Clase</ThemedText>
-                                <TouchableOpacity style={dynamicStyles.filterButton} onPress={() => setActiveModal('massEnrollClassType')}>
-                                    <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(massEnrollFilters.tipoClaseId, 'classType')}</ThemedText>
-                                    <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'freeAccess' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setCreditsModalTab('freeAccess')}
+                                >
+                                    <Text style={{ color: creditsModalTab === 'freeAccess' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Acceso Libre</Text>
                                 </TouchableOpacity>
-                                <ThemedText style={dynamicStyles.inputLabel}>Días de la Semana</ThemedText>
-                                <View style={dynamicStyles.weekDayContainer}>
-                                    {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
-                                        <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[dynamicStyles.dayChip, massEnrollFilters.diasDeSemana.includes(day) && dynamicStyles.dayChipSelected]}>
-                                            <Text style={massEnrollFilters.diasDeSemana.includes(day) ? dynamicStyles.dayChipTextSelected : dynamicStyles.dayChipText}>{day.substring(0, 3)}</Text>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'fixedSchedule' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setCreditsModalTab('fixedSchedule')}
+                                >
+                                    <Text style={{ color: creditsModalTab === 'fixedSchedule' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Horario Fijo</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {creditsModalTab === 'credits' && (
+                                <View>
+                                    {selectedClient && Object.values(selectedClient.creditosPorTipo || {}).some(amount => amount > 0) && (
+                                        <View style={[dynamicStyles.creditsContainer, { marginBottom: 20, justifyContent: 'center' }]}>
+                                            {Object.entries(selectedClient.creditosPorTipo || {}).map(([typeId, amount]) => {
+                                                if (amount > 0) {
+                                                    return (
+                                                        <View key={typeId} style={dynamicStyles.creditChip}>
+                                                            <Text style={dynamicStyles.creditText}>{getTypeName(typeId)}: {amount}</Text>
+                                                        </View>
+                                                    );
+                                                }
+                                                return null;
+                                            })}
+                                        </View>
+                                    )}
+                                    <View style={dynamicStyles.section}>
+                                        <ThemedText style={dynamicStyles.sectionTitle}>Carga de Créditos</ThemedText>
+                                        <ThemedText style={dynamicStyles.inputLabel}>Tipo de Clase</ThemedText>
+                                        <TouchableOpacity style={dynamicStyles.filterButton} onPress={() => setActiveModal('creditsClassType')}>
+                                            <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(planData.tipoClaseId, 'classType')}</ThemedText>
+                                            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                         </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                               <View style={dynamicStyles.row}>
-                                    <View style={{flex: 1, marginRight: 5}}>
-                                         {renderDateField('Desde', massEnrollFilters.fechaInicio, (val) => handleMassEnrollDateChange('fechaInicio', val))}
-                                    </View>
-                                    <View style={{flex: 1, marginLeft: 5}}>
-                                         {renderDateField('Hasta', massEnrollFilters.fechaFin, (val) => handleMassEnrollDateChange('fechaFin', val))}
+                                        <ThemedText style={dynamicStyles.inputLabel}>Créditos a Modificar (+/-)</ThemedText>
+                                        <TextInput style={dynamicStyles.input} value={planData.creditsToAdd} onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))} />
+                                        
+                                        <View style={dynamicStyles.buttonWrapper}><Button title="Aplicar Créditos" onPress={handlePlanSubmit} color={gymColor || '#1a5276'} /></View>
                                     </View>
                                 </View>
-                                
-                                <View style={dynamicStyles.buttonWrapper}>
-                                    <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} />
-                                </View>
-                                
-                                {availableSlots.map((slot, index) => {
-                                    let teacherText = 'Sin profesor asignado';
-                                    let teacherIdForKey = 'sin-profe';
+                            )}
 
-                                    if (slot.profesores && slot.profesores.length > 0) {
-                                        teacherText = slot.profesores.map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '').join(', ');
-                                        teacherIdForKey = slot.profesores.map(p => p._id).join('_');
-                                    } else if (slot.profesor && slot.profesor.nombre) {
-                                        teacherText = `${slot.profesor.nombre} ${slot.profesor.apellido || ''}`.trim();
-                                        teacherIdForKey = slot.profesor._id;
-                                    }
-
-                                    const dataId = `${slot.nombre}-${slot.tipoClase?._id}-${slot.horaInicio}-${teacherIdForKey}`;
-                                    let isSelected = false;
-                                    if (selectedSlot) {
-                                        let selTeacherId = 'sin-profe';
-                                        if (selectedSlot.profesores?.length > 0) { selTeacherId = selectedSlot.profesores.map(p => p._id).join('_'); } else if (selectedSlot.profesor?._id) { selTeacherId = selectedSlot.profesor._id; }
-                                        const selDataId = `${selectedSlot.nombre}-${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selTeacherId}`;
-                                        isSelected = dataId === selDataId;
-                                    }
-
-                                    return (
-                                        <TouchableOpacity key={`slot_${index}_${dataId}`} style={[dynamicStyles.slotItem, isSelected && dynamicStyles.slotItemSelected]} onPress={() => setSelectedSlot(slot)}>
-                                            <Text style={isSelected ? dynamicStyles.slotTextSelected : dynamicStyles.slotText}>
-                                                {slot.nombre || 'Turno'} - {teacherText} - {slot.horaInicio}hs - {slot.horaFin}hs
-                                            </Text>
+                            {creditsModalTab === 'freeAccess' && (
+                                <View style={dynamicStyles.section}>
+                                    <ThemedText style={dynamicStyles.sectionTitle}>Membresía de Acceso Libre / Musculación</ThemedText>
+                                    <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 6 }]}>Duración rápida (desde hoy):</ThemedText>
+                                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(1)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Mes</Text>
                                         </TouchableOpacity>
-                                    );
-                                })}
-                                {availableSlots.length > 0 && (
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(3)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+3 Meses</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(6)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+6 Meses</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(12)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Año</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={dynamicStyles.row}>
+                                        <View style={{flex: 1, marginRight: 5}}>
+                                            {renderDateField('Desde', paseLibreData.desde, (val) => handlePaseLibreDateChange('desde', val))}
+                                        </View>
+                                        <View style={{flex: 1, marginLeft: 5}}>
+                                            {renderDateField('Hasta', paseLibreData.hasta, (val) => handlePaseLibreDateChange('hasta', val))}
+                                        </View>
+                                    </View>
                                     <View style={dynamicStyles.buttonWrapper}>
-                                            <Button title="Inscribir a Plan" onPress={handleMassEnrollSubmit} color={gymColor || '#1a5276'} />
+                                        <Button title="Activar Membresía Libre" onPress={handleSavePaseLibre} color={gymColor} />
                                     </View>
-                                )}
-                            </View>
+                                </View>
+                            )}
+
+                            {creditsModalTab === 'fixedSchedule' && (
+                                <View style={dynamicStyles.section}>
+                                    <ThemedText style={dynamicStyles.sectionTitle}>Inscripción a Horario Fijo</ThemedText>
+                                    <ThemedText style={dynamicStyles.inputLabel}>Paso 1: Buscar horarios disponibles</ThemedText>
+                                    <ThemedText style={dynamicStyles.inputLabel}>Tipo de Clase</ThemedText>
+                                    <TouchableOpacity style={dynamicStyles.filterButton} onPress={() => setActiveModal('massEnrollClassType')}>
+                                        <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(massEnrollFilters.tipoClaseId, 'classType')}</ThemedText>
+                                        <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+                                    </TouchableOpacity>
+                                    <ThemedText style={dynamicStyles.inputLabel}>Días de la Semana</ThemedText>
+                                    <View style={dynamicStyles.weekDayContainer}>
+                                        {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => (
+                                            <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[dynamicStyles.dayChip, massEnrollFilters.diasDeSemana.includes(day) && dynamicStyles.dayChipSelected]}>
+                                                <Text style={massEnrollFilters.diasDeSemana.includes(day) ? dynamicStyles.dayChipTextSelected : dynamicStyles.dayChipText}>{day.substring(0, 3)}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                   <View style={dynamicStyles.row}>
+                                        <View style={{flex: 1, marginRight: 5}}>
+                                             {renderDateField('Desde', massEnrollFilters.fechaInicio, (val) => handleMassEnrollDateChange('fechaInicio', val))}
+                                        </View>
+                                        <View style={{flex: 1, marginLeft: 5}}>
+                                             {renderDateField('Hasta', massEnrollFilters.fechaFin, (val) => handleMassEnrollDateChange('fechaFin', val))}
+                                        </View>
+                                    </View>
+                                    
+                                    <View style={dynamicStyles.buttonWrapper}>
+                                        <Button title={isLoadingSlots ? "Buscando..." : "Buscar Horarios"} onPress={findAvailableSlots} disabled={isLoadingSlots} color={gymColor || '#1a5276'} />
+                                    </View>
+                                    
+                                    {availableSlots.map((slot, index) => {
+                                        let teacherText = 'Sin profesor asignado';
+                                        let teacherIdForKey = 'sin-profe';
+
+                                        if (slot.profesores && slot.profesores.length > 0) {
+                                            teacherText = slot.profesores.map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '').join(', ');
+                                            teacherIdForKey = slot.profesores.map(p => p._id).join('_');
+                                        } else if (slot.profesor && slot.profesor.nombre) {
+                                            teacherText = `${slot.profesor.nombre} ${slot.profesor.apellido || ''}`.trim();
+                                            teacherIdForKey = slot.profesor._id;
+                                        }
+
+                                        const dataId = `${slot.nombre}-${slot.tipoClase?._id}-${slot.horaInicio}-${teacherIdForKey}`;
+                                        let isSelected = false;
+                                        if (selectedSlot) {
+                                            let selTeacherId = 'sin-profe';
+                                            if (selectedSlot.profesores?.length > 0) { selTeacherId = selectedSlot.profesores.map(p => p._id).join('_'); } else if (selectedSlot.profesor?._id) { selTeacherId = selectedSlot.profesor._id; }
+                                            const selDataId = `${selectedSlot.nombre}-${selectedSlot.tipoClase?._id}-${selectedSlot.horaInicio}-${selTeacherId}`;
+                                            isSelected = dataId === selDataId;
+                                        }
+
+                                        return (
+                                            <TouchableOpacity key={`slot_${index}_${dataId}`} style={[dynamicStyles.slotItem, isSelected && dynamicStyles.slotItemSelected]} onPress={() => setSelectedSlot(slot)}>
+                                                <Text style={isSelected ? dynamicStyles.slotTextSelected : dynamicStyles.slotText}>
+                                                    {slot.nombre || 'Turno'} - {teacherText} - {slot.horaInicio}hs - {slot.horaFin}hs
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                    {availableSlots.length > 0 && (
+                                        <View style={dynamicStyles.buttonWrapper}>
+                                                <Button title="Inscribir a Plan" onPress={handleMassEnrollSubmit} color={gymColor || '#1a5276'} />
+                                        </View>
+                                    )}
+                                </View>
+                            )}
                         </ScrollView>
                     </Pressable>
                 </Pressable>
@@ -827,6 +952,8 @@ const ManageClientsScreen = () => {
 
             {getModalConfig && ( <FilterModal visible={!!activeModal} onClose={() => setActiveModal(null)} onSelect={(id) => { getModalConfig.onSelect(id); setActiveModal(null); }} title={getModalConfig.title} options={getModalConfig.options} selectedValue={getModalConfig.selectedValue} theme={{ colors: Colors[colorScheme], gymColor }} /> )}
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleGeneralScan} />  
+            <ReceptionQrModal visible={isReceptionQrVisible} onClose={() => setIsReceptionQrVisible(false)} gymColor={gymColor} />
+            <OrdenMedicaAdminModal visible={!!selectedMedicalOrderClient} onClose={() => setSelectedMedicalOrderClient(null)} client={selectedMedicalOrderClient} gymColor={gymColor} />
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
 
         </ThemedView>
@@ -837,7 +964,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     
     modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000, },
     container: { flex: 1 },
-    headerContainer: { backgroundColor: gymColor, paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
+    },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
@@ -846,7 +986,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
 
     statsContainer: { flexDirection: 'row', paddingHorizontal: 15, paddingTop: 15, justifyContent: 'space-between', gap: 12 },
 
-    statCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 12, padding: 12, elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, justifyContent: 'space-between', borderWidth: 1, borderColor: Colors[colorScheme].border },
+    statCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 14, elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, justifyContent: 'space-between', borderWidth: 1, borderColor: Colors[colorScheme].border },
     statHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     statLabel: { fontSize: 11, color: Colors[colorScheme].icon, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
     statContent: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
@@ -855,10 +995,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     statAction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, alignSelf: 'flex-start' },
     statActionText: { fontSize: 10, fontWeight: 'bold', marginRight: 4 },
 
-    searchInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', margin: 15, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 }, 
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', margin: 15, height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 }, 
     searchInput: { height: 50, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15, },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
     inactiveCard: { opacity: 0.6, backgroundColor: Colors[colorScheme].background, },
     cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5, },
     userInfo: { flex: 1, marginRight: 10 },

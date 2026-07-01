@@ -8,7 +8,8 @@ import {
     TouchableOpacity, 
     useColorScheme, 
     Text,
-    RefreshControl 
+    RefreshControl,
+    Image
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -152,9 +153,18 @@ const ProfessorClientsScreen = () => {
                 activeOpacity={0.7}
             >
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <View>
-                        <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                        <Text style={styles.cardSubtitle}>{item.email}</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                        {item.fotoPerfil ? (
+                            <Image source={{ uri: item.fotoPerfil }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#eee' }} />
+                        ) : (
+                            <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: gymColor || '#007bff', justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="person" size={22} color="#fff" />
+                            </View>
+                        )}
+                        <View style={{flex: 1}}>
+                            <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
+                            <Text style={styles.cardSubtitle}>{item.email}</Text>
+                        </View>
                     </View>
                     {isSelectionMode && (
                         <MaterialCommunityIcons 
@@ -249,12 +259,27 @@ const ProfessorClientsScreen = () => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    headerContainer: { backgroundColor: gymColor, paddingVertical: 15, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', width: '100%', elevation: 4 },
+    headerContainer: {
+        backgroundColor: gymColor,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4
+    },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
-    searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 10, borderWidth: 1, borderColor: Colors[colorScheme].border },
     searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15 },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  borderWidth: 1, borderColor: Colors[colorScheme].border},
+    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,  borderWidth: 1, borderColor: Colors[colorScheme].border},
     cardSelected: { borderColor: gymColor, backgroundColor: gymColor + '10' },
     cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },

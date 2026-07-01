@@ -96,12 +96,17 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
     return (
         <View style={styles.modalContainer}>
-            <View style={styles.modalView}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={30} color="#888" />
-                </TouchableOpacity>
-                <ScrollView>
-                    <Text style={styles.modalTitle}>Balance de {currentClient.nombre}</Text>
+            <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderRadius: 20 }]}>
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Balance de {currentClient.nombre}</Text>
+                        <Text style={styles.headerBannerSub}>Gestión de saldos y cargos</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+                <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
                     
                     <View style={styles.summaryContainer}>
                         <Text style={styles.summaryLabel}>Saldo Actual:</Text>
@@ -185,6 +190,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
     imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
     imageViewerImage: { width: '100%', height: '80%' },
+    headerBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+    },
+    headerBannerTitle: {
+        fontSize: 19,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
+    },
+    closeButtonBanner: {
+        padding: 4,
+    }
 });
 
 export default BillingModalContent;
