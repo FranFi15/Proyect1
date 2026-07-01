@@ -307,7 +307,9 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                 visible: true, title: 'Éxito', message: 'Plan asignado correctamente.',
                 buttons: [{text: 'OK', onPress: () => {
                     setAlertInfo({visible: false});
-                    if (isSingleClient) { fetchData(); setView('list'); } else { onClose(true); }
+                    setTimeout(() => {
+                        if (isSingleClient) { fetchData(); setView('list'); } else { if (onClose) onClose(true); }
+                    }, 350);
                 }}]
             });
         } catch (error) {

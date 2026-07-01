@@ -80,9 +80,11 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
                     text: 'Genial',
                     style: 'primary',
                     onPress: () => {
-                        setAlertInfo({ ...alertInfo, visible: false });
+                        setAlertInfo(prev => ({ ...prev, visible: false }));
                         if (onUpdate) onUpdate();
-                        onClose();
+                        setTimeout(() => {
+                            if (onClose) onClose();
+                        }, 350);
                     }
                 }]
             });
