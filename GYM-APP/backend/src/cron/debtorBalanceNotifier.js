@@ -46,7 +46,10 @@ const runDebtorNotificationJob = async () => {
         }
 
         try {
-            // --- ¡CORRECCIÓN AQUÍ! ---
+            const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+            const currentHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', hour12: false }).format(new Date()), 10);
+            if (currentHour !== 10) continue;
+
             // Destructuramos el objeto para obtener solo la 'connection'.
             const { connection } = await connectToGymDB(client.clientId);
             
@@ -90,11 +93,11 @@ const runDebtorNotificationJob = async () => {
 };
 
 const scheduleDebtorNotifications = () => {
-    cron.schedule('0 10 * * *', runDebtorNotificationJob, {
+    cron.schedule('0 * * * *', runDebtorNotificationJob, {
         scheduled: true,
-        timezone: "America/Argentina/Buenos_Aires"
+        timezone: "UTC"
     });
-    console.log('🕒 Cron Job de notificación a deudores programado.');
+    console.log('🕒 Cron Job de notificación a deudores programado (comprobación 10 AM hora local cada hora).');
 };
 
 export { scheduleDebtorNotifications, runDebtorNotificationJob };

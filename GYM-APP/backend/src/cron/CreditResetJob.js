@@ -96,8 +96,12 @@ const runCreditResetJob = async () => {
         for (const client of clients) {
             if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
                 try {
-                    const { connection } = await connectToGymDB(client.clientId); 
-                    await resetCreditsForCurrentGym(connection, client.clientId);
+                    const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+                    const currentHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', hour12: false }).format(new Date()), 10);
+                    if (currentHour === 0) {
+                        const { connection } = await connectToGymDB(client.clientId); 
+                        await resetCreditsForCurrentGym(connection, client.clientId);
+                    }
                 } catch (gymError) {
                     console.error(`[CreditResetJob] Error al procesar gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
@@ -110,11 +114,11 @@ const runCreditResetJob = async () => {
 };
 
 const scheduleMonthlyCreditReset = () => {
-    // Se ejecuta todos los días a las 00:00 hora Argentina
-    cron.schedule('0 0 * * *', runCreditResetJob, { 
-        timezone: "America/Argentina/Buenos_Aires"
+    // Se ejecuta cada hora para comprobar qué gimnasios están a las 00:00 en su zona horaria local
+    cron.schedule('0 * * * *', runCreditResetJob, { 
+        timezone: "UTC"
     });
-    console.log('🕒 Cron Job de reinicio de créditos mensual (logica diaria) programado.');
+    console.log('🕒 Cron Job de reinicio de créditos programado (comprobación por huso horario local cada hora).');
 };
 
 export { scheduleMonthlyCreditReset, runCreditResetJob, resetCreditsForCurrentGym };

@@ -67,12 +67,15 @@ const runNotificationCleanupJob = async () => {
             // Procesamos solo si está activo o en periodo de prueba
             if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
                 try {
-                    // Conexión dinámica
-                    const { connection } = await connectToGymDB(client.clientId); 
-                    
-                    // Ejecutar la limpieza
-                    await cleanupNotificationsForGym(connection, client.clientId);
-                    
+                    const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+                    const currentHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', hour12: false }).format(new Date()), 10);
+                    if (currentHour === 4) {
+                        // Conexión dinámica
+                        const { connection } = await connectToGymDB(client.clientId); 
+                        
+                        // Ejecutar la limpieza
+                        await cleanupNotificationsForGym(connection, client.clientId);
+                    }
                 } catch (gymError) {
                     console.error(`[NotificationCleanup] Error en gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                 }
@@ -86,11 +89,11 @@ const runNotificationCleanupJob = async () => {
 
 
 const scheduleNotificationCleanup = () => {
-    // '0 3 * * *' -> Se ejecuta todos los días a las 03:00 AM
-    cron.schedule('0 4 * * *', runNotificationCleanupJob, {
-        timezone: "America/Argentina/Buenos_Aires"
+    // Se ejecuta cada hora para comprobar qué gimnasios están a las 04:00 AM en su huso horario
+    cron.schedule('0 * * * *', runNotificationCleanupJob, {
+        timezone: "UTC"
     });
-    console.log('🧹 Cron Job de limpieza de notificaciones programado (Diario 03:00 AM).');
+    console.log('🧹 Cron Job de limpieza de notificaciones programado (comprobación por huso horario local cada hora).');
 };
 
 export { scheduleNotificationCleanup, runNotificationCleanupJob };

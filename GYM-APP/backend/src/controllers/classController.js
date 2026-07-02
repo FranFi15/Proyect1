@@ -6,6 +6,7 @@ import { parse, subHours, format } from 'date-fns';
 const {RRule} = rrule
 import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
+import moment from 'moment-timezone'; 
 
 const mapDayToRRule = (day) => {
     const map = {
@@ -556,8 +557,9 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
-    const dateTimeString = `${clase.fecha.toISOString().substring(0, 10)}T${clase.horaInicio}:00-03:00`;
-    const classStartDateTime = new Date(dateTimeString);
+    const dateStr = clase.fecha.toISOString().substring(0, 10);
+    const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
+    const classStartDateTime = moment.tz(`${dateStr} ${clase.horaInicio}`, tz).toDate();
     const cancellationDeadline = subHours(classStartDateTime, 1);
     const now = new Date();
 
@@ -1107,7 +1109,8 @@ const cancelClassesByDate = asyncHandler(async (req, res) => {
     }
 
     if (allAffectedUserIds.size > 0) {
-        const notificationMessage = `Atención: Todos los turnos del día ${startOfDay.toLocaleDateString('es-AR')} fueron cancelados. ${refundCredits ? 'Se te rembolso el crédito por los turnos inscritos.' : ''}`;
+        const dateStr = startOfDay.toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
+        const notificationMessage = `Atención: Todos los turnos del día ${dateStr} fueron cancelados. ${refundCredits ? 'Se te rembolso el crédito por los turnos inscritos.' : ''}`;
         const notificationPromises = Array.from(allAffectedUserIds).map(userId =>
             sendSingleNotification(Notification, User, userId, "Clases Canceladas", notificationMessage, 'class_cancellation', true)
         );

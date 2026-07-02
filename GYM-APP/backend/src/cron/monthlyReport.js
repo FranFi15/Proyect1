@@ -158,10 +158,16 @@ const masterCronJob = async () => {
             if (!client.clientId) continue;
 
             try {
-                const { connection } = await connectToGymDB(client.clientId);            
-                console.log(`[MonthlyReport - ${client.clientId}] Procesando reporte...`);
-                await generateMonthlyReportAndCleanup(connection, client.clientId);
+                const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+                const parts = new Intl.DateTimeFormat('en-US', { timeZone: clientTz, day: 'numeric', hour: 'numeric', hour12: false }).formatToParts(new Date());
+                const day = parseInt(parts.find(p => p.type === 'day')?.value || '0', 10);
+                const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
 
+                if (day === 1 && hour === 1) {
+                    const { connection } = await connectToGymDB(client.clientId);            
+                    console.log(`[MonthlyReport - ${client.clientId}] Procesando reporte...`);
+                    await generateMonthlyReportAndCleanup(connection, client.clientId);
+                }
             } catch (error) {
                 console.error(`[MonthlyReport] Error procesando el gimnasio ${client.clientId}:`, error.message);
             }
@@ -173,11 +179,11 @@ const masterCronJob = async () => {
 };
 
 const scheduleMonthlyCleanup = () => {
-    cron.schedule('0 1 1 * *', masterCronJob, {
+    cron.schedule('0 * * * *', masterCronJob, {
         scheduled: true,
-        timezone: "America/Argentina/Buenos_Aires"
+        timezone: "UTC"
     });
-    console.log('🕒 Cron Job de reporte y limpieza mensual programado.');
+    console.log('🕒 Cron Job de reporte y limpieza mensual programado (comprobación 1 AM del día 1 hora local cada hora).');
 };
 
 export { scheduleMonthlyCleanup, generateMonthlyReportAndCleanup, masterCronJob, getAllActiveClients };

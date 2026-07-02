@@ -53,6 +53,10 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
         const clientId = client.clientId; 
         
         try {
+            const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+            const currentHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', hour12: false }).format(new Date()), 10);
+            if (currentHour !== 9) continue;
+
             const { connection } = await connectToGymDB(clientId);
             if (!connection) continue;
             
@@ -104,11 +108,11 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
 });
 
 export const schedulePaseLibreExpirationCheck = () => {
-    // Se ejecuta todos los días a las 09:00 AM hora Argentina
-    cron.schedule('0 9 * * *', checkPaseLibreExpiration, {
-        timezone: "America/Argentina/Buenos_Aires"
+    // Se ejecuta cada hora para comprobar qué gimnasios están a las 09:00 AM en su zona horaria
+    cron.schedule('0 * * * *', checkPaseLibreExpiration, {
+        timezone: "UTC"
     });
-    console.log('🕒 Cron Job de aviso de vencimiento de Pase Libre programado (09:00 AM).');
+    console.log('🕒 Cron Job de aviso de vencimiento de Pase Libre programado (comprobación 09:00 AM hora local cada hora).');
 };
 
 // Exportamos también la función runner para poder probarla manualmente desde debugRoutes

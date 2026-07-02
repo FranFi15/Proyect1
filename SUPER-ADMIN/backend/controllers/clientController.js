@@ -8,7 +8,9 @@ const registerClient = asyncHandler(async (req, res) => {
         urlIdentifier, 
         logoUrl, 
         primaryColor,
-        clientLimit
+        clientLimit,
+        pais,
+        timezone
     } = req.body;
 
     if (!nombre || !emailContacto || !urlIdentifier) {
@@ -23,7 +25,9 @@ const registerClient = asyncHandler(async (req, res) => {
         logoUrl,
         primaryColor,
         clientLimit: clientLimit || 100, 
-        type: 'turno', 
+        type: 'turno',
+        pais: pais || 'Argentina',
+        timezone: timezone || 'America/Argentina/Buenos_Aires',
     });
     
     const mongoHost = process.env.MONGO_DB_HOST;
@@ -48,7 +52,9 @@ const updateClient = asyncHandler(async (req, res) => {
         estadoSuscripcion, 
         logoUrl, 
         primaryColor,
-        clientLimit
+        clientLimit,
+        pais,
+        timezone
     } = req.body;
 
     const client = await Client.findById(req.params.id);
@@ -65,6 +71,8 @@ const updateClient = asyncHandler(async (req, res) => {
     if (logoUrl !== undefined) client.logoUrl = logoUrl;
     if (primaryColor !== undefined) client.primaryColor = primaryColor;
     if (clientLimit !== undefined) client.clientLimit = clientLimit;
+    if (pais !== undefined) client.pais = pais;
+    if (timezone !== undefined) client.timezone = timezone;
     
 
     
@@ -196,7 +204,9 @@ const getClientDbInfo = asyncHandler(async (req, res) => {
     res.status(200).json({
         clientId: client.clientId,
         connectionStringDB: client.connectionStringDB,
-        estadoSuscripcion: client.estadoSuscripcion
+        estadoSuscripcion: client.estadoSuscripcion,
+        pais: client.pais || 'Argentina',
+        timezone: client.timezone || 'America/Argentina/Buenos_Aires'
     });
 });
 
@@ -220,7 +230,9 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
         clientId: client.clientId, 
         connectionStringDB: client.connectionStringDB,
         estadoSuscripcion: client.estadoSuscripcion,
-        apiSecretKey: client.apiSecretKey 
+        apiSecretKey: client.apiSecretKey,
+        pais: client.pais || 'Argentina',
+        timezone: client.timezone || 'America/Argentina/Buenos_Aires'
     });
 });
 

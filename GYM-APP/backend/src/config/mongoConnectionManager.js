@@ -47,7 +47,7 @@ const getDbConfig = async (clientId) => {
             }
         );
         
-        let { connectionStringDB, estadoSuscripcion, _id, apiSecretKey } = response.data;
+        let { connectionStringDB, estadoSuscripcion, _id, apiSecretKey, timezone, pais } = response.data;
 
         if (process.env.MONGO_URI_BASE && process.env.MONGO_URI_BASE.includes('cluster0')) {
              connectionStringDB = forceStagingConnection(connectionStringDB);
@@ -60,7 +60,13 @@ const getDbConfig = async (clientId) => {
             throw new Error('La respuesta del SUPER-ADMIN no contenía la configuración completa.');
         }
 
-        return { connectionStringDB, gymId: _id, apiSecretKey };
+        return { 
+            connectionStringDB, 
+            gymId: _id, 
+            apiSecretKey,
+            timezone: timezone || 'America/Argentina/Buenos_Aires',
+            pais: pais || 'Argentina'
+        };
 
     } catch (error) {
         console.error(`Error al obtener la cadena de conexión para ${clientId}:`, error.response ? error.response.data : error.message);
@@ -77,18 +83,20 @@ const connectToGymDB = async (clientId) => {
         return activeConnections.get(clientId);
     }
 
-    const { connectionStringDB, superAdminId, apiSecretKey } = await getDbConfig(clientId);
+    const { connectionStringDB, gymId, apiSecretKey, timezone, pais } = await getDbConfig(clientId);
 
     try {
-        console.log(`✨ Creando nueva conexión `); 
+        console.log(`✨ Creando nueva conexión para ${clientId} (${pais || 'Argentina'} - ${timezone || 'America/Argentina/Buenos_Aires'})`); 
         const newConnection = await mongoose.createConnection(connectionStringDB).asPromise();
         
         getModels(newConnection);
         
         const connectionData = {
             connection: newConnection,
-            superAdminId: superAdminId,
-            apiSecretKey: apiSecretKey
+            superAdminId: gymId,
+            apiSecretKey: apiSecretKey,
+            timezone: timezone || 'America/Argentina/Buenos_Aires',
+            pais: pais || 'Argentina'
         };
 
         activeConnections.set(clientId, connectionData);

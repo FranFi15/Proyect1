@@ -1,198 +1,219 @@
 /* src/styles/ClientsListPage.css */
-.clients-container {
-    max-width: 1200px;
-    margin: 50px auto;
-    padding: 20px;
-    background-color: #232323; /* Fondo principal oscuro */
-    color: #f0f0f0; /* Color de texto principal claro para legibilidad */
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-    font-family: "Bebas Neue", sans-serif;
-    letter-spacing: 1.5px;
+.clients-wrapper {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    animation: fadeIn 0.4s ease;
 }
 
-.clients-title {
-    text-align: center;
-    color: #ffffff;
-    margin-bottom: 20px;
-}
-
-.clients-actions {
+.clients-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 2.5rem;
 }
 
-/* --- (NUEVO) ESTILOS PARA EL GESTOR DE PRECIOS UNIVERSALES --- */
+.clients-title {
+    font-size: 2.5rem;
+    letter-spacing: -0.02em;
+    background: linear-gradient(to right, var(--text-main), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Pricing Manager Modernized */
 .pricing-manager {
-    background-color: #1a1a1a;
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .pricing-manager h2 {
-    margin-top: 0;
-    text-align: center;
-    color: #007e3d;
+    font-size: 1.25rem;
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .pricing-display {
-    display: flex;
-    justify-content: space-around;
-    gap: 20px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .price-item {
+    background: rgba(15, 23, 42, 0.4);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .price-label {
-    font-size: 1em;
-    color: #aaa;
-    margin-bottom: 8px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-weight: 500;
 }
 
 .price-value {
-    font-size: 1.5em;
-    font-weight: bold;
-    color: #ffffff;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.price-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
 }
 
 .pricing-actions {
     display: flex;
-    justify-content: center;
-    gap: 10px;
+    gap: 1rem;
+    justify-content: flex-end;
 }
 
-
-/* --- Estilos para los Filtros --- */
+/* Filters */
 .filters-container {
     display: flex;
     gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.clients-filter-input,
-.clients-filter-select {
-    padding: 8px 12px;
-    font-family: "Bebas Neue", sans-serif;
-    letter-spacing: 1.2px;
-    font-size: 1rem;
-    background-color: #333;
-    color: #f0f0f0;
-    border: 1px solid #555;
-    border-radius: 5px;
+    margin-bottom: 2rem;
 }
 
 .clients-filter-input {
     flex-grow: 1;
 }
 
-.clients-filter-select option {
-    background-color: #333;
-    color: #f0f0f0;
-}
-
-
-/* --- Estilos de Botones --- */
-.clients-button {
-    padding: 8px 15px;
-    color: white;
-    text-decoration: none;
-    border: none;
-    border-radius: 5px;
+.clients-filter-select {
+    width: 250px;
+    padding: 0.75rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-family: inherit;
     cursor: pointer;
-    font-size: 0.9em;
-    font-family: "Bebas Neue", sans-serif;
-    letter-spacing: 1.5px;
-    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-.clients-button:hover {
-    transform: translateY(-2px);
+.clients-filter-select:focus {
+    outline: none;
+    border-color: var(--primary);
 }
 
-.clients-button:active {
-    transform: translateY(0);
+/* Modern Table */
+.table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    background: var(--bg-surface-glass);
+    backdrop-filter: blur(12px);
 }
 
-.clients-button {
-    background-color: #007e3d;
-}
-.clients-button:hover {
-    background-color: #005a2c;
-}
-
-.clients-edit-button {
-    background-color: #28a745;
-    margin-right: 5px;
-}
-.clients-edit-button:hover {
-    background-color: #218838;
-}
-
-.clients-delete-button {
-    background-color: #dc3545;
-}
-.clients-delete-button:hover {
-    background-color: #c82333;
-}
-
-.clients-logout-button {
-    background-color: #6c757d;
-}
-.clients-logout-button:hover {
-    background-color: #5a6268;
-}
-
-
-/* --- Estilos de la Tabla --- */
 .clients-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
-}
-
-.clients-table th,
-.clients-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #444;
     text-align: left;
 }
 
 .clients-table th {
-    background-color: #070707;
+    padding: 1.25rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-light);
+    background: rgba(15, 23, 42, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-.clients-table tr:hover {
-    background-color: #3a3a3a;
+.clients-table td {
+    padding: 1.25rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-main);
+    vertical-align: middle;
 }
 
-.clients-table .id-column {
-    font-size: 0.8em;
-    color: #aaa;
+.clients-table tr:last-child td {
+    border-bottom: none;
 }
 
-.clients-table .actions-column {
-    white-space: nowrap;
-    width: 1%;
+.clients-table tr {
+    transition: background-color 0.2s ease;
 }
 
-.clients-error {
-    color: #f8d7da;
+.clients-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-block;
+}
+
+.status-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--status-active);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-inactive {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--status-inactive);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-trial {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--status-trial);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* Table Actions */
+.actions-column {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.btn-icon {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    text-decoration: none;
+}
+
+.btn-edit {
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--primary);
+}
+.btn-edit:hover {
+    background: rgba(139, 92, 246, 0.2);
+}
+
+.btn-delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+.btn-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.empty-state {
     text-align: center;
-    background-color: #721c24;
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #f5c6cb;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
 }
