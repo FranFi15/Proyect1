@@ -502,12 +502,12 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
     // 1. Verificar que haya cupo en TODAS las clases del plan ANTES de inscribir.
     for (const classInstance of classesToEnroll) {
         if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR');
+            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
             res.status(400);
             throw new Error(`No se puede inscribir al plan. Los turnos del día ${classDate} a las ${classInstance.horaInicio} está lleno.`);
         }
         if (classInstance.usuariosInscritos.includes(userId)) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR');
+            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
             res.status(400);
             throw new Error(`El usuario ya está inscrito en el turno del ${classDate}.`);
         }
