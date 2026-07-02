@@ -26,6 +26,16 @@ const ClientSchema = new mongoose.Schema({
         enum: ['turno', 'restaurante'], 
         default: 'turno' 
     },
+    pais: {
+        type: String,
+        required: true,
+        default: 'Argentina'
+    },
+    timezone: {
+        type: String,
+        required: true,
+        default: 'America/Argentina/Buenos_Aires'
+    },
     }, { timestamps: true });
 
 const Client = mongoose.model('Client', ClientSchema);

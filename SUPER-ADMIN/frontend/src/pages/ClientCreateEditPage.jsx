@@ -17,6 +17,33 @@ const generateUrlIdentifier = (name) => {
         .replace(/--+/g, '-');
 };
 
+const COUNTRY_TIMEZONE_MAP = {
+    'Argentina': 'America/Argentina/Buenos_Aires',
+    'Uruguay': 'America/Montevideo',
+    'Chile': 'America/Santiago',
+    'Paraguay': 'America/Asuncion',
+    'Bolivia': 'America/La_Paz',
+    'Venezuela': 'America/Caracas',
+    'Puerto Rico': 'America/Puerto_Rico',
+    'República Dominicana': 'America/Santo_Domingo',
+    'Colombia': 'America/Bogota',
+    'Perú': 'America/Lima',
+    'Ecuador': 'America/Guayaquil',
+    'Panamá': 'America/Panama',
+    'México (Centro/CDMX)': 'America/Mexico_City',
+    'México (Quintana Roo/Cancún)': 'America/Cancun',
+    'México (Pacífico/Tijuana)': 'America/Tijuana',
+    'Costa Rica': 'America/Costa_Rica',
+    'Guatemala': 'America/Guatemala',
+    'Honduras': 'America/Tegucigalpa',
+    'El Salvador': 'America/El_Salvador',
+    'Nicaragua': 'America/Managua',
+    'EE.UU. (Este - Miami/NYC)': 'America/New_York',
+    'EE.UU. (Central - Texas/Chicago)': 'America/Chicago',
+    'EE.UU. (Montaña - Denver)': 'America/Denver',
+    'EE.UU. (Pacífico - LA/California)': 'America/Los_Angeles'
+};
+
 function ClientCreateEditPage() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -28,6 +55,8 @@ function ClientCreateEditPage() {
         primaryColor: '#150224',
         estadoSuscripcion: 'periodo_prueba', 
         type: 'turno', // Valor por defecto fijo
+        pais: 'Argentina',
+        timezone: 'America/Argentina/Buenos_Aires',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -46,6 +75,8 @@ function ClientCreateEditPage() {
                         primaryColor: data.primaryColor,
                         estadoSuscripcion: data.estadoSuscripcion,
                         type: 'turno', // Forzamos turno aunque venga otra cosa, para estandarizar
+                        pais: data.pais || 'Argentina',
+                        timezone: data.timezone || 'America/Argentina/Buenos_Aires',
                     });
                 })
                 .catch(err => setError(err.message))
@@ -62,6 +93,13 @@ function ClientCreateEditPage() {
                 ...prevClient, 
                 nombre: value,
                 urlIdentifier: newIdentifier 
+            }));
+        } else if (name === 'pais') {
+            const defaultTz = COUNTRY_TIMEZONE_MAP[value] || client.timezone;
+            setClient(prevClient => ({
+                ...prevClient,
+                pais: value,
+                timezone: defaultTz
             }));
         } else {
             setClient(prevClient => ({ ...prevClient, [name]: value }));
@@ -81,6 +119,8 @@ function ClientCreateEditPage() {
             primaryColor: client.primaryColor,
             estadoSuscripcion: client.estadoSuscripcion,
             type: 'turno', // Siempre enviamos 'turno'
+            pais: client.pais,
+            timezone: client.timezone,
         };
 
         try {
@@ -119,7 +159,21 @@ function ClientCreateEditPage() {
                     <input type="text" id="urlIdentifier" name="urlIdentifier" value={client.urlIdentifier} onChange={handleChange} required className="client-input" readOnly={!isEditing} />
                 </div>
                 
-                <h2 className="client-form-subtitle">Configuración Adicional</h2>
+                <h2 className="client-form-subtitle">Configuración Adicional & Regional</h2>
+
+                <div className="client-form-group">
+                    <label htmlFor="pais" className="client-label">País de Destino / Región:</label>
+                    <select id="pais" name="pais" value={client.pais} onChange={handleChange} className="client-input client-select" required>
+                        {Object.keys(COUNTRY_TIMEZONE_MAP).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="client-form-group">
+                    <label htmlFor="timezone" className="client-label">Zona Horaria (Timezone):</label>
+                    <input type="text" id="timezone" name="timezone" value={client.timezone} onChange={handleChange} required className="client-input" placeholder="America/Argentina/Buenos_Aires" />
+                </div>
 
                 <div className="client-form-group">
                     <label htmlFor="logoUrl" className="client-label">URL del Logo:</label>

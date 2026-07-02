@@ -67,7 +67,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
 
     const now = new Date();
     const timeFormatter = new Intl.DateTimeFormat('es-AR', {
-        timeZone: 'America/Argentina/Buenos_Aires', // <--- CAMBIA ESTO SEGÚN TU PAÍS
+        timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false
@@ -184,7 +184,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
 
     const now = new Date();
     const timeFormatter = new Intl.DateTimeFormat('es-AR', {
-        timeZone: 'America/Argentina/Buenos_Aires',
+        timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false

@@ -13,17 +13,14 @@ const INTERNAL_ADMIN_API_KEY = process.env.INTERNAL_ADMIN_API_KEY;
 export const scheduleMonthlyClassGeneration = () => {
     
 
-    // Cron schedule: '0 2 1 * *' means at 02:00 (2 AM) on day 1 of every month.
-    cron.schedule('0 2 1 * *', async () => { 
-       
-
+    // Cron schedule: Se ejecuta cada hora para comprobar qué clientes están a las 02:00 AM del día 1 en su huso horario
+    cron.schedule('0 * * * *', async () => { 
         if (!ADMIN_PANEL_API_URL || !INTERNAL_ADMIN_API_KEY) {
             console.error('[Cron Job: Class Generation] Error: ADMIN_PANEL_API_URL o INTERNAL_ADMIN_API_KEY no están configuradas en .env. El cron job no se ejecutará completamente.');
             return;
         }
 
         try {
-            
             const response = await fetch(`${ADMIN_PANEL_API_URL}/clients/internal/all-clients`, { // Adjust path if needed
                 headers: {
                     'x-internal-api-key': INTERNAL_ADMIN_API_KEY,
@@ -36,19 +33,21 @@ export const scheduleMonthlyClassGeneration = () => {
             }
 
             if (!Array.isArray(clients) || clients.length === 0) {
-                
                 return;
             }
 
             for (const client of clients) {
                 if (client.estadoSuscripcion === 'activo' || client.estadoSuscripcion === 'periodo_prueba') {
-                    
-                    let gymDBConnection;
                     try {
-                        gymDBConnection = await connectToGymDB(client.clientId, client.apiSecretKey); 
-                       
-                        await generateFutureFixedClasses(gymDBConnection);
-                        
+                        const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
+                        const parts = new Intl.DateTimeFormat('en-US', { timeZone: clientTz, day: 'numeric', hour: 'numeric', hour12: false }).formatToParts(new Date());
+                        const day = parseInt(parts.find(p => p.type === 'day')?.value || '0', 10);
+                        const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+
+                        if (day === 1 && hour === 2) {
+                            let gymDBConnection = await connectToGymDB(client.clientId); 
+                            await generateFutureFixedClasses(gymDBConnection.connection || gymDBConnection);
+                        }
                     } catch (gymError) {
                         console.error(`[Cron Job: Class Generation] Error al procesar DB del gimnasio ${client.nombre} (ID: ${client.clientId}): ${gymError.message}`);
                     }
@@ -58,6 +57,6 @@ export const scheduleMonthlyClassGeneration = () => {
             console.error('[Cron Job: Class Generation] Error general en la tarea programada:', error);
         }
     }, {
-        timezone: "America/Argentina/Buenos_Aires" 
+        timezone: "UTC" 
     });
 };

@@ -10,12 +10,14 @@ const gymTenantMiddleware = async (req, res, next) => {
 
     try {
         // Obtenemos la conexión (nueva o reutilizada) de nuestro gestor.
-        const {connection, superAdminId, apiSecretKey}= await connectToGymDB(clientId);
+        const { connection, superAdminId, apiSecretKey, timezone, pais } = await connectToGymDB(clientId);
 
         req.gymDBConnection = connection;
         req.gymId = clientId; 
         req.superAdminId = superAdminId; 
         req.apiSecretKey = apiSecretKey;
+        req.gymTimezone = timezone || 'America/Argentina/Buenos_Aires';
+        req.gymPais = pais || 'Argentina';
 
         next();
     } catch (error) {
