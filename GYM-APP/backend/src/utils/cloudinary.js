@@ -12,9 +12,19 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-        folder: 'gym_receipts', // Crea esta carpeta automáticamente en tu Cloudinary
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf'], // Solo permite imágenes o PDF
+    params: async (req, file) => {
+        const isHeic = file && (
+            file.mimetype === 'image/heic' || 
+            file.mimetype === 'image/heif' || 
+            file.originalname?.toLowerCase().endsWith('.heic') || 
+            file.originalname?.toLowerCase().endsWith('.heif')
+        );
+
+        return {
+            folder: 'gym_receipts',
+            allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'heic', 'heif'],
+            format: isHeic ? 'jpg' : undefined,
+        };
     },
 });
 
