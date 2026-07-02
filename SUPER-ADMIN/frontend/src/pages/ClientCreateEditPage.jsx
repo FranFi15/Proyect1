@@ -142,69 +142,100 @@ function ClientCreateEditPage() {
     if (loading && isEditing) return <p>Cargando datos...</p>;
 
     return (
-        <div className="client-form-container">
-            <h1 className="client-form-title">{isEditing ? 'Editar Cliente' : 'Crear Nuevo Cliente'}</h1>
-            {error && <p className="client-error">{error}</p>}
-            <form onSubmit={handleSubmit} className="client-form">
+        <div className="client-form-wrapper">
+            <div className="client-form-container glass-panel">
+                <h1 className="client-form-title">{isEditing ? 'Editar Cliente' : 'Crear Nuevo Cliente'}</h1>
+                {error && <p className="client-error">{error}</p>}
                 
-                <div className="client-form-group">
-                    <label htmlFor="nombre" className="client-label">Nombre del Negocio:</label>
-                    <input type="text" id="nombre" name="nombre" value={client.nombre} onChange={handleChange} required className="client-input" />
-                </div>
-                
-                {/* ELIMINADO EL SELECTOR DE TIPO DE NEGOCIO */}
-
-                <div className="client-form-group">
-                    <label htmlFor="urlIdentifier" className="client-label">Identificador para URL:</label>
-                    <input type="text" id="urlIdentifier" name="urlIdentifier" value={client.urlIdentifier} onChange={handleChange} required className="client-input" readOnly={!isEditing} />
-                </div>
-                
-                <h2 className="client-form-subtitle">Configuración Adicional & Regional</h2>
-
-                <div className="client-form-group">
-                    <label htmlFor="pais" className="client-label">País de Destino / Región:</label>
-                    <select id="pais" name="pais" value={client.pais} onChange={handleChange} className="client-input client-select" required>
-                        {Object.keys(COUNTRY_TIMEZONE_MAP).map(p => (
-                            <option key={p} value={p}>{p}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="client-form-group">
-                    <label htmlFor="timezone" className="client-label">Zona Horaria (Timezone):</label>
-                    <input type="text" id="timezone" name="timezone" value={client.timezone} onChange={handleChange} required className="client-input" placeholder="America/Argentina/Buenos_Aires" />
-                </div>
-
-                <div className="client-form-group">
-                    <label htmlFor="logoUrl" className="client-label">URL del Logo:</label>
-                    <input type="text" id="logoUrl" name="logoUrl" value={client.logoUrl} onChange={handleChange} className="client-input" placeholder="https://ejemplo.com/logo.png" />
-                </div>
-                <div className="client-form-group">
-                    <label htmlFor="primaryColor" className="client-label">Color Principal de la App:</label>
-                    <input type="color" id="primaryColor" name="primaryColor" value={client.primaryColor} onChange={handleChange} className="client-input-color" />
-                </div>
-                <div className="client-form-group">
-                    <label htmlFor="emailContacto" className="client-label">Email del Administrador:</label>
-                    <input type="email" id="emailContacto" name="emailContacto" value={client.emailContacto} onChange={handleChange} required className="client-input" />
-                </div>
-                
-                {isEditing && (
-                    <div className="client-form-group">
-                        <label htmlFor="estadoSuscripcion" className="client-label">Estado:</label>
-                        <select id="estadoSuscripcion" name="estadoSuscripcion" value={client.estadoSuscripcion} onChange={handleChange} className="client-input client-select">
-                            <option value="periodo_prueba">Periodo de Prueba</option>
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                        </select>
+                <form onSubmit={handleSubmit} className="client-form">
+                    
+                    <div className="form-section">
+                        <h2 className="client-form-subtitle">
+                            <span style={{fontSize: '1.5em'}}>🏢</span> Información del Negocio
+                        </h2>
+                        <div className="form-grid">
+                            <div className="client-form-group">
+                                <label htmlFor="nombre" className="client-label">Nombre del Negocio</label>
+                                <input type="text" id="nombre" name="nombre" value={client.nombre} onChange={handleChange} required className="modern-input" placeholder="Ej. Gym Fitness" />
+                            </div>
+                            <div className="client-form-group">
+                                <label htmlFor="urlIdentifier" className="client-label">Identificador URL (Automático)</label>
+                                <input type="text" id="urlIdentifier" name="urlIdentifier" value={client.urlIdentifier} onChange={handleChange} required className={`modern-input ${!isEditing ? 'client-input-readonly' : ''}`} readOnly={!isEditing} />
+                            </div>
+                        </div>
                     </div>
-                )}
-                <button type="submit" disabled={loading} className="client-button">
-                    {loading ? 'Guardando...' : (isEditing ? 'Actualizar Cliente' : 'Crear Cliente')}
-                </button>
-                <button type="button" onClick={() => navigate('/clients')} className="client-button client-back-button">
-                    Volver a la Lista
-                </button>
-            </form>
+
+                    <div className="form-section">
+                        <h2 className="client-form-subtitle">
+                            <span style={{fontSize: '1.5em'}}>🌎</span> Localización & Horario
+                        </h2>
+                        <div className="form-grid">
+                            <div className="client-form-group">
+                                <label htmlFor="pais" className="client-label">País / Región</label>
+                                <select id="pais" name="pais" value={client.pais} onChange={handleChange} className="modern-input client-select" required>
+                                    {Object.keys(COUNTRY_TIMEZONE_MAP).map(p => (
+                                        <option key={p} value={p}>{p}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="client-form-group">
+                                <label htmlFor="timezone" className="client-label">Zona Horaria (Timezone)</label>
+                                <input type="text" id="timezone" name="timezone" value={client.timezone} onChange={handleChange} required className="modern-input" placeholder="America/Argentina/Buenos_Aires" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="form-section">
+                        <h2 className="client-form-subtitle">
+                            <span style={{fontSize: '1.5em'}}>🎨</span> Personalización App
+                        </h2>
+                        <div className="form-grid">
+                            <div className="client-form-group">
+                                <label htmlFor="logoUrl" className="client-label">URL del Logo</label>
+                                <input type="text" id="logoUrl" name="logoUrl" value={client.logoUrl} onChange={handleChange} className="modern-input" placeholder="https://ejemplo.com/logo.png" />
+                            </div>
+                            <div className="client-form-group">
+                                <label htmlFor="primaryColor" className="client-label">Color Principal</label>
+                                <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                                    <input type="color" id="primaryColor" name="primaryColor" value={client.primaryColor} onChange={handleChange} style={{height: '40px', width: '50px', border: 'none', borderRadius: '4px', background: 'transparent', cursor: 'pointer'}} />
+                                    <span style={{color: 'var(--text-muted)'}}>{client.primaryColor}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="form-section">
+                        <h2 className="client-form-subtitle">
+                            <span style={{fontSize: '1.5em'}}>🔐</span> Administración
+                        </h2>
+                        <div className="form-grid">
+                            <div className="client-form-group">
+                                <label htmlFor="emailContacto" className="client-label">Email del Administrador (Admin App)</label>
+                                <input type="email" id="emailContacto" name="emailContacto" value={client.emailContacto} onChange={handleChange} required className="modern-input" placeholder="admin@gym.com" />
+                            </div>
+                            {isEditing && (
+                                <div className="client-form-group">
+                                    <label htmlFor="estadoSuscripcion" className="client-label">Estado de Suscripción</label>
+                                    <select id="estadoSuscripcion" name="estadoSuscripcion" value={client.estadoSuscripcion} onChange={handleChange} className="modern-input client-select">
+                                        <option value="periodo_prueba">Periodo de Prueba</option>
+                                        <option value="activo">Activo</option>
+                                        <option value="inactivo">Inactivo</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="form-actions">
+                        <button type="button" onClick={() => navigate('/clients')} className="btn-secondary">
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={loading} className="btn-primary">
+                            {loading ? 'Guardando...' : (isEditing ? 'Actualizar Cliente' : 'Crear Cliente')}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

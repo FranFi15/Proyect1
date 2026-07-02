@@ -26,36 +26,47 @@ function LoginPage() {
     };
 
     return (
-        <div className="login-container"> {/* Aplica la clase CSS */}
-            <h1 className="login-title">Iniciar Sesión</h1> {/* Aplica la clase CSS */}
-            <form onSubmit={handleSubmit} className="login-form"> {/* Aplica la clase CSS */}
-                {error && <p className="login-error">{error}</p>} {/* Aplica la clase CSS */}
-                <div className="login-form-group"> {/* Aplica la clase CSS */}
-                    <label htmlFor="email" className="login-label">Email:</label> {/* Aplica la clase CSS */}
-                    <input
-                        type="email"
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="login-input" // Aplica la clase CSS
-                    />
+        <div className="login-wrapper">
+            <div className="login-container glass-panel">
+                <div className="login-header">
+                    <h1 className="login-title">Super Admin</h1>
+                    <p className="login-subtitle">Inicia sesión en tu cuenta para continuar</p>
                 </div>
-                <div className="login-form-group"> {/* Aplica la clase CSS */}
-                    <label htmlFor="password-input" className="login-label">Contraseña:</label> {/* Aplica la clase CSS */}
-                    <input
-                        type="password"
-                        id="password-input" // Cambia el ID para evitar conflictos si usas 'password' en otro lado
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="login-input" // Aplica la clase CSS
-                    />
-                </div>
-                <button type="submit" disabled={loading} className="login-button"> {/* Aplica la clase CSS */}
-                    {loading ? 'Iniciando...' : 'Iniciar Sesión'}
-                </button>
-            </form>
+                
+                <form onSubmit={handleSubmit} className="login-form">
+                    {error && <p className="login-error">{error}</p>}
+                    
+                    <div className="login-form-group">
+                        <label htmlFor="email" className="login-label">Correo Electrónico</label>
+                        <input
+                            type="email"
+                            id="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="modern-input"
+                            placeholder="tucorreo@ejemplo.com"
+                        />
+                    </div>
+                    
+                    <div className="login-form-group">
+                        <label htmlFor="password-input" className="login-label">Contraseña</label>
+                        <input
+                            type="password"
+                            id="password-input"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="modern-input"
+                            placeholder="••••••••"
+                        />
+                    </div>
+                    
+                    <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: '0.5rem' }}>
+                        {loading ? 'Iniciando sesión...' : 'Ingresar al sistema'}
+                    </button>
+                </form>
+            </div>
         </div>
     );
 }

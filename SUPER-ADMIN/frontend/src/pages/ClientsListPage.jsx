@@ -44,51 +44,53 @@ const UniversalPricingManager = ({ prices, onSave }) => {
     };
 
     return (
-        <div className="pricing-manager">
+        <div className="pricing-manager glass-panel">
             <h2>Configuración de Precios (Planes)</h2>
             <div className="pricing-display">
                 
                 {/* PRECIO BASE (0-100) */}
                 <div className="price-item">
-                    <span className="price-label">Plan Base (0-100 clientes):</span>
+                    <span className="price-label">Plan Base (0-100 clientes)</span>
                     {isEditing ? (
                         <input 
                             type="number" 
-                            className="clients-filter-input"
+                            className="modern-input"
                             value={localPrices.basePrice}
                             onChange={(e) => setLocalPrices({...localPrices, basePrice: Number(e.target.value)})}
                         />
                     ) : (
                         <span className="price-value">{formatCurrency(localPrices.basePrice)}</span>
                     )}
-                    <span style={{fontSize: '0.8em', color: '#777'}}>Precio Fijo Mensual</span>
+                    <span className="price-desc">Precio Fijo Mensual</span>
                 </div>
 
                 {/* PRECIO ILIMITADO (>100) */}
                 <div className="price-item">
-                    <span className="price-label">Plan Ilimitado (+100 clientes):</span>
+                    <span className="price-label">Plan Ilimitado (+100 clientes)</span>
                       {isEditing ? (
                         <input 
                             type="number" 
-                            className="clients-filter-input"
+                            className="modern-input"
                             value={localPrices.unlimitedPrice}
                             onChange={(e) => setLocalPrices({...localPrices, unlimitedPrice: Number(e.target.value)})}
                         />
                     ) : (
                         <span className="price-value">{formatCurrency(localPrices.unlimitedPrice)}</span>
                     )}
-                    <span style={{fontSize: '0.8em', color: '#777'}}>Precio Fijo Mensual</span>
+                    <span className="price-desc">Precio Fijo Mensual</span>
                 </div>
             </div>
             
-            {isEditing ? (
-                <div className="pricing-actions">
-                    <button onClick={() => setIsEditing(false)} className="clients-button clients-edit-button">Cancelar</button>
-                    <button onClick={handleSave} className="clients-button">Guardar Precios</button>
-                </div>
-            ) : (
-                <button onClick={() => setIsEditing(true)} className="clients-button clients-edit-button">Editar Precios</button>
-            )}
+            <div className="pricing-actions">
+                {isEditing ? (
+                    <>
+                        <button onClick={() => setIsEditing(false)} className="btn-secondary">Cancelar</button>
+                        <button onClick={handleSave} className="btn-primary">Guardar Precios</button>
+                    </>
+                ) : (
+                    <button onClick={() => setIsEditing(true)} className="btn-secondary">Editar Precios</button>
+                )}
+            </div>
         </div>
     );
 };
@@ -175,11 +177,13 @@ function ClientsListPage() {
     if (error) return <p className="clients-error">Error: {error}</p>;
 
     return (
-        <div className="clients-container">
-            <h1 className="clients-title">Lista de Clientes</h1>
-            <div className="clients-actions">
-                <Link to="/clients/new" className="clients-button">Añadir Nuevo Cliente</Link>
-                <button onClick={handleLogout} className="clients-button clients-logout-button">Cerrar Sesión</button>
+        <div className="clients-wrapper">
+            <div className="clients-header">
+                <h1 className="clients-title">Lista de Clientes</h1>
+                <div className="clients-actions">
+                    <Link to="/clients/new" className="btn-primary" style={{textDecoration: 'none'}}>+ Nuevo Cliente</Link>
+                    <button onClick={handleLogout} className="btn-secondary">Cerrar Sesión</button>
+                </div>
             </div>
             
             <UniversalPricingManager prices={universalPrices} onSave={handleSavePrices} />
@@ -190,7 +194,7 @@ function ClientsListPage() {
                     placeholder="Buscar por nombre..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="clients-filter-input"
+                    className="modern-input clients-filter-input"
                 />
                 <select
                     value={statusFilter}
@@ -205,47 +209,61 @@ function ClientsListPage() {
             </div>
 
             {filteredAndSortedClients.length === 0 ? (
-                <p>No hay clientes que coincidan con los filtros.</p>
+                <div className="empty-state glass-panel">
+                    <h3>No se encontraron clientes</h3>
+                    <p>Intenta ajustar tus filtros de búsqueda.</p>
+                </div>
             ) : (
-                <table className="clients-table">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Estado</th>
-                            <th>Clientes (Actual)</th>
-                            <th>Total a Facturar</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {filteredAndSortedClients.map((client) => {
-                        const totalPrice = calculateTotalPrice(client, universalPrices);
-                        const isUnlimited = (client.clientCount || 0) > 100;
-
-                        return (
-                            <tr key={client._id}>
-                                <td>{client.nombre}</td>
-                                <td>{client.estadoSuscripcion}</td>
-                                <td>
-                                    {client.clientCount || 0}
-                                    {isUnlimited ? 
-                                        <span style={{color: '#007e3d', fontWeight: 'bold', marginLeft: 5}}> (Ilimitado)</span> 
-                                        : 
-                                        <span style={{color: '#aaa', fontSize: '0.9em'}}> / 100</span>
-                                    }
-                                </td>
-                                <td>
-                                    {formatCurrency(totalPrice)}
-                                </td>
-                                <td className="actions-column">
-                                    <Link to={`/clients/${client._id}/edit`} className="clients-button clients-edit-button">Editar</Link>
-                                    <button onClick={() => handleDelete(client._id)} className="clients-button clients-delete-button">Eliminar</button>
-                                </td>
+                <div className="table-container">
+                    <table className="clients-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Estado</th>
+                                <th>Clientes</th>
+                                <th>Facturación</th>
+                                <th>Acciones</th>
                             </tr>
-                        );
-                    })}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                        {filteredAndSortedClients.map((client) => {
+                            const totalPrice = calculateTotalPrice(client, universalPrices);
+                            const isUnlimited = (client.clientCount || 0) > 100;
+                            
+                            // Map status to class
+                            let statusClass = 'status-inactive';
+                            if (client.estadoSuscripcion === 'activo') statusClass = 'status-active';
+                            if (client.estadoSuscripcion === 'periodo_prueba') statusClass = 'status-trial';
+
+                            return (
+                                <tr key={client._id}>
+                                    <td style={{fontWeight: 600}}>{client.nombre}</td>
+                                    <td>
+                                        <span className={`status-badge ${statusClass}`}>
+                                            {client.estadoSuscripcion.replace('_', ' ')}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {client.clientCount || 0}
+                                        {isUnlimited ? 
+                                            <span style={{color: 'var(--status-active)', fontWeight: 'bold', marginLeft: 5}}> (Ilimitado)</span> 
+                                            : 
+                                            <span style={{color: 'var(--text-muted)', fontSize: '0.8em'}}> / 100</span>
+                                        }
+                                    </td>
+                                    <td style={{fontWeight: 600, color: 'var(--primary)'}}>
+                                        {formatCurrency(totalPrice)}
+                                    </td>
+                                    <td className="actions-column">
+                                        <Link to={`/clients/${client._id}/edit`} className="btn-icon btn-edit">Editar</Link>
+                                        <button onClick={() => handleDelete(client._id)} className="btn-icon btn-delete">Eliminar</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     );
