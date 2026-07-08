@@ -164,7 +164,14 @@ lastLogin: {
         weight: { type: Number, required: true }, 
         date: { type: Date, default: Date.now }
     }],
-
+    todasLasSucursales: {
+        type: Boolean,
+        default: true
+    },
+    sucursales: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sucursal'
+    }],
 }, {
     timestamps: true,
 });

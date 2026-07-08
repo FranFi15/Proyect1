@@ -11,10 +11,7 @@ import getSettingsModel from '../models/Settings.js';
 import getScoreboardModel from '../models/Scoreboard.js';
 import getPaymentPackageModel from '../models/PaymentPackage.js';
 import getPaymentRequestModel from '../models/PaymentRequest.js';
-
-
-
-
+import getSucursalModel from '../models/Sucursal.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -37,9 +34,8 @@ const getModels = (dbConnection) => {
         Scoreboard,
         ScoreboardEntry,
         PaymentPackage: getPaymentPackageModel(dbConnection),
-        PaymentRequest: getPaymentRequestModel(dbConnection)
-
-        
+        PaymentRequest: getPaymentRequestModel(dbConnection),
+        Sucursal: getSucursalModel(dbConnection)
     };
 
     return models;

@@ -26,7 +26,9 @@ const registerUser = asyncHandler(async (req, res) => {
         numeroTelefono, 
         obraSocial, 
         sexo,
-        pushToken
+        pushToken,
+        todasLasSucursales,
+        sucursales
     } = req.body;
 
     if (!nombre || !apellido || !email || !contraseña || !dni || !fechaNacimiento || !telefonoEmergencia) {
@@ -82,7 +84,9 @@ const registerUser = asyncHandler(async (req, res) => {
         obraSocial: obraSocial || '', 
         roles: roles,
         sexo: sexo || 'Otro' ,
-        pushToken: pushToken || null
+        pushToken: pushToken || null,
+        todasLasSucursales: todasLasSucursales !== undefined ? todasLasSucursales : true,
+        sucursales: sucursales || []
     };
     
     const user = new User(userData);

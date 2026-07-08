@@ -358,6 +358,9 @@
         const calendarTheme = getCalendarTheme(colorScheme, gymColor);
         const [classTypes, setClassTypes] = useState([]);
         const [selectedClassType, setSelectedClassType] = useState('all');
+        const [sucursales, setSucursales] = useState([]);
+        const [selectedSucursal, setSelectedSucursal] = useState('all');
+        const [isSucursalFilterVisible, setSucursalFilterVisible] = useState(false);
         const [isRefreshing, setIsRefreshing] = useState(false); 
         const [adminPhoneNumber, setAdminPhoneNumber] = useState(null);
         const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
@@ -408,15 +411,17 @@
             try {
                 await refreshUser();
                 
-                const [classesResponse, typesResponse, scoreboardsResponse] = await Promise.all([
+                const [classesResponse, typesResponse, scoreboardsResponse, sucursalesResponse] = await Promise.all([
                     apiClient.get('/classes'),
                     apiClient.get('/tipos-clase?forCreation=true'),
-                    apiClient.get('/scoreboards/active') 
+                    apiClient.get('/scoreboards/active'),
+                    apiClient.get('/sucursales')
                 ]);
                 
                 setAllClasses(classesResponse.data);
                 const filteredTypes = (typesResponse.data.tiposClase || []).filter(type => !type.esUniversal);
                 setClassTypes(filteredTypes);
+                setSucursales(sucursalesResponse?.data || []);
 
                 setHasActiveScoreboards(scoreboardsResponse.data && scoreboardsResponse.data.length > 0);
 
@@ -475,6 +480,7 @@
                     return classDate.getMonth() === currentMonth && classDate.getFullYear() === currentYear;
                 })
                 .filter(cls => selectedClassType === 'all' || cls.tipoClase?._id === selectedClassType)
+                .filter(cls => selectedSucursal === 'all' || cls.sucursal?._id === selectedSucursal || cls.sucursal === selectedSucursal)
                 .map(cls => ({
                     ...cls,
                     isEnrolled: (cls.usuariosInscritos || []).includes(user?._id),
@@ -486,7 +492,7 @@
                     dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
                 }))
                 .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-        }, [allClasses, selectedDate, selectedClassType, index, user]); 
+        }, [allClasses, selectedDate, selectedClassType, selectedSucursal, index, user]); 
 
         // HANDLERS (Enroll, etc)
         const handleEnroll = useCallback(async (classId) => {
@@ -570,6 +576,11 @@
                             </View>
                         )}
                     </View>
+                    {item.sucursal?.nombre && (
+                        <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
+                            📍 {item.sucursal.nombre}
+                        </Text>
+                    )}
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
@@ -594,11 +605,23 @@
 
         const ListScene = () => (
             <ThemedView style={{ flex: 1 }}>
-                <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
-                <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
-                    <ThemedText style={styles.filterButtonText}>Filtrar Turnos</ThemedText>
-                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <ThemedText style={styles.listHeader}>{formattedDateTitle}</ThemedText>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {sucursales.length > 1 && (
+                            <TouchableOpacity style={styles.filterButton} onPress={() => setSucursalFilterVisible(true)}>
+                                <ThemedText style={styles.filterButtonText}>
+                                    {selectedSucursal === 'all' ? '📍 Todas' : `📍 ${sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal'}`}
+                                </ThemedText>
+                                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
+                            <ThemedText style={styles.filterButtonText}>Filtrar Turnos</ThemedText>
+                            <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
                 {visibleClasses.length === 0 && !isLoading ? <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText> : (selectedDate ? <FlatList data={visibleClasses} keyExtractor={item => item._id} renderItem={renderClassItem} ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>} contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />} /> : <SectionList sections={sectionedClasses} keyExtractor={(item, index) => item._id + index} renderItem={renderClassItem} renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>} ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>} contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />} />)}
             </ThemedView>
         );
@@ -631,7 +654,8 @@
                     colorScheme={colorScheme} 
                 />
 
-                <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={handleSelectClassType} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
+                <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={(id) => { setSelectedClassType(id); setFilterModalVisible(false); }} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
+                <FilterModal visible={isSucursalFilterVisible} onClose={() => setSucursalFilterVisible(false)} options={[{ _id: 'all', nombre: 'Todas las Sucursales' }, ...sucursales]} onSelect={(id) => { setSelectedSucursal(id); setSucursalFilterVisible(false); }} selectedValue={selectedSucursal} title="Sucursal" theme={{ colors: Colors[colorScheme], gymColor }} />
                 <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
                 <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
                 <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />

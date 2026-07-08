@@ -7,6 +7,7 @@ const {RRule} = rrule
 import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
 import moment from 'moment-timezone'; 
+import { ensureDefaultSucursal } from './sucursalController.js';
 
 const mapDayToRRule = (day) => {
     const map = {
@@ -50,8 +51,9 @@ const enrichClassListWithUTC = (classes, tz) => {
 };
 
 const createClass = asyncHandler(async (req, res) => {
-    const { Clase, TipoClase } = getModels(req.gymDBConnection);
-    const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
+    await ensureDefaultSucursal(req.gymDBConnection);
+    const { Clase, TipoClase, Sucursal } = getModels(req.gymDBConnection);
+    const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana, sucursal } = req.body;
     
     if (!tipoClaseId) {
         res.status(400);
@@ -98,6 +100,12 @@ const createClass = asyncHandler(async (req, res) => {
         profesoresIds = [profesor];
     }
 
+    let sucursalId = sucursal;
+    if (!sucursalId) {
+        const defaultSuc = await Sucursal.findOne({ activa: true }).sort({ createdAt: 1 });
+        if (defaultSuc) sucursalId = defaultSuc._id;
+    }
+
     if (tipoInscripcion === 'fijo') {
         try {
             const rule = new RRule({
@@ -125,6 +133,7 @@ const createClass = asyncHandler(async (req, res) => {
                     diaDeSemana: [getDayName(dateInstance)], 
                     tipoInscripcion: 'fijo', 
                     rrule: rule.toString(),
+                    sucursal: sucursalId || null,
                     usuariosInscritos: [],
                     inscripcionesDetalle: []
                 };
@@ -152,6 +161,7 @@ const createClass = asyncHandler(async (req, res) => {
             fecha: safeDate, 
             diaDeSemana: [getDayName(safeDate)], 
             tipoInscripcion: 'libre',
+            sucursal: sucursalId || null,
             usuariosInscritos: [],
             inscripcionesDetalle: []
         });
@@ -172,19 +182,22 @@ const createClass = asyncHandler(async (req, res) => {
 });
 
 const getAllClassesAdmin = asyncHandler(async (req, res) => {
+    await ensureDefaultSucursal(req.gymDBConnection);
     const { Clase } = getModels(req.gymDBConnection);
     const classes = await Clase.find({})
     .populate('tipoClase', 'nombre')
     .populate('profesores', 'nombre apellido')
-    .populate('profesor', 'nombre apellido');
+    .populate('profesor', 'nombre apellido')
+    .populate('sucursal', 'nombre direccion');
 
      res.json(enrichClassListWithUTC(classes, req.gymTimezone));
 });
 
 const getAllClasses = asyncHandler(async (req, res) => {
+    await ensureDefaultSucursal(req.gymDBConnection);
     const { Clase, Settings } = getModels(req.gymDBConnection);
 
-    const { includePast } = req.query;
+    const { includePast, sucursalId } = req.query;
     const settings = await Settings.findById('main_settings');
     const visibilityDays = settings?.classVisibilityDays;
 
@@ -203,10 +216,25 @@ const getAllClasses = asyncHandler(async (req, res) => {
         }
     }
 
-    const classes = await Clase.find({ ...dateFilter })
+    let filterQuery = { ...dateFilter };
+
+    if (sucursalId) {
+        filterQuery.sucursal = sucursalId;
+    } else if (req.user && req.user.roles && req.user.roles.includes('cliente') && !req.user.roles.includes('admin')) {
+        if (req.user.todasLasSucursales === false && req.user.sucursales && req.user.sucursales.length > 0) {
+            filterQuery.$or = [
+                { sucursal: { $in: req.user.sucursales } },
+                { sucursal: null },
+                { sucursal: { $exists: false } }
+            ];
+        }
+    }
+
+    const classes = await Clase.find(filterQuery)
         .populate('tipoClase', 'nombre')
         .populate('profesores', 'nombre apellido')
-        .populate('profesor', 'nombre apellido');
+        .populate('profesor', 'nombre apellido')
+        .populate('sucursal', 'nombre direccion');
         
     res.json(enrichClassListWithUTC(classes, req.gymTimezone));
 });
@@ -218,7 +246,8 @@ const getClassById = asyncHandler(async (req, res) => {
         .populate('tipoClase', 'nombre')
         .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial')
         .populate('profesores', 'nombre apellido')
-         .populate('profesor', 'nombre apellido');
+        .populate('profesor', 'nombre apellido')
+        .populate('sucursal', 'nombre direccion');
 
     if (classItem) {
         const classWithAge = classItem.toObject();
@@ -1400,6 +1429,7 @@ const getProfessorClasses = asyncHandler(async (req, res) => {
         .populate('tipoClase', 'nombre' )
         .populate('profesores', 'nombre apellido') 
         .populate('usuariosInscritos', 'nombre apellido dni email ')
+        .populate('sucursal', 'nombre direccion')
         .sort({ fecha: 'asc' }); 
 
     res.status(200).json(enrichClassListWithUTC(classes, req.gymTimezone));

@@ -69,14 +69,16 @@ const PlansAndCreditsModal = ({ onClose }) => {
         // 1. Procesar vencimientos detallados
         if (profile.vencimientosDetallados && profile.vencimientosDetallados.length > 0) {
             profile.vencimientosDetallados.forEach(item => {
-                const typeId = item.tipoClaseId;
+                const typeId = (item.tipoClaseId?._id || item.tipoClaseId)?.toString();
+                if (!typeId) return;
                 
                 // Buscamos la configuración de este tipo de clase
-                const cType = classTypes.find(ct => ct._id === typeId);
+                const cType = classTypes.find(ct => ct._id?.toString() === typeId);
                 const isResetEnabled = cType ? cType.resetMensual : false; // ¿Tiene vencimiento?
 
                 if (!groups[typeId]) {
                     groups[typeId] = {
+                        _id: typeId,
                         name: cType ? cType.nombre : 'Crédito',
                         resetMensual: isResetEnabled,
                         total: 0,
@@ -84,38 +86,46 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     };
                 }
                 
-                groups[typeId].total += item.cantidad;
+                groups[typeId].total += (item.cantidad || 0);
                 
-                // --- LÓGICA CLAVE ---
-                // Si 'isResetEnabled' es true, mostramos la fecha real.
-                // Si es false, forzamos null para que la UI diga "Sin vencimiento".
                 groups[typeId].batches.push({
-                    amount: item.cantidad,
+                    amount: item.cantidad || 0,
                     date: isResetEnabled ? item.fechaVencimiento : null 
                 });
             });
         }
 
-        // 2. Revisar créditos "sueltos" (fallback para datos viejos)
+        // 2. Revisar créditos "sueltos" desde creditosPorTipo (fuente principal de verdad)
         if (profile.creditosPorTipo) {
-            Object.entries(profile.creditosPorTipo).forEach(([typeId, amount]) => {
+            Object.entries(profile.creditosPorTipo).forEach(([rawTypeId, rawAmount]) => {
+                const typeId = rawTypeId?.toString();
+                const amount = Number(rawAmount) || 0;
                 if (amount > 0) {
                     if (!groups[typeId]) {
-                        const cType = classTypes.find(ct => ct._id === typeId);
+                        const cType = classTypes.find(ct => ct._id?.toString() === typeId);
                         const isResetEnabled = cType ? cType.resetMensual : false;
 
                         groups[typeId] = {
+                            _id: typeId,
                             name: cType ? cType.nombre : 'Crédito',
                             resetMensual: isResetEnabled,
                             total: amount,
                             batches: [{ 
                                 amount: amount, 
-                                date: null // Aquí siempre es null porque no tenemos el detalle
+                                date: null 
                             }] 
                         };
-                    } else {
-                        // Si ya existe en 'detailed', asumimos que el total ya se sumó correctamente allí
-                        // O ajustamos si hay discrepancia (opcional, por simplicidad confiamos en el detalle)
+                    } else if (amount > groups[typeId].total) {
+                        // Si en creditosPorTipo hay más créditos que en vencimientosDetallados, sumamos la diferencia
+                        const diff = amount - groups[typeId].total;
+                        groups[typeId].total = amount;
+                        groups[typeId].batches.push({
+                            amount: diff,
+                            date: null
+                        });
+                    } else if (groups[typeId].total > amount) {
+                        // Respetar el total exacto en creditosPorTipo
+                        groups[typeId].total = amount;
                     }
                 }
             });
@@ -201,44 +211,35 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     )}
 
                     {/* --- SECCIÓN CRÉDITOS --- */}
-                    {classTypes && classTypes.length > 0 ? (
-                        classTypes.map((type) => {
-                            const detail = profile.creditosDetalle ? profile.creditosDetalle[type._id] : null;
-                            const totalCredits = profile.creditos ? profile.creditos[type._id] || 0 : 0;
-
-                            if (totalCredits <= 0 && (!detail || detail.length === 0)) {
-                                return null;
-                            }
-
-                            return (
-                                <ThemedView key={type._id} style={styles.card}>
-                                    <View style={styles.cardHeaderRow}>
-                                        <ThemedText style={styles.cardTitle}>{type.nombre}</ThemedText>
-                                        <View style={[styles.badge, { backgroundColor: totalCredits > 0 ? (gymColor || '#28a745') : '#dc3545' }]}>
-                                            <Text style={[styles.badgeText, { color: '#fff' }]}>
-                                                {totalCredits} disponibles
-                                            </Text>
-                                        </View>
+                    {detailedCredits && detailedCredits.filter(g => g.total > 0).length > 0 ? (
+                        detailedCredits.filter(g => g.total > 0).map((group, index) => (
+                            <ThemedView key={group._id || index} style={styles.card}>
+                                <View style={styles.cardHeaderRow}>
+                                    <ThemedText style={styles.cardTitle}>{group.name}</ThemedText>
+                                    <View style={[styles.badge, { backgroundColor: group.total > 0 ? (gymColor || '#28a745') : '#dc3545' }]}>
+                                        <Text style={[styles.badgeText, { color: '#fff' }]}>
+                                            {group.total} disponibles
+                                        </Text>
                                     </View>
-                                    
-                                    {detail && detail.length > 0 && (
-                                        <>
-                                            <View style={styles.divider} />
-                                            {detail.map((lote, index) => (
-                                                <View key={index} style={styles.batchRow}>
-                                                    <ThemedText style={styles.batchAmount}>
-                                                        + {lote.cantidad} créditos
-                                                    </ThemedText>
-                                                    <ThemedText style={styles.batchDate}>
-                                                        Vence: {formatDateUTC(lote.fechaExpiracion)}
-                                                    </ThemedText>
-                                                </View>
-                                            ))}
-                                        </>
-                                    )}
-                                </ThemedView>
-                            );
-                        })
+                                </View>
+                                
+                                {group.batches && group.batches.length > 0 && (
+                                    <>
+                                        <View style={styles.divider} />
+                                        {group.batches.map((lote, batchIdx) => (
+                                            <View key={batchIdx} style={styles.batchRow}>
+                                                <ThemedText style={styles.batchAmount}>
+                                                    + {lote.amount} créditos
+                                                </ThemedText>
+                                                <ThemedText style={styles.batchDate}>
+                                                    {lote.date ? `Vence: ${formatDateUTC(lote.date)}` : 'Sin vencimiento'}
+                                                </ThemedText>
+                                            </View>
+                                        ))}
+                                    </>
+                                )}
+                            </ThemedView>
+                        ))
                     ) : (
                         <View style={styles.emptyContainer}>
                             <FontAwesome5 name="ticket-alt" size={40} color={Colors[colorScheme].icon} />

@@ -27,6 +27,7 @@ import BalanceModal from '@/components/client/BalanceModal';
 import PlansAndCreditsModal from '@/components/client/PlansAndCreditsModal';
 import EditProfileModal from '@/components/client/EditProfileModal';
 import CustomAlert from '@/components/CustomAlert'; 
+import SucursalesModal from '@/components/admin/SucursalesModal';
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -236,6 +237,11 @@ const ProfileScreen = () => {
                   </ThemedView>
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('sucursales')}>
+                        <Ionicons name="business" size={24} color={gymColor || Colors[colorScheme].icon}/>
+                        <ThemedText style={styles.menuButtonText}>Gestión de Sucursales</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>
                         <Ionicons name="person" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Editar Mis Datos</ThemedText>
@@ -271,6 +277,14 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'edit'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <EditProfileModal userProfile={profile} onClose={() => setActiveModal(null)} />
             </Modal>
+
+            <SucursalesModal
+                visible={activeModal === 'sucursales'}
+                onClose={() => setActiveModal(null)}
+                gymColor={gymColor}
+                apiClient={apiClient}
+                setAlertInfo={setAlertInfo}
+            />
 
             <CustomAlert
                 visible={alertInfo.visible}

@@ -20,7 +20,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
     const users = await User.find(query)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
-        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
+        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
+        .populate({ path: 'sucursales', select: 'nombre' });
 
     const usersWithCalculatedAge = users.map(user => ({
         _id: user._id,
@@ -53,6 +54,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         membresiaDesde: user.membresiaDesde,
         membresiaHasta: user.membresiaHasta,
         puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
+        todasLasSucursales: user.todasLasSucursales !== undefined ? user.todasLasSucursales : true,
+        sucursales: user.sucursales || [],
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         rmRecords: user.rmRecords || [],
@@ -64,7 +67,8 @@ const getMe = asyncHandler(async (req, res) => {
     const { User , Notification } = getModels(req.gymDBConnection);
     const user = await User.findById(req.user._id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
-        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' });
+        .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
+        .populate({ path: 'sucursales', select: 'nombre' });
     
     if (user) {
         const unreadNotificationsCount = await Notification.countDocuments({
@@ -111,6 +115,8 @@ const getMe = asyncHandler(async (req, res) => {
             membresiaDesde: user.membresiaDesde,
             membresiaHasta: user.membresiaHasta,
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
+            todasLasSucursales: user.todasLasSucursales !== undefined ? user.todasLasSucursales : true,
+            sucursales: user.sucursales || [],
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
             fotoPerfil: user.fotoPerfil,
@@ -127,7 +133,9 @@ const getMe = asyncHandler(async (req, res) => {
 
 const getUserById = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
-    const user = await User.findById(req.params.id).populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' });
+    const user = await User.findById(req.params.id)
+        .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
+        .populate({ path: 'sucursales', select: 'nombre' });
     if (user) {
         res.json(user);
     } else {
@@ -168,6 +176,12 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         }
         if (req.body.ordenMedicaUrl !== undefined) {
             user.ordenMedicaUrl = req.body.ordenMedicaUrl;
+        }
+        if (req.body.todasLasSucursales !== undefined) {
+            user.todasLasSucursales = req.body.todasLasSucursales;
+        }
+        if (req.body.sucursales !== undefined && Array.isArray(req.body.sucursales)) {
+            user.sucursales = req.body.sucursales;
         }
 
         if (req.body.planesFijos && typeof req.body.planesFijos === 'object' && !Array.isArray(req.body.planesFijos)) {
@@ -608,7 +622,9 @@ const getUserProfile = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.user._id).select('-contraseña');
     if (user) {
-        res.json(user);
+        const userObj = user.toObject();
+        userObj.creditosPorTipo = Object.fromEntries(user.creditosPorTipo || new Map());
+        res.json(userObj);
     } else {
         res.status(404).send('Usuario no encontrado.');
     }

@@ -74,6 +74,11 @@ const classSchema = new mongoose.Schema({
         enum: ['activa', 'cancelada', 'llena'],
         default: 'activa',
     },
+    sucursal: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sucursal',
+        required: false
+    },
 }, {
     timestamps: true,
 });
