@@ -577,9 +577,12 @@
                         )}
                     </View>
                     {item.sucursal?.nombre && (
-                        <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
-                            📍 {item.sucursal.nombre}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                            <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
+                            <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, (isCancelled || isFinished) && styles.disabledText]}>
+                                {item.sucursal.nombre}
+                            </ThemedText>
+                        </View>
                     )}
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
                     <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
@@ -610,9 +613,12 @@
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                         {sucursales.length > 1 && (
                             <TouchableOpacity style={styles.filterButton} onPress={() => setSucursalFilterVisible(true)}>
-                                <ThemedText style={styles.filterButtonText}>
-                                    {selectedSucursal === 'all' ? '📍 Todas' : `📍 ${sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal'}`}
-                                </ThemedText>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                    <ThemedText style={styles.filterButtonText}>
+                                        {selectedSucursal === 'all' ? 'Todas' : (sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal')}
+                                    </ThemedText>
+                                </View>
                                 <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
                         )}

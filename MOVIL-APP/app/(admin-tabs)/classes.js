@@ -699,9 +699,12 @@ const ManageClassesScreen = () => {
                            {item.nombre || "Turno"} - {item.tipoClase?.nombre}
                         </ThemedText>
                         {item.sucursal?.nombre && (
-                            <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
-                                📍 {item.sucursal.nombre}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
+                                <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, isCancelled && styles.disabledText]}>
+                                    {item.sucursal.nombre}
+                                </ThemedText>
+                            </View>
                         )}
                         <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
                             Horario: {item.horaInicio}hs - {item.horaFin}hs
@@ -925,9 +928,12 @@ const ManageClassesScreen = () => {
                         <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
                         <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
                         {item.sucursal?.nombre && (
-                            <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginBottom: 2 }}>
-                                📍 {item.sucursal.nombre}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
+                                <ThemedText style={[styles.cardInfo, { marginBottom: 0 }]}>
+                                    {item.sucursal.nombre}
+                                </ThemedText>
+                            </View>
                         )}
                         <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
                         <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
@@ -1158,9 +1164,12 @@ const ManageClassesScreen = () => {
                                     <>
                                         <ThemedText style={styles.inputLabel}>Sucursal del Turno</ThemedText>
                                         <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formSucursal')}>
-                                            <ThemedText style={styles.filterButtonText}>
-                                                {sucursales.find(s => s._id === formData.sucursal)?.nombre || '📍 Todas / Sucursal 1'}
-                                            </ThemedText>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                                <ThemedText style={styles.filterButtonText}>
+                                                    {sucursales.find(s => s._id === formData.sucursal)?.nombre || 'Todas / Sucursal 1'}
+                                                </ThemedText>
+                                            </View>
                                             <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
                                         </TouchableOpacity>
                                     </>
