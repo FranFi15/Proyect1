@@ -962,6 +962,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
         if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); 
+        if (updates.sucursal) template.sucursal = updates.sucursal;
 
         if (updates.horaInicio || updates.horaFin) {
             template.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
@@ -1003,6 +1004,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
     if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); 
+    if (updates.sucursal) updateData.$set.sucursal = updates.sucursal; 
     
     if (updates.horaInicio || updates.horaFin) {
         updateData.$set.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
