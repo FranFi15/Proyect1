@@ -22,7 +22,7 @@ app.use(cors({
     origin: (origin, callback) => {
         // Permitir peticiones sin 'origin' (como apps móviles, Postman, o server-to-server)
         // o si el 'origin' está en nuestra lista blanca.
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
             callback(null, true);
         } else {
             callback(new Error('No permitido por CORS'));
