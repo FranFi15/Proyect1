@@ -330,7 +330,7 @@ const ManageClientsScreen = () => {
                 apiClient.get('/users/subscription-info'),
                 apiClient.get('/users/financial-stats'),
                 apiClient.get('/payments/tickets/pending'),
-                apiClient.get('/sucursales')
+                apiClient.get('/sucursales').catch(() => ({ data: [] }))
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
