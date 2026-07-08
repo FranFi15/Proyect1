@@ -13,10 +13,55 @@ import { Ionicons } from '@expo/vector-icons';
  * @param {Array<object>} [props.buttons=[]] - Un array de objetos para los botones. Cada objeto debe tener: text, onPress, y style ('primary', 'destructive', o 'cancel').
  * @param {string} [props.gymColor] - El color principal del gimnasio para el botón primario.
  */
-const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor }) => {
+const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor, inline = false }) => {
     const colorScheme = useColorScheme() ?? 'light';
     // Pasamos gymColor a la función de estilos para que el botón primario lo use
     const styles = getStyles(colorScheme, gymColor);
+
+    if (!visible) return null;
+
+    const content = (
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+                <View style={styles.header}>
+                    <Text style={styles.title}>{title}</Text>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
+                    </TouchableOpacity>
+                </View>
+                
+                <Text style={styles.message}>{message}</Text>
+                
+                <View style={styles.buttonsContainer}>
+                    {(buttons || []).map((button, index) => {
+                        const buttonStyle = [
+                            styles.button,
+                            button.style === 'destructive' ? styles.destructiveButton : 
+                            button.style === 'cancel' ? styles.cancelButton : styles.primaryButton
+                        ];
+                        const textStyle = [
+                            styles.buttonText,
+                            button.style === 'cancel' ? styles.cancelButtonText : styles.primaryButtonText
+                        ];
+
+                        return (
+                            <TouchableOpacity key={index} style={buttonStyle} onPress={button.onPress}>
+                                <Text style={textStyle}>{button.text}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </View>
+        </View>
+    );
+
+    if (inline) {
+        return (
+            <View style={[StyleSheet.absoluteFillObject, { zIndex: 99999, elevation: 20 }]}>
+                {content}
+            </View>
+        );
+    }
 
     return (
         <Modal
@@ -25,41 +70,7 @@ const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor 
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                    </View>
-                    
-                    <Text style={styles.message}>{message}</Text>
-                    
-                    <View style={styles.buttonsContainer}>
-                        {/* Se asegura de que buttons sea un array antes de mapear */}
-                        {(buttons || []).map((button, index) => {
-                            // Determina el estilo del botón basado en la prop 'style'
-                            const buttonStyle = [
-                                styles.button,
-                                button.style === 'destructive' ? styles.destructiveButton : 
-                                button.style === 'cancel' ? styles.cancelButton : styles.primaryButton
-                            ];
-                            // Determina el estilo del texto del botón
-                            const textStyle = [
-                                styles.buttonText,
-                                button.style === 'cancel' ? styles.cancelButtonText : styles.primaryButtonText
-                            ];
-
-                            return (
-                                <TouchableOpacity key={index} style={buttonStyle} onPress={button.onPress}>
-                                    <Text style={textStyle}>{button.text}</Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                </View>
-            </View>
+            {content}
         </Modal>
     );
 };
