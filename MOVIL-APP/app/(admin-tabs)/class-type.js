@@ -436,8 +436,9 @@ const ClassTypeManagementScreen = () => {
             // 🔥 Aseguramos limpiar el formulario al crear uno nuevo
             setEditingPackage(null);
             setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
-            setIsPackageModalVisible(true);
         }
+    };
+
     const filteredClassTypes = useMemo(() => {
         if (!searchTerm) return classTypes;
         return classTypes.filter(type => type.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
