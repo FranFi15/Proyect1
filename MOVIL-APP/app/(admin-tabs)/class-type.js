@@ -724,14 +724,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         right: 20, bottom: 20, backgroundColor: gymColor || '#1a5276', borderRadius: 30, 
         elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, zIndex: 999
     },
-    fabSettings: {
-        position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', 
-        right: 90, bottom: 20, backgroundColor: '#7f8c8d', borderRadius: 30, 
-        elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, zIndex: 999
-    },
     fabScoreboard: {
         position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', 
-        right: 160, bottom: 20, backgroundColor: '#f39c12', borderRadius: 30, 
+        right: 90, bottom: 20, backgroundColor: '#f39c12', borderRadius: 30, 
         elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, zIndex: 999
     },
     fabInsideModal: {
