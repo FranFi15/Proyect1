@@ -277,42 +277,17 @@ const ClassTypeManagementScreen = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
-    // Configuración y Cortesía
-    const [isSettingsModalVisible, setIsSettingsModalVisible] = useState(false);
-    const [visibilityDays, setVisibilityDays] = useState('0');
-    const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [isScoreboardModalVisible, setIsScoreboardModalVisible] = useState(false);
-
-    const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
 
     const performDataFetch = useCallback(async () => {
         try {
-            const [typesRes, settingsRes, packagesRes] = await Promise.all([
+            const [typesRes, packagesRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/settings'),
                 apiClient.get('/payments/packages') // Llamada para traer los paquetes
             ]);
             
             setClassTypes(typesRes.data?.tiposClase || []);
             setPackages(packagesRes.data || []);
-            
-            setVisibilityDays(settingsRes.data.classVisibilityDays.toString());
-
-            if (settingsRes.data.bankDetails) {
-                setBankDetails({
-                    cbu: settingsRes.data.bankDetails.cbu || '',
-                    alias: settingsRes.data.bankDetails.alias || '',
-                    bankName: settingsRes.data.bankDetails.bankName || ''
-                });
-            }
-            
-            if (settingsRes.data.courtesyCredit) {
-                setCourtesyConfig({
-                    isActive: settingsRes.data.courtesyCredit.isActive,
-                    amount: settingsRes.data.courtesyCredit.amount.toString(),
-                    tipoClase: settingsRes.data.courtesyCredit.tipoClase?._id || settingsRes.data.courtesyCredit.tipoClase || ''
-                });
-            }
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
@@ -463,23 +438,6 @@ const ClassTypeManagementScreen = () => {
             setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
             setIsPackageModalVisible(true);
         }
-    };
-
-    const handleSaveSettings = async () => {
-        try {
-            const payload = { 
-                classVisibilityDays: Number(visibilityDays) || 0,
-                courtesyCredit: { isActive: courtesyConfig.isActive, amount: Number(courtesyConfig.amount) || 1, tipoClase: courtesyConfig.tipoClase },
-                bankDetails: bankDetails
-            };
-            await apiClient.put('/settings', payload);
-            setAlertInfo({ visible: true, title: 'Éxito', message: 'Configuración guardada.' });
-            setIsSettingsModalVisible(false);
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar la configuración.' });
-        }
-    };
-
     const filteredClassTypes = useMemo(() => {
         if (!searchTerm) return classTypes;
         return classTypes.filter(type => type.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -608,11 +566,6 @@ const ClassTypeManagementScreen = () => {
                 <FontAwesome5 name="trophy" size={22} color="#fff" />
             </TouchableOpacity>
 
-            {/* --- FAB SETTINGS --- */}
-            <TouchableOpacity style={styles.fabSettings} onPress={() => setIsSettingsModalVisible(true)}>
-                <FontAwesome5 name="cog" size={24} color="#fff" />
-            </TouchableOpacity>
-
             {/* --- FAB ADD --- */}
             <TouchableOpacity style={styles.fabAdd} onPress={handleAdd}>
                 <Ionicons name="add" size={30} color="#fff" />
@@ -732,74 +685,6 @@ const ClassTypeManagementScreen = () => {
                             </View>
                         </ScrollView>
                     </View>
-                </KeyboardAvoidingView>
-            </Modal>
-
-            {/* --- MODAL SETTINGS --- */}
-            <Modal visible={isSettingsModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsSettingsModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
-                <Pressable style={styles.modalBackdrop} onPress={() => setIsSettingsModalVisible(false)} />
-                <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
-                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.headerBannerTitle}>Configuración General</Text>
-                            <Text style={styles.headerBannerSub}>Calendario, bienvenida y datos bancarios</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => setIsSettingsModalVisible(false)} style={styles.closeButtonBanner}>
-                            <Ionicons name="close" size={24} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                        
-                        <ThemedText style={styles.sectionTitle}>Calendario</ThemedText>
-                        <ThemedText style={styles.cardDescription}>
-                            Define cuántos días hacia el futuro podrán ver y reservar tus clientes.
-                        </ThemedText>
-                        <ThemedText style={styles.inputLabel}>Días visibles (0 = sin límite):</ThemedText>
-                        <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0"/>
-
-                        <View style={{ paddingTop: 15, marginTop: 10}}>
-                            <ThemedText style={styles.sectionTitle}>Crédito de Bienvenida</ThemedText>
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Activar crédito de bienvenida?</ThemedText>
-                                <Switch trackColor={{ true: gymColor }} onValueChange={(val) => setCourtesyConfig(prev => ({...prev, isActive: val}))} value={courtesyConfig.isActive} />
-                            </View>
-
-                            {courtesyConfig.isActive && (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>¿Qué crédito dar?</ThemedText>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15}}>
-                                            {classTypes.map(type => (
-                                                <TouchableOpacity key={type._id} onPress={() => setCourtesyConfig(prev => ({...prev, tipoClase: type._id}))} style={[styles.dayChip, courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }]}>
-                                                    <Text style={{ color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text }}>{type.nombre}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                    </ScrollView>
-
-                                    <ThemedText style={styles.inputLabel}>Cantidad de créditos:</ThemedText>
-                                    <TextInput style={styles.input} value={courtesyConfig.amount} onChangeText={(text) => setCourtesyConfig(prev => ({...prev, amount: text}))} keyboardType="number-pad"/>
-                                </>
-                            )}
-                        </View>
-                        <View style={{ paddingTop: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border}}>
-                            <ThemedText style={styles.sectionTitle}>Datos Bancarios (Transferencias)</ThemedText>
-                            <ThemedText style={styles.cardDescription}>
-                                Estos datos se mostrarán a los clientes cuando quieran informar un pago.
-                            </ThemedText>
-                            
-                            <ThemedText style={styles.inputLabel}>CBU / CVU:</ThemedText>
-                            <TextInput style={styles.input} value={bankDetails.cbu} onChangeText={(t) => setBankDetails(prev => ({...prev, cbu: t}))} placeholder="Ej: 0000003100000000000000" placeholderTextColor="#999"/>
-
-                            <ThemedText style={styles.inputLabel}>Alias:</ThemedText>
-                            <TextInput style={styles.input} value={bankDetails.alias} onChangeText={(t) => setBankDetails(prev => ({...prev, alias: t}))} placeholder="Ej: GIMNASIO.FIT" placeholderTextColor="#999"/>
-
-                            <ThemedText style={styles.inputLabel}>Banco / Billetera (Opcional):</ThemedText>
-                            <TextInput style={styles.input} value={bankDetails.bankName} onChangeText={(t) => setBankDetails(prev => ({...prev, bankName: t}))} placeholder="Ej: MercadoPago" placeholderTextColor="#999"/>
-                        </View>
-
-                        <Button title="Guardar Configuración" onPress={handleSaveSettings} color={gymColor} />
-                    </ScrollView>
-                </View>
                 </KeyboardAvoidingView>
             </Modal>
 
