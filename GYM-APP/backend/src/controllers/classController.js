@@ -32,6 +32,23 @@ const setNoonUTC = (date) => {
     return newDate;
 };
 
+const enrichClassWithUTC = (cls, tz) => {
+    const timeZone = tz || 'America/Argentina/Buenos_Aires';
+    const obj = cls.toObject ? cls.toObject() : { ...cls };
+    if (obj.fecha && obj.horaInicio && obj.horaFin) {
+        const dateStr = new Date(obj.fecha).toISOString().substring(0, 10);
+        obj.startUTC = moment.tz(`${dateStr} ${obj.horaInicio}`, timeZone).toISOString();
+        obj.endUTC = moment.tz(`${dateStr} ${obj.horaFin}`, timeZone).toISOString();
+        obj.timezone = timeZone;
+    }
+    return obj;
+};
+
+const enrichClassListWithUTC = (classes, tz) => {
+    const timeZone = tz || 'America/Argentina/Buenos_Aires';
+    return classes.map(cls => enrichClassWithUTC(cls, timeZone));
+};
+
 const createClass = asyncHandler(async (req, res) => {
     const { Clase, TipoClase } = getModels(req.gymDBConnection);
     const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana } = req.body;
@@ -161,7 +178,7 @@ const getAllClassesAdmin = asyncHandler(async (req, res) => {
     .populate('profesores', 'nombre apellido')
     .populate('profesor', 'nombre apellido');
 
-     res.json(classes);
+     res.json(enrichClassListWithUTC(classes, req.gymTimezone));
 });
 
 const getAllClasses = asyncHandler(async (req, res) => {
@@ -191,7 +208,7 @@ const getAllClasses = asyncHandler(async (req, res) => {
         .populate('profesores', 'nombre apellido')
         .populate('profesor', 'nombre apellido');
         
-    res.json(classes);
+    res.json(enrichClassListWithUTC(classes, req.gymTimezone));
 });
 
 
@@ -211,7 +228,7 @@ const getClassById = asyncHandler(async (req, res) => {
                 edad: user.fechaNacimiento ? calculateAge(user.fechaNacimiento) : 'N/A'
             }));
         }
-        res.json(classWithAge);
+        res.json(enrichClassWithUTC(classWithAge, req.gymTimezone));
     } else {
         res.status(404);
         throw new Error('Turno no encontrado.');
@@ -436,6 +453,16 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     if (classItem.estado !== 'activa') {
         res.status(400);
         throw new Error(`No te puedes inscribir a un turno ${classItem.estado}.`);
+    }
+
+    const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
+    if (classItem.fecha && classItem.horaFin) {
+        const dateStr = new Date(classItem.fecha).toISOString().substring(0, 10);
+        const endUTC = moment.tz(`${dateStr} ${classItem.horaFin}`, tz).toDate();
+        if (new Date() >= endUTC) {
+            res.status(400);
+            throw new Error('No te puedes inscribir a un turno que ya ha finalizado.');
+        }
     }
     if (classItem.usuariosInscritos.includes(userId)) {
         res.status(400);
@@ -1375,7 +1402,7 @@ const getProfessorClasses = asyncHandler(async (req, res) => {
         .populate('usuariosInscritos', 'nombre apellido dni email ')
         .sort({ fecha: 'asc' }); 
 
-    res.status(200).json(classes);
+    res.status(200).json(enrichClassListWithUTC(classes, req.gymTimezone));
 });
 
 const getClassStudents = asyncHandler(async (req, res) => {
