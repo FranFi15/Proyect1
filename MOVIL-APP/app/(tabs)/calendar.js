@@ -481,9 +481,9 @@
                     isWaiting: (cls.waitlist || []).includes(user?._id),
                     isFull: (cls.usuariosInscritos || []).length >= cls.capacidad,
                     isCancelled: cls.estado === 'cancelada',
-                    isFinished: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaFin}:00`).getTime() < nowTime,
+                    isFinished: cls.endUTC ? new Date(cls.endUTC).getTime() < nowTime : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaFin}:00`).getTime() < nowTime,
                     didAttend: (cls.asistencias || []).some(id => id?.toString() === user?._id?.toString()) || user?.historialAsistencias?.some(h => (h.claseId === cls._id || h.claseId?._id === cls._id || h.claseId?.toString() === cls._id?.toString())),
-                    dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
+                    dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`),
                 }))
                 .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
         }, [allClasses, selectedDate, selectedClassType, index, user]); 

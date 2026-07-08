@@ -195,7 +195,7 @@ const MyClassesScreen = () => {
     const upcomingClasses = useMemo(() => {
         const now = new Date();
         const filtered = enrolledClasses
-            .map(cls => ({ ...cls, dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
+            .map(cls => ({ ...cls, dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
             .filter(cls => cls.dateTime >= now)
             .sort((a, b) => a.dateTime - b.dateTime);
 
@@ -216,7 +216,7 @@ const MyClassesScreen = () => {
     const pastClasses = useMemo(() => {
         const now = new Date();
         const filtered = enrolledClasses
-            .map(cls => ({ ...cls, dateTime: parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
+            .map(cls => ({ ...cls, dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
             .filter(cls => cls.dateTime < now)
             .sort((a, b) => b.dateTime - a.dateTime);
 
