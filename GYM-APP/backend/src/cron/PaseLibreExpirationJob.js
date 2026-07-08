@@ -41,14 +41,6 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
     // Si hoy es 10, buscamos pases que vencen el 11 (mañana)
     const daysBeforeExpiration = 1; 
     
-    const today = new Date();
-    const targetDate = addDays(today, daysBeforeExpiration);
-    
-    // Definimos el rango de búsqueda para "mañana" (todo el día)
-    // Usamos UTC porque así se guardan las fechas en Mongo (T12:00:00Z o similar)
-    const startOfTargetDay = startOfDay(targetDate);
-    const endOfTargetDay = endOfDay(targetDate);
-
     for (const client of activeClients) {
         const clientId = client.clientId; 
         
@@ -56,6 +48,13 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
             const clientTz = client.timezone || 'America/Argentina/Buenos_Aires';
             const currentHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', hour12: false }).format(new Date()), 10);
             if (currentHour !== 9) continue;
+
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: clientTz }).format(new Date());
+            const targetDateObj = addDays(new Date(`${todayStr}T12:00:00.000Z`), daysBeforeExpiration);
+            const targetStr = targetDateObj.toISOString().substring(0, 10);
+            const startOfTargetDay = new Date(`${targetStr}T00:00:00.000Z`);
+            const endOfTargetDay = new Date(`${targetStr}T23:59:59.999Z`);
+            const startOfClientToday = new Date(`${todayStr}T00:00:00.000Z`);
 
             const { connection } = await connectToGymDB(clientId);
             if (!connection) continue;
@@ -83,11 +82,11 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
                 const existingNotification = await Notification.findOne({
                     user: user._id,
                     type: 'pase_libre_expiration',
-                    createdAt: { $gte: startOfDay(today) } // Creada hoy
+                    createdAt: { $gte: startOfClientToday } // Creada en el día actual del cliente
                 });
 
                 if (!existingNotification) {
-                    const expirationDateFormatted = format(expirationDate, "EEEE d 'de' MMMM", { locale: es });
+                    const expirationDateFormatted = format(new Date(`${targetStr}T12:00:00.000Z`), "EEEE d 'de' MMMM", { locale: es });
                     const title = `¡Tu ${tipoNombre} vence pronto!`;
                     const message = `Hola ${user.nombre}, te recordamos que tu ${tipoNombre} finaliza mañana ${expirationDateFormatted}.`;
 
