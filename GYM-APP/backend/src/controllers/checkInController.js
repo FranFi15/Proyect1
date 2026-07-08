@@ -2,6 +2,15 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import { startOfDay, endOfDay, format } from 'date-fns';
 
+const getGymTodayRange = (tz) => {
+    const timeZone = tz || 'America/Argentina/Buenos_Aires';
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
+    return {
+        todayStart: new Date(`${todayStr}T00:00:00.000Z`),
+        todayEnd: new Date(`${todayStr}T23:59:59.999Z`)
+    };
+};
+
 const processGeneralCheckIn = asyncHandler(async (req, res) => {
     const { Clase, User } = getModels(req.gymDBConnection); // Añadimos User para obtener el nombre
     const { userId } = req.body;
@@ -17,8 +26,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
 
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
+    const { todayStart, todayEnd } = getGymTodayRange(req.gymTimezone);
 
     const hasActivePaseLibre = user.paseLibreHasta && new Date(user.paseLibreHasta) >= todayStart;
     const hasActiveMembresia = user.membresiaHasta && new Date(user.membresiaHasta) >= todayStart;
@@ -136,8 +144,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado.');
     }
 
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
+    const { todayStart, todayEnd } = getGymTodayRange(req.gymTimezone);
 
     const hasActivePaseLibre = user.paseLibreHasta && new Date(user.paseLibreHasta) >= todayStart;
     const hasActiveMembresia = user.membresiaHasta && new Date(user.membresiaHasta) >= todayStart;
