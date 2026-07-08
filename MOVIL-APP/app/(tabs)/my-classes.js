@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { 
-    StyleSheet, 
-    ActivityIndicator, 
-    TouchableOpacity, 
+import {
+    StyleSheet,
+    ActivityIndicator,
+    TouchableOpacity,
     Platform,
-    useColorScheme, 
+    useColorScheme,
     SectionList,
-    View, 
-    Text, 
+    View,
+    Text,
     RefreshControl,
     useWindowDimensions // <-- AÑADIDO
 } from 'react-native';
@@ -40,7 +40,7 @@ const formatTeachers = (clase) => {
             .filter(name => name !== '')
             .join(', ');
     }
-    
+
     // 2. Fallback: Profesor único (Estructura antigua)
     if (clase.profesor && clase.profesor.nombre) {
         return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
@@ -58,7 +58,7 @@ const MyClassesScreen = () => {
         { key: 'upcoming', title: 'Próximo Turnos' },
         { key: 'past', title: 'Historial' },
     ]);
-    
+
     // const [activeTab, setActiveTab] = useState('upcoming'); // <-- ELIMINADO
 
     const [enrolledClasses, setEnrolledClasses] = useState([]);
@@ -67,11 +67,11 @@ const MyClassesScreen = () => {
     const [loading, setLoading] = useState(true);
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [alertInfo, setAlertInfo] = useState({ 
-        visible: false, 
-        title: '', 
-        message: '', 
-        buttons: [] 
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: []
     });
 
     // --- DETECCIÓN DEL TEMA Y ESTILOS DINÁMICOS ---
@@ -184,14 +184,16 @@ const MyClassesScreen = () => {
             message: "¿Estás seguro de que quieres anular tu inscripción?",
             buttons: [
                 { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { text: "Sí, Anular", onPress: () => {
-                    setAlertInfo({ visible: false });
-                    performUnenroll();
-                }, style: 'destructive' }
+                {
+                    text: "Sí, Anular", onPress: () => {
+                        setAlertInfo({ visible: false });
+                        performUnenroll();
+                    }, style: 'destructive'
+                }
             ]
         });
     };
-    
+
     const upcomingClasses = useMemo(() => {
         const now = new Date();
         const filtered = enrolledClasses
@@ -221,7 +223,7 @@ const MyClassesScreen = () => {
             .sort((a, b) => b.dateTime - a.dateTime);
 
         if (filtered.length === 0) return [];
-        
+
         const grouped = filtered.reduce((acc, clase) => {
             const dateKey = capitalize(format(clase.dateTime, "EEEE, d 'de' MMMM", { locale: es }));
             if (!acc[dateKey]) {
@@ -249,38 +251,39 @@ const MyClassesScreen = () => {
                             <Ionicons name="checkmark-circle" size={14} color="#28a745" />
                             <Text style={styles.presentText}>PRESENTE</Text>
                         </View>
+                    )}
                 </View>
                 {item.sucursal?.nombre && (
                     <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
-                        📍 {item.sucursal.nombre}
+                        {item.sucursal.nombre}
                     </Text>
                 )}
                 <ThemedText style={styles.classInfoText}>
-                                    A cargo de: {formatTeachers(item)}
-                                </ThemedText>
+                    A cargo de: {formatTeachers(item)}
+                </ThemedText>
                 <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
-                
+
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
-                    : didAttend ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
-                            <Ionicons name="checkmark-circle" size={16} color="#28a745" />
-                            <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
-                        </View>
-                    )
-                    : index === 0 && canUnenroll ? (
-                        <ActionButton 
-                            title="Anular Inscripción" 
-                            color="#e74c3c" 
-                            onPress={() => handleUnenroll(item._id)}
-                            iconName="calendar-times"
-                        />
-                    ) : index === 1 && !didAttend ? (
-                        <View style={styles.absentBadge}>
-                            <Ionicons name="close-circle" size={14} color="#dc3545" />
-                            <Text style={styles.absentText}>AUSENTE</Text>
-                        </View>
-                    ) : null}
+                        : didAttend ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
+                                <Ionicons name="checkmark-circle" size={16} color="#28a745" />
+                                <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
+                            </View>
+                        )
+                            : index === 0 && canUnenroll ? (
+                                <ActionButton
+                                    title="Anular Inscripción"
+                                    color="#e74c3c"
+                                    onPress={() => handleUnenroll(item._id)}
+                                    iconName="calendar-times"
+                                />
+                            ) : index === 1 && !didAttend ? (
+                                <View style={styles.absentBadge}>
+                                    <Ionicons name="close-circle" size={14} color="#dc3545" />
+                                    <Text style={styles.absentText}>AUSENTE</Text>
+                                </View>
+                            ) : null}
                 </View>
             </ThemedView>
         );
@@ -327,8 +330,8 @@ const MyClassesScreen = () => {
     );
 
     const renderScene = SceneMap({
-      upcoming: UpcomingScene,
-      past: PastScene,
+        upcoming: UpcomingScene,
+        past: PastScene,
     });
 
     if (loading) {
@@ -351,17 +354,17 @@ const MyClassesScreen = () => {
                         {...props}
                         style={{ backgroundColor: gymColor, paddingTop: 10, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }}
                         indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }}
-                         labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform:'none'  }}
+                        labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform: 'none' }}
                     />
                 )}
             />
-             <CustomAlert
+            <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+                gymColor={gymColor}
             />
         </ThemedView>
     );
@@ -397,7 +400,7 @@ const getStyles = (colorScheme, gymColor) => {
             borderRadius: 14,
             elevation: 2,
             shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,
-             borderWidth: 1, borderColor: Colors[colorScheme].border 
+            borderWidth: 1, borderColor: Colors[colorScheme].border
         },
         className: {
             fontSize: 18,
