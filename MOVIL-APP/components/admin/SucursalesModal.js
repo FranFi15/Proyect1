@@ -3,10 +3,28 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import CustomAlert from '@/components/CustomAlert';
 
 const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const dynamicStyles = getStyles(colorScheme, gymColor);
+
+    const [internalAlert, setInternalAlert] = useState({ visible: false, title: '', message: '', buttons: [] });
+
+    const showAlert = (alertData) => {
+        setInternalAlert({
+            visible: true,
+            title: alertData.title || '',
+            message: alertData.message || '',
+            buttons: alertData.buttons ? alertData.buttons.map(b => ({
+                ...b,
+                onPress: () => {
+                    setInternalAlert(prev => ({ ...prev, visible: false }));
+                    if (b.onPress) b.onPress();
+                }
+            })) : [{ text: 'OK', style: 'primary', onPress: () => setInternalAlert(prev => ({ ...prev, visible: false })) }]
+        });
+    };
 
     const [sucursales, setSucursales] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -29,14 +47,11 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
             setSucursales(res.data || []);
         } catch (error) {
             console.error("Error cargando sucursales:", error);
-            if (setAlertInfo) {
-                setAlertInfo({
-                    visible: true,
-                    title: 'Error',
-                    message: 'No se pudieron cargar las sucursales.',
-                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                });
-            }
+            showAlert({
+                title: 'Error',
+                message: 'No se pudieron cargar las sucursales.',
+                buttons: [{ text: 'OK', style: 'primary' }]
+            });
         } finally {
             setLoading(false);
         }
@@ -56,14 +71,11 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
 
     const handleSave = async () => {
         if (!nombre || !nombre.trim()) {
-            if (setAlertInfo) {
-                setAlertInfo({
-                    visible: true,
-                    title: 'Atención',
-                    message: 'El nombre de la sucursal es obligatorio.',
-                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                });
-            }
+            showAlert({
+                title: 'Atención',
+                message: 'El nombre de la sucursal es obligatorio.',
+                buttons: [{ text: 'OK', style: 'primary' }]
+            });
             return;
         }
 
@@ -74,80 +86,65 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                     nombre: nombre.trim(),
                     direccion: direccion.trim()
                 });
-                if (setAlertInfo) {
-                    setAlertInfo({
-                        visible: true,
-                        title: 'Éxito',
-                        message: 'Sucursal actualizada correctamente.',
-                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                    });
-                }
+                showAlert({
+                    title: 'Éxito',
+                    message: 'Sucursal actualizada correctamente.',
+                    buttons: [{ text: 'OK', style: 'primary' }]
+                });
             } else {
                 await apiClient.post('/sucursales', {
                     nombre: nombre.trim(),
                     direccion: direccion.trim()
                 });
-                if (setAlertInfo) {
-                    setAlertInfo({
-                        visible: true,
-                        title: 'Éxito',
-                        message: 'Sucursal creada correctamente.',
-                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                    });
-                }
+                showAlert({
+                    title: 'Éxito',
+                    message: 'Sucursal creada correctamente.',
+                    buttons: [{ text: 'OK', style: 'primary' }]
+                });
             }
             handleCancelEdit();
             fetchSucursales();
         } catch (error) {
             console.error("Error guardando sucursal:", error);
-            if (setAlertInfo) {
-                setAlertInfo({
-                    visible: true,
-                    title: 'Error',
-                    message: error.response?.data?.message || 'No se pudo guardar la sucursal.',
-                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                });
-            }
+            showAlert({
+                title: 'Error',
+                message: error.response?.data?.message || 'No se pudo guardar la sucursal.',
+                buttons: [{ text: 'OK', style: 'primary' }]
+            });
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = (sucursal) => {
-        if (setAlertInfo) {
-            setAlertInfo({
-                visible: true,
-                title: 'Eliminar Sucursal',
-                message: `¿Estás seguro de que deseas eliminar "${sucursal.nombre}"? Los turnos asignados a esta sucursal serán reasignados o desvinculados.`,
-                buttons: [
-                    { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                    {
-                        text: 'Eliminar',
-                        style: 'destructive',
-                        onPress: async () => {
-                            setAlertInfo({ visible: false });
-                            try {
-                                await apiClient.delete(`/sucursales/${sucursal._id}`);
-                                setAlertInfo({
-                                    visible: true,
-                                    title: 'Éxito',
-                                    message: 'Sucursal eliminada correctamente.',
-                                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                                });
-                                fetchSucursales();
-                            } catch (error) {
-                                setAlertInfo({
-                                    visible: true,
-                                    title: 'Error',
-                                    message: error.response?.data?.message || 'No se pudo eliminar la sucursal.',
-                                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                                });
-                            }
+        showAlert({
+            title: 'Eliminar Sucursal',
+            message: `¿Estás seguro de que deseas eliminar "${sucursal.nombre}"? Los turnos asignados a esta sucursal serán reasignados o desvinculados.`,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await apiClient.delete(`/sucursales/${sucursal._id}`);
+                            showAlert({
+                                title: 'Éxito',
+                                message: 'Sucursal eliminada correctamente.',
+                                buttons: [{ text: 'OK', style: 'primary' }]
+                            });
+                            fetchSucursales();
+                        } catch (error) {
+                            showAlert({
+                                title: 'Error',
+                                message: error.response?.data?.message || 'No se pudo eliminar la sucursal.',
+                                buttons: [{ text: 'OK', style: 'primary' }]
+                            });
                         }
                     }
-                ]
-            });
-        }
+                }
+            ]
+        });
     };
 
     return (
@@ -169,6 +166,16 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                             <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                     </View>
+
+                    <CustomAlert
+                        inline={true}
+                        visible={internalAlert.visible}
+                        title={internalAlert.title}
+                        message={internalAlert.message}
+                        buttons={internalAlert.buttons}
+                        onClose={() => setInternalAlert({ ...internalAlert, visible: false })}
+                        gymColor={gymColor}
+                    />
 
                     <ScrollView style={dynamicStyles.modalBody} contentContainerStyle={{ paddingBottom: 30 }}>
                         {/* Formulario Crear/Editar */}

@@ -238,7 +238,7 @@ const ProfileScreen = () => {
                 {/* Botones para abrir los modales */}
                 <View style={styles.menuContainer}>
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('sucursales')}>
-                        <Ionicons name="business" size={24} color={gymColor || Colors[colorScheme].icon}/>
+                        <Ionicons name="business" size={24} color={Colors[colorScheme].icon}/>
                         <ThemedText style={styles.menuButtonText}>Gestión de Sucursales</ThemedText>
                     </TouchableOpacity>
 
@@ -283,7 +283,6 @@ const ProfileScreen = () => {
                 onClose={() => setActiveModal(null)}
                 gymColor={gymColor}
                 apiClient={apiClient}
-                setAlertInfo={setAlertInfo}
             />
 
             <CustomAlert
