@@ -157,7 +157,7 @@ const ManageClassesScreen = () => {
                 apiClient.get('/users?role=profesor'),
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase?forCreation=true'),
-                apiClient.get('/sucursales')
+                apiClient.get('/sucursales').catch(() => ({ data: [] }))
             ]);
             setClasses(classesRes?.data || []);
             setTeachers(teachersRes?.data || []);

@@ -415,7 +415,7 @@
                     apiClient.get('/classes'),
                     apiClient.get('/tipos-clase?forCreation=true'),
                     apiClient.get('/scoreboards/active'),
-                    apiClient.get('/sucursales')
+                    apiClient.get('/sucursales').catch(() => ({ data: [] }))
                 ]);
                 
                 setAllClasses(classesResponse.data);
