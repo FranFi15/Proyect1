@@ -238,7 +238,7 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                                         <Text style={dynamicStyles.sucursalNombre}>{item.nombre}</Text>
                                         {item.direccion ? (
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                                <Ionicons name="location-outline" size={14} color={theme.colors.text} style={{ opacity: 0.7, marginRight: 4 }} />
+                                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.7, marginRight: 4 }} />
                                                 <Text style={[dynamicStyles.sucursalDireccion, { marginTop: 0 }]}>{item.direccion}</Text>
                                             </View>
                                         ) : (
