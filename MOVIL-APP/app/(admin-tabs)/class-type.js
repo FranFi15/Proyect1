@@ -270,7 +270,7 @@ const ClassTypeManagementScreen = () => {
     const [searchPackageTerm, setSearchPackageTerm] = useState('');
     const [isPackageModalVisible, setIsPackageModalVisible] = useState(false);
     const [packageFormData, setPackageFormData] = useState({
-        name: '', description: '', price: '', isPaseLibre: false, durationDays: '30', creditsAmount: '1', tipoClase: ''
+        name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: ''
     });
 
     const [isLoading, setIsLoading] = useState(true);
@@ -393,7 +393,8 @@ const ClassTypeManagementScreen = () => {
             name: pkg.name,
             description: pkg.description || '',
             price: pkg.price.toString(),
-            isPaseLibre: pkg.isPaseLibre,
+            isPaseLibre: pkg.isPaseLibre || false,
+            isMembresia: pkg.isMembresia || false,
             durationDays: pkg.durationDays?.toString() || '30',
             creditsAmount: pkg.creditsAmount?.toString() || '1',
             tipoClase: pkg.tipoClase?._id || pkg.tipoClase || ''
@@ -429,6 +430,7 @@ const ClassTypeManagementScreen = () => {
             description: packageFormData.description,
             price: Number(packageFormData.price),
             isPaseLibre: packageFormData.isPaseLibre,
+            isMembresia: packageFormData.isMembresia,
             durationDays: Number(packageFormData.durationDays) || 30,
             creditsAmount: Number(packageFormData.creditsAmount) || 0,
             tipoClase: packageFormData.tipoClase || null
@@ -458,7 +460,7 @@ const ClassTypeManagementScreen = () => {
         } else {
             // 🔥 Aseguramos limpiar el formulario al crear uno nuevo
             setEditingPackage(null);
-            setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
+            setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
             setIsPackageModalVisible(true);
         }
     };
@@ -553,7 +555,7 @@ const ClassTypeManagementScreen = () => {
                                 ${item.price}
                             </ThemedText>
                             <ThemedText style={styles.cardDescription}>
-                                {item.isPaseLibre ? `Pase Libre (${item.durationDays} días)` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'Clase'}`}
+                                {item.isPaseLibre ? `Acceso Libre (${item.durationDays} días)` : item.isMembresia ? `Membresía QR (${item.durationDays} días)` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'Clase'}`}
                             </ThemedText>
                         </View>
                         {/* 🔥 NUEVOS BOTONES 🔥 */}
@@ -645,13 +647,23 @@ const ClassTypeManagementScreen = () => {
                             <TextInput style={styles.input} placeholder="Ej: Incluye matricula gratis" value={packageFormData.description} onChangeText={(text) => handlePackageFormChange('description', text)} placeholderTextColor="#999" />
 
                             <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Es un Pase Libre?</ThemedText>
-                                <Switch trackColor={{ true: gymColor }} value={packageFormData.isPaseLibre} onValueChange={(value) => handlePackageFormChange('isPaseLibre', value)} />
+                                <ThemedText style={styles.inputLabel}>¿Es Acceso Libre (Turnos + QR)?</ThemedText>
+                                <Switch trackColor={{ true: gymColor }} value={packageFormData.isPaseLibre} onValueChange={(val) => {
+                                    handlePackageFormChange('isPaseLibre', val);
+                                    if (val) handlePackageFormChange('isMembresia', false);
+                                }} />
+                            </View>
+                            <View style={styles.switchContainer}>
+                                <ThemedText style={styles.inputLabel}>¿Es Membresía (Solo QR)?</ThemedText>
+                                <Switch trackColor={{ true: gymColor }} value={packageFormData.isMembresia} onValueChange={(val) => {
+                                    handlePackageFormChange('isMembresia', val);
+                                    if (val) handlePackageFormChange('isPaseLibre', false);
+                                }} />
                             </View>
 
-                            {packageFormData.isPaseLibre ? (
+                            {(packageFormData.isPaseLibre || packageFormData.isMembresia) ? (
                                 <>
-                                    <ThemedText style={styles.inputLabel}>Duración del Pase Libre (Días)</ThemedText>
+                                    <ThemedText style={styles.inputLabel}>Duración (Días)</ThemedText>
                                     <TextInput style={styles.input} placeholder="Ej: 30" keyboardType="numeric" value={packageFormData.durationDays} onChangeText={(text) => handlePackageFormChange('durationDays', text)} placeholderTextColor="#999" />
                                 </>
                             ) : (

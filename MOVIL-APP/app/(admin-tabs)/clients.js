@@ -94,6 +94,7 @@ const UserCardItem = React.memo(({
     handleOpenBillingModal,
     handleOpenCreditsModal,
     handleQuickRemovePaseLibre,
+    handleQuickRemoveMembresia,
     setSelectedMedicalOrderClient,
     handleOpenEditModal,
     handleDeleteClient,
@@ -105,6 +106,9 @@ const UserCardItem = React.memo(({
     const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
     const isPaseLibreActive = paseLibreDate && isValid(paseLibreDate) && !isBefore(paseLibreDate, today);
     const isPaseLibreExpired = paseLibreDate && isValid(paseLibreDate) && isBefore(paseLibreDate, today);
+    const membresiaDate = item.membresiaHasta ? parseISO(item.membresiaHasta) : null;
+    const isMembresiaActive = membresiaDate && isValid(membresiaDate) && !isBefore(membresiaDate, today);
+    const isMembresiaExpired = membresiaDate && isValid(membresiaDate) && isBefore(membresiaDate, today);
     const balance = item.balance || 0;
     const isDebtor = balance < 0; 
 
@@ -177,7 +181,7 @@ const UserCardItem = React.memo(({
                         <View style={[dynamicStyles.paseLibreContainer, { marginBottom: 8 }]}>
                             <Ionicons name="star" size={14} color="#fff" />
                             <Text style={dynamicStyles.paseLibreText}>
-                               Pase Libre hasta - {formatDateUTC(item.paseLibreHasta)}
+                               Acceso Libre hasta - {formatDateUTC(item.paseLibreHasta)}
                             </Text>
                         </View>
                     )}
@@ -185,7 +189,23 @@ const UserCardItem = React.memo(({
                         <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c', marginBottom: 8 }]}> 
                             <Ionicons name="alert-circle" size={14} color="#fff" />
                             <Text style={dynamicStyles.paseLibreText}>
-                                Pase Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
+                                Acceso Libre Vencido - {formatDateUTC(item.paseLibreHasta)}
+                            </Text>
+                        </View>
+                    )}
+                    {isMembresiaActive && (
+                        <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#3498db', marginBottom: 8 }]}>
+                            <Ionicons name="qr-code" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                               Membresía (QR) hasta - {formatDateUTC(item.membresiaHasta)}
+                            </Text>
+                        </View>
+                    )}
+                    {isMembresiaExpired && (
+                        <View style={[dynamicStyles.paseLibreContainer, { backgroundColor: '#e74c3c', marginBottom: 8 }]}> 
+                            <Ionicons name="alert-circle" size={14} color="#fff" />
+                            <Text style={dynamicStyles.paseLibreText}>
+                                Membresía Vencida - {formatDateUTC(item.membresiaHasta)}
                             </Text>
                         </View>
                     )}
@@ -204,6 +224,11 @@ const UserCardItem = React.memo(({
                         {(isPaseLibreActive || isPaseLibreExpired) && (
                             <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemovePaseLibre(item)}>
                                 <Ionicons name="star" size={22} color="#e74c3c" />
+                            </TouchableOpacity>
+                        )}
+                        {(isMembresiaActive || isMembresiaExpired) && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemoveMembresia(item)}>
+                                <Ionicons name="qr-code-outline" size={22} color="#e74c3c" />
                             </TouchableOpacity>
                         )}
                         {item.roles.includes('cliente') && (
@@ -286,6 +311,7 @@ const ManageClientsScreen = () => {
     const [isReceptionQrVisible, setIsReceptionQrVisible] = useState(false);
     const [selectedMedicalOrderClient, setSelectedMedicalOrderClient] = useState(null);
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
+    const [membresiaData, setMembresiaData] = useState({ desde: null, hasta: null });
     const [creditsModalTab, setCreditsModalTab] = useState('credits');
     
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
@@ -347,7 +373,31 @@ const ManageClientsScreen = () => {
     const handleUpgradePlan = async () => { setIsSubmitting(true); try { const response = await apiClient.put('/users/upgrade-plan'); setAlertInfo({ visible: true, title: '¡Plan Ampliado!', message: `Tu límite de clientes ha sido aumentado a ${response.data.newLimit}.`, buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); setActiveModal(null); await fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo ampliar el plan.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } finally { setIsSubmitting(false); } };
     const handleAddClientSubmit = async () => { setLoading(true); try { if (!newClientData.nombre || !newClientData.email || !newClientData.contraseña) throw new Error('Por favor, ingresa todos los campos obligatorios.'); await apiClient.post('/auth/register', newClientData); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio registrado correctamente.'}); setActiveModal(null); await fetchAllData(); } catch (error) { let errorMessage = 'Ocurrió un error inesperado.'; if (error.response?.data?.message) errorMessage = error.response.data.message; else if (error.message) errorMessage = error.message; if (error.response?.status === 403) setActiveModal('upgrade'); else setAlertInfo({ visible: true, title: 'Error de Registro', message: errorMessage }); } finally { setLoading(false); } };
     const handleOpenBillingModal = (client) => { setSelectedClient(client); setBillingModalVisible(true); };
-    const handleOpenCreditsModal = (client) => { setSelectedClient(client); setPlanData({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' }); setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' }); setAvailableSlots([]); setSelectedSlot(null); setCreditsModalTab('credits'); setCreditsModalVisible(true); };
+    const handleOpenCreditsModal = (client) => { 
+        setSelectedClient(client); 
+        setPlanData({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' }); 
+        setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' }); 
+        setAvailableSlots([]); 
+        setSelectedSlot(null); 
+        if (client.paseLibreDesde && client.paseLibreHasta) {
+            setPaseLibreData({
+                desde: client.paseLibreDesde.substring(0, 10),
+                hasta: client.paseLibreHasta.substring(0, 10)
+            });
+        } else {
+            setPaseLibreData({ desde: null, hasta: null });
+        }
+        if (client.membresiaDesde && client.membresiaHasta) {
+            setMembresiaData({
+                desde: client.membresiaDesde.substring(0, 10),
+                hasta: client.membresiaHasta.substring(0, 10)
+            });
+        } else {
+            setMembresiaData({ desde: null, hasta: null });
+        }
+        setCreditsModalTab('credits'); 
+        setCreditsModalVisible(true); 
+    };
     const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
@@ -459,10 +509,14 @@ const ManageClientsScreen = () => {
     const handlePaseLibreDateChange = (field, dateString) => { setPaseLibreData(prev => ({ ...prev, [field]: dateString })); };
     const handleQuickAddMembership = (months) => { const today = new Date(); const startStr = format(today, 'yyyy-MM-dd'); const endStr = format(months === 12 ? addYears(today, 1) : addMonths(today, months), 'yyyy-MM-dd'); setPaseLibreData({ desde: startStr, hasta: endStr }); };
     const handleSavePaseLibre = async () => { if (!selectedClient || !paseLibreData.desde || !paseLibreData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/pase-libre`, { paseLibreDesde: paseLibreData.desde, paseLibreHasta: paseLibreData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar el Pase Libre.' }); } };
+    const handleMembresiaDateChange = (field, dateString) => { setMembresiaData(prev => ({ ...prev, [field]: dateString })); };
+    const handleQuickAddMembresia = (months) => { const today = new Date(); const startStr = format(today, 'yyyy-MM-dd'); const endStr = format(months === 12 ? addYears(today, 1) : addMonths(today, months), 'yyyy-MM-dd'); setMembresiaData({ desde: startStr, hasta: endStr }); };
+    const handleSaveMembresia = async () => { if (!selectedClient || !membresiaData.desde || !membresiaData.hasta) { return setAlertInfo({ visible: true, title: 'Error', message: 'Debes seleccionar ambas fechas.' }); } try { await apiClient.put(`/users/${selectedClient._id}/membresia`, { membresiaDesde: membresiaData.desde, membresiaHasta: membresiaData.hasta, }); fetchAllData(); setAlertInfo({ visible: true, title: 'Éxito', message: 'Membresía actualizada.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo guardar la Membresía.' }); } };
     const handleMassEnrollDateChange = (field, dateString) => { setMassEnrollFilters(prev => ({ ...prev, [field]: dateString })); };
     const handleGeneralScan = async ({ data }) => { setScannerVisible(false); try { const response = await apiClient.post('/check-in/scan', { userId: data }); let messageDetail = 'No hay turnos pendientes para hoy.'; if (response.data.classes && response.data.classes.length > 0) { messageDetail = response.data.classes.map(c => `${c.nombre} ${c.horario}`).join('\n'); } else if (response.data.message.includes('finalizaron')) { messageDetail = 'Todos sus turnos de hoy ya finalizaron.'; } setAlertInfo({ visible: true, title: response.data.message, message: messageDetail, }); } catch (error) { setAlertInfo({ visible: true, title: 'Error de Check-in', message: error.response?.data?.message || 'No se pudo verificar al cliente.', }); } };
     const handleToggleUserStatus = async (user, newStatus) => { try { await apiClient.put(`/users/${user._id}/status`, { isActive: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, isActive: newStatus } : u)); setEditingClientData(prev => ({ ...prev, isActive: newStatus })); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado del cliente ha sido actualizado.' }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.' }); setEditingClientData(prev => ({ ...prev, isActive: !newStatus })); } };
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
+    const handleQuickRemoveMembresia = (client) => { setAlertInfo({ visible: true, title: "Quitar Membresía", message: `¿Estás seguro de que quieres quitar la Membresía a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/membresia`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Membresía eliminada correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la Membresía.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
     const renderUserCard = useCallback(({ item }) => (
@@ -474,12 +528,13 @@ const ManageClientsScreen = () => {
             handleOpenBillingModal={handleOpenBillingModal}
             handleOpenCreditsModal={handleOpenCreditsModal}
             handleQuickRemovePaseLibre={handleQuickRemovePaseLibre}
+            handleQuickRemoveMembresia={handleQuickRemoveMembresia}
             setSelectedMedicalOrderClient={setSelectedMedicalOrderClient}
             handleOpenEditModal={handleOpenEditModal}
             handleDeleteClient={handleDeleteClient}
             getTypeName={getTypeName}
         />
-    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, getTypeName]);
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, getTypeName]);
 
     const renderTransferCard = useCallback(({ item }) => {
         return (
@@ -775,19 +830,25 @@ const ManageClientsScreen = () => {
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'credits' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setCreditsModalTab('credits')}
                                 >
-                                    <Text style={{ color: creditsModalTab === 'credits' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Créditos</Text>
+                                    <Text style={{ color: creditsModalTab === 'credits' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Crédito</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity 
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'freeAccess' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setCreditsModalTab('freeAccess')}
                                 >
-                                    <Text style={{ color: creditsModalTab === 'freeAccess' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Acceso Libre</Text>
+                                    <Text style={{ color: creditsModalTab === 'freeAccess' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Acceso Libre</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'membership' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setCreditsModalTab('membership')}
+                                >
+                                    <Text style={{ color: creditsModalTab === 'membership' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Membresía</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity 
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: creditsModalTab === 'fixedSchedule' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setCreditsModalTab('fixedSchedule')}
                                 >
-                                    <Text style={{ color: creditsModalTab === 'fixedSchedule' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 11 }}>Horario Fijo</Text>
+                                    <Text style={{ color: creditsModalTab === 'fixedSchedule' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Horario Fijo</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -824,7 +885,7 @@ const ManageClientsScreen = () => {
 
                             {creditsModalTab === 'freeAccess' && (
                                 <View style={dynamicStyles.section}>
-                                    <ThemedText style={dynamicStyles.sectionTitle}>Membresía de Acceso Libre / Musculación</ThemedText>
+                                    <ThemedText style={dynamicStyles.sectionTitle}>Acceso Libre (Turnos ilimitados + QR)</ThemedText>
                                     <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 6 }]}>Duración rápida (desde hoy):</ThemedText>
                                     <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                                         <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembership(1)}>
@@ -849,7 +910,39 @@ const ManageClientsScreen = () => {
                                         </View>
                                     </View>
                                     <View style={dynamicStyles.buttonWrapper}>
-                                        <Button title="Activar Membresía Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                                        <Button title="Activar Acceso Libre" onPress={handleSavePaseLibre} color={gymColor} />
+                                    </View>
+                                </View>
+                            )}
+
+                            {creditsModalTab === 'membership' && (
+                                <View style={dynamicStyles.section}>
+                                    <ThemedText style={dynamicStyles.sectionTitle}>Membresía (Acceso Solo por QR)</ThemedText>
+                                    <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 6 }]}>Duración rápida (desde hoy):</ThemedText>
+                                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembresia(1)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Mes</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembresia(3)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+3 Meses</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembresia(6)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+6 Meses</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={{ backgroundColor: gymColor || '#007bff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15 }} onPress={() => handleQuickAddMembresia(12)}>
+                                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>+1 Año</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={dynamicStyles.row}>
+                                        <View style={{flex: 1, marginRight: 5}}>
+                                            {renderDateField('Desde', membresiaData.desde, (val) => handleMembresiaDateChange('desde', val))}
+                                        </View>
+                                        <View style={{flex: 1, marginLeft: 5}}>
+                                            {renderDateField('Hasta', membresiaData.hasta, (val) => handleMembresiaDateChange('hasta', val))}
+                                        </View>
+                                    </View>
+                                    <View style={dynamicStyles.buttonWrapper}>
+                                        <Button title="Activar Membresía" onPress={handleSaveMembresia} color={gymColor} />
                                     </View>
                                 </View>
                             )}

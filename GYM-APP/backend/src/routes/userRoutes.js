@@ -26,6 +26,8 @@ import {
     updateUserStatus,
     updateUserPaseLibre,
     removeUserPaseLibre,
+    updateUserMembresia,
+    removeUserMembresia,
     updateRMs,
     getFinancialStats,
     uploadOrdenMedica,
@@ -81,6 +83,8 @@ router.route('/:id/subscribe-to-plan')
 
 router.put('/:id/pase-libre', protect, authorizeRoles('admin'), updateUserPaseLibre);   
 router.delete('/:id/pase-libre', protect, authorizeRoles('admin'), removeUserPaseLibre);
+router.put('/:id/membresia', protect, authorizeRoles('admin'), updateUserMembresia);   
+router.delete('/:id/membresia', protect, authorizeRoles('admin'), removeUserMembresia);
 
 router.route('/:userId/fixed-plan/:planId')
     .delete(protect, authorizeRoles('admin'), removeFixedPlan);

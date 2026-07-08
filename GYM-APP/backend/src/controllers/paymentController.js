@@ -9,7 +9,7 @@ const expo = new Expo();
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
-    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, durationDays } = req.body;
+    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays } = req.body;
 
     if (!name || !price) {
         res.status(400);
@@ -17,7 +17,7 @@ const createPackage = asyncHandler(async (req, res) => {
     }
 
     const newPackage = await PaymentPackage.create({
-        name, description, price, tipoClase, creditsAmount, isPaseLibre, durationDays
+        name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays
     });
 
     res.status(201).json(newPackage);
@@ -220,6 +220,13 @@ const processTransferTicket = asyncHandler(async (req, res) => {
                 vencimientoPase.setDate(hoy.getDate() + ticket.package.durationDays);
                 vencimientoPase.setUTCHours(23, 59, 59, 999);
                 user.paseLibreHasta = vencimientoPase;
+            } else if (ticket.package.isMembresia) {
+                const hoy = new Date();
+                user.membresiaDesde = hoy;
+                const vencimientoMembresia = new Date(hoy);
+                vencimientoMembresia.setDate(hoy.getDate() + ticket.package.durationDays);
+                vencimientoMembresia.setUTCHours(23, 59, 59, 999);
+                user.membresiaHasta = vencimientoMembresia;
             } else if (ticket.package.tipoClase && ticket.package.creditsAmount > 0) {
                 const tipoClaseId = ticket.package.tipoClase.toString();
                 const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;

@@ -106,6 +106,12 @@ const userSchema = mongoose.Schema({
     paseLibreHasta: {
         type: Date,
     },
+    membresiaDesde: {
+        type: Date,
+    },
+    membresiaHasta: {
+        type: Date,
+    },
     clasesInscritas: [
         {
             type: mongoose.Schema.Types.ObjectId,

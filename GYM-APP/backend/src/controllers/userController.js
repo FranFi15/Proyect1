@@ -50,6 +50,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
         isActive: user.isActive,
         paseLibreDesde: user.paseLibreDesde,
         paseLibreHasta: user.paseLibreHasta,
+        membresiaDesde: user.membresiaDesde,
+        membresiaHasta: user.membresiaHasta,
         puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -106,6 +108,8 @@ const getMe = asyncHandler(async (req, res) => {
             isActive: user.isActive,
             paseLibreDesde: user.paseLibreDesde,
             paseLibreHasta: user.paseLibreHasta,
+            membresiaDesde: user.membresiaDesde,
+            membresiaHasta: user.membresiaHasta,
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
@@ -579,7 +583,7 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
 
 
 const removeFixedPlan = asyncHandler(async (req, res) => {
-    const { User } = getModels(req.gymDBConnection);
+    const { User, Clase } = getModels(req.gymDBConnection);
     const { userId, planId } = req.params;
 
     const user = await User.findById(userId);
@@ -588,17 +592,36 @@ const removeFixedPlan = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado.');
     }
 
-    // --- LÓGICA A PRUEBA DE ERRORES ---
-    // 1. Verificamos si 'planesFijos' es un array.
     if (Array.isArray(user.planesFijos)) {
-        // 2. Si es un array, usamos .filter() para crear uno nuevo sin el plan a eliminar.
-        //    Esto es más seguro que .pull() con datos potencialmente inconsistentes.
+        const planToRemove = user.planesFijos.find(p => p._id && p._id.toString() === planId);
+        if (planToRemove) {
+            // Liberar cupos del usuario en todas las clases futuras activas que coincidan con este plan
+            const hoy = new Date();
+            const futureClasses = await Clase.find({
+                tipoClase: planToRemove.tipoClase,
+                horaInicio: planToRemove.horaInicio,
+                fecha: { $gte: hoy },
+                usuariosInscritos: user._id
+            });
+
+            for (const cls of futureClasses) {
+                cls.usuariosInscritos = cls.usuariosInscritos.filter(id => id.toString() !== user._id.toString());
+                cls.inscripcionesDetalle = (cls.inscripcionesDetalle || []).filter(d => d.user && d.user.toString() !== user._id.toString());
+                if (cls.estado === 'llena' && cls.usuariosInscritos.length < cls.capacidad) {
+                    cls.estado = 'activa';
+                }
+                await cls.save();
+            }
+
+            // Quitar los IDs de clases futuras de user.clasesInscritas
+            const futureClassIds = futureClasses.map(c => c._id.toString());
+            user.clasesInscritas = (user.clasesInscritas || []).filter(id => !futureClassIds.includes(id.toString()));
+        }
+
         user.planesFijos = user.planesFijos.filter(
             (plan) => plan._id.toString() !== planId
         );
     } else {
-        // 3. Si no es un array (es un dato antiguo), simplemente lo ignoramos o lo reseteamos.
-        //    De esta forma, la operación nunca falla.
         console.warn(`El usuario ${userId} tenía un campo 'planesFijos' con formato incorrecto. Se ha ignorado.`);
     }
 
@@ -908,6 +931,68 @@ const removeUserPaseLibre = asyncHandler(async (req, res) => {
     res.json({ message: 'El Pase Libre del usuario ha sido eliminado.' });
 });
 
+const updateUserMembresia = asyncHandler(async (req, res) => {
+    const { User, Notification } = getModels(req.gymDBConnection);
+    const { membresiaDesde, membresiaHasta } = req.body;
+    
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.membresiaDesde = membresiaDesde ? new Date(membresiaDesde) : undefined;
+
+    if (membresiaHasta) {
+        const hasta = new Date(membresiaHasta);
+        hasta.setUTCHours(23, 59, 59, 999);
+        user.membresiaHasta = hasta;
+    } else {
+        user.membresiaHasta = undefined;
+    }
+
+    await user.save();
+
+    if (membresiaDesde && membresiaHasta) {
+        const title = "¡Tienes una Membresía activa!";
+        const message = `Tu Membresía de acceso por QR es válida desde el ${format(new Date(membresiaDesde), 'dd/MM/yyyy')} hasta el ${format(new Date(membresiaHasta), 'dd/MM/yyyy')}.`;
+        try {
+            await sendSingleNotification(Notification, User, user._id, title, message, 'membresia_update');
+        } catch (error) {
+            console.error("Error enviando notificación de membresía:", error);
+        }
+    }
+
+    res.json({
+        message: 'La Membresía del usuario ha sido actualizada.',
+        user: {
+            _id: user._id,
+            nombre: user.nombre,
+            membresiaDesde: user.membresiaDesde,
+            membresiaHasta: user.membresiaHasta,
+        }
+    });
+});
+
+const removeUserMembresia = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
+    
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.membresiaDesde = null;
+    user.membresiaHasta = null;
+
+    await user.save();
+
+    res.json({ message: 'La Membresía del usuario ha sido eliminada.' });
+});
+
 const updateRMs = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     
@@ -1047,6 +1132,8 @@ export {
     updateUserStatus,
     updateUserPaseLibre,
     removeUserPaseLibre,
+    updateUserMembresia,
+    removeUserMembresia,
     updateRMs,
     getFinancialStats,
     uploadOrdenMedica,

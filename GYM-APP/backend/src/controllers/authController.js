@@ -140,6 +140,10 @@ const registerUser = asyncHandler(async (req, res) => {
             _id: user._id, 
             nombre: user.nombre, 
             email: user.email, 
+            paseLibreDesde: user.paseLibreDesde,
+            paseLibreHasta: user.paseLibreHasta,
+            membresiaDesde: user.membresiaDesde,
+            membresiaHasta: user.membresiaHasta,
             // --- CORRECCIÓN DEL BUG: Se añade req.gymId ---
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre) 
         });
@@ -193,6 +197,10 @@ const loginUser = asyncHandler(async (req, res) => {
             direccion: user.direccion, 
             numeroTelefono: user.numeroTelefono,
             obraSocial: user.obraSocial,
+            paseLibreDesde: user.paseLibreDesde,
+            paseLibreHasta: user.paseLibreHasta,
+            membresiaDesde: user.membresiaDesde,
+            membresiaHasta: user.membresiaHasta,
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre),
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             fotoPerfil: user.fotoPerfil,
