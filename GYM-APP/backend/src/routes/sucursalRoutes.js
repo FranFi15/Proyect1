@@ -6,16 +6,16 @@ import {
     updateSucursal,
     deleteSucursal
 } from '../controllers/sucursalController.js';
-import { protect, admin } from '../middlewares/authMiddleware.js';
+import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 router.route('/')
     .get(protect, getSucursales)
-    .post(protect, admin, createSucursal);
+    .post(protect, authorizeRoles('admin'), createSucursal);
 
 router.route('/:id')
-    .put(protect, admin, updateSucursal)
-    .delete(protect, admin, deleteSucursal);
+    .put(protect, authorizeRoles('admin'), updateSucursal)
+    .delete(protect, authorizeRoles('admin'), deleteSucursal);
 
 export default router;
