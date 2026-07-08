@@ -593,6 +593,7 @@ const ManageClassesScreen = () => {
                     tipoClase: cls.tipoClase,
                     horaInicio: cls.horaInicio,
                     horaFin: cls.horaFin,
+                    capacidad: cls.capacidad,
                     profesor: cls.profesor,
                     profesores: cls.profesores,
                     diasDeSemana: new Set(),
@@ -748,6 +749,7 @@ const ManageClassesScreen = () => {
             profesores: profesoresIds,
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
+            capacidad: group.capacidad ? group.capacidad.toString() : '',
             diasDeSemana: [...group.diasDeSemana]
         });
         setShowBulkEditModal(true);

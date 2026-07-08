@@ -232,6 +232,7 @@ const updateClass = asyncHandler(async (req, res) => {
     }
 
     const oldHoraInicio = classItem.horaInicio;
+    const oldHoraFin = classItem.horaFin;
     const oldFecha = classItem.fecha;
 
      if (otherUpdates.fecha) {
@@ -249,9 +250,18 @@ const updateClass = asyncHandler(async (req, res) => {
          classItem.profesores = Array.isArray(profesores) ? profesores : [profesores];
     }
 
+    if (otherUpdates.horaInicio || otherUpdates.horaFin) {
+        const updatedInicio = otherUpdates.horaInicio || oldHoraInicio;
+        const updatedFin = otherUpdates.horaFin || oldHoraFin;
+        if (classItem.horarioFijo || classItem.tipoInscripcion === 'fijo') {
+            classItem.horarioFijo = `${updatedInicio} - ${updatedFin}`;
+        }
+    }
+
     const updatedClass = await classItem.save();
 
     if ((otherUpdates.horaInicio && otherUpdates.horaInicio !== oldHoraInicio) || 
+        (otherUpdates.horaFin && otherUpdates.horaFin !== oldHoraFin) || 
         (otherUpdates.fecha && otherUpdates.fecha.getTime() !== oldFecha.getTime())) {
         
         const fechaLegible = format(new Date(updatedClass.fecha), 'dd/MM');
@@ -262,7 +272,7 @@ const updateClass = asyncHandler(async (req, res) => {
                 User,
                 user._id,
                 "Cambio de Horario",
-                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} fue reprogramado a las ${updatedClass.horaInicio}hs.`,
+                `Tu turno de "${updatedClass.nombre}" del día ${fechaLegible} fue reprogramado al horario de ${updatedClass.horaInicio}hs a ${updatedClass.horaFin}hs.`,
                 'class_update', 
                 true,
                 updatedClass._id
@@ -439,61 +449,80 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     let tipoCreditoADescontar = null; 
     let fechaVencimientoCapturada = null;
 
+    const hoy = new Date();
+    const fechaTurno = new Date(classItem.fecha);
+    const tienePaseLibreValidoParaEsteTurno = user.paseLibreDesde && user.paseLibreHasta &&
+        fechaTurno >= user.paseLibreDesde && fechaTurno <= user.paseLibreHasta;
+
     const tipoClaseId = classItem.tipoClase._id.toString();
-    let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
 
-    if (creditosEspecificos > 0) {
-        user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
+    if (!tienePaseLibreValidoParaEsteTurno) {
+        let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
 
-        const indicesVto = user.vencimientosDetallados
-            .map((v, i) => v.tipoClaseId.toString() === tipoClaseId ? i : -1)
-            .filter(i => i !== -1)
-            .sort((a, b) => user.vencimientosDetallados[a].fechaVencimiento - user.vencimientosDetallados[b].fechaVencimiento);
+        if (creditosEspecificos > 0) {
+            user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
 
-        if (indicesVto.length > 0) {
-            const idx = indicesVto[0];
-            fechaVencimientoCapturada = user.vencimientosDetallados[idx].fechaVencimiento;
-            user.vencimientosDetallados[idx].cantidad -= 1;
-            if (user.vencimientosDetallados[idx].cantidad <= 0) {
-                user.vencimientosDetallados.splice(idx, 1);
+            const indicesVto = user.vencimientosDetallados
+                .map((v, i) => v.tipoClaseId.toString() === tipoClaseId ? i : -1)
+                .filter(i => i !== -1)
+                .sort((a, b) => user.vencimientosDetallados[a].fechaVencimiento - user.vencimientosDetallados[b].fechaVencimiento);
+
+            if (indicesVto.length > 0) {
+                const idx = indicesVto[0];
+                fechaVencimientoCapturada = user.vencimientosDetallados[idx].fechaVencimiento;
+                user.vencimientosDetallados[idx].cantidad -= 1;
+                if (user.vencimientosDetallados[idx].cantidad <= 0) {
+                    user.vencimientosDetallados.splice(idx, 1);
+                }
+            }
+            tipoCreditoADescontar = classItem.tipoClase._id; 
+        } else {
+            const universalType = await TipoClase.findOne({ esUniversal: true });
+            if (universalType) {
+                const uId = universalType._id.toString();
+                const uCreds = user.creditosPorTipo.get(uId) || 0;
+                if (uCreds > 0) {
+                    user.creditosPorTipo.set(uId, uCreds - 1);
+                     const indicesVtoUni = user.vencimientosDetallados
+                        .map((v, i) => v.tipoClaseId.toString() === uId ? i : -1)
+                        .filter(i => i !== -1)
+                        .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
+                     
+                     if (indicesVtoUni.length > 0) {
+                         const idxU = indicesVtoUni[0];
+                         fechaVencimientoCapturada = user.vencimientosDetallados[idxU].fechaVencimiento;
+                         user.vencimientosDetallados[idxU].cantidad -= 1;
+                         if (user.vencimientosDetallados[idxU].cantidad <= 0) user.vencimientosDetallados.splice(idxU, 1);
+                     }
+                    tipoCreditoADescontar = universalType._id;
+                }
             }
         }
-        tipoCreditoADescontar = classItem.tipoClase._id; 
-    } else {
-        const universalType = await TipoClase.findOne({ esUniversal: true });
-        if (universalType) {
-            const uId = universalType._id.toString();
-            const uCreds = user.creditosPorTipo.get(uId) || 0;
-            if (uCreds > 0) {
-                user.creditosPorTipo.set(uId, uCreds - 1);
-                 const indicesVtoUni = user.vencimientosDetallados
-                    .map((v, i) => v.tipoClaseId.toString() === uId ? i : -1)
-                    .filter(i => i !== -1)
-                    .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
-                 
-                 if (indicesVtoUni.length > 0) {
-                     const idxU = indicesVtoUni[0];
-                     fechaVencimientoCapturada = user.vencimientosDetallados[idxU].fechaVencimiento;
-                     user.vencimientosDetallados[idxU].cantidad -= 1;
-                     if (user.vencimientosDetallados[idxU].cantidad <= 0) user.vencimientosDetallados.splice(idxU, 1);
-                 }
-                tipoCreditoADescontar = universalType._id;
+
+        if (!tipoCreditoADescontar) {
+            if (user.paseLibreHasta) {
+                res.status(400);
+                const fechaVencimiento = format(new Date(user.paseLibreHasta), 'dd/MM/yyyy');
+                throw new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+            } else if (user.membresiaHasta && new Date(user.membresiaHasta) >= hoy) {
+                res.status(400);
+                throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}". (Tu Membresía solo es válida para ingresar al gimnasio sin turno mediante código QR).`);
+            } else {
+                res.status(400);
+                throw new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
             }
         }
-    }
-
-    if (!tipoCreditoADescontar) {
-        res.status(400);
-        throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}". (La Membresía de Acceso Libre solo es válida para ingresar al gimnasio sin turno mediante código QR).`);
     }
 
     classItem.usuariosInscritos.push(userId);
     
-    classItem.inscripcionesDetalle.push({
-        user: userId,
-        tipoCreditoUsado: tipoCreditoADescontar,
-        fechaVencimientoCredito: fechaVencimientoCapturada
-    });
+    if (!tienePaseLibreValidoParaEsteTurno && tipoCreditoADescontar) {
+        classItem.inscripcionesDetalle.push({
+            user: userId,
+            tipoCreditoUsado: tipoCreditoADescontar,
+            fechaVencimientoCredito: fechaVencimientoCapturada
+        });
+    }
 
     if (classItem.usuariosInscritos.length >= classItem.capacidad) {
         classItem.estado = 'llena';
@@ -511,7 +540,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const creditosRestantes = user.creditosPorTipo.get(tipoClaseId);
 
     // Comprobamos si tiene 
-    if (creditosRestantes === 0) {
+    if (!tienePaseLibreValidoParaEsteTurno && creditosRestantes === 0) {
 
         setTimeout(async () => {
             try {
@@ -568,33 +597,39 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
     }
 
-    const detalle = clase.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
-    let creditoADevolverId = detalle?.tipoCreditoUsado ? detalle.tipoCreditoUsado.toString() : clase.tipoClase._id.toString();
+    const hoy = new Date();
+    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
+                                 hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
 
-    const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
-    user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
-    
-    let fechaRestaurada;
-    if (detalle && detalle.fechaVencimientoCredito) {
-        fechaRestaurada = detalle.fechaVencimientoCredito;
-    } else {
-        const fechaDefault = new Date();
-        fechaDefault.setDate(fechaDefault.getDate() + 30);
-        fechaRestaurada = fechaDefault;
+    if (!tienePaseLibreActivo) {
+        const detalle = clase.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
+        let creditoADevolverId = detalle?.tipoCreditoUsado ? detalle.tipoCreditoUsado.toString() : clase.tipoClase._id.toString();
+
+        const currentCredits = user.creditosPorTipo.get(creditoADevolverId) || 0;
+        user.creditosPorTipo.set(creditoADevolverId, currentCredits + 1);
+        
+        let fechaRestaurada;
+        if (detalle && detalle.fechaVencimientoCredito) {
+            fechaRestaurada = detalle.fechaVencimientoCredito;
+        } else {
+            const fechaDefault = new Date();
+            fechaDefault.setDate(fechaDefault.getDate() + 30);
+            fechaRestaurada = fechaDefault;
+        }
+
+        user.vencimientosDetallados.push({
+            tipoClaseId: creditoADevolverId,
+            cantidad: 1,
+            fechaVencimiento: fechaRestaurada,
+            idCarga: 'DEVOLUCION-CLASE' 
+        });
+
+        if (clase.inscripcionesDetalle) {
+            clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
+        }
+        
+        user.markModified('creditosPorTipo');
     }
-
-    user.vencimientosDetallados.push({
-        tipoClaseId: creditoADevolverId,
-        cantidad: 1,
-        fechaVencimiento: fechaRestaurada,
-        idCarga: 'DEVOLUCION-CLASE' 
-    });
-
-    if (clase.inscripcionesDetalle) {
-        clase.inscripcionesDetalle = clase.inscripcionesDetalle.filter(d => d.user.toString() !== userId.toString());
-    }
-    
-    user.markModified('creditosPorTipo');
 
     user.clasesInscritas.pull(classId);
     clase.usuariosInscritos.pull(userId);
@@ -734,7 +769,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
 
 // --- LÓGICA INTELIGENTE IMPLEMENTADA AQUÍ ---
 const bulkUpdateClasses = asyncHandler(async (req, res) => {
-    // Añadimos User y Notification para poder hacer los reembolsos
+    // Añadimos User y Notification para poder hacer los reembolsos y notificar cambios de horario
     const { Clase, User, Notification } = getModels(req.gymDBConnection);
     const { filters, updates } = req.body;
 
@@ -756,6 +791,40 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (futureInstances.length === 0) {
         res.status(404);
         throw new Error('No se encontraron clases futuras para modificar.');
+    }
+
+    const oldTipoClase = futureInstances[0].tipoClase;
+    const oldHoraInicio = futureInstances[0].horaInicio;
+    const oldHoraFin = futureInstances[0].horaFin;
+    const newHoraInicio = updates.horaInicio || oldHoraInicio;
+    const newHoraFin = updates.horaFin || oldHoraFin;
+    const timeChanged = (updates.horaInicio && updates.horaInicio !== oldHoraInicio) || (updates.horaFin && updates.horaFin !== oldHoraFin);
+
+    // Actualizamos automáticamente las suscripciones permanentes de Horario Fijo en los usuarios
+    if (timeChanged || (updates.diasDeSemana && updates.diasDeSemana.length > 0)) {
+        const usersWithFixedPlan = await User.find({
+            "planesFijos.tipoClase": oldTipoClase,
+            "planesFijos.horaInicio": oldHoraInicio
+        });
+
+        for (const user of usersWithFixedPlan) {
+            let userModified = false;
+            if (Array.isArray(user.planesFijos)) {
+                for (const plan of user.planesFijos) {
+                    if (plan.tipoClase.toString() === oldTipoClase.toString() && plan.horaInicio === oldHoraInicio) {
+                        if (updates.horaInicio) plan.horaInicio = updates.horaInicio;
+                        if (updates.horaFin) plan.horaFin = updates.horaFin;
+                        if (updates.diasDeSemana && Array.isArray(updates.diasDeSemana) && updates.diasDeSemana.length > 0) {
+                            plan.diasDeSemana = updates.diasDeSemana;
+                        }
+                        userModified = true;
+                    }
+                }
+            }
+            if (userModified) {
+                await user.save();
+            }
+        }
     }
 
     // 1. Lógica inteligente: Verificar si los días de la semana REALMENTE cambiaron
@@ -838,8 +907,8 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.horaFin) template.horaFin = updates.horaFin;
         if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); 
 
-        if (updates.horaInicio && updates.horaFin) {
-            template.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
+        if (updates.horaInicio || updates.horaFin) {
+            template.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
         }
         
         const ruleStart = new Date(fechaDesdeFiltro);
@@ -879,8 +948,37 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
     if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); 
     
-    if (updates.horaInicio && updates.horaFin) {
-        updateData.$set.horarioFijo = `${updates.horaInicio} - ${updates.horaFin}`;
+    if (updates.horaInicio || updates.horaFin) {
+        updateData.$set.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
+    }
+
+    if (timeChanged) {
+        // Notificar a todos los usuarios inscritos en las instancias futuras si el horario fue modificado
+        const uniqueUsersToNotify = new Map();
+        for (const inst of futureInstances) {
+            if (inst.usuariosInscritos && inst.usuariosInscritos.length > 0) {
+                const fechaLegible = format(new Date(inst.fecha), 'dd/MM');
+                for (const userId of inst.usuariosInscritos) {
+                    const uidStr = userId.toString();
+                    if (!uniqueUsersToNotify.has(uidStr)) {
+                        uniqueUsersToNotify.set(uidStr, []);
+                    }
+                    uniqueUsersToNotify.get(uidStr).push(fechaLegible);
+                }
+            }
+        }
+        for (const [userIdStr, fechas] of uniqueUsersToNotify.entries()) {
+            await sendSingleNotification(
+                Notification,
+                User,
+                userIdStr,
+                "Cambio de Horario en Turnos",
+                `El horario de tus turnos "${futureInstances[0].nombre}" (${fechas.slice(0, 3).join(', ')}${fechas.length > 3 ? '...' : ''}) fue modificado a las ${newHoraInicio}hs - ${newHoraFin}hs.`,
+                'class_update',
+                true,
+                futureInstances[0]._id
+            );
+        }
     }
 
     const result = await Clase.updateMany(query, updateData);

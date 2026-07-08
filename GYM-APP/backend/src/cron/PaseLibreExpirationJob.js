@@ -62,20 +62,24 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
             
             const { User, Notification } = getModels(connection);
 
-            // Buscamos usuarios que tengan un pase libre activo y que venza mañana
+            // Buscamos usuarios que tengan un pase libre o membresía activo y que venza mañana
             const expiringUsers = await User.find({
                 isActive: true,
-                paseLibreHasta: {
-                    $gte: startOfTargetDay,
-                    $lte: endOfTargetDay
-                },
+                $or: [
+                    { paseLibreHasta: { $gte: startOfTargetDay, $lte: endOfTargetDay } },
+                    { membresiaHasta: { $gte: startOfTargetDay, $lte: endOfTargetDay } }
+                ],
                 pushToken: { $exists: true, $ne: null } // Solo usuarios con notificaciones activas
             });
 
             if (expiringUsers.length === 0) continue;
 
             for (const user of expiringUsers) {
-                // Verificar si ya se envió notificación hoy para no duplicar (opcional pero recomendado)
+                const isPaseLibreExpiring = user.paseLibreHasta && user.paseLibreHasta >= startOfTargetDay && user.paseLibreHasta <= endOfTargetDay;
+                const expirationDate = isPaseLibreExpiring ? user.paseLibreHasta : user.membresiaHasta;
+                const tipoNombre = isPaseLibreExpiring ? "Pase Libre" : "Membresía";
+
+                // Verificar si ya se envió notificación hoy para no duplicar
                 const existingNotification = await Notification.findOne({
                     user: user._id,
                     type: 'pase_libre_expiration',
@@ -83,9 +87,9 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
                 });
 
                 if (!existingNotification) {
-                    const expirationDateFormatted = format(user.paseLibreHasta, "EEEE d 'de' MMMM", { locale: es });
-                    const title = "¡Tu Pase Libre vence pronto!";
-                    const message = `Hola ${user.nombre}, te recordamos que tu Pase Libre finaliza mañana ${expirationDateFormatted}.`;
+                    const expirationDateFormatted = format(expirationDate, "EEEE d 'de' MMMM", { locale: es });
+                    const title = `¡Tu ${tipoNombre} vence pronto!`;
+                    const message = `Hola ${user.nombre}, te recordamos que tu ${tipoNombre} finaliza mañana ${expirationDateFormatted}.`;
 
                     await sendSingleNotification(
                         Notification,
@@ -94,10 +98,10 @@ const checkPaseLibreExpiration = asyncHandler(async () => {
                         title,
                         message,
                         'pase_libre_expiration',
-                        true, // isImportant (para que salga el modal si quieres, o false si es solo push)
+                        true, // isImportant
                         null
                     );
-                    console.log(`🔔 Aviso de vencimiento de Pase Libre enviado a ${user.email} (Gym: ${clientId})`);
+                    console.log(`🔔 Aviso de vencimiento de ${tipoNombre} enviado a ${user.email} (Gym: ${clientId})`);
                 }
             }
         } catch (error) {

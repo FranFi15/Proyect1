@@ -21,6 +21,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     const todayEnd = endOfDay(new Date());
 
     const hasActivePaseLibre = user.paseLibreHasta && new Date(user.paseLibreHasta) >= todayStart;
+    const hasActiveMembresia = user.membresiaHasta && new Date(user.membresiaHasta) >= todayStart;
     const hasOpenMembership = user.monthlySubscriptions?.some(sub => 
         sub.status === 'active' && (
             sub.tipoClase?.nombre?.toLowerCase().includes('libre') || 
@@ -37,7 +38,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     }).populate('tipoClase', 'nombre').sort({ horaInicio: 'asc' });
 
     if (enrolledClassesToday.length === 0) {
-        if (hasActivePaseLibre || hasOpenMembership) {
+        if (hasActivePaseLibre || hasActiveMembresia || hasOpenMembership) {
             const alreadyRecordedToday = user.historialAsistencias.some(h => 
                 (!h.claseId || h.nombreClase === 'Acceso Libre / Musculación') && new Date(h.fecha) >= todayStart
             );
@@ -61,7 +62,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
 
         return res.status(403).json({
             success: false,
-            message: `❌ ${user.nombre} ${user.apellido} no está inscripto en ningún turno hoy y no cuenta con Pase Libre activo.`,
+            message: `❌ ${user.nombre} ${user.apellido} no está inscripto en ningún turno hoy y no cuenta con Acceso Libre o Membresía activa.`,
         });
     }
 
@@ -76,7 +77,7 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
     const upcomingClasses = enrolledClassesToday.filter(clase => clase.horaFin > currentTime);
 
     if (upcomingClasses.length === 0) {
-        if (hasActivePaseLibre || hasOpenMembership) {
+        if (hasActivePaseLibre || hasActiveMembresia || hasOpenMembership) {
             return res.status(200).json({
                 success: true,
                 message: `✅ Acceso Libre Permitido - ${user.nombre} ${user.apellido}`,
@@ -139,6 +140,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
     const todayEnd = endOfDay(new Date());
 
     const hasActivePaseLibre = user.paseLibreHasta && new Date(user.paseLibreHasta) >= todayStart;
+    const hasActiveMembresia = user.membresiaHasta && new Date(user.membresiaHasta) >= todayStart;
     const hasOpenMembership = user.monthlySubscriptions?.some(sub => 
         sub.status === 'active' && (
             sub.tipoClase?.nombre?.toLowerCase().includes('libre') || 
@@ -154,7 +156,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
     }).populate('tipoClase', 'nombre').sort({ horaInicio: 'asc' });
 
     if (enrolledClassesToday.length === 0) {
-        if (hasActivePaseLibre || hasOpenMembership) {
+        if (hasActivePaseLibre || hasActiveMembresia || hasOpenMembership) {
             const alreadyRecordedToday = user.historialAsistencias.some(h => 
                 (!h.claseId || h.nombreClase === 'Acceso Libre / Musculación') && new Date(h.fecha) >= todayStart
             );
@@ -178,7 +180,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
 
         return res.status(403).json({
             success: false,
-            message: `❌ No estás inscripto en ningún turno hoy y no cuentas con Pase Libre activo.`,
+            message: `❌ No estás inscripto en ningún turno hoy y no cuentas con Acceso Libre o Membresía activa.`,
         });
     }
 
@@ -193,7 +195,7 @@ const processClientReceptionScan = asyncHandler(async (req, res) => {
     const upcomingClasses = enrolledClassesToday.filter(clase => clase.horaFin > currentTime);
 
     if (upcomingClasses.length === 0) {
-        if (hasActivePaseLibre || hasOpenMembership) {
+        if (hasActivePaseLibre || hasActiveMembresia || hasOpenMembership) {
             return res.status(200).json({
                 success: true,
                 message: `✅ Acceso Libre registrado con éxito`,
