@@ -249,8 +249,12 @@ const MyClassesScreen = () => {
                             <Ionicons name="checkmark-circle" size={14} color="#28a745" />
                             <Text style={styles.presentText}>PRESENTE</Text>
                         </View>
-                    )}
                 </View>
+                {item.sucursal?.nombre && (
+                    <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
+                        📍 {item.sucursal.nombre}
+                    </Text>
+                )}
                 <ThemedText style={styles.classInfoText}>
                                     A cargo de: {formatTeachers(item)}
                                 </ThemedText>

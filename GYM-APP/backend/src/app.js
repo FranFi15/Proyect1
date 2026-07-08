@@ -23,6 +23,7 @@ import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import scoreboardRoutes from './routes/scoreboardRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import sucursalRoutes from './routes/sucursalRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -102,6 +103,7 @@ app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
+app.use('/api/sucursales', gymTenantMiddleware, sucursalRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);

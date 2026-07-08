@@ -286,6 +286,7 @@ const ManageClientsScreen = () => {
     const [billingModalVisible, setBillingModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
+    const [sucursales, setSucursales] = useState([]);
     const [planData, setPlanData] = useState({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' });
     const [massEnrollFilters, setMassEnrollFilters] = useState({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' });
     const [availableSlots, setAvailableSlots] = useState([]);
@@ -323,12 +324,13 @@ const ManageClientsScreen = () => {
 
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse, transfersResponse] = await Promise.all([
+            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse, transfersResponse, sucursalesResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/users/subscription-info'),
                 apiClient.get('/users/financial-stats'),
-                apiClient.get('/payments/tickets/pending') 
+                apiClient.get('/payments/tickets/pending'),
+                apiClient.get('/sucursales')
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
@@ -336,6 +338,7 @@ const ManageClientsScreen = () => {
             setSubscriptionInfo(subInfoResponse.data);
             setDebtStats(debtResponse.data); 
             setPendingTransfers(transfersResponse.data || []);
+            setSucursales(sucursalesResponse?.data || []);
 
         } catch (error) {
             console.error(error);
@@ -398,7 +401,7 @@ const ManageClientsScreen = () => {
         setCreditsModalTab('credits'); 
         setCreditsModalVisible(true); 
     };
-    const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
+    const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false, todasLasSucursales: client.todasLasSucursales !== undefined ? client.todasLasSucursales : true, sucursales: (client.sucursales || []).map(s => typeof s === 'object' ? s._id : s) }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     const handlePlanSubmit = async () => { if (!selectedClient || !planData.tipoClaseId) { setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, selecciona un tipo de Turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); return; } const payload = { tipoClaseId: planData.tipoClaseId, creditsToAdd: Number(planData.creditsToAdd) || 0, isSubscription: planData.isSubscription, autoRenewAmount: Number(planData.autoRenewAmount) || 0, }; try { await apiClient.put(`/users/${selectedClient._id}/plan`, payload); setAlertInfo({ visible: true, title: 'Éxito', message: 'El plan del socio ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } };
@@ -407,7 +410,7 @@ const ManageClientsScreen = () => {
     const handleDaySelection = (day) => { const currentDays = massEnrollFilters.diasDeSemana; const newDays = currentDays.includes(day) ? currentDays.filter(d => d !== day) : [...currentDays, day]; setMassEnrollFilters(prev => ({ ...prev, diasDeSemana: newDays })); };
     const handleNewClientChange = (name, value) => setNewClientData(prev => ({ ...prev, [name]: value }));
     const handleEditingClientChange = (name, value) => setEditingClientData(prev => ({ ...prev, [name]: value }));
-    const handleUpdateClientSubmit = async () => { if (!editingClientData) return; const updatePayload = { nombre: editingClientData.nombre, apellido: editingClientData.apellido, email: editingClientData.email, dni: editingClientData.dni, sexo: editingClientData.sexo, fechaNacimiento: editingClientData.fechaNacimiento, numeroTelefono: editingClientData.numeroTelefono, telefonoEmergencia: editingClientData.telefonoEmergencia, obraSocial: editingClientData.obraSocial, roles: editingClientData.roles, direccion: editingClientData.direccion, ordenMedicaRequerida: editingClientData.ordenMedicaRequerida, ordenMedicaEntregada: editingClientData.ordenMedicaEntregada, puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios, }; try { await apiClient.put(`/users/${editingClientData._id}`, updatePayload); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' }); setShowEditFormModal(false); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' }); } };
+    const handleUpdateClientSubmit = async () => { if (!editingClientData) return; const updatePayload = { nombre: editingClientData.nombre, apellido: editingClientData.apellido, email: editingClientData.email, dni: editingClientData.dni, sexo: editingClientData.sexo, fechaNacimiento: editingClientData.fechaNacimiento, numeroTelefono: editingClientData.numeroTelefono, telefonoEmergencia: editingClientData.telefonoEmergencia, obraSocial: editingClientData.obraSocial, roles: editingClientData.roles, direccion: editingClientData.direccion, ordenMedicaRequerida: editingClientData.ordenMedicaRequerida, ordenMedicaEntregada: editingClientData.ordenMedicaEntregada, puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios, todasLasSucursales: editingClientData.todasLasSucursales, sucursales: editingClientData.sucursales || [] }; try { await apiClient.put(`/users/${editingClientData._id}`, updatePayload); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' }); setShowEditFormModal(false); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' }); } };
     const handleToggleMedicalOrder = (user) => { const newStatus = !user.ordenMedicaEntregada; const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE"; setAlertInfo({ visible: true, title: `Confirmar Orden Médica`, message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${user.nombre} ${user.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Confirmar", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.put(`/users/${user._id}`, { ordenMedicaEntregada: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, ordenMedicaEntregada: newStatus } : u)); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     
     // --- HANDLER TRANSFERENCIAS ---
@@ -793,10 +796,56 @@ const ManageClientsScreen = () => {
                                     <ThemedText style={dynamicStyles.filterButtonText}>{getDisplayName(editingClientData.roles[0], 'role')}</ThemedText>
                                     <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
-                               <View style={dynamicStyles.switchRow}>
-                            <ThemedText style={dynamicStyles.inputLabel}>Cuenta Activa</ThemedText>
-                            <Switch value={editingClientData.isActive} onValueChange={(value) => handleToggleUserStatus(editingClientData, value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
-                        </View>
+                                <View style={dynamicStyles.switchRow}>
+                             <ThemedText style={dynamicStyles.inputLabel}>Cuenta Activa</ThemedText>
+                             <Switch value={editingClientData.isActive} onValueChange={(value) => handleToggleUserStatus(editingClientData, value)} trackColor={{ false: "#767577", true: gymColor }} thumbColor={"#f4f3f4"} />
+                         </View>
+
+                                <View style={dynamicStyles.switchRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 2 }]}>Acceso a Todas las Sucursales</ThemedText>
+                                        <Text style={{ fontSize: 12, color: colorScheme === 'dark' ? '#aaa' : '#666' }}>
+                                            Si está activo, el socio podrá tomar turnos en cualquier sucursal.
+                                        </Text>
+                                    </View>
+                                    <Switch
+                                        value={editingClientData.todasLasSucursales !== undefined ? editingClientData.todasLasSucursales : true}
+                                        onValueChange={(val) => handleEditingClientChange('todasLasSucursales', val)}
+                                        trackColor={{ false: "#767577", true: gymColor }}
+                                        thumbColor={"#f4f3f4"}
+                                    />
+                                </View>
+
+                                {editingClientData.todasLasSucursales === false && sucursales && sucursales.length > 0 && (
+                                    <View style={{ marginVertical: 10, padding: 12, backgroundColor: colorScheme === 'dark' ? '#2c2c2e' : '#f2f2f7', borderRadius: 10 }}>
+                                        <ThemedText style={[dynamicStyles.inputLabel, { marginBottom: 8 }]}>Seleccionar Sucursales Permitidas:</ThemedText>
+                                        {sucursales.map(suc => {
+                                            const isSelected = (editingClientData.sucursales || []).some(s => (typeof s === 'object' ? s._id : s) === suc._id);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={suc._id}
+                                                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}
+                                                    onPress={() => {
+                                                        const current = editingClientData.sucursales || [];
+                                                        const exists = current.some(s => (typeof s === 'object' ? s._id : s) === suc._id);
+                                                        const updated = exists
+                                                            ? current.filter(s => (typeof s === 'object' ? s._id : s) !== suc._id)
+                                                            : [...current, suc._id];
+                                                        handleEditingClientChange('sucursales', updated);
+                                                    }}
+                                                >
+                                                    <Ionicons
+                                                        name={isSelected ? "checkbox" : "square-outline"}
+                                                        size={22}
+                                                        color={isSelected ? gymColor : Colors[colorScheme].icon}
+                                                        style={{ marginRight: 10 }}
+                                                    />
+                                                    <ThemedText style={{ fontSize: 15 }}>{suc.nombre}</ThemedText>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                )}
                                 <View style={dynamicStyles.modalActions}><View style={dynamicStyles.buttonWrapper}><Button title="Guardar Cambios" onPress={handleUpdateClientSubmit} color={gymColor} /></View></View>
                             </ScrollView>
                         </Pressable>

@@ -82,6 +82,7 @@ const ManageClassesScreen = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const [classes, setClasses] = useState([]);
+    const [sucursales, setSucursales] = useState([]);
     const [teachers, setTeachers] = useState([]);
     const [classTypes, setClassTypes] = useState([]);
 
@@ -139,6 +140,7 @@ const ManageClassesScreen = () => {
         diaDeSemana: [],
         fechaInicio: '',
         fechaFin: '',
+        sucursal: '',
     });
 
 
@@ -150,15 +152,17 @@ const ManageClassesScreen = () => {
     const fetchAllData = useCallback(async () => {
         try {
             const cacheBuster = `?t=${new Date().getTime()}`;
-            const [classesRes, teachersRes, usersRes, typesRes] = await Promise.all([
+            const [classesRes, teachersRes, usersRes, typesRes, sucursalesRes] = await Promise.all([
                 apiClient.get(`/classes/admin${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
                 apiClient.get('/users'),
-                apiClient.get('/tipos-clase?forCreation=true')
+                apiClient.get('/tipos-clase?forCreation=true'),
+                apiClient.get('/sucursales')
             ]);
             setClasses(classesRes?.data || []);
             setTeachers(teachersRes?.data || []);
             setAllUsers(usersRes?.data || []);
+            setSucursales(sucursalesRes?.data || []);
             const filteredTypes = (typesRes.data.tiposClase || []).filter(type => !type.esUniversal);
             setClassTypes(filteredTypes);
         } catch (error) {
@@ -285,6 +289,7 @@ const ManageClassesScreen = () => {
             diaDeSemana: classItem.diaDeSemana || [],
             fechaInicio: '',
             fechaFin: '',
+            sucursal: classItem.sucursal?._id || classItem.sucursal || (sucursales.length > 0 ? sucursales[0]._id : ''),
         });
         setShowAddModal(true);
     };
@@ -509,6 +514,13 @@ const ManageClassesScreen = () => {
                     onSelect: (id) => handleFormChange('tipoClase', id),
                     selectedValue: formData.tipoClase,
                 };
+            case 'formSucursal':
+                return {
+                    title: 'Seleccionar Sucursal',
+                    options: sucursales.map(s => ({ _id: s._id, nombre: s.nombre })),
+                    onSelect: (id) => handleFormChange('sucursal', id),
+                    selectedValue: formData.sucursal,
+                };
             case 'formInscriptionType':
                 return {
                     title: 'Seleccionar Tipo de Inscripción',
@@ -519,7 +531,7 @@ const ManageClassesScreen = () => {
             default:
                 return null;
         }
-    }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, selectedRecurrentClassTypeFilter, bulkUpdates.profesor]);
+    }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, formData.sucursal, selectedRecurrentClassTypeFilter, bulkUpdates.profesor, sucursales]);
 
 
 
@@ -686,6 +698,11 @@ const ManageClassesScreen = () => {
                         <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
                            {item.nombre || "Turno"} - {item.tipoClase?.nombre}
                         </ThemedText>
+                        {item.sucursal?.nombre && (
+                            <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
+                                📍 {item.sucursal.nombre}
+                            </Text>
+                        )}
                         <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
                             Horario: {item.horaInicio}hs - {item.horaFin}hs
                         </ThemedText>
@@ -907,6 +924,11 @@ const ManageClassesScreen = () => {
                     <View style={{ flex: 1 }}>
                         <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
                         <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
+                        {item.sucursal?.nombre && (
+                            <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginBottom: 2 }}>
+                                📍 {item.sucursal.nombre}
+                            </Text>
+                        )}
                         <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
                         <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
                         <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
@@ -1054,7 +1076,24 @@ const ManageClassesScreen = () => {
                 )}
             />
 
-            <TouchableOpacity style={styles.fab} onPress={() => { setEditingClass(null); setShowAddModal(true); }}>
+            <TouchableOpacity style={styles.fab} onPress={() => {
+                setEditingClass(null);
+                setFormData({
+                    tipoClase: classTypes.length > 0 ? classTypes[0]._id : '',
+                    nombre: '',
+                    fecha: format(new Date(), 'yyyy-MM-dd'),
+                    horaInicio: '09:00',
+                    horaFin: '10:00',
+                    capacidad: '10',
+                    profesores: teachers.length > 0 ? [teachers[0]._id] : [],
+                    tipoInscripcion: 'libre',
+                    diaDeSemana: [],
+                    fechaInicio: format(new Date(), 'yyyy-MM-dd'),
+                    fechaFin: '',
+                    sucursal: sucursales.length > 0 ? sucursales[0]._id : '',
+                });
+                setShowAddModal(true);
+            }}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
             {datePickerConfig.visible && Platform.OS === 'ios' && (
@@ -1114,6 +1153,18 @@ const ManageClassesScreen = () => {
                                     <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
                                     <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
                                 </TouchableOpacity>
+
+                                {sucursales && sucursales.length > 0 && (
+                                    <>
+                                        <ThemedText style={styles.inputLabel}>Sucursal del Turno</ThemedText>
+                                        <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formSucursal')}>
+                                            <ThemedText style={styles.filterButtonText}>
+                                                {sucursales.find(s => s._id === formData.sucursal)?.nombre || '📍 Todas / Sucursal 1'}
+                                            </ThemedText>
+                                            <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
 
                                 <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
                                 <View style={styles.weekDayContainer}> 
