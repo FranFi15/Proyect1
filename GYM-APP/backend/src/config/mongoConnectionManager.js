@@ -3,8 +3,6 @@ import mongoose from 'mongoose';
 import axios from 'axios';
 import getModels from '../utils/getModels.js';
 
-const activeConnections = new Map();
-
 const forceStagingConnection = (originalString) => {
     const stagingClusterURI = process.env.MONGO_URI_BASE; 
 
@@ -77,13 +75,32 @@ const getDbConfig = async (clientId) => {
     }
 };
 
+const activeConnections = new Map();
+const tenantMetadataCache = new Map();
+const METADATA_TTL_MS = 15 * 1000; // 15 segundos
+
 const connectToGymDB = async (clientId) => {
-    if (activeConnections.has(clientId)) {
-        console.log(`🔌 Reutilizando conexión para: ${clientId}`);
-        return activeConnections.get(clientId);
+    let dbConfig;
+    const cachedTenant = tenantMetadataCache.get(clientId);
+    if (cachedTenant && (Date.now() - cachedTenant.timestamp < METADATA_TTL_MS)) {
+        dbConfig = cachedTenant.config;
+    } else {
+        dbConfig = await getDbConfig(clientId);
+        tenantMetadataCache.set(clientId, { config: dbConfig, timestamp: Date.now() });
     }
 
-    const { connectionStringDB, gymId, apiSecretKey, timezone, pais } = await getDbConfig(clientId);
+    const { connectionStringDB, gymId, apiSecretKey, timezone, pais } = dbConfig;
+
+    if (activeConnections.has(connectionStringDB)) {
+        const cachedConn = activeConnections.get(connectionStringDB);
+        return {
+            connection: cachedConn.connection,
+            superAdminId: gymId,
+            apiSecretKey: apiSecretKey,
+            timezone: timezone || 'America/Argentina/Buenos_Aires',
+            pais: pais || 'Argentina'
+        };
+    }
 
     try {
         console.log(`✨ Creando nueva conexión para ${clientId} (${pais || 'Argentina'} - ${timezone || 'America/Argentina/Buenos_Aires'})`); 
@@ -99,7 +116,7 @@ const connectToGymDB = async (clientId) => {
             pais: pais || 'Argentina'
         };
 
-        activeConnections.set(clientId, connectionData);
+        activeConnections.set(connectionStringDB, connectionData);
 
         return connectionData;
 
