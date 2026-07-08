@@ -247,7 +247,7 @@ const ProfileScreen = () => {
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('settings')}>
                         <Ionicons name="settings" size={24} color={Colors[colorScheme].icon} />
-                        <ThemedText style={styles.menuButtonText}>Configuración General </ThemedText>
+                        <ThemedText style={styles.menuButtonText}>Configuración </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('edit')}>

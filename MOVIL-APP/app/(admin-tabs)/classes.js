@@ -521,6 +521,13 @@ const ManageClassesScreen = () => {
                     onSelect: (id) => handleFormChange('sucursal', id),
                     selectedValue: formData.sucursal,
                 };
+            case 'bulkSucursal':
+                return {
+                    title: 'Seleccionar Sucursal para Grupo',
+                    options: sucursales.map(s => ({ _id: s._id, nombre: s.nombre })),
+                    onSelect: (id) => setBulkUpdates(p => ({ ...p, sucursal: id })),
+                    selectedValue: bulkUpdates.sucursal,
+                };
             case 'formInscriptionType':
                 return {
                     title: 'Seleccionar Tipo de Inscripción',
@@ -531,7 +538,7 @@ const ManageClassesScreen = () => {
             default:
                 return null;
         }
-    }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, formData.sucursal, selectedRecurrentClassTypeFilter, bulkUpdates.profesor, sucursales]);
+    }, [activeModal, classTypes, teachers, formData.tipoClase, formData.profesor, formData.tipoInscripcion, formData.sucursal, selectedRecurrentClassTypeFilter, bulkUpdates.profesor, bulkUpdates.sucursal, sucursales]);
 
 
 
@@ -770,7 +777,8 @@ const ManageClassesScreen = () => {
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
             capacidad: group.capacidad ? group.capacidad.toString() : '',
-            diasDeSemana: [...group.diasDeSemana]
+            diasDeSemana: [...group.diasDeSemana],
+            sucursal: group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '')
         });
         setShowBulkEditModal(true);
     };
@@ -1375,6 +1383,20 @@ const ManageClassesScreen = () => {
                             <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
                             <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
                             <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
+                            {sucursales && sucursales.length > 0 && (
+                                <>
+                                    <ThemedText style={styles.inputLabel}>Sucursal del Grupo:</ThemedText>
+                                    <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('bulkSucursal')}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                            <ThemedText style={styles.filterButtonText}>
+                                                {sucursales.find(s => s._id === bulkUpdates.sucursal)?.nombre || 'Seleccionar Sucursal'}
+                                            </ThemedText>
+                                        </View>
+                                        <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                    </TouchableOpacity>
+                                </>
+                            )}
                             <ThemedText style={styles.inputLabel}>A cargo de (Seleccionar para cambiar)</ThemedText>
                             <View style={styles.weekDayContainer}> 
                                 {teachers.map(teacher => (
