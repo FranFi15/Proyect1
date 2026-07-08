@@ -237,7 +237,10 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                                     <View style={dynamicStyles.sucursalInfo}>
                                         <Text style={dynamicStyles.sucursalNombre}>{item.nombre}</Text>
                                         {item.direccion ? (
-                                            <Text style={dynamicStyles.sucursalDireccion}>📍 {item.direccion}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                                <Ionicons name="location-outline" size={14} color={theme.colors.text} style={{ opacity: 0.7, marginRight: 4 }} />
+                                                <Text style={[dynamicStyles.sucursalDireccion, { marginTop: 0 }]}>{item.direccion}</Text>
+                                            </View>
                                         ) : (
                                             <Text style={dynamicStyles.sucursalDireccionSin}>Sin dirección especificada</Text>
                                         )}

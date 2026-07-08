@@ -254,9 +254,12 @@ const MyClassesScreen = () => {
                     )}
                 </View>
                 {item.sucursal?.nombre && (
-                    <Text style={{ fontSize: 12, color: gymColor || '#007bff', fontWeight: 'bold', marginVertical: 2 }}>
-                        {item.sucursal.nombre}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                        <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
+                        <ThemedText style={[styles.classInfoText, { marginBottom: 0 }]}>
+                            {item.sucursal.nombre}
+                        </ThemedText>
+                    </View>
                 )}
                 <ThemedText style={styles.classInfoText}>
                     A cargo de: {formatTeachers(item)}
