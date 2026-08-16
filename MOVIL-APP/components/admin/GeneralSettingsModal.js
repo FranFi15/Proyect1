@@ -15,7 +15,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [saving, setSaving] = useState(false);
     const [classTypes, setClassTypes] = useState([]);
     const [visibilityDays, setVisibilityDays] = useState('0');
-    const [cancellationTimeLimitHours, setCancellationTimeLimitHours] = useState('1');
+    const [cancellationTimeLimitMinutes, setCancellationTimeLimitMinutes] = useState('60');
     const [maxDailyClassesPerUser, setMaxDailyClassesPerUser] = useState('0');
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
@@ -50,7 +50,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
             
             if (settingsRes.data) {
                 setVisibilityDays((settingsRes.data.classVisibilityDays ?? 0).toString());
-                setCancellationTimeLimitHours((settingsRes.data.cancellationTimeLimitHours ?? 1).toString());
+                setCancellationTimeLimitMinutes((settingsRes.data.cancellationTimeLimitMinutes ?? 60).toString());
                 setMaxDailyClassesPerUser((settingsRes.data.maxDailyClassesPerUser ?? 0).toString());
 
                 if (settingsRes.data.bankDetails) {
@@ -89,7 +89,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         try {
             const payload = { 
                 classVisibilityDays: Number(visibilityDays) || 0,
-                cancellationTimeLimitHours: Number(cancellationTimeLimitHours) || 1,
+                cancellationTimeLimitMinutes: Number(cancellationTimeLimitMinutes) || 0,
                 maxDailyClassesPerUser: Number(maxDailyClassesPerUser) || 0,
                 courtesyCredit: { 
                     isActive: courtesyConfig.isActive, 
@@ -152,8 +152,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                             <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
                             <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
 
-                            <Text style={styles.inputLabel}>Anticipación límite para cancelar (Horas):</Text>
-                            <TextInput style={styles.input} value={cancellationTimeLimitHours} onChangeText={setCancellationTimeLimitHours} keyboardType="number-pad" placeholder="1" placeholderTextColor="#999"/>
+                            <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
+                            <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999"/>
 
                             <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
                             <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
