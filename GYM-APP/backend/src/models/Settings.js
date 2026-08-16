@@ -24,6 +24,14 @@ const settingsSchema = new mongoose.Schema({
         cbu: { type: String, default: '' },
         alias: { type: String, default: '' },
         bankName: { type: String, default: '' }
+    },
+    cancellationTimeLimitHours: {
+        type: Number,
+        default: 1
+    },
+    maxDailyClassesPerUser: {
+        type: Number,
+        default: 0 // 0 significa sin límite
     }
 });
 

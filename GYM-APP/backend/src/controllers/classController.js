@@ -457,7 +457,7 @@ const deleteClass = asyncHandler(async (req, res) => {
 
 const enrollUserInClass = asyncHandler(async (req, res) => {
 
-    const { Clase, User, TipoClase, Notification } = getModels(req.gymDBConnection);
+    const { Clase, User, TipoClase, Notification, Settings } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
@@ -496,6 +496,22 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     if (classItem.usuariosInscritos.includes(userId)) {
         res.status(400);
         throw new Error('Ya estás inscrito en este turno.');
+    }
+
+    const settings = await Settings.findById('main_settings');
+    const maxDailyClasses = settings?.maxDailyClassesPerUser || 0;
+
+    if (maxDailyClasses > 0) {
+        const enrollmentsToday = await Clase.countDocuments({
+            fecha: classItem.fecha,
+            usuariosInscritos: userId,
+            estado: { $in: ['activa', 'completada'] } 
+        });
+
+        if (enrollmentsToday >= maxDailyClasses) {
+            res.status(400);
+            throw new Error(`Has alcanzado el límite máximo de inscripciones por día (${maxDailyClasses} turnos).`);
+        }
     }
 
     if (classItem.waitlist && classItem.waitlist.includes(userId)) {
@@ -630,7 +646,7 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
 });
 
 const unenrollUserFromClass = asyncHandler(async (req, res) => {
-    const { Clase, User, Notification } = getModels(req.gymDBConnection);
+    const { Clase, User, Notification, Settings } = getModels(req.gymDBConnection);
     const classId = req.params.id;
     const userId = req.user._id;
 
@@ -642,15 +658,18 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
         throw new Error('Turno o usuario no encontrados.');
     }
 
+    const settings = await Settings.findById('main_settings');
+    const cancellationTimeLimitHours = settings?.cancellationTimeLimitHours ?? 1;
+
     const dateStr = clase.fecha.toISOString().substring(0, 10);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     const classStartDateTime = moment.tz(`${dateStr} ${clase.horaInicio}`, tz).toDate();
-    const cancellationDeadline = subHours(classStartDateTime, 1);
+    const cancellationDeadline = subHours(classStartDateTime, cancellationTimeLimitHours);
     const now = new Date();
 
     if (now > cancellationDeadline) {
         res.status(400);
-        throw new Error('No puedes anular la inscripción a menos de una hora del inicio del turno.');
+        throw new Error(`No puedes anular la inscripción a menos de ${cancellationTimeLimitHours} hora(s) del inicio del turno.`);
     }
 
     const hoy = new Date();

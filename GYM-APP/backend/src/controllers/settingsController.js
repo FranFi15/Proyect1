@@ -10,17 +10,21 @@ const getSettings = asyncHandler(async (req, res) => {
     res.json({
         classVisibilityDays: settings?.classVisibilityDays || 0,
         courtesyCredit: settings?.courtesyCredit || { isActive: false, amount: 1, tipoClase: null },
-        bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' }
+        bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
+        cancellationTimeLimitHours: settings?.cancellationTimeLimitHours ?? 1,
+        maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0
     });
 });
 
 const updateSettings = asyncHandler(async (req, res) => {
     // 🔥 FIX: Recibimos bankDetails del body
-    const { classVisibilityDays, courtesyCredit, bankDetails } = req.body;
+    const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitHours, maxDailyClassesPerUser } = req.body;
     const { Settings } = getModels(req.gymDBConnection);
     
     const updateData = {
-        classVisibilityDays: Number(classVisibilityDays) || 0
+        classVisibilityDays: Number(classVisibilityDays) || 0,
+        cancellationTimeLimitHours: cancellationTimeLimitHours !== undefined ? Number(cancellationTimeLimitHours) : 1,
+        maxDailyClassesPerUser: maxDailyClassesPerUser !== undefined ? Number(maxDailyClassesPerUser) : 0
     };
 
     if (courtesyCredit) {
