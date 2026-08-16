@@ -24,6 +24,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import scoreboardRoutes from './routes/scoreboardRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import sucursalRoutes from './routes/sucursalRoutes.js';
+import statsRoutes from './routes/statsRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -98,6 +99,7 @@ app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
 app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
 app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
+app.use('/api/stats', gymTenantMiddleware, statsRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);

@@ -29,6 +29,7 @@ import EditProfileModal from '@/components/client/EditProfileModal';
 import CustomAlert from '@/components/CustomAlert';
 import SucursalesModal from '@/components/admin/SucursalesModal';
 import GeneralSettingsModal from '@/components/admin/GeneralSettingsModal';
+import StatsPanelModal from '@/components/admin/StatsPanelModal';
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -245,6 +246,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Gestión de Sucursales</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('stats')}>
+                        <Ionicons name="stats-chart" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Ver Estadísticas del Gimnasio</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('settings')}>
                         <Ionicons name="settings" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Configuración </ThemedText>
@@ -274,6 +280,13 @@ const ProfileScreen = () => {
             </ScrollView>
 
             {/* Renderizado de los Modales */}
+            <StatsPanelModal
+                visible={activeModal === 'stats'}
+                onClose={() => setActiveModal(null)}
+                gymColor={gymColor}
+                apiClient={apiClient}
+            />
+
             <Modal visible={activeModal === 'balance'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>

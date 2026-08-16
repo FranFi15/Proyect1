@@ -126,18 +126,14 @@ const generateMonthlyReportAndCleanup = async (dbConnection, clientId) => {
         await sendEmailWithAttachment({
             to: adminUser.email,
             subject: `Reporte Mensual de Clases - ${monthNameInSpanish}`,
-            html: `<p>Adjunto se encuentra el reporte de todas las clases y sus asistentes para el mes de <strong>${monthNameInSpanish}</strong>. Estas clases serán eliminadas de la base de datos.</p>`,
+            html: `<p>Adjunto se encuentra el reporte de todas las clases y sus asistentes para el mes de <strong>${monthNameInSpanish}</strong>.</p>`,
             attachments: [{
                 filename: `reporte-clases-${format(previousMonth, 'yyyy-MM')}.xlsx`,
                 content: buffer,
             }]
         });
 
-        const classIdsToDelete = classesToArchive.map(c => c._id);
-        if (classIdsToDelete.length > 0) {
-            await Clase.deleteMany({ _id: { $in: classIdsToDelete } });
-            console.log(`[MonthlyReport - ${clientId}] Se eliminaron ${classIdsToDelete.length} clases antiguas.`);
-        }
+        console.log(`[MonthlyReport - ${clientId}] Reporte enviado exitosamente (las clases ya no se eliminan).`);
 
     } catch (error) {
         console.error(`[${clientId}] Error durante la tarea de reporte y limpieza mensual:`, error);
