@@ -21,11 +21,11 @@ const updateSettings = asyncHandler(async (req, res) => {
     const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitHours, maxDailyClassesPerUser } = req.body;
     const { Settings } = getModels(req.gymDBConnection);
     
-    const updateData = {
-        classVisibilityDays: Number(classVisibilityDays) || 0,
-        cancellationTimeLimitHours: cancellationTimeLimitHours !== undefined ? Number(cancellationTimeLimitHours) : 1,
-        maxDailyClassesPerUser: maxDailyClassesPerUser !== undefined ? Number(maxDailyClassesPerUser) : 0
-    };
+    const updateData = {};
+    
+    if (classVisibilityDays !== undefined) updateData.classVisibilityDays = Number(classVisibilityDays) || 0;
+    if (cancellationTimeLimitHours !== undefined) updateData.cancellationTimeLimitHours = Number(cancellationTimeLimitHours);
+    if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
 
     if (courtesyCredit) {
         updateData.courtesyCredit = {
@@ -45,7 +45,7 @@ const updateSettings = asyncHandler(async (req, res) => {
 
     const settings = await Settings.findByIdAndUpdate(
         'main_settings', 
-        updateData,
+        { $set: updateData },
         { new: true, upsert: true }
     );
     
