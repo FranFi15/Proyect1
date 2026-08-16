@@ -15,6 +15,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [saving, setSaving] = useState(false);
     const [classTypes, setClassTypes] = useState([]);
     const [visibilityDays, setVisibilityDays] = useState('0');
+    const [cancellationTimeLimitHours, setCancellationTimeLimitHours] = useState('1');
+    const [maxDailyClassesPerUser, setMaxDailyClassesPerUser] = useState('0');
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
 
@@ -48,6 +50,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
             
             if (settingsRes.data) {
                 setVisibilityDays((settingsRes.data.classVisibilityDays ?? 0).toString());
+                setCancellationTimeLimitHours((settingsRes.data.cancellationTimeLimitHours ?? 1).toString());
+                setMaxDailyClassesPerUser((settingsRes.data.maxDailyClassesPerUser ?? 0).toString());
 
                 if (settingsRes.data.bankDetails) {
                     setBankDetails({
@@ -85,6 +89,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         try {
             const payload = { 
                 classVisibilityDays: Number(visibilityDays) || 0,
+                cancellationTimeLimitHours: Number(cancellationTimeLimitHours) || 1,
+                maxDailyClassesPerUser: Number(maxDailyClassesPerUser) || 0,
                 courtesyCredit: { 
                     isActive: courtesyConfig.isActive, 
                     amount: Number(courtesyConfig.amount) || 1, 
@@ -141,10 +147,16 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
                             <Text style={styles.sectionTitle}>Calendario</Text>
                             <Text style={styles.cardDescription}>
-                                Define cuántos días hacia el futuro podrán ver y reservar tus clientes.
+                                Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
                             </Text>
                             <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
                             <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
+
+                            <Text style={styles.inputLabel}>Anticipación límite para cancelar (Horas):</Text>
+                            <TextInput style={styles.input} value={cancellationTimeLimitHours} onChangeText={setCancellationTimeLimitHours} keyboardType="number-pad" placeholder="1" placeholderTextColor="#999"/>
+
+                            <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
+                            <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
 
                             <View style={{ paddingTop: 15, marginTop: 10 }}>
                                 <Text style={styles.sectionTitle}>Crédito de Bienvenida</Text>
