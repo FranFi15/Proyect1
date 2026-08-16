@@ -659,17 +659,20 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     }
 
     const settings = await Settings.findById('main_settings');
-    const cancellationTimeLimitHours = settings?.cancellationTimeLimitHours ?? 1;
+    const cancellationTimeLimitMinutes = settings?.cancellationTimeLimitMinutes ?? 60;
 
     const dateStr = clase.fecha.toISOString().substring(0, 10);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     const classStartDateTime = moment.tz(`${dateStr} ${clase.horaInicio}`, tz).toDate();
-    const cancellationDeadline = subHours(classStartDateTime, cancellationTimeLimitHours);
+    
+    // Importante: usar subMinutes importado al principio de classController.js o directamente manipulando la fecha
+    // Dado que subHours ya estaba importado, y moment está disponible, mejor usamos moment para restar los minutos:
+    const cancellationDeadline = moment(classStartDateTime).subtract(cancellationTimeLimitMinutes, 'minutes').toDate();
     const now = new Date();
 
     if (now > cancellationDeadline) {
         res.status(400);
-        throw new Error(`No puedes anular la inscripción a menos de ${cancellationTimeLimitHours} hora(s) del inicio del turno.`);
+        throw new Error(`No puedes anular la inscripción a menos de ${cancellationTimeLimitMinutes} minuto(s) del inicio del turno.`);
     }
 
     const hoy = new Date();

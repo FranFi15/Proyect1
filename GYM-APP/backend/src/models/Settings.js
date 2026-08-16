@@ -25,9 +25,9 @@ const settingsSchema = new mongoose.Schema({
         alias: { type: String, default: '' },
         bankName: { type: String, default: '' }
     },
-    cancellationTimeLimitHours: {
+    cancellationTimeLimitMinutes: {
         type: Number,
-        default: 1
+        default: 60
     },
     maxDailyClassesPerUser: {
         type: Number,

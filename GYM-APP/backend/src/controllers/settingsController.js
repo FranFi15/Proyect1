@@ -1,31 +1,31 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 
-const getSettings = asyncHandler(async (req, res) => {
-    const { Settings } = getModels(req.gymDBConnection);
-    // Buscamos las configuraciones y populamos
-    const settings = await Settings.findById('main_settings').populate('courtesyCredit.tipoClase');
-    
-    // 🔥 FIX: Devolvemos TODOS los datos, incluyendo bankDetails
-    res.json({
-        classVisibilityDays: settings?.classVisibilityDays || 0,
-        courtesyCredit: settings?.courtesyCredit || { isActive: false, amount: 1, tipoClase: null },
-        bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
-        cancellationTimeLimitHours: settings?.cancellationTimeLimitHours ?? 1,
-        maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0
+    const getSettings = asyncHandler(async (req, res) => {
+        const { Settings } = getModels(req.gymDBConnection);
+        // Buscamos las configuraciones y populamos
+        const settings = await Settings.findById('main_settings').populate('courtesyCredit.tipoClase');
+        
+        // 🔥 FIX: Devolvemos TODOS los datos, incluyendo bankDetails
+        res.json({
+            classVisibilityDays: settings?.classVisibilityDays || 0,
+            courtesyCredit: settings?.courtesyCredit || { isActive: false, amount: 1, tipoClase: null },
+            bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
+            cancellationTimeLimitMinutes: settings?.cancellationTimeLimitMinutes ?? 60,
+            maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0
+        });
     });
-});
 
-const updateSettings = asyncHandler(async (req, res) => {
-    // 🔥 FIX: Recibimos bankDetails del body
-    const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitHours, maxDailyClassesPerUser } = req.body;
-    const { Settings } = getModels(req.gymDBConnection);
-    
-    const updateData = {};
-    
-    if (classVisibilityDays !== undefined) updateData.classVisibilityDays = Number(classVisibilityDays) || 0;
-    if (cancellationTimeLimitHours !== undefined) updateData.cancellationTimeLimitHours = Number(cancellationTimeLimitHours);
-    if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
+    const updateSettings = asyncHandler(async (req, res) => {
+        // 🔥 FIX: Recibimos bankDetails del body
+        const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitMinutes, maxDailyClassesPerUser } = req.body;
+        const { Settings } = getModels(req.gymDBConnection);
+        
+        const updateData = {};
+        
+        if (classVisibilityDays !== undefined) updateData.classVisibilityDays = Number(classVisibilityDays) || 0;
+        if (cancellationTimeLimitMinutes !== undefined) updateData.cancellationTimeLimitMinutes = Number(cancellationTimeLimitMinutes);
+        if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
 
     if (courtesyCredit) {
         updateData.courtesyCredit = {
