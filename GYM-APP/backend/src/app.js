@@ -34,7 +34,6 @@ import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
 import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
-import { schedulePastClassesCleanup } from './cron/cleanupClasses.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { scheduleClassReminders } from './cron/ClassReminderJob.js';
