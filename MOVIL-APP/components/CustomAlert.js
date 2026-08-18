@@ -1,7 +1,7 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
-import { Colors } from '@/constants/Colors'; // Asegúrate de que esta ruta sea correcta para tu proyecto
-import { Ionicons } from '@expo/vector-icons';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, useColorScheme, Image } from 'react-native';
+import { Colors } from '@/constants/Colors'; 
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Componente de Alerta Personalizado y Reutilizable.
@@ -9,39 +9,60 @@ import { Ionicons } from '@expo/vector-icons';
  * @param {boolean} props.visible - Controla si la alerta es visible.
  * @param {string} props.title - El título de la alerta.
  * @param {string} props.message - El mensaje principal de la alerta.
- * @param {function} props.onClose - Función para cerrar el modal (se llama al presionar la 'X' o fuera del modal).
+ * @param {function} props.onClose - Función para cerrar el modal.
  * @param {Array<object>} [props.buttons=[]] - Un array de objetos para los botones. Cada objeto debe tener: text, onPress, y style ('primary', 'destructive', o 'cancel').
- * @param {string} [props.gymColor] - El color principal del gimnasio para el botón primario.
+ * @param {string} [props.gymColor] - El color principal del gimnasio para el botón primario y el borde de la imagen. (Si no se pasa, usa el global de useAuth)
+ * @param {string} [props.gymLogo] - URL del logo del gimnasio. Si no se provee, usa el global de useAuth, si tampoco hay usa el logo de la app.
+ * @param {boolean} [props.inline=false] - Si es true renderiza un view absoluto en lugar de Modal.
  */
-const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor, inline = false }) => {
+const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor, gymLogo, inline = false }) => {
     const colorScheme = useColorScheme() ?? 'light';
-    // Pasamos gymColor a la función de estilos para que el botón primario lo use
-    const styles = getStyles(colorScheme, gymColor);
+    const auth = useAuth(); // Usamos opcionalmente el contexto por si no está en Provider en algún lado oscuro
+    
+    const finalGymColor = gymColor || auth?.gymColor;
+    const finalGymLogo = gymLogo || auth?.gymLogo;
+
+    const styles = getStyles(colorScheme, finalGymColor);
 
     if (!visible) return null;
+
+    const logoSource = finalGymLogo 
+        ? { uri: finalGymLogo } 
+        : (colorScheme === 'dark' ? require('@/assets/images/modo-oscuro-logo.png') : require('@/assets/images/modo-claro-logo.png'));
+
+    const primaryColor = finalGymColor || '#007bff';
 
     const content = (
         <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-                <View style={styles.header}>
+                
+                {/* Logo superpuesto */}
+                <View style={[styles.iconContainer, { borderColor: Colors[colorScheme].background }]}>
+                    <View style={[styles.iconInnerContainer, { backgroundColor: primaryColor }]}>
+                        <Image source={logoSource} style={styles.logoImage} resizeMode="cover" />
+                    </View>
+                </View>
+
+                {/* Contenido */}
+                <View style={styles.contentContainer}>
                     <Text style={styles.title}>{title}</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close-circle" size={28} color={Colors[colorScheme].icon} />
-                    </TouchableOpacity>
+                    <Text style={styles.message}>{message}</Text>
                 </View>
                 
-                <Text style={styles.message}>{message}</Text>
-                
+                {/* Botones */}
                 <View style={styles.buttonsContainer}>
-                    {(buttons || []).map((button, index) => {
+                    {((buttons && buttons.length > 0) ? buttons : [{ text: 'Aceptar', onPress: onClose }]).map((button, index) => {
+                        const isCancel = button.style === 'cancel';
+                        const isDestructive = button.style === 'destructive';
+                        
                         const buttonStyle = [
                             styles.button,
-                            button.style === 'destructive' ? styles.destructiveButton : 
-                            button.style === 'cancel' ? styles.cancelButton : styles.primaryButton
+                            isDestructive ? styles.destructiveButton : 
+                            isCancel ? styles.cancelButton : styles.primaryButton
                         ];
                         const textStyle = [
                             styles.buttonText,
-                            button.style === 'cancel' ? styles.cancelButtonText : styles.primaryButtonText
+                            isCancel ? styles.cancelButtonText : styles.primaryButtonText
                         ];
 
                         return (
@@ -80,64 +101,89 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     modalContainer: {
-        width: '90%',
-        maxWidth: 400,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 5,
-        padding: 20,
-        elevation: 10,
+        width: '85%',
+        maxWidth: 350,
+        backgroundColor: Colors[colorScheme].cardBackground || '#fff',
+        borderRadius: 16,
+        padding: 24,
+        paddingTop: 50, // Espacio para el icono superpuesto
+        alignItems: 'center',
+        elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 4,
+        marginTop: 50, // Margen superior para que el logo no se corte
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    iconContainer: {
+        position: 'absolute',
+        top: -40,
+        alignSelf: 'center',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: Colors[colorScheme].cardBackground || '#fff',
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 15,
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+    },
+    iconInnerContainer: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    logoImage: {
+        width: '100%',
+        height: '100%',
+    },
+    contentContainer: {
+        alignItems: 'center',
+        marginBottom: 24,
+        width: '100%',
     },
     title: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
         color: Colors[colorScheme].text,
-        flex: 1, 
-    },
-    closeButton: {
-        padding: 5,
+        marginBottom: 12,
+        textAlign: 'center',
     },
     message: {
         fontSize: 16,
         color: Colors[colorScheme].text,
-        opacity: 0.8,
-        marginBottom: 25,
+        opacity: 0.7,
+        textAlign: 'center',
         lineHeight: 22,
     },
     buttonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 10, 
+        width: '100%',
+        gap: 12, // Espacio vertical entre botones
     },
     button: {
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 5,
-        minWidth: 80,
+        width: '100%',
+        paddingVertical: 14,
+        borderRadius: 10,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     primaryButton: {
-        backgroundColor: gymColor || '#1a5276', // Usa gymColor o un color por defecto
+        backgroundColor: gymColor || '#007bff', 
     },
     destructiveButton: {
-        backgroundColor: '#dc3545', // Un color para acciones destructivas (ej. Eliminar)
+        backgroundColor: '#dc3545', 
     },
     cancelButton: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
+        backgroundColor: colorScheme === 'dark' ? '#2c2c2e' : '#f0f0f5', // Fondo gris claro como en la imagen
     },
     buttonText: {
         fontSize: 16,

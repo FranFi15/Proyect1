@@ -57,6 +57,14 @@ const userSchema = mongoose.Schema({
         default: 'Otro',
         required: false
     },
+    ratingAverage: {
+        type: Number,
+        default: 0
+    },
+    ratingCount: {
+        type: Number,
+        default: 0
+    },
     telefonoEmergencia: {
         type: String,
         required: true,
@@ -143,6 +151,10 @@ const userSchema = mongoose.Schema({
         default: null,
     },
     fotoPerfil: {
+        type: String,
+        default: null,
+    },
+    qrIngresoUrl: {
         type: String,
         default: null,
     },

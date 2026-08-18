@@ -32,11 +32,14 @@ import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } 
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
+import ClientStatsModal from '@/components/admin/ClientStatsModal';
+import ProfesorReviewsModal from '@/components/admin/ProfesorReviewsModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
 import OrdenMedicaAdminModal from '@/components/admin/OrdenMedicaAdminModal';
 import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
+import * as ImagePicker from 'expo-image-picker';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
 const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
@@ -95,10 +98,13 @@ const UserCardItem = React.memo(({
     handleOpenCreditsModal,
     handleQuickRemovePaseLibre,
     handleQuickRemoveMembresia,
+    handleUploadQrIngreso,
     setSelectedMedicalOrderClient,
     handleOpenEditModal,
     handleDeleteClient,
-    getTypeName
+    handleOpenStatsModal,
+    getTypeName,
+    setSelectedProfesorForReviews
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
@@ -210,7 +216,7 @@ const UserCardItem = React.memo(({
                         </View>
                     )}
 
-                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
+                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', flexWrap: 'wrap', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
                         {item.roles.includes('cliente') && (
                             <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
                                 <Ionicons name="logo-usd" size={22} color='#28a745' />
@@ -232,8 +238,23 @@ const UserCardItem = React.memo(({
                             </TouchableOpacity>
                         )}
                         {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleUploadQrIngreso(item)}>
+                                <Ionicons name="qr-code" size={22} color={item.qrIngresoUrl ? '#3498db' : Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
                             <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedMedicalOrderClient(item)}>
                                 <Ionicons name="document-text" size={22} color={(item.ordenMedicaUrl || item.ordenMedicaEntregada) ? '#28a745' : '#dc3545'} />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenStatsModal(item)}>
+                                <Ionicons name="stats-chart" size={22} color="#8A2BE2" />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('profesor') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedProfesorForReviews(item)}>
+                                <Ionicons name="star-half" size={22} color="#FFD700" />
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
@@ -282,6 +303,8 @@ const ManageClientsScreen = () => {
     
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [selectedClient, setSelectedClient] = useState(null);
+    const [selectedClientForStats, setSelectedClientForStats] = useState(null);
+    const [selectedProfesorForReviews, setSelectedProfesorForReviews] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
@@ -521,6 +544,48 @@ const ManageClientsScreen = () => {
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     const handleQuickRemoveMembresia = (client) => { setAlertInfo({ visible: true, title: "Quitar Membresía", message: `¿Estás seguro de que quieres quitar la Membresía a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/membresia`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Membresía eliminada correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la Membresía.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
+    const handleUploadQrIngreso = async (client) => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                const imageUri = result.assets[0].uri;
+                let filename = imageUri.split('/').pop() || 'qr.jpg';
+
+                const formData = new FormData();
+                if (Platform.OS === 'web') {
+                    const response = await fetch(imageUri);
+                    const blob = await response.blob();
+                    formData.append('qrIngreso', blob, filename);
+                } else {
+                    const localUri = imageUri;
+                    const match = /\.(\w+)$/.exec(filename);
+                    const type = match ? `image/${match[1]}` : `image`;
+                    formData.append('qrIngreso', {
+                        uri: localUri,
+                        name: filename,
+                        type,
+                    });
+                }
+
+                setAlertInfo({ visible: true, title: 'Subiendo...', message: 'Subiendo código QR...' });
+                const response = await apiClient.post(`/users/${client._id}/qr-ingreso`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                
+                setUsers(currentUsers => currentUsers.map(u => u._id === client._id ? { ...u, qrIngresoUrl: response.data.qrIngresoUrl } : u));
+                setAlertInfo({ visible: true, title: 'Éxito', message: 'Código QR de ingreso actualizado.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
+            }
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo subir el código QR.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
+        }
+    };
+
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
     const renderUserCard = useCallback(({ item }) => (
         <UserCardItem
@@ -532,12 +597,15 @@ const ManageClientsScreen = () => {
             handleOpenCreditsModal={handleOpenCreditsModal}
             handleQuickRemovePaseLibre={handleQuickRemovePaseLibre}
             handleQuickRemoveMembresia={handleQuickRemoveMembresia}
+            handleUploadQrIngreso={handleUploadQrIngreso}
             setSelectedMedicalOrderClient={setSelectedMedicalOrderClient}
             handleOpenEditModal={handleOpenEditModal}
             handleDeleteClient={handleDeleteClient}
+            handleOpenStatsModal={setSelectedClientForStats}
             getTypeName={getTypeName}
+            setSelectedProfesorForReviews={setSelectedProfesorForReviews}
         />
-    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, getTypeName]);
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews]);
 
     const renderTransferCard = useCallback(({ item }) => {
         return (
@@ -1096,6 +1164,25 @@ const ManageClientsScreen = () => {
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleGeneralScan} />  
             <ReceptionQrModal visible={isReceptionQrVisible} onClose={() => setIsReceptionQrVisible(false)} gymColor={gymColor} />
             <OrdenMedicaAdminModal visible={!!selectedMedicalOrderClient} onClose={() => setSelectedMedicalOrderClient(null)} client={selectedMedicalOrderClient} gymColor={gymColor} />
+            
+            <ClientStatsModal 
+                visible={!!selectedClientForStats} 
+                onClose={() => setSelectedClientForStats(null)} 
+                gymColor={gymColor} 
+                apiClient={apiClient} 
+                userId={selectedClientForStats?._id} 
+                userName={`${selectedClientForStats?.nombre || ''} ${selectedClientForStats?.apellido || ''}`} 
+            />
+
+            <ProfesorReviewsModal 
+                visible={!!selectedProfesorForReviews} 
+                onClose={() => setSelectedProfesorForReviews(null)} 
+                gymColor={gymColor} 
+                apiClient={apiClient} 
+                profesorId={selectedProfesorForReviews?._id} 
+                profesorName={`${selectedProfesorForReviews?.nombre || ''} ${selectedProfesorForReviews?.apellido || ''}`} 
+            />
+
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
 
         </ThemedView>

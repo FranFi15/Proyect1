@@ -2,6 +2,7 @@ import getUserModel from '../models/User.js';
 import getClassModel from '../models/Clase.js';
 import getTipoClaseModel from '../models/TipoClase.js';
 import getNotificationModel from '../models/Notification.js';
+import getSentNotificationModel from '../models/SentNotification.js';
 import getConfiguracionModel from '../models/Configuracion.js';
 import getCreditLogModel from '../models/CreditLog.js';
 import getTransactionsModel from '../models/Transaction.js';
@@ -12,6 +13,7 @@ import getScoreboardModel from '../models/Scoreboard.js';
 import getPaymentPackageModel from '../models/PaymentPackage.js';
 import getPaymentRequestModel from '../models/PaymentRequest.js';
 import getSucursalModel from '../models/Sucursal.js';
+import getReviewModel from '../models/Review.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -35,7 +37,9 @@ const getModels = (dbConnection) => {
         ScoreboardEntry,
         PaymentPackage: getPaymentPackageModel(dbConnection),
         PaymentRequest: getPaymentRequestModel(dbConnection),
-        Sucursal: getSucursalModel(dbConnection)
+        Sucursal: getSucursalModel(dbConnection),
+        Review: getReviewModel(dbConnection),
+        SentNotification: getSentNotificationModel(dbConnection)
     };
 
     return models;

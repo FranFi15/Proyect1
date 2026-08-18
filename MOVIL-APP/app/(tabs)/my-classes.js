@@ -20,8 +20,9 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, FontAwesome } from '@expo/vector-icons';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
+import RateClassModal from '@/components/client/RateClassModal';
 
 // --- AÑADIDO: Importaciones para TabView ---
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -33,6 +34,8 @@ const capitalize = (str) => {
 };
 
 const formatTeachers = (clase) => {
+    if (!clase) return 'Sin profesor asignado';
+
     // 1. Prioridad: Array de profesores (Nueva estructura)
     if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
         return clase.profesores
@@ -50,6 +53,8 @@ const formatTeachers = (clase) => {
     return 'Sin profesor asignado';
 };
 
+let isProcessingScan = false;
+
 const MyClassesScreen = () => {
     // --- STATE MANAGEMENT ---
     const layout = useWindowDimensions();
@@ -59,14 +64,15 @@ const MyClassesScreen = () => {
         { key: 'past', title: 'Historial' },
     ]);
 
-    // const [activeTab, setActiveTab] = useState('upcoming'); // <-- ELIMINADO
-
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
     const [isScannerVisible, setScannerVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // Estado para reseña
+    const [selectedClassForRate, setSelectedClassForRate] = useState(null);
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -91,20 +97,70 @@ const MyClassesScreen = () => {
         }).length;
     }, [userProfile]);
 
+    const confirmCheckIn = async (type, id, qrData) => {
+        setAlertInfo({ ...alertInfo, visible: false });
+        try {
+            const response = await apiClient.post('/check-in/client-scan-confirm', { type, id, qrData });
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Presentismo Exitoso!', 
+                    message: response.data.message || 'Asistencia registrada correctamente.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+                fetchMyClasses();
+            }, 500);
+        } catch (error) {
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.response?.data?.message || 'No se pudo confirmar la asistencia.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+            }, 500);
+        }
+    };
+
     const handleClientScan = async ({ data }) => {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+        
         setScannerVisible(false);
         try {
-            const response = await apiClient.post('/check-in/client-scan', { qrData: data });
-            let detail = 'Asistencia registrada correctamente.';
-            if (response.data.classes && response.data.classes.length > 0) {
-                detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
-            } else if (response.data.message) {
-                detail = response.data.message;
+            const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
+            
+            if (response.data.options && response.data.options.length > 0) {
+                const buttons = response.data.options.map(opt => ({
+                    text: `${opt.nombre} (${opt.horario})`,
+                    style: 'primary',
+                    onPress: () => confirmCheckIn(opt.type, opt.id, data)
+                }));
+                buttons.push({ text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) });
+
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Selecciona tu clase', 
+                    message: response.data.message || '¿A qué vas a asistir hoy?',
+                    buttons: buttons
+                });
+            } else {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Atención', 
+                    message: response.data.message || 'No hay clases disponibles.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
             }
-            setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
-            fetchMyClasses();
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Atención', 
+                message: error.response?.data?.message || 'No se pudo leer tus opciones de presentismo.',
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        } finally {
+            setTimeout(() => { isProcessingScan = false; }, 2000);
         }
     };
 
@@ -269,24 +325,31 @@ const MyClassesScreen = () => {
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
                         : didAttend ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
-                                <Ionicons name="checkmark-circle" size={16} color="#28a745" />
-                                <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
-                            </View>
-                        )
-                            : index === 0 && canUnenroll ? (
-                                <ActionButton
-                                    title="Anular Inscripción"
-                                    color="#e74c3c"
-                                    onPress={() => handleUnenroll(item._id)}
-                                    iconName="calendar-times"
-                                />
-                            ) : index === 1 && !didAttend ? (
-                                <View style={styles.absentBadge}>
-                                    <Ionicons name="close-circle" size={14} color="#dc3545" />
-                                    <Text style={styles.absentText}>AUSENTE</Text>
+                            index === 1 ? (
+                                <View style={{ width: '100%', alignItems: 'flex-start', paddingTop: 8 }}>
+                                    <ActionButton
+                                        title="Calificar"
+                                        color="#FFD700"
+                                        iconColor="#000"
+                                        onPress={() => setSelectedClassForRate(item)}
+                                        iconName="star"
+                                    />
                                 </View>
-                            ) : null}
+                            ) : null
+                        )
+                        : index === 0 && canUnenroll ? (
+                            <ActionButton
+                                title="Anular Inscripción"
+                                color="#e74c3c"
+                                onPress={() => handleUnenroll(item._id)}
+                                iconName="calendar-times"
+                            />
+                        ) : index === 1 && !didAttend ? (
+                            <View style={styles.absentBadge}>
+                                <Ionicons name="close-circle" size={14} color="#dc3545" />
+                                <Text style={styles.absentText}>AUSENTE</Text>
+                            </View>
+                        ) : null}
                 </View>
             </ThemedView>
         );
@@ -368,6 +431,18 @@ const MyClassesScreen = () => {
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor}
+                inline={true}
+            />
+
+            <RateClassModal 
+                visible={!!selectedClassForRate}
+                onClose={() => setSelectedClassForRate(null)}
+                gymColor={gymColor}
+                apiClient={apiClient}
+                claseId={selectedClassForRate?._id}
+                profesorId={selectedClassForRate?.profesor?._id || selectedClassForRate?.profesores?.[0]?._id}
+                className={selectedClassForRate?.tipoClase?.nombre || selectedClassForRate?.nombre}
+                profesorName={formatTeachers(selectedClassForRate)}
             />
         </ThemedView>
     );

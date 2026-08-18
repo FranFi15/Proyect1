@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     StyleSheet, ActivityIndicator, TouchableOpacity, Platform, useColorScheme,
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
-    Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
+    Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback, Image
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -367,22 +367,75 @@ const CalendarScreen = () => {
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [isQrModalVisible, setQrModalVisible] = useState(false);
     const [isScannerVisible, setScannerVisible] = useState(false);
+    const [isQrImageModalVisible, setQrImageModalVisible] = useState(false);
+
+    let isProcessingScan = false;
+    
+    const confirmCheckIn = async (type, id, qrData) => {
+        setAlertInfo({ ...alertInfo, visible: false });
+        try {
+            const response = await apiClient.post('/check-in/client-scan-confirm', { type, id, qrData });
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Presentismo Exitoso!', 
+                    message: response.data.message || 'Asistencia registrada correctamente.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+                refreshUser();
+                fetchData();
+            }, 500);
+        } catch (error) {
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.response?.data?.message || 'No se pudo confirmar la asistencia.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+            }, 500);
+        }
+    };
 
     const handleClientReceptionScan = async ({ data }) => {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+        
         setScannerVisible(false);
         try {
-            const response = await apiClient.post('/check-in/client-scan', { qrData: data });
-            await refreshUser();
-            fetchData();
-            let detail = 'Asistencia registrada correctamente.';
-            if (response.data.classes && response.data.classes.length > 0) {
-                detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
-            } else if (response.data.message) {
-                detail = response.data.message;
+            const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
+            
+            if (response.data.options && response.data.options.length > 0) {
+                const buttons = response.data.options.map(opt => ({
+                    text: `${opt.nombre} (${opt.horario})`,
+                    style: 'primary',
+                    onPress: () => confirmCheckIn(opt.type, opt.id, data)
+                }));
+                buttons.push({ text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) });
+
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Selecciona tu clase', 
+                    message: response.data.message || '¿A qué vas a asistir hoy?',
+                    buttons: buttons
+                });
+            } else {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Atención', 
+                    message: response.data.message || 'No hay clases disponibles.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
             }
-            setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Atención', 
+                message: error.response?.data?.message || 'No se pudo leer tus opciones de presentismo.',
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        } finally {
+            setTimeout(() => { isProcessingScan = false; }, 2000);
         }
     };
 
@@ -589,7 +642,21 @@ const CalendarScreen = () => {
                     </View>
                 )}
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, (isCancelled || isFinished) && styles.disabledText]}>
+                        A cargo de: {formatTeachers(item)}
+                    </ThemedText>
+                    {item.profesores?.[0]?.ratingAverage > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 6 }}>
+                            <Ionicons name="star" size={12} color="#FFD700" />
+                            <Text style={{ fontSize: 12, color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 2 }}>
+                                {item.profesores[0].ratingAverage.toFixed(1)}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text> : didAttend ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}><Ionicons name="checkmark-circle" size={16} color="#28a745" /><Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6 }}>PRESENTISMO REGISTRADO</Text></View> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
@@ -604,8 +671,14 @@ const CalendarScreen = () => {
             <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
                     <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
-                    <ThemedText style={styles.qrButtonText}>Escanear QR</ThemedText>
+                    <ThemedText style={styles.qrButtonText}>Dar Presentismo</ThemedText>
                 </TouchableOpacity>
+                {user?.qrIngresoUrl && (
+                    <TouchableOpacity style={[styles.qrButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground }]} onPress={() => setQrImageModalVisible(true)}>
+                        <Ionicons name="qr-code" size={24} color={gymColor || Colors.light.tint} />
+                        <ThemedText style={[styles.qrButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</ThemedText>
+                    </TouchableOpacity>
+                )}
             </View>
         </ThemedView>
     );
@@ -670,9 +743,31 @@ const CalendarScreen = () => {
 
             <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={(id) => { setSelectedClassType(id); setFilterModalVisible(false); }} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
             <FilterModal visible={isSucursalFilterVisible} onClose={() => setSucursalFilterVisible(false)} options={[{ _id: 'all', nombre: 'Todas las Sucursales' }, ...sucursales]} onSelect={(id) => { setSelectedSucursal(id); setSucursalFilterVisible(false); }} selectedValue={selectedSucursal} title="Sucursal" theme={{ colors: Colors[colorScheme], gymColor }} />
-            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
+            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} inline={true} />
             <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
+            
+            <Modal
+                visible={isQrImageModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setQrImageModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContainer, { height: '80%', padding: 20, justifyContent: 'center', alignItems: 'center' }]}>
+                        <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }} onPress={() => setQrImageModalVisible(false)}>
+                            <Ionicons name="close" size={30} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>Tu QR de Ingreso</ThemedText>
+                        {user?.qrIngresoUrl && (
+                            <Image 
+                                source={{ uri: user.qrIngresoUrl }} 
+                                style={{ width: '100%', height: 400, resizeMode: 'contain' }} 
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };

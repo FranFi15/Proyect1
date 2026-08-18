@@ -27,7 +27,8 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { format, parseISO, differenceInYears, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import CustomAlert from '@/components/CustomAlert';
-import QrScannerModal from '@/components/profesor/QrScannerModal'
+import QrScannerModal from '@/components/profesor/QrScannerModal';
+import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
 
 // --- Funciones Helper ---
 const capitalize = (str) => {
@@ -56,6 +57,7 @@ const ProfessorMyClassesScreen = () => {
     // Estados para Modales
     const [isListModalVisible, setListModalVisible] = useState(false);
     const [isScannerVisible, setScannerVisible] = useState(false);
+    const [isQrImageModalVisible, setQrImageModalVisible] = useState(false);
     
     
     // Estados para Datos Seleccionados
@@ -306,10 +308,10 @@ const ProfessorMyClassesScreen = () => {
                                     <Text style={styles.modalHeaderSubtitle}>{selectedClassStudents.length} alumno{selectedClassStudents.length !== 1 ? 's' : ''}</Text>
                                 </View>
 
-                                {/* QR Scan Button */}
-                                <TouchableOpacity style={styles.scanButton} onPress={() => {setListModalVisible(false); setScannerVisible(true);}}>
-                                    <FontAwesome5 name="qrcode" size={18} color="#fff" />
-                                    <Text style={styles.scanButtonText}>Escanear Ingreso (QR)</Text>
+                                {/* QR Ingreso Button */}
+                                <TouchableOpacity style={[styles.scanButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: gymColor || Colors.light.tint }]} onPress={() => {setListModalVisible(false); setQrImageModalVisible(true);}}>
+                                    <Ionicons name="qr-code" size={18} color={gymColor || Colors.light.tint} />
+                                    <Text style={[styles.scanButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</Text>
                                 </TouchableOpacity>
 
                                 {loadingStudents ? (
@@ -336,12 +338,16 @@ const ProfessorMyClassesScreen = () => {
                     </View>
                 </View>
             </Modal>
-                <QrScannerModal 
+            <QrScannerModal 
                 visible={isScannerVisible}
                 onClose={() => {setScannerVisible(false); setListModalVisible(true)} }
                 onBarcodeScanned={handleBarcodeScanned}
             />
-           
+            <ReceptionQrModal
+                visible={isQrImageModalVisible}
+                onClose={() => {setQrImageModalVisible(false); setListModalVisible(true)} }
+                gymColor={gymColor}
+            />
 
             <CustomAlert
                 visible={alertInfo.visible}

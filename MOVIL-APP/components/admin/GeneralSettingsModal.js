@@ -19,8 +19,10 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [maxDailyClassesPerUser, setMaxDailyClassesPerUser] = useState('0');
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
+    const [reviewsPublic, setReviewsPublic] = useState(false);
 
     const [internalAlert, setInternalAlert] = useState({ visible: false, title: '', message: '', buttons: [] });
+    const [activeTab, setActiveTab] = useState('calendario'); // 'calendario' | 'resenas' | 'bienvenida' | 'bancos'
 
     const showAlert = (alertData) => {
         setInternalAlert({
@@ -45,13 +47,14 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/settings')
             ]);
-            
+
             setClassTypes(typesRes.data?.tiposClase || []);
-            
+
             if (settingsRes.data) {
                 setVisibilityDays((settingsRes.data.classVisibilityDays ?? 0).toString());
                 setCancellationTimeLimitMinutes((settingsRes.data.cancellationTimeLimitMinutes ?? 60).toString());
                 setMaxDailyClassesPerUser((settingsRes.data.maxDailyClassesPerUser ?? 0).toString());
+                setReviewsPublic(!!settingsRes.data.reviewsPublic);
 
                 if (settingsRes.data.bankDetails) {
                     setBankDetails({
@@ -60,7 +63,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                         bankName: settingsRes.data.bankDetails.bankName || ''
                     });
                 }
-                
+
                 if (settingsRes.data.courtesyCredit) {
                     setCourtesyConfig({
                         isActive: !!settingsRes.data.courtesyCredit.isActive,
@@ -87,20 +90,21 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         if (!apiClient) return;
         setSaving(true);
         try {
-            const payload = { 
+            const payload = {
                 classVisibilityDays: Number(visibilityDays) || 0,
                 cancellationTimeLimitMinutes: Number(cancellationTimeLimitMinutes) || 0,
                 maxDailyClassesPerUser: Number(maxDailyClassesPerUser) || 0,
-                courtesyCredit: { 
-                    isActive: courtesyConfig.isActive, 
-                    amount: Number(courtesyConfig.amount) || 1, 
-                    tipoClase: courtesyConfig.tipoClase 
+                courtesyCredit: {
+                    isActive: courtesyConfig.isActive,
+                    amount: Number(courtesyConfig.amount) || 1,
+                    tipoClase: courtesyConfig.tipoClase
                 },
-                bankDetails: bankDetails
+                bankDetails: bankDetails,
+                reviewsPublic: reviewsPublic
             };
             await apiClient.put('/settings', payload);
-            showAlert({ 
-                title: 'Éxito', 
+            showAlert({
+                title: 'Éxito',
                 message: 'Configuración general guardada correctamente.',
                 buttons: [{ text: 'OK', style: 'primary', onPress: onClose }]
             });
@@ -145,58 +149,111 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                         </View>
                     ) : (
                         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                            <Text style={styles.sectionTitle}>Calendario</Text>
-                            <Text style={styles.cardDescription}>
-                                Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
-                            </Text>
-                            <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
-                            <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
 
-                            <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
-                            <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999"/>
+                            {/* MENU DE NAVEGACION DE TABS */}
+                            <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].border || '#ddd', borderRadius: 8, padding: 4 }}>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'calendario' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('calendario')}
+                                >
+                                    <Text style={{ color: activeTab === 'calendario' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Calendario</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'resenas' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('resenas')}
+                                >
+                                    <Text style={{ color: activeTab === 'resenas' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Reseñas</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bienvenida' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('bienvenida')}
+                                >
+                                    <Text style={{ color: activeTab === 'bienvenida' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Bienvenida</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bancos' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('bancos')}
+                                >
+                                    <Text style={{ color: activeTab === 'bancos' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Transferencias</Text>
+                                </TouchableOpacity>
+                            </View>
 
-                            <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
-                            <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999"/>
+                            {/* CONTENIDO DE CALENDARIO */}
+                            {activeTab === 'calendario' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Calendario</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
+                                    </Text>
+                                    <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
+                                    <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
 
-                            <View style={{ paddingTop: 15, marginTop: 10 }}>
-                                <Text style={styles.sectionTitle}>Crédito de Bienvenida</Text>
-                                <View style={styles.switchContainer}>
-                                    <Text style={styles.inputLabel}>¿Activar crédito de bienvenida?</Text>
-                                    <Switch trackColor={{ true: gymColor }} onValueChange={(val) => setCourtesyConfig(prev => ({ ...prev, isActive: val }))} value={courtesyConfig.isActive} />
+                                    <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
+                                    <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999" />
+
+                                    <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
+                                    <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
                                 </View>
+                            )}
 
-                                {courtesyConfig.isActive && (
-                                    <>
-                                        <Text style={styles.inputLabel}>¿Qué tipo de clase dar?</Text>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
-                                            {classTypes.map(type => (
-                                                <TouchableOpacity key={type._id} onPress={() => setCourtesyConfig(prev => ({ ...prev, tipoClase: type._id }))} style={[styles.dayChip, courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }]}>
-                                                    <Text style={{ color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text, fontWeight: '600' }}>{type.nombre}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
+                            {/* CONTENIDO DE RESEÑAS */}
+                            {activeTab === 'resenas' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Reseñas a Profesores</Text>
+                                    <Text style={styles.cardDescription}>Configura si los clientes podrán ver las calificaciones de los profesores en el calendario.</Text>
+                                    <View style={styles.switchContainer}>
+                                        <Text style={styles.inputLabel}>¿Hacer públicas las reseñas?</Text>
+                                        <Switch trackColor={{ true: gymColor }} onValueChange={setReviewsPublic} value={reviewsPublic} />
+                                    </View>
+                                </View>
+                            )}
 
-                                        <Text style={styles.inputLabel}>Cantidad de créditos:</Text>
-                                        <TextInput style={styles.input} value={courtesyConfig.amount} onChangeText={(text) => setCourtesyConfig(prev => ({ ...prev, amount: text }))} keyboardType="number-pad" placeholderTextColor="#999"/>
-                                    </>
-                                )}
-                            </View>
+                            {/* CONTENIDO DE CREDITO BIENVENIDA */}
+                            {activeTab === 'bienvenida' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Crédito de Bienvenida</Text>
+                                    <Text style={styles.cardDescription}>Otorga créditos automáticamente a los usuarios recién registrados.</Text>
+                                    <View style={styles.switchContainer}>
+                                        <Text style={styles.inputLabel}>¿Activar crédito de bienvenida?</Text>
+                                        <Switch trackColor={{ true: gymColor }} onValueChange={(val) => setCourtesyConfig(prev => ({ ...prev, isActive: val }))} value={courtesyConfig.isActive} />
+                                    </View>
 
-                            <View style={{ paddingTop: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
-                                <Text style={styles.sectionTitle}>Datos Bancarios (Transferencias)</Text>
-                                <Text style={styles.cardDescription}>
-                                    Estos datos se mostrarán a los clientes cuando quieran informar un pago.
-                                </Text>
-                                
-                                <Text style={styles.inputLabel}>CBU / CVU:</Text>
-                                <TextInput style={styles.input} value={bankDetails.cbu} onChangeText={(t) => setBankDetails(prev => ({ ...prev, cbu: t }))} placeholder="Ej: 0000003100000000000000" placeholderTextColor="#999"/>
+                                    {courtesyConfig.isActive && (
+                                        <>
+                                            <Text style={styles.inputLabel}>¿Qué tipo de clase dar?</Text>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                                                {classTypes.map(type => (
+                                                    <TouchableOpacity key={type._id} onPress={() => setCourtesyConfig(prev => ({ ...prev, tipoClase: type._id }))} style={[styles.dayChip, courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }]}>
+                                                        <Text style={{ color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text, fontWeight: '600' }}>{type.nombre}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </ScrollView>
 
-                                <Text style={styles.inputLabel}>Alias:</Text>
-                                <TextInput style={styles.input} value={bankDetails.alias} onChangeText={(t) => setBankDetails(prev => ({ ...prev, alias: t }))} placeholder="Ej: GIMNASIO.FIT" placeholderTextColor="#999"/>
+                                            <Text style={styles.inputLabel}>Cantidad de créditos:</Text>
+                                            <TextInput style={styles.input} value={courtesyConfig.amount} onChangeText={(text) => setCourtesyConfig(prev => ({ ...prev, amount: text }))} keyboardType="number-pad" placeholderTextColor="#999" />
+                                        </>
+                                    )}
+                                </View>
+                            )}
 
-                                <Text style={styles.inputLabel}>Banco / Billetera (Opcional):</Text>
-                                <TextInput style={styles.input} value={bankDetails.bankName} onChangeText={(t) => setBankDetails(prev => ({ ...prev, bankName: t }))} placeholder="Ej: MercadoPago" placeholderTextColor="#999"/>
-                            </View>
+                            {/* CONTENIDO DE BANCOS */}
+                            {activeTab === 'bancos' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Datos Bancarios (Transferencias)</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Estos datos se mostrarán a los clientes cuando quieran informar un pago.
+                                    </Text>
+
+                                    <Text style={styles.inputLabel}>CBU / CVU:</Text>
+                                    <TextInput style={styles.input} value={bankDetails.cbu} onChangeText={(t) => setBankDetails(prev => ({ ...prev, cbu: t }))} placeholder="Ej: 0000003100000000000000" placeholderTextColor="#999" />
+
+                                    <Text style={styles.inputLabel}>Alias:</Text>
+                                    <TextInput style={styles.input} value={bankDetails.alias} onChangeText={(t) => setBankDetails(prev => ({ ...prev, alias: t }))} placeholder="Ej: GIMNASIO.FIT" placeholderTextColor="#999" />
+
+                                    <Text style={styles.inputLabel}>Banco / Billetera (Opcional):</Text>
+                                    <TextInput style={styles.input} value={bankDetails.bankName} onChangeText={(t) => setBankDetails(prev => ({ ...prev, bankName: t }))} placeholder="Ej: MercadoPago" placeholderTextColor="#999" />
+                                </View>
+                            )}
 
                             <TouchableOpacity
                                 style={[styles.saveBtn, { backgroundColor: gymColor || Colors[colorScheme].tint }]}
@@ -218,9 +275,9 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalOverlayWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    modalOverlayWrapper: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-    modalContainer: { width: '92%', maxWidth: 500, maxHeight: '85%', backgroundColor: Colors[colorScheme].background, borderRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+    modalContainer: { width: '100%', maxWidth: 500, height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
     headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, justifyContent: 'space-between' },
     headerBannerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
     headerBannerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },

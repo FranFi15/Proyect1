@@ -24,6 +24,8 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import scoreboardRoutes from './routes/scoreboardRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import sucursalRoutes from './routes/sucursalRoutes.js';
+import statsRoutes from './routes/statsRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -31,8 +33,7 @@ import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
 // Importación de CRON Jobs
 import { scheduleMonthlyCreditReset } from './cron/CreditResetJob.js';
 import { scheduleMonthlyClassGeneration } from './cron/ClassGenerationJob.js';
-import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js'; 
-import { scheduleMonthlyCleanup } from './cron/monthlyReport.js';
+import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { scheduleClassReminders } from './cron/ClassReminderJob.js';
@@ -98,12 +99,14 @@ app.use('/api/tipos-clase', gymTenantMiddleware, tipoClaseRoutes);
 app.use('/api/notifications', gymTenantMiddleware, notificationRoutes);
 app.use('/api/credit-logs', gymTenantMiddleware, creditLogRoutes);
 app.use('/api/transactions', gymTenantMiddleware, transactionRoutes);
+app.use('/api/stats', gymTenantMiddleware, statsRoutes);
 app.use('/api/plans', gymTenantMiddleware, trainingPlanRoutes);
 app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 app.use('/api/sucursales', gymTenantMiddleware, sucursalRoutes);
+app.use('/api/reviews', gymTenantMiddleware, reviewRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);
@@ -119,7 +122,6 @@ app.get('/', (req, res) => {
 scheduleMonthlyClassGeneration();
 scheduleMonthlyCreditReset();
 scheduleDebtorNotifications(); 
-scheduleMonthlyCleanup();
 schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
 scheduleClassReminders();
