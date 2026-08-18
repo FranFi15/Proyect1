@@ -318,7 +318,7 @@ const NotificationAdminScreen = () => {
         </TouchableOpacity>
     );
 
-    const ComposeScene = () => (
+    const renderComposeScene = () => (
         <View style={styles.container}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
@@ -471,7 +471,7 @@ const NotificationAdminScreen = () => {
         </View>
     );
 
-    const HistoryScene = () => (
+    const renderHistoryScene = () => (
         <View style={[styles.container, { padding: 16 }]}>
             <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 4 }}>
                 <TouchableOpacity 
@@ -505,10 +505,16 @@ const NotificationAdminScreen = () => {
         </View>
     );
 
-    const renderScene = SceneMap({
-        compose: ComposeScene,
-        history: HistoryScene,
-    });
+    const renderScene = ({ route }) => {
+        switch (route.key) {
+            case 'compose':
+                return renderComposeScene();
+            case 'history':
+                return renderHistoryScene();
+            default:
+                return null;
+        }
+    };
 
     if (loading) {
         return (
