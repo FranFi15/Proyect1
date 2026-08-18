@@ -53,6 +53,8 @@ const formatTeachers = (clase) => {
     return 'Sin profesor asignado';
 };
 
+let isProcessingScan = false;
+
 const MyClassesScreen = () => {
     // --- STATE MANAGEMENT ---
     const layout = useWindowDimensions();
@@ -96,6 +98,9 @@ const MyClassesScreen = () => {
     }, [userProfile]);
 
     const handleClientScan = async ({ data }) => {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+        
         setScannerVisible(false);
         try {
             const response = await apiClient.post('/check-in/client-scan', { qrData: data });
@@ -119,6 +124,8 @@ const MyClassesScreen = () => {
                 message: error.response?.data?.message || 'No se pudo registrar la asistencia.',
                 buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
             });
+        } finally {
+            setTimeout(() => { isProcessingScan = false; }, 2000);
         }
     };
 
@@ -283,32 +290,35 @@ const MyClassesScreen = () => {
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
                         : didAttend ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
-                                <Ionicons name="checkmark-circle" size={16} color="#28a745" />
-                                <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
+                            <View style={{ width: '100%', alignItems: 'center' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4, marginBottom: index === 1 ? 10 : 0 }}>
+                                    <Ionicons name="checkmark-circle" size={16} color="#28a745" />
+                                    <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
+                                </View>
+                                {index === 1 && (
+                                    <ActionButton
+                                        title="Calificar"
+                                        color="#FFD700"
+                                        iconColor="#000"
+                                        onPress={() => setSelectedClassForRate(item)}
+                                        iconName="star"
+                                    />
+                                )}
                             </View>
                         )
-                            : index === 0 && canUnenroll ? (
-                                <ActionButton
-                                    title="Anular Inscripción"
-                                    color="#e74c3c"
-                                    onPress={() => handleUnenroll(item._id)}
-                                    iconName="calendar-times"
-                                />
-                            ) : index === 1 && !didAttend ? (
-                                <View style={styles.absentBadge}>
-                                    <Ionicons name="close-circle" size={14} color="#dc3545" />
-                                    <Text style={styles.absentText}>AUSENTE</Text>
-                                </View>
-                            ) : index === 1 && didAttend && (
-                                <ActionButton
-                                    title="Calificar"
-                                    color="#FFD700"
-                                    iconColor="#000"
-                                    onPress={() => setSelectedClassForRate(item)}
-                                    iconName="star"
-                                />
-                            )}
+                        : index === 0 && canUnenroll ? (
+                            <ActionButton
+                                title="Anular Inscripción"
+                                color="#e74c3c"
+                                onPress={() => handleUnenroll(item._id)}
+                                iconName="calendar-times"
+                            />
+                        ) : index === 1 && !didAttend ? (
+                            <View style={styles.absentBadge}>
+                                <Ionicons name="close-circle" size={14} color="#dc3545" />
+                                <Text style={styles.absentText}>AUSENTE</Text>
+                            </View>
+                        ) : null}
                 </View>
             </ThemedView>
         );

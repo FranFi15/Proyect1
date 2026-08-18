@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, TextInput,
-    useColorScheme, StyleSheet, ActivityIndicator
+    useColorScheme, StyleSheet, ActivityIndicator,
+    Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,43 +67,52 @@ const RateClassModal = ({ visible, onClose, gymColor, apiClient, claseId, profes
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
-                    </TouchableOpacity>
-                    
-                    <Text style={styles.title}>¿Qué te pareció la clase?</Text>
-                    <Text style={styles.subtitle}>{className}</Text>
-                    <Text style={styles.profesorName}>Prof. {profesorName}</Text>
-
-                    {renderStars()}
-
-                    <Text style={styles.label}>Comentario (Opcional)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Escribe tu opinión (será anónima)..."
-                        placeholderTextColor="#999"
-                        value={comment}
-                        onChangeText={setComment}
-                        multiline
-                        numberOfLines={4}
-                        maxLength={500}
-                    />
-
-                    <TouchableOpacity 
-                        style={[styles.submitButton, { backgroundColor: gymColor || Colors[colorScheme].tint, opacity: submitting ? 0.7 : 1 }]} 
-                        onPress={handleRate}
-                        disabled={submitting}
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.modalOverlay}>
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+                        style={{ width: '100%', alignItems: 'center' }}
                     >
-                        {submitting ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.submitButtonText}>Enviar Reseña</Text>
-                        )}
-                    </TouchableOpacity>
+                        <View style={styles.modalContainer}>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
+                            
+                            <Text style={styles.title}>¿Qué te pareció la clase?</Text>
+                            <Text style={styles.subtitle}>{className}</Text>
+                            <Text style={styles.profesorName}>Prof. {profesorName}</Text>
+
+                            {renderStars()}
+
+                            <Text style={styles.label}>Comentario (Opcional)</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Escribe tu opinión (será anónima)..."
+                                placeholderTextColor="#999"
+                                value={comment}
+                                onChangeText={setComment}
+                                multiline
+                                numberOfLines={4}
+                                maxLength={500}
+                                returnKeyType="done"
+                                blurOnSubmit={true}
+                            />
+
+                            <TouchableOpacity 
+                                style={[styles.submitButton, { backgroundColor: gymColor || Colors[colorScheme].tint, opacity: submitting ? 0.7 : 1 }]} 
+                                onPress={handleRate}
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Enviar Reseña</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </KeyboardAvoidingView>
                 </View>
-            </View>
+            </TouchableWithoutFeedback>
 
             <CustomAlert 
                 visible={alertInfo.visible} 
