@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     StyleSheet, ActivityIndicator, TouchableOpacity, Platform, useColorScheme,
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
-    Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
+    Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback, Image
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
@@ -367,6 +367,7 @@ const CalendarScreen = () => {
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [isQrModalVisible, setQrModalVisible] = useState(false);
     const [isScannerVisible, setScannerVisible] = useState(false);
+    const [isQrImageModalVisible, setQrImageModalVisible] = useState(false);
 
     let isProcessingScan = false;
     
@@ -670,8 +671,14 @@ const CalendarScreen = () => {
             <View style={styles.headerActions}>
                 <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
                     <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
-                    <ThemedText style={styles.qrButtonText}>Escanear QR</ThemedText>
+                    <ThemedText style={styles.qrButtonText}>Dar Presentismo</ThemedText>
                 </TouchableOpacity>
+                {user?.qrIngresoUrl && (
+                    <TouchableOpacity style={[styles.qrButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground }]} onPress={() => setQrImageModalVisible(true)}>
+                        <Ionicons name="qr-code" size={24} color={gymColor || Colors.light.tint} />
+                        <ThemedText style={[styles.qrButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</ThemedText>
+                    </TouchableOpacity>
+                )}
             </View>
         </ThemedView>
     );
@@ -739,6 +746,28 @@ const CalendarScreen = () => {
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} inline={true} />
             <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
+            
+            <Modal
+                visible={isQrImageModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setQrImageModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContainer, { height: '80%', padding: 20, justifyContent: 'center', alignItems: 'center' }]}>
+                        <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }} onPress={() => setQrImageModalVisible(false)}>
+                            <Ionicons name="close" size={30} color={Colors[colorScheme].text} />
+                        </TouchableOpacity>
+                        <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>Tu QR de Ingreso</ThemedText>
+                        {user?.qrIngresoUrl && (
+                            <Image 
+                                source={{ uri: user.qrIngresoUrl }} 
+                                style={{ width: '100%', height: 400, resizeMode: 'contain' }} 
+                            />
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };

@@ -32,6 +32,7 @@ import {
     getFinancialStats,
     uploadOrdenMedica,
     uploadFotoPerfil,
+    uploadQrIngresoAdmin,
 } from '../controllers/userController.js'; 
 import { upload } from '../utils/cloudinary.js';
 
@@ -39,7 +40,7 @@ const router = express.Router();
 
 router.post('/upload-orden-medica', protect, upload.single('ordenMedica'), uploadOrdenMedica);
 router.post('/upload-foto-perfil', protect, upload.single('fotoPerfil'), uploadFotoPerfil);
-
+router.post('/:id/qr-ingreso', protect, authorizeRoles('admin'), upload.single('qrIngreso'), uploadQrIngresoAdmin);
 
 
 router.post('/forgot-password', forgotPassword);

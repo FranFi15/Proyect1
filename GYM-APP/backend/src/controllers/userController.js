@@ -47,6 +47,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         ordenMedicaUrl: user.ordenMedicaUrl,
         ordenMedica: user.ordenMedicaUrl,
         fotoPerfil: user.fotoPerfil,
+        qrIngresoUrl: user.qrIngresoUrl,
         historialAsistencias: user.historialAsistencias || [],
         isActive: user.isActive,
         paseLibreDesde: user.paseLibreDesde,
@@ -120,6 +121,7 @@ const getMe = asyncHandler(async (req, res) => {
             rmRecords: user.rmRecords || [],
             vencimientosDetallados: user.vencimientosDetallados || [],
             fotoPerfil: user.fotoPerfil,
+            qrIngresoUrl: user.qrIngresoUrl,
             ordenMedicaUrl: user.ordenMedicaUrl,
             ordenMedica: user.ordenMedicaUrl,
             historialAsistencias: user.historialAsistencias || [],
@@ -1096,6 +1098,33 @@ const uploadFotoPerfil = asyncHandler(async (req, res) => {
     });
 });
 
+const uploadQrIngresoAdmin = asyncHandler(async (req, res) => {
+    const { getModels } = await import('../utils/getModels.js');
+    const { User } = getModels(req.dbConnection);
+
+    const qrUrl = req.file?.path;
+    if (!qrUrl) {
+        res.status(400);
+        throw new Error('No se ha subido ningún archivo.');
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    user.qrIngresoUrl = qrUrl;
+    await user.save();
+
+    res.status(200).json({
+        success: true,
+        message: 'QR de ingreso actualizado correctamente',
+        qrIngresoUrl: qrUrl,
+        user
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -1127,4 +1156,5 @@ export {
     getFinancialStats,
     uploadOrdenMedica,
     uploadFotoPerfil,
+    uploadQrIngresoAdmin,
 };

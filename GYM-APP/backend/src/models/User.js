@@ -154,6 +154,10 @@ const userSchema = mongoose.Schema({
         type: String,
         default: null,
     },
+    qrIngresoUrl: {
+        type: String,
+        default: null,
+    },
     historialAsistencias: [{
         claseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
         fecha: { type: Date, default: Date.now },

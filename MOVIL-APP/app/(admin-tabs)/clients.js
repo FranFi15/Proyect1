@@ -39,6 +39,7 @@ import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
 import OrdenMedicaAdminModal from '@/components/admin/OrdenMedicaAdminModal';
 import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
+import * as ImagePicker from 'expo-image-picker';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
 const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
@@ -97,6 +98,7 @@ const UserCardItem = React.memo(({
     handleOpenCreditsModal,
     handleQuickRemovePaseLibre,
     handleQuickRemoveMembresia,
+    handleUploadQrIngreso,
     setSelectedMedicalOrderClient,
     handleOpenEditModal,
     handleDeleteClient,
@@ -214,7 +216,7 @@ const UserCardItem = React.memo(({
                         </View>
                     )}
 
-                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
+                    <View style={[dynamicStyles.actionsContainer, { marginTop: 6, justifyContent: 'space-around', flexWrap: 'wrap', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }]}>
                         {item.roles.includes('cliente') && (
                             <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenBillingModal(item)}>
                                 <Ionicons name="logo-usd" size={22} color='#28a745' />
@@ -233,6 +235,11 @@ const UserCardItem = React.memo(({
                         {(isMembresiaActive || isMembresiaExpired) && (
                             <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleQuickRemoveMembresia(item)}>
                                 <Ionicons name="qr-code-outline" size={22} color="#e74c3c" />
+                            </TouchableOpacity>
+                        )}
+                        {item.roles.includes('cliente') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleUploadQrIngreso(item)}>
+                                <Ionicons name="qr-code" size={22} color={item.qrIngresoUrl ? '#3498db' : Colors[colorScheme].text} />
                             </TouchableOpacity>
                         )}
                         {item.roles.includes('cliente') && (
@@ -537,6 +544,42 @@ const ManageClientsScreen = () => {
     const handleQuickRemovePaseLibre = (client) => { setAlertInfo({ visible: true, title: "Quitar Pase Libre", message: `¿Estás seguro de que quieres quitar el Pase Libre a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/pase-libre`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Pase Libre eliminado correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar el Pase Libre.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     const handleQuickRemoveMembresia = (client) => { setAlertInfo({ visible: true, title: "Quitar Membresía", message: `¿Estás seguro de que quieres quitar la Membresía a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Quitar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}/membresia`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Membresía eliminada correctamente.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar la Membresía.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
 
+    const handleUploadQrIngreso = async (client) => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                const imageUri = result.assets[0].uri;
+                const localUri = imageUri;
+                const filename = localUri.split('/').pop();
+                const match = /\.(\w+)$/.exec(filename);
+                const type = match ? `image/${match[1]}` : `image`;
+
+                const formData = new FormData();
+                formData.append('qrIngreso', {
+                    uri: localUri,
+                    name: filename,
+                    type,
+                });
+
+                setAlertInfo({ visible: true, title: 'Subiendo...', message: 'Subiendo código QR...' });
+                const response = await apiClient.post(`/users/${client._id}/qr-ingreso`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                
+                setUsers(currentUsers => currentUsers.map(u => u._id === client._id ? { ...u, qrIngresoUrl: response.data.qrIngresoUrl } : u));
+                setAlertInfo({ visible: true, title: 'Éxito', message: 'Código QR de ingreso actualizado.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
+            }
+        } catch (error) {
+            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo subir el código QR.', buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] });
+        }
+    };
+
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
     const renderUserCard = useCallback(({ item }) => (
         <UserCardItem
@@ -548,6 +591,7 @@ const ManageClientsScreen = () => {
             handleOpenCreditsModal={handleOpenCreditsModal}
             handleQuickRemovePaseLibre={handleQuickRemovePaseLibre}
             handleQuickRemoveMembresia={handleQuickRemoveMembresia}
+            handleUploadQrIngreso={handleUploadQrIngreso}
             setSelectedMedicalOrderClient={setSelectedMedicalOrderClient}
             handleOpenEditModal={handleOpenEditModal}
             handleDeleteClient={handleDeleteClient}
