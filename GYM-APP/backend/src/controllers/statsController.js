@@ -24,16 +24,18 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         { $group: { _id: "$sexo", count: { $sum: 1 } } }
     ]);
 
-    // 3. Distribución por Edad
+    // 3. Distribución por Edad (Más detallado)
     const now = new Date();
     const usersForAge = await User.find({ fechaNacimiento: { $exists: true, $ne: null } }).select('fechaNacimiento');
     
     const ageDistribution = {
         '<18': 0,
-        '18-25': 0,
-        '26-35': 0,
-        '36-50': 0,
-        '50+': 0
+        '18-24': 0,
+        '25-34': 0,
+        '35-44': 0,
+        '45-54': 0,
+        '55-64': 0,
+        '65+': 0
     };
 
     usersForAge.forEach(u => {
@@ -43,10 +45,12 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         const age = Math.abs(ageDate.getUTCFullYear() - 1970);
         
         if (age < 18) ageDistribution['<18']++;
-        else if (age <= 25) ageDistribution['18-25']++;
-        else if (age <= 35) ageDistribution['26-35']++;
-        else if (age <= 50) ageDistribution['36-50']++;
-        else ageDistribution['50+']++;
+        else if (age <= 24) ageDistribution['18-24']++;
+        else if (age <= 34) ageDistribution['25-34']++;
+        else if (age <= 44) ageDistribution['35-44']++;
+        else if (age <= 54) ageDistribution['45-54']++;
+        else if (age <= 64) ageDistribution['55-64']++;
+        else ageDistribution['65+']++;
     });
 
     // 4. Clases más populares (agrupadas por tipoClase en el último mes)
@@ -66,54 +70,30 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         { 
             $group: { 
                 _id: "$tipoClaseData.nombre",
-                totalInscritos: { $sum: { $size: "$usuariosInscritos" } },
+                totalInscritos: { $sum: { $size: { $ifNull: ["$usuariosInscritos", []] } } },
+                totalAsistencias: { $sum: { $size: { $ifNull: ["$asistencias", []] } } },
                 totalClases: { $sum: 1 }
             } 
         },
-        { $project: { average: { $divide: ["$totalInscritos", "$totalClases"] }, totalInscritos: 1, _id: 1 } },
-        { $sort: { totalInscritos: -1 } }
-    ]);
-
-    // 5. Estado de Suscripción (Activos vs Inactivos)
-    const activeUsersCount = await User.countDocuments({
-        $or: [
-            { paseLibreHasta: { $gte: new Date() } },
-            { estadoSuscripcion: { $in: ['activo', 'periodo_prueba'] } }
-        ]
-    });
-    const totalUsersCount = await User.countDocuments({});
-    
-    const activeUsersStatus = {
-        activos: activeUsersCount,
-        inactivos: Math.max(0, totalUsersCount - activeUsersCount)
-    };
-
-    // 6. Ingresos por Mes (PaymentRequest con estado aprobado)
-    let revenueByMonth = [];
-    try {
-        if (PaymentRequest) {
-            revenueByMonth = await PaymentRequest.aggregate([
-                { $match: { estado: 'aprobado', createdAt: { $gte: sixMonthsAgo } } },
-                { 
-                    $group: { 
-                        _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
-                        total: { $sum: "$monto" } 
-                    } 
+        { 
+            $project: { 
+                _id: 1,
+                averageInscritos: { 
+                    $cond: [{ $eq: ["$totalClases", 0] }, 0, { $divide: ["$totalInscritos", "$totalClases"] }] 
                 },
-                { $sort: { _id: 1 } }
-            ]);
-        }
-    } catch (err) {
-        console.error("Error al calcular ingresos por mes:", err);
-    }
+                attendancePercentage: {
+                    $cond: [{ $eq: ["$totalInscritos", 0] }, 0, { $multiply: [{ $divide: ["$totalAsistencias", "$totalInscritos"] }, 100] }]
+                }
+            } 
+        },
+        { $sort: { averageInscritos: -1 } }
+    ]);
 
     res.json({
         newUsersByMonth,
         genderDistribution,
         ageDistribution,
-        classAssistance,
-        activeUsersStatus,
-        revenueByMonth
+        classAssistance
     });
 });
 

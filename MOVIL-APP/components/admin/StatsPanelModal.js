@@ -17,6 +17,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState(null);
+    const [activeClassTab, setActiveClassTab] = useState('average'); // 'average' | 'percentage'
 
     const fetchStats = useCallback(async () => {
         if (!apiClient || !visible) return;
@@ -47,7 +48,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
         labelColor: (opacity = 1) => Colors[colorScheme].text,
     };
 
-    // Preparar datos para los gráficos
+    // 1. Nuevos Usuarios
     let newUsersData = null;
     if (stats?.newUsersByMonth && stats.newUsersByMonth.length > 0) {
         newUsersData = {
@@ -59,25 +60,22 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
         };
     }
 
-    let revenueData = null;
-    if (stats?.revenueByMonth && stats.revenueByMonth.length > 0) {
-        revenueData = {
-            labels: stats.revenueByMonth.map(d => {
-                const [year, month] = d._id.split('-');
-                return format(new Date(year, month - 1, 1), 'MMM', { locale: es });
-            }),
-            datasets: [{ data: stats.revenueByMonth.map(d => d.total) }]
-        };
-    }
-
+    // 2. Clases (Promedio o Porcentaje)
     let classData = null;
     if (stats?.classAssistance && stats.classAssistance.length > 0) {
         classData = {
             labels: stats.classAssistance.map(d => d._id.substring(0, 8)), // Abreviar
-            datasets: [{ data: stats.classAssistance.map(d => d.totalInscritos) }] // Total inscriptos
+            datasets: [{ 
+                data: stats.classAssistance.map(d => 
+                    activeClassTab === 'average' 
+                        ? (d.averageInscritos || 0) 
+                        : (d.attendancePercentage || 0)
+                ) 
+            }]
         };
     }
 
+    // 3. Distribución por Sexo
     let genderData = [];
     if (stats?.genderDistribution) {
         genderData = stats.genderDistribution.map((d, index) => ({
@@ -89,9 +87,10 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
         }));
     }
 
+    // 4. Distribución por Edades
     let ageData = [];
     if (stats?.ageDistribution) {
-        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+        const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#8A2BE2'];
         let idx = 0;
         for (const [key, value] of Object.entries(stats.ageDistribution)) {
             if (value > 0) {
@@ -105,14 +104,6 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                 idx++;
             }
         }
-    }
-
-    let statusData = [];
-    if (stats?.activeUsersStatus) {
-        statusData = [
-            { name: 'Activos', population: stats.activeUsersStatus.activos, color: '#4BC0C0', legendFontColor: Colors[colorScheme].text, legendFontSize: 12 },
-            { name: 'Inactivos', population: stats.activeUsersStatus.inactivos, color: '#FF6384', legendFontColor: Colors[colorScheme].text, legendFontSize: 12 }
-        ];
     }
 
     return (
@@ -138,6 +129,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                 ) : (
                     <ScrollView contentContainerStyle={styles.scrollContent}>
 
+                        {/* Nuevos Usuarios */}
                         <View style={styles.card}>
                             <Text style={styles.cardTitle}>Nuevos Usuarios por Mes</Text>
                             {newUsersData ? (
@@ -152,28 +144,33 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                             ) : <Text style={styles.emptyText}>Sin datos recientes</Text>}
                         </View>
 
+                        {/* Popularidad de Clases */}
                         <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Ingresos Brutos por Mes</Text>
-                            {revenueData ? (
-                                <LineChart
-                                    data={revenueData}
-                                    width={screenWidth - 40}
-                                    height={220}
-                                    chartConfig={{ ...chartConfig, formatYLabel: (y) => `$${y}` }}
-                                    bezier
-                                    style={styles.chartStyle}
-                                />
-                            ) : <Text style={styles.emptyText}>Sin registros de pagos recientes</Text>}
-                        </View>
+                            <Text style={styles.cardTitle}>Popularidad de Clases (Últimos 30 días)</Text>
+                            
+                            {/* Tabs Switcher */}
+                            <View style={styles.tabContainer}>
+                                <TouchableOpacity 
+                                    style={[styles.tabButton, activeClassTab === 'average' && { backgroundColor: gymColor || '#1a5276' }]} 
+                                    onPress={() => setActiveClassTab('average')}
+                                >
+                                    <Text style={[styles.tabText, activeClassTab === 'average' && { color: '#fff' }]}>Inscriptos Promedio</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[styles.tabButton, activeClassTab === 'percentage' && { backgroundColor: gymColor || '#1a5276' }]} 
+                                    onPress={() => setActiveClassTab('percentage')}
+                                >
+                                    <Text style={[styles.tabText, activeClassTab === 'percentage' && { color: '#fff' }]}>% de Asistencia</Text>
+                                </TouchableOpacity>
+                            </View>
 
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Popularidad de Clases (Inscriptos últimos 30 días)</Text>
                             {classData ? (
                                 <BarChart
                                     data={classData}
                                     width={screenWidth - 40}
                                     height={220}
                                     yAxisLabel=""
+                                    yAxisSuffix={activeClassTab === 'percentage' ? "%" : ""}
                                     chartConfig={chartConfig}
                                     style={styles.chartStyle}
                                     showValuesOnTopOfBars
@@ -181,42 +178,23 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                             ) : <Text style={styles.emptyText}>Sin clases registradas</Text>}
                         </View>
 
-                        <View style={styles.rowCards}>
-                            <View style={[styles.card, { flex: 1, marginRight: 10 }]}>
-                                <Text style={styles.cardTitle}>Estado</Text>
-                                <PieChart
-                                    data={statusData}
-                                    width={(screenWidth / 2) - 25}
-                                    height={120}
-                                    chartConfig={chartConfig}
-                                    accessor={"population"}
-                                    backgroundColor={"transparent"}
-                                    paddingLeft={"0"}
-                                    hasLegend={false}
-                                />
-                                {statusData.map(d => (
-                                    <Text key={d.name} style={{ fontSize: 11, textAlign: 'center', color: Colors[colorScheme].text }}>{d.name}: {d.population}</Text>
-                                ))}
-                            </View>
-
-                            <View style={[styles.card, { flex: 1 }]}>
-                                <Text style={styles.cardTitle}>Sexo</Text>
+                        {/* Sexo */}
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Distribución por Sexo</Text>
+                            {genderData.length > 0 ? (
                                 <PieChart
                                     data={genderData}
-                                    width={(screenWidth / 2) - 25}
-                                    height={120}
+                                    width={screenWidth - 40}
+                                    height={150}
                                     chartConfig={chartConfig}
                                     accessor={"population"}
                                     backgroundColor={"transparent"}
-                                    paddingLeft={"0"}
-                                    hasLegend={false}
+                                    paddingLeft={"15"}
                                 />
-                                {genderData.map(d => (
-                                    <Text key={d.name} style={{ fontSize: 11, textAlign: 'center', color: Colors[colorScheme].text }}>{d.name}: {d.population}</Text>
-                                ))}
-                            </View>
+                            ) : <Text style={styles.emptyText}>Sin datos de sexo</Text>}
                         </View>
 
+                        {/* Edades */}
                         <View style={styles.card}>
                             <Text style={styles.cardTitle}>Distribución por Edades</Text>
                             {ageData.length > 0 ? (
@@ -253,10 +231,28 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 15,
         elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3
     },
-    rowCards: { flexDirection: 'row', justifyContent: 'space-between' },
     cardTitle: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 15, textAlign: 'center' },
     chartStyle: { borderRadius: 16, alignSelf: 'center' },
-    emptyText: { textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, fontStyle: 'italic', paddingVertical: 20 }
+    emptyText: { textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.6, fontStyle: 'italic', paddingVertical: 20 },
+    tabContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginBottom: 15,
+        backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0',
+        borderRadius: 8,
+        padding: 4,
+    },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 6,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: Colors[colorScheme].text,
+    }
 });
 
 export default StatsPanelModal;
