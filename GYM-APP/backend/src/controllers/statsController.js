@@ -9,7 +9,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
     
     const newUsersByMonth = await User.aggregate([
-        { $match: { createdAt: { $gte: sixMonthsAgo } } },
+        { $match: { roles: 'cliente', createdAt: { $gte: sixMonthsAgo } } },
         { 
             $group: { 
                 _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
@@ -21,12 +21,13 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 
     // 2. Distribución por Sexo
     const genderDistribution = await User.aggregate([
+        { $match: { roles: 'cliente' } },
         { $group: { _id: "$sexo", count: { $sum: 1 } } }
     ]);
 
     // 3. Distribución por Edad (Más detallado)
     const now = new Date();
-    const usersForAge = await User.find({ fechaNacimiento: { $exists: true, $ne: null } }).select('fechaNacimiento');
+    const usersForAge = await User.find({ roles: 'cliente', fechaNacimiento: { $exists: true, $ne: null } }).select('fechaNacimiento');
     
     const ageDistribution = {
         '<18': 0,
