@@ -17,6 +17,7 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
 
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState(null);
+    const [activeTab, setActiveTab] = useState('totales'); // 'totales' | 'last30Days'
 
     const fetchStats = useCallback(async () => {
         if (!apiClient || !visible || !userId) return;
@@ -47,17 +48,20 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
         labelColor: (opacity = 1) => Colors[colorScheme].text,
     };
 
+    // Datos seleccionados según tab
+    const activeData = activeTab === 'totales' ? stats?.totales : stats?.last30Days;
+
     // 1. Asistencia General
     let attendanceRate = 0;
-    if (stats?.attendanceData?.totalInscripciones > 0) {
-        attendanceRate = Math.round((stats.attendanceData.totalAsistencias / stats.attendanceData.totalInscripciones) * 100);
+    if (activeData?.attendanceData?.totalInscripciones > 0) {
+        attendanceRate = Math.round((activeData.attendanceData.totalAsistencias / activeData.attendanceData.totalInscripciones) * 100);
     }
 
     // 2. Clases Favoritas
     let favoriteData = [];
-    if (stats?.favoriteClasses) {
+    if (activeData?.favoriteClasses) {
         const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-        favoriteData = stats.favoriteClasses.map((d, idx) => ({
+        favoriteData = activeData.favoriteClasses.map((d, idx) => ({
             name: d._id,
             population: d.count,
             color: colors[idx % colors.length],
@@ -101,15 +105,34 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
                 ) : (
                     <ScrollView contentContainerStyle={styles.scrollContent}>
 
+                        <View style={styles.tabContainer}>
+                            <TouchableOpacity
+                                style={[styles.tabButton, activeTab === 'totales' && [styles.activeTab, { borderBottomColor: gymColor || Colors[colorScheme].tint }]]}
+                                onPress={() => setActiveTab('totales')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'totales' && [styles.activeTabText, { color: gymColor || Colors[colorScheme].tint }]]}>
+                                    Totales
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.tabButton, activeTab === 'last30Days' && [styles.activeTab, { borderBottomColor: gymColor || Colors[colorScheme].tint }]]}
+                                onPress={() => setActiveTab('last30Days')}
+                            >
+                                <Text style={[styles.tabText, activeTab === 'last30Days' && [styles.activeTabText, { color: gymColor || Colors[colorScheme].tint }]]}>
+                                    Últimos 30 días
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
                         {/* Resumen General */}
                         <View style={styles.rowCards}>
                             <View style={[styles.card, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.kpiLabel}>Inscripciones</Text>
-                                <Text style={styles.kpiValue}>{stats.attendanceData?.totalInscripciones || 0}</Text>
+                                <Text style={styles.kpiValue}>{activeData?.attendanceData?.totalInscripciones || 0}</Text>
                             </View>
                             <View style={[styles.card, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.kpiLabel}>Asistencias</Text>
-                                <Text style={styles.kpiValue}>{stats.attendanceData?.totalAsistencias || 0}</Text>
+                                <Text style={styles.kpiValue}>{activeData?.attendanceData?.totalAsistencias || 0}</Text>
                             </View>
                             <View style={[styles.card, { flex: 1 }]}>
                                 <Text style={styles.kpiLabel}>Tasa de Asistencia</Text>
@@ -165,6 +188,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     closeButton: { padding: 4 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { padding: 15, paddingBottom: 50 },
+    tabContainer: { flexDirection: 'row', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
+    tabButton: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+    activeTab: { borderBottomWidth: 3 },
+    tabText: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.6, fontWeight: '500' },
+    activeTabText: { opacity: 1, fontWeight: 'bold' },
     card: { 
         backgroundColor: Colors[colorScheme].cardBackground, 
         borderRadius: 16, 
