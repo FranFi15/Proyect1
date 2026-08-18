@@ -7,12 +7,15 @@ import {
     deleteNotification,
     deleteOldNotifications,
     deleteUserNotification,
-    deleteAllUserNotifications
+    deleteAllUserNotifications,
+    getSentNotifications
 } from '../controllers/notificationController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
+router.route('/sent')
+    .get(protect, authorizeRoles('admin', 'superadmin'), getSentNotifications);
 
 router.route('/me')
     .get(protect, getUserNotifications);

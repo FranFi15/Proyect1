@@ -2,6 +2,7 @@ import getUserModel from '../models/User.js';
 import getClassModel from '../models/Clase.js';
 import getTipoClaseModel from '../models/TipoClase.js';
 import getNotificationModel from '../models/Notification.js';
+import getSentNotificationModel from '../models/SentNotification.js';
 import getConfiguracionModel from '../models/Configuracion.js';
 import getCreditLogModel from '../models/CreditLog.js';
 import getTransactionsModel from '../models/Transaction.js';
@@ -37,7 +38,8 @@ const getModels = (dbConnection) => {
         PaymentPackage: getPaymentPackageModel(dbConnection),
         PaymentRequest: getPaymentRequestModel(dbConnection),
         Sucursal: getSucursalModel(dbConnection),
-        Review: getReviewModel(dbConnection)
+        Review: getReviewModel(dbConnection),
+        SentNotification: getSentNotificationModel(dbConnection)
     };
 
     return models;

@@ -69,12 +69,38 @@ const createNotification = asyncHandler(async (req, res) => {
             sendSingleNotification(Notification, User, user._id, title, message, type, isImportant, targetType === 'class' ? targetId : null)
         );
         notificacionesCreadas = await Promise.all(promesasDeNotificacion);
+        
+        // Log the sent notification
+        const { SentNotification } = getModels(req.gymDBConnection);
+        if (SentNotification) {
+            await SentNotification.create({
+                sender: req.user._id,
+                title,
+                message,
+                targetType,
+                targetId: targetId || null,
+                targetModel: targetType === 'class' ? 'Clase' : (targetType === 'user' ? 'User' : null),
+                targetRole: targetRole || null,
+                recipientCount: usuariosDestino.length,
+            });
+        }
     }
 
     res.status(201).json({
         message: `Notificaciones procesadas para ${notificacionesCreadas.length} usuarios.`,
         notifications: notificacionesCreadas
     });
+});
+
+const getSentNotifications = asyncHandler(async (req, res) => {
+    const { SentNotification } = getModels(req.gymDBConnection);
+    if (!SentNotification) {
+        return res.status(500).json({ message: 'Modelo SentNotification no encontrado' });
+    }
+    const notifications = await SentNotification.find({ sender: req.user._id })
+        .populate('targetId', 'nombre email')
+        .sort({ createdAt: -1 });
+    res.json(notifications);
 });
 
 const getUserNotifications = asyncHandler(async (req, res) => {
@@ -147,6 +173,7 @@ export {
     sendSingleNotification,
     createNotification,
     getUserNotifications,
+    getSentNotifications,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     deleteNotification,

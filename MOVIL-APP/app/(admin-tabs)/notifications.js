@@ -1,20 +1,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    StyleSheet,
-    View,
-    Text,
-    ActivityIndicator,
-    TouchableOpacity,
-    FlatList,
-    useColorScheme,
-    Button,
-    TextInput,
-    Switch,
-    Platform,
-    KeyboardAvoidingView,
-    Modal,
-    ScrollView,
+    StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, FlatList,
+    useColorScheme, Button, TextInput, Switch, Platform, KeyboardAvoidingView,
+    Modal, ScrollView, useWindowDimensions
 } from 'react-native';
+import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -116,6 +108,16 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     listItemText: { color: Colors[colorScheme].text, fontSize: 16, fontWeight: '500' },
     listItemSubtext: { color: Colors[colorScheme].text, fontSize: 12, opacity: 0.7 },
     emptyListText: { padding: 20, textAlign: 'center', color: Colors[colorScheme].icon },
+    historyCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 10, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors[colorScheme].border, elevation: 1 },
+    historyTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginBottom: 4 },
+    historyMessage: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 8 },
+    historyFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    historyDate: { fontSize: 12, color: Colors[colorScheme].icon },
+    historyBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(0,123,255,0.1)' },
+    historyBadgeText: { fontSize: 12, fontWeight: '600', color: gymColor || '#007bff' },
+    tabBar: { backgroundColor: gymColor || '#007bff', elevation: 4 },
+    tabIndicator: { backgroundColor: '#ffffff', height: 3 },
+    tabLabel: { color: '#ffffff', fontSize: 14, fontWeight: 'bold', textTransform: 'none' }
 });
 
 const NotificationAdminScreen = () => {
@@ -140,6 +142,17 @@ const NotificationAdminScreen = () => {
     const [activeModal, setActiveModal] = useState(null);
     const [searchModalVisible, setSearchModalVisible] = useState(false);
 
+    // TabView States
+    const layout = useWindowDimensions();
+    const [index, setIndex] = useState(0);
+    const [routes] = useState([
+        { key: 'compose', title: 'Redactar' },
+        { key: 'history', title: 'Historial' },
+    ]);
+    const [historyTab, setHistoryTab] = useState('sent'); // 'sent' or 'received'
+    const [sentNotifications, setSentNotifications] = useState([]);
+    const [receivedNotifications, setReceivedNotifications] = useState([]);
+
     const openSearchModal = () => setSearchModalVisible(true);
     const closeSearchModal = () => {
         setSearchModalVisible(false);
@@ -158,12 +171,16 @@ const NotificationAdminScreen = () => {
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
-            const [usersRes, classesRes] = await Promise.all([
+            const [usersRes, classesRes, sentRes, receivedRes] = await Promise.all([
                 apiClient.get('/users?populate=creditos'),
-                apiClient.get('/classes?populate=tipoClase,profesor')
+                apiClient.get('/classes?populate=tipoClase,profesor'),
+                apiClient.get('/notifications/sent'),
+                apiClient.get('/notifications/me')
             ]);
             setAllUsers(usersRes.data || []);
             setAllClasses(classesRes.data || []);
+            setSentNotifications(sentRes.data || []);
+            setReceivedNotifications(receivedRes.data || []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
         } finally {
@@ -248,10 +265,11 @@ const NotificationAdminScreen = () => {
     const getModalConfig = useMemo(() => {
         const targetTypeOptions = [{ _id: 'all', nombre: 'Todos los Usuarios' }, { _id: 'user', nombre: 'Usuario Específico' }, { _id: 'role', nombre: 'Rol Específico' }, { _id: 'class', nombre: 'Turno Específico' }];
         const roleOptions = [{ _id: '', nombre: 'Selecciona un rol' }, { _id: 'cliente', nombre: 'Clientes' }, { _id: 'profesor', nombre: 'Profesionales' }, { _id: 'admin', nombre: 'Admins' }];
+
         switch (activeModal) {
-            case 'targetType': return { title: 'Seleccionar Destinatario', options: targetTypeOptions, onSelect: handleTargetTypeSelect, selectedValue: targetType };
-            case 'role': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: setSelectedRoleId, selectedValue: selectedRoleId };
-            default: return null;
+            case 'targetType': return { options: targetTypeOptions, title: 'Seleccionar Destinatario', selected: targetType };
+            case 'role': return { options: roleOptions, title: 'Seleccionar Rol', selected: selectedRoleId };
+            default: return { options: [], title: '', selected: '' };
         }
     }, [activeModal, targetType, selectedRoleId]);
 
@@ -300,12 +318,8 @@ const NotificationAdminScreen = () => {
         </TouchableOpacity>
     );
 
-    if (loading) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
-    }
-
-    return (
-        <ThemedView style={styles.container}>
+    const ComposeScene = () => (
+        <View style={styles.container}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -431,6 +445,95 @@ const NotificationAdminScreen = () => {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+        </View>
+    );
+
+    const renderSentItem = ({ item }) => (
+        <View style={styles.historyCard}>
+            <Text style={styles.historyTitle}>{item.title}</Text>
+            <Text style={styles.historyMessage}>{item.message}</Text>
+            <View style={styles.historyFooter}>
+                <Text style={styles.historyDate}>{format(parseISO(item.createdAt), "dd MMM HH:mm", { locale: es })}</Text>
+                <View style={styles.historyBadge}>
+                    <Text style={styles.historyBadgeText}>A {item.recipientCount} usu.</Text>
+                </View>
+            </View>
+        </View>
+    );
+
+    const renderReceivedItem = ({ item }) => (
+        <View style={styles.historyCard}>
+            <Text style={styles.historyTitle}>{item.title}</Text>
+            <Text style={styles.historyMessage}>{item.message}</Text>
+            <View style={styles.historyFooter}>
+                <Text style={styles.historyDate}>{format(parseISO(item.createdAt), "dd MMM HH:mm", { locale: es })}</Text>
+            </View>
+        </View>
+    );
+
+    const HistoryScene = () => (
+        <View style={[styles.container, { padding: 16 }]}>
+            <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 8, padding: 4 }}>
+                <TouchableOpacity 
+                    style={{ flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: historyTab === 'sent' ? (gymColor || '#007bff') : 'transparent', borderRadius: 6 }}
+                    onPress={() => setHistoryTab('sent')}
+                >
+                    <Text style={{ fontWeight: 'bold', color: historyTab === 'sent' ? '#fff' : Colors[colorScheme].text }}>Enviadas</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={{ flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: historyTab === 'received' ? (gymColor || '#007bff') : 'transparent', borderRadius: 6 }}
+                    onPress={() => setHistoryTab('received')}
+                >
+                    <Text style={{ fontWeight: 'bold', color: historyTab === 'received' ? '#fff' : Colors[colorScheme].text }}>Recibidas</Text>
+                </TouchableOpacity>
+            </View>
+            {historyTab === 'sent' ? (
+                <FlatList
+                    data={sentNotifications}
+                    renderItem={renderSentItem}
+                    keyExtractor={item => item._id}
+                    ListEmptyComponent={<Text style={styles.emptyListText}>No has enviado ninguna notificación aún.</Text>}
+                />
+            ) : (
+                <FlatList
+                    data={receivedNotifications}
+                    renderItem={renderReceivedItem}
+                    keyExtractor={item => item._id}
+                    ListEmptyComponent={<Text style={styles.emptyListText}>No has recibido ninguna notificación.</Text>}
+                />
+            )}
+        </View>
+    );
+
+    const renderScene = SceneMap({
+        compose: ComposeScene,
+        history: HistoryScene,
+    });
+
+    if (loading) {
+        return (
+            <ThemedView style={styles.centered}>
+                <ActivityIndicator size="large" color={gymColor || '#007bff'} />
+            </ThemedView>
+        );
+    }
+
+    return (
+        <ThemedView style={styles.container}>
+            <TabView
+                navigationState={{ index, routes }}
+                renderScene={renderScene}
+                onIndexChange={setIndex}
+                initialLayout={{ width: layout.width }}
+                renderTabBar={props => (
+                    <TabBar
+                        {...props}
+                        style={styles.tabBar}
+                        indicatorStyle={styles.tabIndicator}
+                        labelStyle={styles.tabLabel}
+                    />
+                )}
+            />
 
             <Modal
                 animationType="fade"
