@@ -149,28 +149,28 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                         </View>
                     ) : (
                         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                            
+
                             {/* MENU DE NAVEGACION DE TABS */}
                             <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].border || '#ddd', borderRadius: 8, padding: 4 }}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'calendario' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setActiveTab('calendario')}
                                 >
                                     <Text style={{ color: activeTab === 'calendario' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Calendario</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'resenas' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setActiveTab('resenas')}
                                 >
                                     <Text style={{ color: activeTab === 'resenas' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Reseñas</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bienvenida' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setActiveTab('bienvenida')}
                                 >
                                     <Text style={{ color: activeTab === 'bienvenida' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Bienvenida</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bancos' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
                                     onPress={() => setActiveTab('bancos')}
                                 >
@@ -202,7 +202,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                     <Text style={styles.sectionTitle}>Reseñas a Profesores</Text>
                                     <Text style={styles.cardDescription}>Configura si los clientes podrán ver las calificaciones de los profesores en el calendario.</Text>
                                     <View style={styles.switchContainer}>
-                                        <Text style={styles.inputLabel}>¿Hacer públicas las reseñas para los clientes?</Text>
+                                        <Text style={styles.inputLabel}>¿Hacer públicas las reseñas?</Text>
                                         <Switch trackColor={{ true: gymColor }} onValueChange={setReviewsPublic} value={reviewsPublic} />
                                     </View>
                                 </View>
@@ -275,9 +275,9 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalOverlayWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    modalOverlayWrapper: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-    modalContainer: { width: '100%', maxWidth: 500, maxHeight: '85%', backgroundColor: Colors[colorScheme].background, borderRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+    modalContainer: { width: '100%', maxWidth: 500, height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
     headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, justifyContent: 'space-between' },
     headerBannerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
     headerBannerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },

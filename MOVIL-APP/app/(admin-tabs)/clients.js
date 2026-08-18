@@ -31,7 +31,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
-import FilterModal from '@/components/admin/FilterModal';
+import FilterModal from '@/components/FilterModal';
 import ClientStatsModal from '@/components/admin/ClientStatsModal';
 import ProfesorReviewsModal from '@/components/admin/ProfesorReviewsModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
@@ -101,7 +101,8 @@ const UserCardItem = React.memo(({
     handleOpenEditModal,
     handleDeleteClient,
     handleOpenStatsModal,
-    getTypeName
+    getTypeName,
+    setSelectedProfesorForReviews
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
@@ -552,8 +553,9 @@ const ManageClientsScreen = () => {
             handleDeleteClient={handleDeleteClient}
             handleOpenStatsModal={setSelectedClientForStats}
             getTypeName={getTypeName}
+            setSelectedProfesorForReviews={setSelectedProfesorForReviews}
         />
-    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName]);
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews]);
 
     const renderTransferCard = useCallback(({ item }) => {
         return (

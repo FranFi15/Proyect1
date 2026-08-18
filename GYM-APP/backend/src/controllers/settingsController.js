@@ -12,13 +12,14 @@ import getModels from '../utils/getModels.js';
             courtesyCredit: settings?.courtesyCredit || { isActive: false, amount: 1, tipoClase: null },
             bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
             cancellationTimeLimitMinutes: settings?.cancellationTimeLimitMinutes ?? 60,
-            maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0
+            maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0,
+            reviewsPublic: !!settings?.reviewsPublic
         });
     });
 
     const updateSettings = asyncHandler(async (req, res) => {
-        // 🔥 FIX: Recibimos bankDetails del body
-        const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitMinutes, maxDailyClassesPerUser } = req.body;
+        // 🔥 FIX: Recibimos bankDetails del body y reviewsPublic
+        const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitMinutes, maxDailyClassesPerUser, reviewsPublic } = req.body;
         const { Settings } = getModels(req.gymDBConnection);
         
         const updateData = {};
@@ -26,6 +27,7 @@ import getModels from '../utils/getModels.js';
         if (classVisibilityDays !== undefined) updateData.classVisibilityDays = Number(classVisibilityDays) || 0;
         if (cancellationTimeLimitMinutes !== undefined) updateData.cancellationTimeLimitMinutes = Number(cancellationTimeLimitMinutes);
         if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
+        if (reviewsPublic !== undefined) updateData.reviewsPublic = Boolean(reviewsPublic);
 
     if (courtesyCredit) {
         updateData.courtesyCredit = {

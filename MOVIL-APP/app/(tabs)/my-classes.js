@@ -34,6 +34,8 @@ const capitalize = (str) => {
 };
 
 const formatTeachers = (clase) => {
+    if (!clase) return 'Sin profesor asignado';
+
     // 1. Prioridad: Array de profesores (Nueva estructura)
     if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
         return clase.profesores
@@ -103,10 +105,20 @@ const MyClassesScreen = () => {
             } else if (response.data.message) {
                 detail = response.data.message;
             }
-            setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
+            setAlertInfo({ 
+                visible: true, 
+                title: '¡Presentismo Exitoso!', 
+                message: detail,
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+            });
             fetchMyClasses();
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Atención', 
+                message: error.response?.data?.message || 'No se pudo registrar la asistencia.',
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+            });
         }
     };
 
