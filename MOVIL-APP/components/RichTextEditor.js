@@ -1,5 +1,5 @@
 // src/components/RichTextEditor.js
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, StyleSheet, Modal, Text, TextInput, TouchableOpacity } from 'react-native';
 import { actions, RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
 import { Colors } from '@/constants/Colors';
@@ -34,6 +34,22 @@ const RichTextEditor = ({
         setLinkModalVisible(false);
     };
 
+    const isFirstRender = useRef(true);
+    const lastContentRef = useRef(initialContent);
+
+    useEffect(() => {
+        if (!isFirstRender.current && initialContent !== lastContentRef.current) {
+            richText.current?.setContentHTML(initialContent);
+            lastContentRef.current = initialContent;
+        }
+        isFirstRender.current = false;
+    }, [initialContent]);
+
+    const handleChange = (text) => {
+        lastContentRef.current = text;
+        onChange(text);
+    };
+
     const styles = getStyles(colorScheme, gymColor);
 
     return (
@@ -60,7 +76,7 @@ const RichTextEditor = ({
                 <RichEditor
                     ref={richText}
                     initialContentHTML={initialContent}
-                    onChange={onChange}
+                    onChange={handleChange}
                     placeholder={placeholder}
                     editorStyle={{
                         backgroundColor: Colors[colorScheme].background,
