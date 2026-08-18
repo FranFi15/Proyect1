@@ -29,41 +29,7 @@ async function getExpoTokenAndSendToServer() {
     }
 }
 
-export async function registerForPushNotificationsAsync() {
-    if (!Device.isDevice) {
-        throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
-    }
-
-    // 1. Configuración OBLIGATORIA para Android
-    if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-        });
-    }
-
-    // 2. Revisar permisos existentes
-    let { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    // 3. Si no está determinado, pedir permiso
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
-
-    // 4. Si el usuario denegó, salir
-    if (finalStatus !== 'granted') {
-        return { status: 'denied', token: null };
-    }
-
-    // 5. Obtener token y enviar
-    const token = await getExpoTokenAndSendToServer();
-    return { status: 'granted', token };
-}
-
+// Function moved to notificationService object
 const notificationService = {
     getNotifications: async () => {
         try {
@@ -117,8 +83,40 @@ const notificationService = {
         }
     },
 
-};
+    registerForPushNotificationsAsync: async () => {
+        if (!Device.isDevice) {
+            throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
+        }
 
-    
+        // 1. Configuración OBLIGATORIA para Android
+        if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync('default', {
+                name: 'default',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#FF231F7C',
+            });
+        }
+
+        // 2. Revisar permisos existentes
+        let { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        // 3. Si no está determinado, pedir permiso
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        // 4. Si el usuario denegó, salir
+        if (finalStatus !== 'granted') {
+            return { status: 'denied', token: null };
+        }
+
+        // 5. Obtener token y enviar
+        const token = await getExpoTokenAndSendToServer();
+        return { status: 'granted', token };
+    }
+};
 
 export default notificationService;
