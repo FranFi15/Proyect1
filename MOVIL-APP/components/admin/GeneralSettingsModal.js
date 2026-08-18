@@ -22,6 +22,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [reviewsPublic, setReviewsPublic] = useState(false);
 
     const [internalAlert, setInternalAlert] = useState({ visible: false, title: '', message: '', buttons: [] });
+    const [activeTab, setActiveTab] = useState('calendario'); // 'calendario' | 'resenas' | 'bienvenida' | 'bancos'
 
     const showAlert = (alertData) => {
         setInternalAlert({
@@ -148,66 +149,111 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                         </View>
                     ) : (
                         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                            <Text style={styles.sectionTitle}>Calendario</Text>
-                            <Text style={styles.cardDescription}>
-                                Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
-                            </Text>
-                            <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
-                            <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
+                            
+                            {/* MENU DE NAVEGACION DE TABS */}
+                            <View style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: Colors[colorScheme].border || '#ddd', borderRadius: 8, padding: 4 }}>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'calendario' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('calendario')}
+                                >
+                                    <Text style={{ color: activeTab === 'calendario' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Calendario</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'resenas' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('resenas')}
+                                >
+                                    <Text style={{ color: activeTab === 'resenas' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Reseñas</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bienvenida' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('bienvenida')}
+                                >
+                                    <Text style={{ color: activeTab === 'bienvenida' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Bienvenida</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bancos' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('bancos')}
+                                >
+                                    <Text style={{ color: activeTab === 'bancos' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Transferencias</Text>
+                                </TouchableOpacity>
+                            </View>
 
-                            <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
-                            <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999" />
+                            {/* CONTENIDO DE CALENDARIO */}
+                            {activeTab === 'calendario' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Calendario</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
+                                    </Text>
+                                    <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
+                                    <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
 
-                            <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
-                            <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
+                                    <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
+                                    <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999" />
 
-                            <View style={{ paddingTop: 15, marginTop: 10 }}>
-                                <Text style={styles.sectionTitle}>Reseñas a Profesores</Text>
-                                <View style={styles.switchContainer}>
-                                    <Text style={styles.inputLabel}>¿Hacer públicas las reseñas para los clientes?</Text>
-                                    <Switch trackColor={{ true: gymColor }} onValueChange={setReviewsPublic} value={reviewsPublic} />
+                                    <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
+                                    <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
                                 </View>
-                            </View>
+                            )}
 
-                            <View style={{ paddingTop: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
-                                <Text style={styles.sectionTitle}>Crédito de Bienvenida</Text>
-                                <View style={styles.switchContainer}>
-                                    <Text style={styles.inputLabel}>¿Activar crédito de bienvenida?</Text>
-                                    <Switch trackColor={{ true: gymColor }} onValueChange={(val) => setCourtesyConfig(prev => ({ ...prev, isActive: val }))} value={courtesyConfig.isActive} />
+                            {/* CONTENIDO DE RESEÑAS */}
+                            {activeTab === 'resenas' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Reseñas a Profesores</Text>
+                                    <Text style={styles.cardDescription}>Configura si los clientes podrán ver las calificaciones de los profesores en el calendario.</Text>
+                                    <View style={styles.switchContainer}>
+                                        <Text style={styles.inputLabel}>¿Hacer públicas las reseñas para los clientes?</Text>
+                                        <Switch trackColor={{ true: gymColor }} onValueChange={setReviewsPublic} value={reviewsPublic} />
+                                    </View>
                                 </View>
+                            )}
 
-                                {courtesyConfig.isActive && (
-                                    <>
-                                        <Text style={styles.inputLabel}>¿Qué tipo de clase dar?</Text>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
-                                            {classTypes.map(type => (
-                                                <TouchableOpacity key={type._id} onPress={() => setCourtesyConfig(prev => ({ ...prev, tipoClase: type._id }))} style={[styles.dayChip, courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }]}>
-                                                    <Text style={{ color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text, fontWeight: '600' }}>{type.nombre}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
+                            {/* CONTENIDO DE CREDITO BIENVENIDA */}
+                            {activeTab === 'bienvenida' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Crédito de Bienvenida</Text>
+                                    <Text style={styles.cardDescription}>Otorga créditos automáticamente a los usuarios recién registrados.</Text>
+                                    <View style={styles.switchContainer}>
+                                        <Text style={styles.inputLabel}>¿Activar crédito de bienvenida?</Text>
+                                        <Switch trackColor={{ true: gymColor }} onValueChange={(val) => setCourtesyConfig(prev => ({ ...prev, isActive: val }))} value={courtesyConfig.isActive} />
+                                    </View>
 
-                                        <Text style={styles.inputLabel}>Cantidad de créditos:</Text>
-                                        <TextInput style={styles.input} value={courtesyConfig.amount} onChangeText={(text) => setCourtesyConfig(prev => ({ ...prev, amount: text }))} keyboardType="number-pad" placeholderTextColor="#999" />
-                                    </>
-                                )}
-                            </View>
+                                    {courtesyConfig.isActive && (
+                                        <>
+                                            <Text style={styles.inputLabel}>¿Qué tipo de clase dar?</Text>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                                                {classTypes.map(type => (
+                                                    <TouchableOpacity key={type._id} onPress={() => setCourtesyConfig(prev => ({ ...prev, tipoClase: type._id }))} style={[styles.dayChip, courtesyConfig.tipoClase === type._id && { backgroundColor: gymColor }]}>
+                                                        <Text style={{ color: courtesyConfig.tipoClase === type._id ? '#fff' : Colors[colorScheme].text, fontWeight: '600' }}>{type.nombre}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </ScrollView>
 
-                            <View style={{ paddingTop: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
-                                <Text style={styles.sectionTitle}>Datos Bancarios (Transferencias)</Text>
-                                <Text style={styles.cardDescription}>
-                                    Estos datos se mostrarán a los clientes cuando quieran informar un pago.
-                                </Text>
+                                            <Text style={styles.inputLabel}>Cantidad de créditos:</Text>
+                                            <TextInput style={styles.input} value={courtesyConfig.amount} onChangeText={(text) => setCourtesyConfig(prev => ({ ...prev, amount: text }))} keyboardType="number-pad" placeholderTextColor="#999" />
+                                        </>
+                                    )}
+                                </View>
+                            )}
 
-                                <Text style={styles.inputLabel}>CBU / CVU:</Text>
-                                <TextInput style={styles.input} value={bankDetails.cbu} onChangeText={(t) => setBankDetails(prev => ({ ...prev, cbu: t }))} placeholder="Ej: 0000003100000000000000" placeholderTextColor="#999" />
+                            {/* CONTENIDO DE BANCOS */}
+                            {activeTab === 'bancos' && (
+                                <View>
+                                    <Text style={styles.sectionTitle}>Datos Bancarios (Transferencias)</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Estos datos se mostrarán a los clientes cuando quieran informar un pago.
+                                    </Text>
 
-                                <Text style={styles.inputLabel}>Alias:</Text>
-                                <TextInput style={styles.input} value={bankDetails.alias} onChangeText={(t) => setBankDetails(prev => ({ ...prev, alias: t }))} placeholder="Ej: GIMNASIO.FIT" placeholderTextColor="#999" />
+                                    <Text style={styles.inputLabel}>CBU / CVU:</Text>
+                                    <TextInput style={styles.input} value={bankDetails.cbu} onChangeText={(t) => setBankDetails(prev => ({ ...prev, cbu: t }))} placeholder="Ej: 0000003100000000000000" placeholderTextColor="#999" />
 
-                                <Text style={styles.inputLabel}>Banco / Billetera (Opcional):</Text>
-                                <TextInput style={styles.input} value={bankDetails.bankName} onChangeText={(t) => setBankDetails(prev => ({ ...prev, bankName: t }))} placeholder="Ej: MercadoPago" placeholderTextColor="#999" />
-                            </View>
+                                    <Text style={styles.inputLabel}>Alias:</Text>
+                                    <TextInput style={styles.input} value={bankDetails.alias} onChangeText={(t) => setBankDetails(prev => ({ ...prev, alias: t }))} placeholder="Ej: GIMNASIO.FIT" placeholderTextColor="#999" />
+
+                                    <Text style={styles.inputLabel}>Banco / Billetera (Opcional):</Text>
+                                    <TextInput style={styles.input} value={bankDetails.bankName} onChangeText={(t) => setBankDetails(prev => ({ ...prev, bankName: t }))} placeholder="Ej: MercadoPago" placeholderTextColor="#999" />
+                                </View>
+                            )}
 
                             <TouchableOpacity
                                 style={[styles.saveBtn, { backgroundColor: gymColor || Colors[colorScheme].tint }]}
