@@ -308,11 +308,7 @@ const ProfessorMyClassesScreen = () => {
                                     <Text style={styles.modalHeaderSubtitle}>{selectedClassStudents.length} alumno{selectedClassStudents.length !== 1 ? 's' : ''}</Text>
                                 </View>
 
-                                {/* QR Scan Button */}
-                                <TouchableOpacity style={styles.scanButton} onPress={() => {setListModalVisible(false); setScannerVisible(true);}}>
-                                    <FontAwesome5 name="qrcode" size={18} color="#fff" />
-                                    <Text style={styles.scanButtonText}>Dar Presentismo</Text>
-                                </TouchableOpacity>
+                                {/* QR Ingreso Button */}
                                 <TouchableOpacity style={[styles.scanButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: gymColor || Colors.light.tint }]} onPress={() => {setListModalVisible(false); setQrImageModalVisible(true);}}>
                                     <Ionicons name="qr-code" size={18} color={gymColor || Colors.light.tint} />
                                     <Text style={[styles.scanButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</Text>
