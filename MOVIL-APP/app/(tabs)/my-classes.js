@@ -97,31 +97,66 @@ const MyClassesScreen = () => {
         }).length;
     }, [userProfile]);
 
+    const confirmCheckIn = async (type, id, qrData) => {
+        setAlertInfo({ ...alertInfo, visible: false });
+        try {
+            const response = await apiClient.post('/check-in/client-scan-confirm', { type, id, qrData });
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Presentismo Exitoso!', 
+                    message: response.data.message || 'Asistencia registrada correctamente.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+                fetchMyClasses();
+            }, 500);
+        } catch (error) {
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.response?.data?.message || 'No se pudo confirmar la asistencia.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+            }, 500);
+        }
+    };
+
     const handleClientScan = async ({ data }) => {
         if (isProcessingScan) return;
         isProcessingScan = true;
         
         setScannerVisible(false);
         try {
-            const response = await apiClient.post('/check-in/client-scan', { qrData: data });
-            let detail = 'Asistencia registrada correctamente.';
-            if (response.data.classes && response.data.classes.length > 0) {
-                detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
-            } else if (response.data.message) {
-                detail = response.data.message;
+            const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
+            
+            if (response.data.options && response.data.options.length > 0) {
+                const buttons = response.data.options.map(opt => ({
+                    text: `${opt.nombre} (${opt.horario})`,
+                    style: 'primary',
+                    onPress: () => confirmCheckIn(opt.type, opt.id, data)
+                }));
+                buttons.push({ text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) });
+
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Selecciona tu clase', 
+                    message: response.data.message || '¿A qué vas a asistir hoy?',
+                    buttons: buttons
+                });
+            } else {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Atención', 
+                    message: response.data.message || 'No hay clases disponibles.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
             }
-            setAlertInfo({ 
-                visible: true, 
-                title: '¡Presentismo Exitoso!', 
-                message: detail,
-                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
-            });
-            fetchMyClasses();
         } catch (error) {
             setAlertInfo({ 
                 visible: true, 
                 title: 'Atención', 
-                message: error.response?.data?.message || 'No se pudo registrar la asistencia.',
+                message: error.response?.data?.message || 'No se pudo leer tus opciones de presentismo.',
                 buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
             });
         } finally {
@@ -290,12 +325,8 @@ const MyClassesScreen = () => {
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
                         : didAttend ? (
-                            <View style={{ width: '100%', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4, marginBottom: index === 1 ? 10 : 0 }}>
-                                    <Ionicons name="checkmark-circle" size={16} color="#28a745" />
-                                    <Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6, fontSize: 13 }}>PRESENTISMO REGISTRADO</Text>
-                                </View>
-                                {index === 1 && (
+                            index === 1 ? (
+                                <View style={{ width: '100%', alignItems: 'flex-start', paddingTop: 8 }}>
                                     <ActionButton
                                         title="Calificar"
                                         color="#FFD700"
@@ -303,8 +334,8 @@ const MyClassesScreen = () => {
                                         onPress={() => setSelectedClassForRate(item)}
                                         iconName="star"
                                     />
-                                )}
-                            </View>
+                                </View>
+                            ) : null
                         )
                         : index === 0 && canUnenroll ? (
                             <ActionButton
@@ -400,6 +431,7 @@ const MyClassesScreen = () => {
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor}
+                inline={true}
             />
 
             <RateClassModal 

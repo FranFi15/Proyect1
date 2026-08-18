@@ -38,15 +38,16 @@ const QrScannerModal = ({ visible, onClose, onBarcodeScanned }) => {
     } else {
         // El permiso está concedido, mostramos la cámara
         content = (
-            <CameraView
-                onBarcodeScanned={onBarcodeScanned}
-                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                style={StyleSheet.absoluteFillObject}
-            >
+            <View style={StyleSheet.absoluteFillObject}>
+                <CameraView
+                    onBarcodeScanned={onBarcodeScanned}
+                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                    style={StyleSheet.absoluteFillObject}
+                />
                 <View style={styles.closeButtonContainer}>
                     <Button title="Cancelar" onPress={onClose} color="#e74c3c" />
                 </View>
-            </CameraView>
+            </View>
         );
     }
 
