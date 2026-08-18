@@ -232,11 +232,25 @@ const getAllClasses = asyncHandler(async (req, res) => {
 
     const classes = await Clase.find(filterQuery)
         .populate('tipoClase', 'nombre')
-        .populate('profesores', 'nombre apellido')
-        .populate('profesor', 'nombre apellido')
+        .populate('profesores', 'nombre apellido ratingAverage')
+        .populate('profesor', 'nombre apellido ratingAverage')
         .populate('sucursal', 'nombre direccion');
         
-    res.json(enrichClassListWithUTC(classes, req.gymTimezone));
+    let finalClasses = classes;
+    if (!settings?.reviewsPublic) {
+        finalClasses = classes.map(cls => {
+            const classObj = cls.toObject();
+            if (classObj.profesores) {
+                classObj.profesores.forEach(p => delete p.ratingAverage);
+            }
+            if (classObj.profesor) {
+                delete classObj.profesor.ratingAverage;
+            }
+            return classObj;
+        });
+    }
+
+    res.json(enrichClassListWithUTC(finalClasses, req.gymTimezone));
 });
 
 

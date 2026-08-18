@@ -589,7 +589,21 @@ const CalendarScreen = () => {
                     </View>
                 )}
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>A cargo de: {formatTeachers(item)}</ThemedText>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, (isCancelled || isFinished) && styles.disabledText]}>
+                        A cargo de: {formatTeachers(item)}
+                    </ThemedText>
+                    {item.profesores?.[0]?.ratingAverage > 0 && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 6 }}>
+                            <Ionicons name="star" size={12} color="#FFD700" />
+                            <Text style={{ fontSize: 12, color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 2 }}>
+                                {item.profesores[0].ratingAverage.toFixed(1)}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
                 <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
                 <View style={styles.buttonContainer}>
                     {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text> : didAttend ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}><Ionicons name="checkmark-circle" size={16} color="#28a745" /><Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6 }}>PRESENTISMO REGISTRADO</Text></View> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}

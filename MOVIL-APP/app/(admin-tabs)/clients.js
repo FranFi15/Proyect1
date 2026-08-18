@@ -31,13 +31,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CustomAlert from '@/components/CustomAlert';
-import FilterModal from '@/components/FilterModal';
+import FilterModal from '@/components/admin/FilterModal';
+import ClientStatsModal from '@/components/admin/ClientStatsModal';
+import ProfesorReviewsModal from '@/components/admin/ProfesorReviewsModal';
 import UpgradePlanModal from '../../components/admin/UpgradePlanModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import WebDatePicker from '@/components/WebDatePicker';
 import OrdenMedicaAdminModal from '@/components/admin/OrdenMedicaAdminModal';
 import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
-import ClientStatsModal from '@/components/admin/ClientStatsModal';
 
 // --- COMPONENTE: Tarjeta de Estadística ---
 const StatCard = ({ label, value, icon, color, action, actionLabel, isValueHidden, onToggleHidden, styles, style  }) => {
@@ -243,6 +244,11 @@ const UserCardItem = React.memo(({
                                 <Ionicons name="stats-chart" size={22} color="#8A2BE2" />
                             </TouchableOpacity>
                         )}
+                        {item.roles.includes('profesor') && (
+                            <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => setSelectedProfesorForReviews(item)}>
+                                <Ionicons name="star-half" size={22} color="#FFD700" />
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity style={dynamicStyles.actionButton} onPress={() => handleOpenEditModal(item)}>
                             <FontAwesome name="user" size={22} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
@@ -290,6 +296,7 @@ const ManageClientsScreen = () => {
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedClientForStats, setSelectedClientForStats] = useState(null);
+    const [selectedProfesorForReviews, setSelectedProfesorForReviews] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
@@ -1113,6 +1120,15 @@ const ManageClientsScreen = () => {
                 apiClient={apiClient} 
                 userId={selectedClientForStats?._id} 
                 userName={`${selectedClientForStats?.nombre || ''} ${selectedClientForStats?.apellido || ''}`} 
+            />
+
+            <ProfesorReviewsModal 
+                visible={!!selectedProfesorForReviews} 
+                onClose={() => setSelectedProfesorForReviews(null)} 
+                gymColor={gymColor} 
+                apiClient={apiClient} 
+                profesorId={selectedProfesorForReviews?._id} 
+                profesorName={`${selectedProfesorForReviews?.nombre || ''} ${selectedProfesorForReviews?.apellido || ''}`} 
             />
 
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />

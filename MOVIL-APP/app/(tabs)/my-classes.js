@@ -20,8 +20,9 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, FontAwesome } from '@expo/vector-icons';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
+import RateClassModal from '@/components/client/RateClassModal';
 
 // --- AÑADIDO: Importaciones para TabView ---
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -59,14 +60,15 @@ const MyClassesScreen = () => {
         { key: 'past', title: 'Historial' },
     ]);
 
-    // const [activeTab, setActiveTab] = useState('upcoming'); // <-- ELIMINADO
-
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
     const [isScannerVisible, setScannerVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const { user, refreshUser, gymColor } = useAuth();
     const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // Estado para reseña
+    const [selectedClassForRate, setSelectedClassForRate] = useState(null);
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -286,7 +288,15 @@ const MyClassesScreen = () => {
                                     <Ionicons name="close-circle" size={14} color="#dc3545" />
                                     <Text style={styles.absentText}>AUSENTE</Text>
                                 </View>
-                            ) : null}
+                            ) : index === 1 && didAttend && (
+                                <ActionButton
+                                    title="Calificar"
+                                    color="#FFD700"
+                                    iconColor="#000"
+                                    onPress={() => setSelectedClassForRate(item)}
+                                    iconName="star"
+                                />
+                            )}
                 </View>
             </ThemedView>
         );
@@ -368,6 +378,17 @@ const MyClassesScreen = () => {
                 buttons={alertInfo.buttons}
                 onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
                 gymColor={gymColor}
+            />
+
+            <RateClassModal 
+                visible={!!selectedClassForRate}
+                onClose={() => setSelectedClassForRate(null)}
+                gymColor={gymColor}
+                apiClient={apiClient}
+                claseId={selectedClassForRate?._id}
+                profesorId={selectedClassForRate?.profesor?._id || selectedClassForRate?.profesores?.[0]?._id}
+                className={selectedClassForRate?.tipoClase?.nombre || selectedClassForRate?.nombre}
+                profesorName={formatTeachers(selectedClassForRate)}
             />
         </ThemedView>
     );

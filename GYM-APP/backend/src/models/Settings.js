@@ -32,6 +32,10 @@ const settingsSchema = new mongoose.Schema({
     maxDailyClassesPerUser: {
         type: Number,
         default: 0 // 0 significa sin límite
+    },
+    reviewsPublic: {
+        type: Boolean,
+        default: false // Por defecto ocultas a los clientes
     }
 });
 
