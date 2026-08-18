@@ -98,4 +98,80 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     });
 });
 
-export { getDashboardStats };
+const getClientStats = asyncHandler(async (req, res) => {
+    const { Clase } = getModels(req.gymDBConnection);
+    const userId = req.params.id;
+    
+    // Validar ObjectId? Mongoose lo hace o si no lo envuelve
+    const mongoose = (await import('mongoose')).default;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    // 1. Asistencia vs Inscripciones Totales
+    // Consideramos "inscripciones" donde usuariosInscritos contiene el ID.
+    // "asistencias" donde asistencias contiene el ID.
+    
+    const attendanceStats = await Clase.aggregate([
+        { 
+            $match: { 
+                usuariosInscritos: userObjectId,
+                estado: { $in: ['activa', 'completada'] } // Clases a las que se anotó (no canceladas)
+            } 
+        },
+        {
+            $group: {
+                _id: null,
+                totalInscripciones: { $sum: 1 },
+                totalAsistencias: {
+                    $sum: {
+                        $cond: [{ $in: [userObjectId, { $ifNull: ["$asistencias", []] }] }, 1, 0]
+                    }
+                }
+            }
+        }
+    ]);
+
+    const attendanceData = attendanceStats.length > 0 ? attendanceStats[0] : { totalInscripciones: 0, totalAsistencias: 0 };
+    
+    // 2. Clases Favoritas (Desglose por Tipo de Clase)
+    const favoriteClasses = await Clase.aggregate([
+        { $match: { usuariosInscritos: userObjectId, estado: { $in: ['activa', 'completada'] } } },
+        { 
+            $lookup: {
+                from: 'tipoclases', 
+                localField: 'tipoClase', 
+                foreignField: '_id', 
+                as: 'tipoClaseData'
+            }
+        },
+        { $unwind: "$tipoClaseData" },
+        { 
+            $group: { 
+                _id: "$tipoClaseData.nombre",
+                count: { $sum: 1 }
+            } 
+        },
+        { $sort: { count: -1 } }
+    ]);
+
+    // 3. Actividad por Mes (Últimos 6 meses)
+    const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
+    
+    const activityByMonth = await Clase.aggregate([
+        { $match: { usuariosInscritos: userObjectId, fecha: { $gte: sixMonthsAgo } } },
+        { 
+            $group: { 
+                _id: { $dateToString: { format: "%Y-%m", date: "$fecha" } }, 
+                count: { $sum: 1 } 
+            } 
+        },
+        { $sort: { _id: 1 } }
+    ]);
+
+    res.json({
+        attendanceData,
+        favoriteClasses,
+        activityByMonth
+    });
+});
+
+export { getDashboardStats, getClientStats };
