@@ -547,7 +547,7 @@ const ManageClientsScreen = () => {
     const handleUploadQrIngreso = async (client) => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.8,
@@ -555,17 +555,23 @@ const ManageClientsScreen = () => {
 
             if (!result.canceled) {
                 const imageUri = result.assets[0].uri;
-                const localUri = imageUri;
-                const filename = localUri.split('/').pop();
-                const match = /\.(\w+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : `image`;
+                let filename = imageUri.split('/').pop() || 'qr.jpg';
 
                 const formData = new FormData();
-                formData.append('qrIngreso', {
-                    uri: localUri,
-                    name: filename,
-                    type,
-                });
+                if (Platform.OS === 'web') {
+                    const response = await fetch(imageUri);
+                    const blob = await response.blob();
+                    formData.append('qrIngreso', blob, filename);
+                } else {
+                    const localUri = imageUri;
+                    const match = /\.(\w+)$/.exec(filename);
+                    const type = match ? `image/${match[1]}` : `image`;
+                    formData.append('qrIngreso', {
+                        uri: localUri,
+                        name: filename,
+                        type,
+                    });
+                }
 
                 setAlertInfo({ visible: true, title: 'Subiendo...', message: 'Subiendo código QR...' });
                 const response = await apiClient.post(`/users/${client._id}/qr-ingreso`, formData, {
