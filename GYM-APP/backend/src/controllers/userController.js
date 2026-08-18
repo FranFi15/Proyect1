@@ -1099,7 +1099,6 @@ const uploadFotoPerfil = asyncHandler(async (req, res) => {
 });
 
 const uploadQrIngresoAdmin = asyncHandler(async (req, res) => {
-    const { getModels } = await import('../utils/getModels.js');
     const { User } = getModels(req.gymDBConnection);
 
     const qrUrl = req.file?.path;
