@@ -368,21 +368,73 @@ const CalendarScreen = () => {
     const [isQrModalVisible, setQrModalVisible] = useState(false);
     const [isScannerVisible, setScannerVisible] = useState(false);
 
+    let isProcessingScan = false;
+    
+    const confirmCheckIn = async (type, id, qrData) => {
+        setAlertInfo({ ...alertInfo, visible: false });
+        try {
+            const response = await apiClient.post('/check-in/client-scan-confirm', { type, id, qrData });
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: '¡Presentismo Exitoso!', 
+                    message: response.data.message || 'Asistencia registrada correctamente.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+                refreshUser();
+                fetchData();
+            }, 500);
+        } catch (error) {
+            setTimeout(() => {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Error', 
+                    message: error.response?.data?.message || 'No se pudo confirmar la asistencia.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
+            }, 500);
+        }
+    };
+
     const handleClientReceptionScan = async ({ data }) => {
+        if (isProcessingScan) return;
+        isProcessingScan = true;
+        
         setScannerVisible(false);
         try {
-            const response = await apiClient.post('/check-in/client-scan', { qrData: data });
-            await refreshUser();
-            fetchData();
-            let detail = 'Asistencia registrada correctamente.';
-            if (response.data.classes && response.data.classes.length > 0) {
-                detail = response.data.classes.map(c => `${c.nombre}: ${c.horario}`).join('\n');
-            } else if (response.data.message) {
-                detail = response.data.message;
+            const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
+            
+            if (response.data.options && response.data.options.length > 0) {
+                const buttons = response.data.options.map(opt => ({
+                    text: `${opt.nombre} (${opt.horario})`,
+                    style: 'primary',
+                    onPress: () => confirmCheckIn(opt.type, opt.id, data)
+                }));
+                buttons.push({ text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) });
+
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Selecciona tu clase', 
+                    message: response.data.message || '¿A qué vas a asistir hoy?',
+                    buttons: buttons
+                });
+            } else {
+                setAlertInfo({ 
+                    visible: true, 
+                    title: 'Atención', 
+                    message: response.data.message || 'No hay clases disponibles.',
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                });
             }
-            setAlertInfo({ visible: true, title: '¡Presentismo Exitoso!', message: detail });
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Atención', message: error.response?.data?.message || 'No se pudo registrar la asistencia.' });
+            setAlertInfo({ 
+                visible: true, 
+                title: 'Atención', 
+                message: error.response?.data?.message || 'No se pudo leer tus opciones de presentismo.',
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        } finally {
+            setTimeout(() => { isProcessingScan = false; }, 2000);
         }
     };
 
@@ -684,7 +736,7 @@ const CalendarScreen = () => {
 
             <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={(id) => { setSelectedClassType(id); setFilterModalVisible(false); }} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
             <FilterModal visible={isSucursalFilterVisible} onClose={() => setSucursalFilterVisible(false)} options={[{ _id: 'all', nombre: 'Todas las Sucursales' }, ...sucursales]} onSelect={(id) => { setSelectedSucursal(id); setSucursalFilterVisible(false); }} selectedValue={selectedSucursal} title="Sucursal" theme={{ colors: Colors[colorScheme], gymColor }} />
-            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
+            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} inline={true} />
             <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
         </View>
