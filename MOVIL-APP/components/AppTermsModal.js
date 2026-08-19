@@ -63,10 +63,19 @@ const AppTermsModal = () => {
                             4. Privacidad y Datos{"\n"}
                             Tus datos personales (nombre, correo, teléfono, DNI, datos de salud básicos proporcionados) son utilizados exclusivamente para la gestión de tu cuenta y asistencia médica de emergencia. No compartimos esta información con terceros no autorizados.{"\n\n"}
                             
-                            5. Notificaciones{"\n"}
+                            5. Conducta del Usuario{"\n"}
+                            Se espera un comportamiento respetuoso hacia los profesores, administradores y otros usuarios del gimnasio. Cualquier conducta abusiva, acoso, o lenguaje inapropiado a través de la aplicación resultará en la terminación inmediata de tu cuenta y prohibición de acceso a las instalaciones.{"\n\n"}
+                            
+                            6. Propiedad Intelectual{"\n"}
+                            Todo el contenido, diseño, logotipos y software dentro de esta aplicación son propiedad exclusiva de la administración o de sus licenciantes. Queda estrictamente prohibida su reproducción, distribución o modificación sin autorización previa.{"\n\n"}
+
+                            7. Notificaciones{"\n"}
                             Al aceptar estos términos, consientes recibir notificaciones push relacionadas a tus reservas, vencimientos de membresía y avisos importantes del gimnasio. Puedes administrar estas preferencias desde la sección de ajustes de tu dispositivo.{"\n\n"}
                             
-                            Nos reservamos el derecho de modificar estos términos en cualquier momento. El uso continuado de la aplicación constituye tu aceptación de los mismos.
+                            8. Exclusión de Garantías y Soporte{"\n"}
+                            La aplicación se proporciona "tal cual". Aunque nos esforzamos por mantenerla siempre operativa, no garantizamos que esté libre de interrupciones o errores. Para soporte técnico o consultas, puedes comunicarte con la administración del gimnasio.{"\n\n"}
+                            
+                            Nos reservamos el derecho de modificar estos términos en cualquier momento. El uso continuado de la aplicación constituye tu aceptación de las versiones actualizadas.
                         </Text>
                         <View style={{ height: 20 }} />
                     </ScrollView>
