@@ -10,6 +10,7 @@ import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
+import AppTermsModal from '../components/AppTermsModal';
 
 
 
@@ -250,6 +251,8 @@ function AppContent() {
                     }
                 ]}
             />
+            
+            <AppTermsModal />
         </View>
     );
 }
