@@ -621,7 +621,16 @@ const ManageClientsScreen = () => {
                 </View>
 
                 <ThemedText style={{fontWeight: 'bold', marginBottom: 10}}>
-                    {item.package ? `Compra de Paquete: ${item.package.name}` : 'Abono de deuda / Monto Libre'}
+                    {(() => {
+                        const items = Array.isArray(item.items) ? item.items.filter(i => i.package) : [];
+                        if (items.length > 0) {
+                            return `Compra: ${items.map(i => {
+                                const name = i.package?.name || 'Paquete';
+                                return i.quantity > 1 ? `${name} x${i.quantity}` : name;
+                            }).join(', ')}`;
+                        }
+                        return item.package ? `Compra de Paquete: ${item.package.name}` : 'Abono de deuda / Monto Libre';
+                    })()}
                 </ThemedText>
 
                 <TouchableOpacity 

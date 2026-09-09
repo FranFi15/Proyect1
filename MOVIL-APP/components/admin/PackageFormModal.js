@@ -4,27 +4,26 @@ import {
     useColorScheme, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
+import FilterModal from '@/components/FilterModal';
 
 const PACKAGE_TYPES = [
     {
         id: 'creditos',
         title: 'Créditos',
-        subtitle: 'Pack de clases de un tipo',
-        icon: 'ticket-outline'
+        subtitle: 'Pack de clases de un tipo'
     },
     {
         id: 'pase',
         title: 'Pase Libre',
-        subtitle: 'Turnos ilimitados + QR',
-        icon: 'infinite-outline'
+        subtitle: 'Turnos ilimitados + QR'
     },
     {
         id: 'membresia',
         title: 'Membresía',
-        subtitle: 'Solo acceso por QR',
-        icon: 'id-card-outline'
+        subtitle: 'Solo acceso por QR'
     }
 ];
 
@@ -54,6 +53,7 @@ const PackageFormModal = ({
     const [form, setForm] = useState(emptyForm(classTypes[0]?._id || ''));
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [classTypePickerVisible, setClassTypePickerVisible] = useState(false);
 
     useEffect(() => {
         if (!visible) return;
@@ -144,9 +144,6 @@ const PackageFormModal = ({
                                         style={[styles.typeCard, selected && { borderColor: gymColor, backgroundColor: gymColor + '14' }]}
                                         onPress={() => setField('type', type.id)}
                                     >
-                                        <View style={[styles.typeIcon, selected && { backgroundColor: gymColor }]}>
-                                            <Ionicons name={type.icon} size={18} color={selected ? '#fff' : gymColor} />
-                                        </View>
                                         <Text style={[styles.typeTitle, selected && { color: gymColor }]}>{type.title}</Text>
                                         <Text style={styles.typeSub}>{type.subtitle}</Text>
                                     </TouchableOpacity>
@@ -207,20 +204,15 @@ const PackageFormModal = ({
                                 />
 
                                 <Text style={styles.inputLabel}>¿Qué crédito entrega?</Text>
-                                <View style={styles.wrapChips}>
-                                    {classTypes.map(type => {
-                                        const selected = form.tipoClase === type._id;
-                                        return (
-                                            <TouchableOpacity
-                                                key={type._id}
-                                                onPress={() => setField('tipoClase', type._id)}
-                                                style={[styles.chip, selected && { backgroundColor: gymColor, borderColor: gymColor }]}
-                                            >
-                                                <Text style={[styles.chipText, selected && { color: '#fff' }]}>{type.nombre}</Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
+                                <TouchableOpacity
+                                    style={styles.filterButton}
+                                    onPress={() => setClassTypePickerVisible(true)}
+                                >
+                                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                                        {selectedType?.nombre || 'Elegí un tipo de crédito'}
+                                    </Text>
+                                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
                             </>
                         ) : (
                             <>
@@ -276,6 +268,18 @@ const PackageFormModal = ({
                     </ScrollView>
                 </View>
             </KeyboardAvoidingView>
+            <FilterModal
+                visible={classTypePickerVisible}
+                onClose={() => setClassTypePickerVisible(false)}
+                options={classTypes.map(type => ({ _id: type._id, nombre: type.nombre }))}
+                onSelect={(id) => {
+                    setField('tipoClase', id);
+                    setClassTypePickerVisible(false);
+                }}
+                selectedValue={form.tipoClase}
+                title="Tipo de crédito"
+                theme={{ colors: Colors[colorScheme], gymColor }}
+            />
         </Modal>
     );
 };
@@ -304,10 +308,10 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderColor: Colors[colorScheme].border,
         backgroundColor: Colors[colorScheme].cardBackground,
         borderRadius: 14,
-        padding: 10,
-        minHeight: 112
+        padding: 12,
+        minHeight: 96,
+        justifyContent: 'center'
     },
-    typeIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: gymColor + '18', marginBottom: 8 },
     typeTitle: { fontSize: 13, fontWeight: '800', color: Colors[colorScheme].text },
     typeSub: { fontSize: 11, color: Colors[colorScheme].text, opacity: 0.65, marginTop: 4, lineHeight: 14 },
     inputLabel: { fontSize: 14, marginBottom: 8, color: Colors[colorScheme].text, fontWeight: 'bold' },
@@ -333,7 +337,19 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginBottom: 8
     },
     chipText: { color: Colors[colorScheme].text, fontWeight: '700', fontSize: 13 },
-    wrapChips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+    filterButton: {
+        height: 50,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        marginBottom: 16
+    },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text, flexShrink: 1 },
     previewCard: {
         borderRadius: 16,
         padding: 16,

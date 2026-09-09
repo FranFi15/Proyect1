@@ -14,6 +14,7 @@ import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import PackageFormModal from '@/components/admin/PackageFormModal';
+import FilterModal from '@/components/FilterModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO } from 'date-fns';
 
@@ -270,6 +271,7 @@ const ClassTypeManagementScreen = () => {
     const [editingPackage, setEditingPackage] = useState(null);
     const [searchPackageTerm, setSearchPackageTerm] = useState('');
     const [packageFilter, setPackageFilter] = useState('all');
+    const [isPackageFilterVisible, setIsPackageFilterVisible] = useState(false);
     const [isPackageModalVisible, setIsPackageModalVisible] = useState(false);
 
     const [isLoading, setIsLoading] = useState(true);
@@ -478,25 +480,15 @@ const ClassTypeManagementScreen = () => {
                 />
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10, paddingBottom: 4 }}>
-                {[
-                    { id: 'all', label: 'Todos' },
-                    { id: 'creditos', label: 'Créditos' },
-                    { id: 'pase', label: 'Pase Libre' },
-                    { id: 'membresia', label: 'Membresía' }
-                ].map(filter => {
-                    const active = packageFilter === filter.id;
-                    return (
-                        <TouchableOpacity
-                            key={filter.id}
-                            onPress={() => setPackageFilter(filter.id)}
-                            style={[styles.filterChip, active && { backgroundColor: gymColor, borderColor: gymColor }]}
-                        >
-                            <Text style={{ color: active ? '#fff' : Colors[colorScheme].text, fontWeight: '700', fontSize: 13 }}>{filter.label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </ScrollView>
+            <TouchableOpacity
+                style={styles.filterButton}
+                onPress={() => setIsPackageFilterVisible(true)}
+            >
+                <ThemedText style={styles.filterButtonText} numberOfLines={1}>
+                    {packageFilter === 'all' ? 'Todos' : packageFilter === 'creditos' ? 'Créditos' : packageFilter === 'pase' ? 'Pase Libre' : 'Membresía'}
+                </ThemedText>
+                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+            </TouchableOpacity>
             <FlatList
                 data={filteredPackages}
                 renderItem={({ item }) => {
@@ -588,6 +580,24 @@ const ClassTypeManagementScreen = () => {
                 gymColor={gymColor}
             />
 
+            <FilterModal
+                visible={isPackageFilterVisible}
+                onClose={() => setIsPackageFilterVisible(false)}
+                options={[
+                    { _id: 'all', nombre: 'Todos' },
+                    { _id: 'creditos', nombre: 'Créditos' },
+                    { _id: 'pase', nombre: 'Pase Libre' },
+                    { _id: 'membresia', nombre: 'Membresía' }
+                ]}
+                onSelect={(id) => {
+                    setPackageFilter(id);
+                    setIsPackageFilterVisible(false);
+                }}
+                selectedValue={packageFilter}
+                title="Tipo de paquete"
+                theme={{ colors: Colors[colorScheme], gymColor }}
+            />
+
             {/* --- MODAL EDITAR CREDITO BASE --- */}
             <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
@@ -649,7 +659,21 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
     kindBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginBottom: 6 },
-    filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground, marginRight: 8 },
+    filterButton: {
+        height: 50,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginHorizontal: 15,
+        marginTop: 10,
+        marginBottom: 4,
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border
+    },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { padding: 8, marginLeft: 10 },
     

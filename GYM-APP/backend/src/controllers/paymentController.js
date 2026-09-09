@@ -3,9 +3,53 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 import { Expo } from 'expo-server-sdk';
-import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
+import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 import { createCheckoutPreference, getMpSettings } from './mercadopagoController.js';
 const expo = new Expo();
+
+const parseCartPayload = (body) => {
+    let rawItems = body.items || body.packageIds || null;
+    if (typeof rawItems === 'string') {
+        try {
+            rawItems = JSON.parse(rawItems);
+        } catch {
+            rawItems = null;
+        }
+    }
+
+    const cartMap = new Map();
+
+    if (Array.isArray(rawItems)) {
+        for (const entry of rawItems) {
+            const id = typeof entry === 'string'
+                ? entry
+                : (entry.packageId || entry.package || entry.id || entry._id);
+            if (!id) continue;
+            const quantity = Math.max(1, Number(entry.quantity) || 1);
+            cartMap.set(String(id), (cartMap.get(String(id)) || 0) + quantity);
+        }
+    }
+
+    if (body.packageId) {
+        cartMap.set(String(body.packageId), (cartMap.get(String(body.packageId)) || 0) + 1);
+    }
+
+    return [...cartMap.entries()].map(([packageId, quantity]) => ({ packageId, quantity }));
+};
+
+const loadCartPackages = async (PaymentPackage, cartEntries) => {
+    const loaded = [];
+    for (const entry of cartEntries) {
+        const pkg = await PaymentPackage.findById(entry.packageId);
+        if (!pkg || !pkg.isActive) {
+            const err = new Error('Uno o más paquetes no están disponibles.');
+            err.statusCode = 404;
+            throw err;
+        }
+        loaded.push({ pkg, quantity: entry.quantity });
+    }
+    return loaded;
+};
 
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
@@ -78,7 +122,8 @@ const getPackages = asyncHandler(async (req, res) => {
 // @desc    El cliente envía el comprobante de transferencia
 const submitTransferReceipt = asyncHandler(async (req, res) => {
     const { PaymentRequest, PaymentPackage, User } = getModels(req.gymDBConnection);
-    const { packageId, amountTransferred } = req.body;
+    const { amountTransferred } = req.body;
+    const cartEntries = parseCartPayload(req.body);
 
     let receiptUrl = null;
     if (req.file) {
@@ -90,18 +135,28 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
         throw new Error('El monto y el comprobante de transferencia son obligatorios.');
     }
 
-    if (packageId) {
-        const pkg = await PaymentPackage.findById(packageId);
-        if (!pkg) {
-            res.status(404);
-            throw new Error('Paquete no encontrado.');
+    let cart = [];
+    if (cartEntries.length > 0) {
+        try {
+            cart = await loadCartPackages(PaymentPackage, cartEntries);
+        } catch (error) {
+            res.status(error.statusCode || 400);
+            throw error;
         }
+    }
+
+    const expectedTotal = cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0);
+    const amount = Number(amountTransferred);
+    if (cart.length > 0 && Math.abs(amount - expectedTotal) > 0.01) {
+        res.status(400);
+        throw new Error(`El monto no coincide con el carrito ($${expectedTotal}).`);
     }
 
     const ticket = await PaymentRequest.create({
         user: req.user._id,
-        package: packageId || null,
-        amountTransferred: Number(amountTransferred),
+        package: cart[0]?.pkg._id || null,
+        items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
+        amountTransferred: amount,
         receiptUrl,
         status: 'pending',
         method: 'transfer'
@@ -154,6 +209,10 @@ const getPendingRequests = asyncHandler(async (req, res) => {
             path: 'package',
             populate: { path: 'tipoClase', select: 'nombre' }
         })
+        .populate({
+            path: 'items.package',
+            populate: { path: 'tipoClase', select: 'nombre' }
+        })
         .sort({ createdAt: 1 });
         
     res.json(tickets);
@@ -165,7 +224,9 @@ const processTransferTicket = asyncHandler(async (req, res) => {
     const { action, adminNotes } = req.body; // action puede ser 'approve' o 'reject'
     const ticketId = req.params.id;
 
-    const ticket = await PaymentRequest.findById(ticketId).populate('package');
+    const ticket = await PaymentRequest.findById(ticketId)
+        .populate('package')
+        .populate('items.package');
     if (!ticket) {
         res.status(404);
         throw new Error('Ticket no encontrado');
@@ -177,6 +238,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
     }
 
     const user = await User.findById(ticket.user);
+    const cart = resolveTicketCart(ticket);
 
     if (action === 'reject') {
         ticket.status = 'rejected';
@@ -196,12 +258,15 @@ const processTransferTicket = asyncHandler(async (req, res) => {
     }
 
     if (action === 'approve') {
+        const names = cart.map(e => e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name);
         await fulfillApprovedPayment({
             models: { Transaction, CreditLog, Notification, User },
             user,
-            pkg: ticket.package,
+            packages: cart,
             amount: ticket.amountTransferred,
-            description: ticket.package ? `Transferencia por: ${ticket.package.name}` : 'Abono de deuda por transferencia',
+            description: names.length > 0
+                ? `Transferencia por: ${names.join(', ')}`
+                : 'Abono de deuda por transferencia',
             createdBy: req.user._id,
             receiptUrl: ticket.receiptUrl,
             ticketId: ticket._id
@@ -222,7 +287,8 @@ const processTransferTicket = asyncHandler(async (req, res) => {
 
 const createMercadoPagoPreference = asyncHandler(async (req, res) => {
     const { PaymentPackage, PaymentRequest, Settings } = getModels(req.gymDBConnection);
-    const { packageId, amount } = req.body;
+    const { amount } = req.body;
+    const cartEntries = parseCartPayload(req.body);
 
     const settings = await getMpSettings(Settings);
     if (!settings) {
@@ -230,17 +296,19 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
         throw new Error('Este gimnasio todavía no tiene Mercado Pago vinculado.');
     }
 
-    let pkg = null;
-    let amountToPay = Number(amount);
-
-    if (packageId) {
-        pkg = await PaymentPackage.findById(packageId);
-        if (!pkg || !pkg.isActive) {
-            res.status(404);
-            throw new Error('Paquete no encontrado.');
+    let cart = [];
+    if (cartEntries.length > 0) {
+        try {
+            cart = await loadCartPackages(PaymentPackage, cartEntries);
+        } catch (error) {
+            res.status(error.statusCode || 400);
+            throw error;
         }
-        amountToPay = Number(pkg.price);
     }
+
+    let amountToPay = cart.length > 0
+        ? cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0)
+        : Number(amount);
 
     if (!amountToPay || Number.isNaN(amountToPay) || amountToPay <= 0) {
         res.status(400);
@@ -249,7 +317,8 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
 
     const ticket = await PaymentRequest.create({
         user: req.user._id,
-        package: pkg?._id || null,
+        package: cart[0]?.pkg._id || null,
+        items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
         amountTransferred: amountToPay,
         receiptUrl: '',
         status: 'pending',
@@ -261,7 +330,7 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
             req,
             settings,
             ticket,
-            pkg,
+            cart,
             amountToPay,
             user: req.user
         });
@@ -286,7 +355,9 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
 
 const getMyTicket = asyncHandler(async (req, res) => {
     const { PaymentRequest } = getModels(req.gymDBConnection);
-    const ticket = await PaymentRequest.findById(req.params.id).populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays');
+    const ticket = await PaymentRequest.findById(req.params.id)
+        .populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays')
+        .populate('items.package', 'name price isPaseLibre isMembresia creditsAmount durationDays');
 
     if (!ticket || ticket.user.toString() !== req.user._id.toString()) {
         res.status(404);
@@ -300,6 +371,7 @@ const getMyTicket = asyncHandler(async (req, res) => {
         amountTransferred: ticket.amountTransferred,
         mpStatus: ticket.mpStatus || null,
         package: ticket.package,
+        items: ticket.items || [],
         createdAt: ticket.createdAt
     });
 });

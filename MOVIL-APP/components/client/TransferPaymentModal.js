@@ -8,10 +8,12 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
 import CustomAlert from '../CustomAlert';
+import FilterModal from '../FilterModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,9 +26,9 @@ const getPackageKind = (pkg) => {
 };
 
 const KIND_META = {
-    creditos: { label: 'Créditos', icon: 'ticket-outline' },
-    pase: { label: 'Pase Libre', icon: 'infinite-outline' },
-    membresia: { label: 'Membresía', icon: 'id-card-outline' }
+    creditos: { label: 'Créditos' },
+    pase: { label: 'Pase Libre' },
+    membresia: { label: 'Membresía' }
 };
 
 const getPackageBenefit = (pkg) => {
@@ -47,7 +49,7 @@ const TransferPaymentModal = ({ onClose }) => {
     const [submitting, setSubmitting] = useState(false);
     const [step, setStep] = useState('shop');
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [selectedPackage, setSelectedPackage] = useState(null);
+    const [cart, setCart] = useState({});
     const [customAmount, setCustomAmount] = useState('');
     const [payDebt, setPayDebt] = useState(false);
     const [image, setImage] = useState(null);
@@ -56,6 +58,7 @@ const TransferPaymentModal = ({ onClose }) => {
     const [mpLinked, setMpLinked] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [showBankDetails, setShowBankDetails] = useState(true);
+    const [isFilterVisible, setIsFilterVisible] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -131,11 +134,30 @@ const TransferPaymentModal = ({ onClose }) => {
         });
     }, [packages, selectedCategory]);
 
-    const amountToPay = selectedPackage
-        ? Number(selectedPackage.price)
+    const cartItems = useMemo(() => Object.values(cart), [cart]);
+    const cartCount = useMemo(
+        () => cartItems.reduce((sum, item) => sum + item.quantity, 0),
+        [cartItems]
+    );
+    const cartTotal = useMemo(
+        () => cartItems.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0),
+        [cartItems]
+    );
+
+    const amountToPay = cartItems.length > 0
+        ? cartTotal
         : Number(customAmount);
 
-    const canCheckout = selectedPackage || (payDebt && Number(customAmount) > 0);
+    const canCheckout = cartItems.length > 0 || (payDebt && Number(customAmount) > 0);
+    const selectedCategoryMeta = categories.find(cat => cat.id === selectedCategory);
+    const selectedCategoryLabel = selectedCategoryMeta
+        ? `${selectedCategoryMeta.label} (${selectedCategoryMeta.count})`
+        : 'Todos';
+    const cartSummaryLabel = cartItems.length === 0
+        ? (payDebt ? 'Pago de saldo' : 'Nada seleccionado')
+        : cartItems.length === 1
+            ? `${cartItems[0].pkg.name}${cartItems[0].quantity > 1 ? ` x${cartItems[0].quantity}` : ''}`
+            : `${cartCount} productos`;
 
     const showAlert = (payload) => {
         setAlertInfo({
@@ -146,26 +168,42 @@ const TransferPaymentModal = ({ onClose }) => {
         });
     };
 
-    const selectPackage = (pkg) => {
+    const addToCart = (pkg) => {
         setPayDebt(false);
-        if (selectedPackage?._id === pkg._id) {
-            setSelectedPackage(null);
-            setCustomAmount('');
-            return;
-        }
-        setSelectedPackage(pkg);
-        setCustomAmount(pkg.price?.toString() || '');
+        setCustomAmount('');
+        setCart(prev => {
+            const current = prev[pkg._id];
+            return {
+                ...prev,
+                [pkg._id]: {
+                    pkg,
+                    quantity: (current?.quantity || 0) + 1
+                }
+            };
+        });
+    };
+
+    const setCartQuantity = (pkgId, quantity) => {
+        setCart(prev => {
+            const next = { ...prev };
+            if (quantity <= 0) {
+                delete next[pkgId];
+            } else if (next[pkgId]) {
+                next[pkgId] = { ...next[pkgId], quantity };
+            }
+            return next;
+        });
     };
 
     const selectDebtPayment = () => {
-        setSelectedPackage(null);
+        setCart({});
         setPayDebt(true);
         setCustomAmount(debtAmount ? String(debtAmount) : '');
     };
 
     const goToCheckout = () => {
         if (!canCheckout) {
-            return showAlert({ title: 'Elegí un producto', message: 'Seleccioná un paquete o un monto para continuar.' });
+            return showAlert({ title: 'Elegí un producto', message: 'Agregá al menos un paquete o un monto para continuar.' });
         }
         if (!mpLinked && !hasBankDetails) {
             return showAlert({ title: 'Pagos no disponibles', message: 'El gimnasio todavía no configuró Mercado Pago ni una transferencia.' });
@@ -211,8 +249,13 @@ const TransferPaymentModal = ({ onClose }) => {
 
         setSubmitting(true);
         try {
-            const payload = selectedPackage
-                ? { packageId: selectedPackage._id }
+            const payload = cartItems.length > 0
+                ? {
+                    items: cartItems.map(item => ({
+                        packageId: item.pkg._id,
+                        quantity: item.quantity
+                    }))
+                }
                 : { amount: amountToPay };
             const { data } = await apiClient.post('/payments/mercadopago/preference', payload);
             const redirectUrl = Linking.createURL('payment-result');
@@ -228,8 +271,8 @@ const TransferPaymentModal = ({ onClose }) => {
             if (status === 'approved') {
                 showAlert({
                     title: 'Pago acreditado',
-                    message: selectedPackage
-                        ? `Ya tenés ${selectedPackage.name} disponible.`
+                    message: cartItems.length > 0
+                        ? 'Ya tenés tus productos disponibles.'
                         : 'Tu pago se acreditó correctamente.',
                     buttons: [{ text: 'Listo', style: 'primary', onPress: () => { setAlertInfo(prev => ({ ...prev, visible: false })); onClose?.(); } }]
                 });
@@ -263,7 +306,12 @@ const TransferPaymentModal = ({ onClose }) => {
         setSubmitting(true);
         try {
             const formData = new FormData();
-            if (selectedPackage) formData.append('packageId', String(selectedPackage._id));
+            if (cartItems.length > 0) {
+                formData.append('items', JSON.stringify(cartItems.map(item => ({
+                    packageId: item.pkg._id,
+                    quantity: item.quantity
+                }))));
+            }
             formData.append('amountTransferred', String(amountToPay));
 
             let filename = image.fileName || 'comprobante.png';
@@ -314,27 +362,41 @@ const TransferPaymentModal = ({ onClose }) => {
     };
 
     const renderPackageCard = (pkg) => {
-        const selected = selectedPackage?._id === pkg._id;
+        const inCart = cart[pkg._id];
         const kind = getPackageKind(pkg);
         const meta = KIND_META[kind];
         return (
-            <TouchableOpacity
+            <View
                 key={pkg._id}
-                style={[styles.packageCard, selected && { borderColor: gymColor, backgroundColor: gymColor + '12' }]}
-                onPress={() => selectPackage(pkg)}
+                style={[styles.packageCard, inCart && { borderColor: gymColor, backgroundColor: gymColor + '12' }]}
             >
                 <View style={styles.packageTop}>
-                    <View style={[styles.kindBadge, selected && { backgroundColor: gymColor }]}>
-                        <Ionicons name={meta.icon} size={13} color={selected ? '#fff' : gymColor} />
-                        <Text style={[styles.kindBadgeText, selected && { color: '#fff' }]}>{meta.label}</Text>
+                    <View style={[styles.kindBadge, inCart && { backgroundColor: gymColor }]}>
+                        <Text style={[styles.kindBadgeText, inCart && { color: '#fff' }]}>{meta.label}</Text>
                     </View>
-                    {selected ? <Ionicons name="checkmark-circle" size={20} color={gymColor} /> : null}
                 </View>
                 <Text style={styles.packageName}>{pkg.name}</Text>
                 {pkg.description ? <Text style={styles.packageDesc} numberOfLines={2}>{pkg.description}</Text> : null}
                 <Text style={styles.packageBenefit}>{getPackageBenefit(pkg)}</Text>
-                <Text style={[styles.packagePrice, { color: gymColor }]}>{formatPrice(pkg.price)}</Text>
-            </TouchableOpacity>
+                <View style={styles.packageFooter}>
+                    <Text style={[styles.packagePrice, { color: gymColor }]}>{formatPrice(pkg.price)}</Text>
+                    {inCart ? (
+                        <View style={styles.qtyRow}>
+                            <TouchableOpacity style={styles.qtyBtn} onPress={() => setCartQuantity(pkg._id, inCart.quantity - 1)}>
+                                <Text style={styles.qtyBtnText}>-</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.qtyValue}>{inCart.quantity}</Text>
+                            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: gymColor }]} onPress={() => addToCart(pkg)}>
+                                <Text style={[styles.qtyBtnText, { color: '#fff' }]}>+</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: gymColor }]} onPress={() => addToCart(pkg)}>
+                            <Text style={styles.addBtnText}>Agregar</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
         );
     };
 
@@ -345,7 +407,7 @@ const TransferPaymentModal = ({ onClose }) => {
                     <View style={{ flex: 1 }}>
                         <Text style={styles.headerBannerTitle}>{step === 'shop' ? 'Comprar' : 'Confirmar pago'}</Text>
                         <Text style={styles.headerBannerSub}>
-                            {step === 'shop' ? 'Elegí créditos, pase libre o membresía' : 'Mercado Pago o transferencia'}
+                            {step === 'shop' ? 'Agregá uno o más paquetes al carrito' : 'Mercado Pago o transferencia'}
                         </Text>
                     </View>
                     <TouchableOpacity onPress={step === 'checkout' ? () => setStep('shop') : onClose} style={styles.closeButtonBanner}>
@@ -369,28 +431,18 @@ const TransferPaymentModal = ({ onClose }) => {
                                 </TouchableOpacity>
                             )}
 
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
-                                {categories.map(cat => {
-                                    const active = selectedCategory === cat.id;
-                                    return (
-                                        <TouchableOpacity
-                                            key={cat.id}
-                                            style={[styles.filterChip, active && { backgroundColor: gymColor, borderColor: gymColor }]}
-                                            onPress={() => setSelectedCategory(cat.id)}
-                                        >
-                                            <Text style={[styles.filterChipText, active && { color: '#fff' }]}>
-                                                {cat.label} ({cat.count})
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+                            <TouchableOpacity
+                                style={styles.filterButton}
+                                onPress={() => setIsFilterVisible(true)}
+                            >
+                                <Text style={styles.filterButtonText} numberOfLines={1}>{selectedCategoryLabel}</Text>
+                                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                            </TouchableOpacity>
 
                             {loading ? (
                                 <ActivityIndicator color={gymColor} style={{ marginTop: 24 }} />
                             ) : visiblePackages.length === 0 ? (
                                 <View style={styles.emptyBox}>
-                                    <Ionicons name="bag-handle-outline" size={28} color={Colors[colorScheme].icon} />
                                     <Text style={styles.emptyText}>No hay paquetes en esta categoría.</Text>
                                 </View>
                             ) : (
@@ -402,11 +454,9 @@ const TransferPaymentModal = ({ onClose }) => {
 
                         <View style={styles.cartBar}>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.cartKicker}>{canCheckout ? 'Selección' : 'Elegí un paquete'}</Text>
-                                <Text style={styles.cartTitle} numberOfLines={1}>
-                                    {selectedPackage?.name || (payDebt ? 'Pago de saldo' : 'Nada seleccionado')}
-                                </Text>
-                                {canCheckout ? <Text style={styles.cartMeta}>{getPackageBenefit(selectedPackage)}</Text> : null}
+                                <Text style={styles.cartKicker}>{canCheckout ? (cartCount > 0 ? `Carrito · ${cartCount}` : 'Selección') : 'Elegí un paquete'}</Text>
+                                <Text style={styles.cartTitle} numberOfLines={1}>{cartSummaryLabel}</Text>
+                                {cartItems.length === 1 ? <Text style={styles.cartMeta}>{getPackageBenefit(cartItems[0].pkg)}</Text> : null}
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>
                                 <Text style={[styles.cartPrice, { color: gymColor }]}>{canCheckout ? formatPrice(amountToPay) : '$0'}</Text>
@@ -424,8 +474,33 @@ const TransferPaymentModal = ({ onClose }) => {
                     <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
                         <View style={styles.summaryCard}>
                             <Text style={styles.summaryKicker}>Resumen</Text>
-                            <Text style={styles.summaryName}>{selectedPackage?.name || 'Pago de saldo'}</Text>
-                            <Text style={styles.summaryMeta}>{getPackageBenefit(selectedPackage)}</Text>
+                            {cartItems.length > 0 ? (
+                                cartItems.map(item => (
+                                    <View key={item.pkg._id} style={styles.summaryRow}>
+                                        <View style={{ flex: 1, paddingRight: 10 }}>
+                                            <Text style={styles.summaryName}>{item.pkg.name}</Text>
+                                            <Text style={styles.summaryMeta}>{getPackageBenefit(item.pkg)}</Text>
+                                        </View>
+                                        <View style={styles.qtyRow}>
+                                            <TouchableOpacity style={styles.qtyBtn} onPress={() => setCartQuantity(item.pkg._id, item.quantity - 1)}>
+                                                <Text style={styles.qtyBtnText}>-</Text>
+                                            </TouchableOpacity>
+                                            <Text style={styles.qtyValue}>{item.quantity}</Text>
+                                            <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: gymColor }]} onPress={() => addToCart(item.pkg)}>
+                                                <Text style={[styles.qtyBtnText, { color: '#fff' }]}>+</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                        <Text style={[styles.summaryLinePrice, { color: gymColor }]}>
+                                            {formatPrice(Number(item.pkg.price) * item.quantity)}
+                                        </Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <>
+                                    <Text style={styles.summaryName}>Pago de saldo</Text>
+                                    <Text style={styles.summaryMeta}>Abono de deuda</Text>
+                                </>
+                            )}
                             <Text style={[styles.summaryPrice, { color: gymColor }]}>{formatPrice(amountToPay)}</Text>
                         </View>
 
@@ -436,7 +511,6 @@ const TransferPaymentModal = ({ onClose }) => {
                                     style={[styles.methodCard, paymentMethod === 'mercadopago' && { borderColor: '#009EE3', backgroundColor: '#009EE318' }]}
                                     onPress={() => setPaymentMethod('mercadopago')}
                                 >
-                                    <Ionicons name="card-outline" size={22} color="#009EE3" />
                                     <Text style={styles.methodTitle}>Mercado Pago</Text>
                                     <Text style={styles.methodSub}>Acreditación automática</Text>
                                 </TouchableOpacity>
@@ -446,7 +520,6 @@ const TransferPaymentModal = ({ onClose }) => {
                                     style={[styles.methodCard, paymentMethod === 'transfer' && { borderColor: gymColor, backgroundColor: gymColor + '14' }]}
                                     onPress={() => setPaymentMethod('transfer')}
                                 >
-                                    <Ionicons name="swap-horizontal-outline" size={22} color={gymColor} />
                                     <Text style={styles.methodTitle}>Transferencia</Text>
                                     <Text style={styles.methodSub}>Con comprobante</Text>
                                 </TouchableOpacity>
@@ -460,10 +533,7 @@ const TransferPaymentModal = ({ onClose }) => {
                                 disabled={submitting}
                             >
                                 {submitting ? <ActivityIndicator color="#fff" /> : (
-                                    <View style={styles.submitInner}>
-                                        <Ionicons name="lock-closed" size={16} color="#fff" />
-                                        <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
-                                    </View>
+                                    <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
                                 )}
                             </TouchableOpacity>
                         ) : (
@@ -505,7 +575,7 @@ const TransferPaymentModal = ({ onClose }) => {
                                     </View>
                                 )}
 
-                                {!selectedPackage && (
+                                {cartItems.length === 0 && (
                                     <>
                                         <Text style={styles.sectionTitle}>Monto transferido</Text>
                                         <TextInput
@@ -539,6 +609,19 @@ const TransferPaymentModal = ({ onClose }) => {
                         )}
                     </ScrollView>
                 )}
+
+                <FilterModal
+                    visible={isFilterVisible}
+                    onClose={() => setIsFilterVisible(false)}
+                    options={categories.map(cat => ({ _id: cat.id, nombre: `${cat.label} (${cat.count})` }))}
+                    onSelect={(id) => {
+                        setSelectedCategory(id);
+                        setIsFilterVisible(false);
+                    }}
+                    selectedValue={selectedCategory}
+                    title="Filtrar paquetes"
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
 
                 <CustomAlert
                     visible={alertInfo.visible}
@@ -580,16 +663,19 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     debtText: { color: '#c0392b', fontWeight: 'bold' },
     debtHint: { color: '#c0392b', opacity: 0.8, fontSize: 12, marginTop: 2 },
-    filterChip: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
+    filterButton: {
+        height: 50,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        backgroundColor: Colors[colorScheme].cardBackground,
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
-        backgroundColor: Colors[colorScheme].cardBackground,
-        marginRight: 8
+        marginBottom: 14
     },
-    filterChipText: { fontSize: 13, fontWeight: '700', color: Colors[colorScheme].text },
+    filterButtonText: { fontSize: 16, color: Colors[colorScheme].text, flexShrink: 1 },
     packagesGrid: { gap: 12 },
     packageCard: {
         backgroundColor: Colors[colorScheme].cardBackground,
@@ -612,7 +698,23 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     packageName: { fontSize: 17, fontWeight: '800', color: Colors[colorScheme].text },
     packageDesc: { marginTop: 4, fontSize: 13, color: Colors[colorScheme].text, opacity: 0.7, lineHeight: 18 },
     packageBenefit: { marginTop: 8, fontSize: 13, fontWeight: '600', color: Colors[colorScheme].text, opacity: 0.8 },
-    packagePrice: { marginTop: 8, fontSize: 20, fontWeight: '900' },
+    packageFooter: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+    packagePrice: { fontSize: 20, fontWeight: '900' },
+    addBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+    addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+    qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    qtyBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border
+    },
+    qtyBtnText: { fontSize: 18, fontWeight: '800', color: Colors[colorScheme].text, lineHeight: 20 },
+    qtyValue: { minWidth: 18, textAlign: 'center', fontWeight: '800', color: Colors[colorScheme].text },
     emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
     emptyText: { color: Colors[colorScheme].text, opacity: 0.7 },
     cartBar: {
@@ -644,9 +746,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderColor: Colors[colorScheme].border,
         marginBottom: 18
     },
-    summaryKicker: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', opacity: 0.5, color: Colors[colorScheme].text },
-    summaryName: { fontSize: 18, fontWeight: '800', color: Colors[colorScheme].text, marginTop: 6 },
-    summaryMeta: { fontSize: 13, opacity: 0.75, color: Colors[colorScheme].text, marginTop: 4 },
+    summaryKicker: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', opacity: 0.5, color: Colors[colorScheme].text, marginBottom: 8 },
+    summaryRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+    summaryName: { fontSize: 15, fontWeight: '800', color: Colors[colorScheme].text },
+    summaryMeta: { fontSize: 12, opacity: 0.75, color: Colors[colorScheme].text, marginTop: 2 },
+    summaryLinePrice: { fontSize: 14, fontWeight: '800', minWidth: 70, textAlign: 'right' },
     summaryPrice: { fontSize: 24, fontWeight: '900', marginTop: 8 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text, marginTop: 8, marginBottom: 12 },
     methodRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
@@ -658,7 +762,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 14,
         padding: 14
     },
-    methodTitle: { fontWeight: '800', color: Colors[colorScheme].text, marginTop: 8 },
+    methodTitle: { fontWeight: '800', color: Colors[colorScheme].text },
     methodSub: { fontSize: 12, opacity: 0.7, color: Colors[colorScheme].text, marginTop: 2 },
     toggleBankBtn: {
         flexDirection: 'row',
@@ -706,7 +810,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     imagePickerText: { fontWeight: 'bold', fontSize: 16 },
     previewImage: { width: '100%', height: 200, borderRadius: 8, marginBottom: 20, resizeMode: 'contain' },
     submitBtn: { backgroundColor: gymColor, padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8, marginBottom: 20 },
-    submitInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
 });
 

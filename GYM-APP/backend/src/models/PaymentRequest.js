@@ -1,13 +1,21 @@
 // models/PaymentRequest.js
 import mongoose from 'mongoose';
 
+const cartItemSchema = new mongoose.Schema({
+    package: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentPackage', required: true },
+    quantity: { type: Number, default: 1, min: 1 }
+}, { _id: false });
+
 const paymentRequestSchema = new mongoose.Schema({
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Quién pagó
-    
-    // Puede ser null si el cliente solo transfirió para saldar una deuda vieja sin comprar un paquete nuevo
-    package: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentPackage' }, 
-    
-    amountTransferred: { type: Number, required: true }, // Cuánta plata dice que transfirió
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+    // Compatibilidad: un solo paquete (tickets viejos / un ítem)
+    package: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentPackage' },
+
+    // Carrito: uno o más paquetes
+    items: { type: [cartItemSchema], default: [] },
+
+    amountTransferred: { type: Number, required: true },
     receiptUrl: { type: String, default: '' },
     method: {
         type: String,
@@ -17,15 +25,15 @@ const paymentRequestSchema = new mongoose.Schema({
     mpPreferenceId: { type: String },
     mpPaymentId: { type: String },
     mpStatus: { type: String },
-    
-    status: { 
-        type: String, 
-        enum: ['pending', 'approved', 'rejected'], 
-        default: 'pending' 
+
+    status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
     },
-    
-    adminNotes: { type: String }, // Por si el admin lo rechaza y quiere dejarle un mensaje (Ej: "La foto se ve borrosa")
-    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Qué admin lo aprobó/rechazó
+
+    adminNotes: { type: String },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: { type: Date }
 }, {
     timestamps: true

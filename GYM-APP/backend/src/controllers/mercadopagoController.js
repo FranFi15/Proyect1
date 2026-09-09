@@ -3,7 +3,7 @@ import axios from 'axios';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import getModels from '../utils/getModels.js';
 import connectToGymDB from '../config/mongoConnectionManager.js';
-import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
+import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 
 const MP_APP_ID = process.env.MP_APP_ID;
 const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET;
@@ -279,7 +279,7 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
             }
         },
         { new: true }
-    ).populate('package');
+    ).populate('package').populate('items.package');
 
     if (!ticket) {
         return { skipped: true, reason: 'already_approved' };
@@ -288,14 +288,17 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
     const user = await User.findById(ticket.user);
     if (!user) throw new Error('Usuario del ticket no encontrado');
 
+    const cart = resolveTicketCart(ticket);
+    const names = cart.map(e => e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name);
+
     try {
         await fulfillApprovedPayment({
             models,
             user,
-            pkg: ticket.package,
+            packages: cart,
             amount: Number(payment.transaction_amount || ticket.amountTransferred),
-            description: ticket.package
-                ? `Pago Mercado Pago: ${ticket.package.name}`
+            description: names.length > 0
+                ? `Pago Mercado Pago: ${names.join(', ')}`
                 : 'Abono de saldo por Mercado Pago',
             createdBy: user._id,
             receiptUrl: undefined,
@@ -340,21 +343,34 @@ const mercadoPagoWebhook = asyncHandler(async (req, res) => {
     }
 });
 
-const createCheckoutPreference = async ({ req, settings, ticket, pkg, amountToPay, user }) => {
+const createCheckoutPreference = async ({ req, settings, ticket, pkg, cart, amountToPay, user }) => {
     const publicBase = getPublicBaseUrl(req);
     const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
-    const title = pkg?.name || 'Pago de saldo';
-    const description = pkg?.description || (pkg ? `Paquete ${pkg.name}` : 'Abono de saldo');
 
-    const body = {
-        items: [{
-            id: pkg?._id?.toString() || 'saldo',
-            title,
-            description,
+    const resolvedCart = Array.isArray(cart) && cart.length > 0
+        ? cart
+        : (pkg ? [{ pkg, quantity: 1 }] : []);
+
+    const items = resolvedCart.length > 0
+        ? resolvedCart.map(entry => ({
+            id: entry.pkg._id.toString(),
+            title: entry.pkg.name,
+            description: entry.pkg.description || `Paquete ${entry.pkg.name}`,
+            quantity: Math.max(1, Number(entry.quantity) || 1),
+            unit_price: Number(entry.pkg.price),
+            currency_id: currency
+        }))
+        : [{
+            id: 'saldo',
+            title: 'Pago de saldo',
+            description: 'Abono de saldo',
             quantity: 1,
             unit_price: Number(amountToPay),
             currency_id: currency
-        }],
+        }];
+
+    const body = {
+        items,
         payer: {
             name: user.nombre,
             surname: user.apellido,
@@ -372,7 +388,7 @@ const createCheckoutPreference = async ({ req, settings, ticket, pkg, amountToPa
             gymId: req.gymId,
             ticketId: ticket._id.toString(),
             userId: user._id.toString(),
-            packageId: pkg?._id?.toString() || null
+            itemCount: items.length
         },
         statement_descriptor: 'GAIN WELLNESS'
     };
