@@ -13,7 +13,10 @@ import getModels from '../utils/getModels.js';
             bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
             cancellationTimeLimitMinutes: settings?.cancellationTimeLimitMinutes ?? 60,
             maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0,
-            reviewsPublic: !!settings?.reviewsPublic
+            reviewsPublic: !!settings?.reviewsPublic,
+            mercadoPago: {
+                isLinked: !!settings?.mercadoPago?.isLinked
+            }
         });
     });
 

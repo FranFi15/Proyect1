@@ -1,57 +1,130 @@
 import asyncHandler from 'express-async-handler';
 import axios from 'axios';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import getModels from '../utils/getModels.js';
-import connectToGymDB from '../config/mongoConnectionManager.js'; // Ajusta la ruta a tu manager de DB
+import connectToGymDB from '../config/mongoConnectionManager.js';
+import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
 
-// Variables de entorno que deberás configurar en tu servidor
 const MP_APP_ID = process.env.MP_APP_ID;
 const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET;
-const MP_REDIRECT_URI = process.env.MP_REDIRECT_URI; 
+const MP_REDIRECT_URI = process.env.MP_REDIRECT_URI;
 
-// @desc    1. Iniciar el flujo de vinculación (Redirige a MP)
-// @route   GET /api/mercadopago/auth
-// @access  Private/Admin (Requiere token del admin y el middleware que inyecta req.gymId)
+const CURRENCY_BY_COUNTRY = {
+    Argentina: 'ARS',
+    Uruguay: 'UYU',
+    Chile: 'CLP',
+    Paraguay: 'PYG',
+    Peru: 'PEN',
+    Colombia: 'COP',
+    Mexico: 'MXN',
+    Brasil: 'BRL',
+    Brazil: 'BRL'
+};
+
+export const getPublicBaseUrl = (req) => {
+    if (process.env.API_PUBLIC_URL) {
+        return process.env.API_PUBLIC_URL.replace(/\/$/, '');
+    }
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    return `${proto}://${req.get('host')}`;
+};
+
+const parseOAuthState = (state) => {
+    if (!state) return {};
+    try {
+        const decoded = Buffer.from(state, 'base64url').toString('utf8');
+        return JSON.parse(decoded);
+    } catch {
+        return { gymId: state };
+    }
+};
+
+const isSafeReturnUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    return /^(gain-wellness:\/\/|exp:\/\/|exps:\/\/|http:\/\/localhost|https:\/\/)/i.test(url);
+};
+
+const getMpSettings = async (Settings) => {
+    const settings = await Settings.findById('main_settings');
+    if (!settings?.mercadoPago?.isLinked || !settings.mercadoPago.accessToken) {
+        return null;
+    }
+    return settings;
+};
+
+const refreshMpAccessToken = async (settings) => {
+    const tokenResponse = await axios.post('https://api.mercadopago.com/oauth/token', {
+        client_secret: MP_CLIENT_SECRET,
+        client_id: MP_APP_ID,
+        grant_type: 'refresh_token',
+        refresh_token: settings.mercadoPago.refreshToken
+    }, {
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+        }
+    });
+
+    const { access_token, refresh_token, public_key } = tokenResponse.data;
+    settings.mercadoPago.accessToken = access_token;
+    if (refresh_token) settings.mercadoPago.refreshToken = refresh_token;
+    if (public_key) settings.mercadoPago.publicKey = public_key;
+    await settings.save();
+    return access_token;
+};
+
+const withMpClient = async (settings, fn) => {
+    const run = async (accessToken) => {
+        const client = new MercadoPagoConfig({ accessToken, options: { timeout: 15000 } });
+        return fn(client);
+    };
+
+    try {
+        return await run(settings.mercadoPago.accessToken);
+    } catch (error) {
+        const status = error?.status || error?.response?.status;
+        if (status === 401 && settings.mercadoPago.refreshToken) {
+            const freshToken = await refreshMpAccessToken(settings);
+            return run(freshToken);
+        }
+        throw error;
+    }
+};
+
+const encodeOAuthState = (payload) => Buffer.from(JSON.stringify(payload)).toString('base64url');
+
 const linkMercadoPago = asyncHandler(async (req, res) => {
-    const gymId = req.gymId; // El ID del tenant actual (ej: "fitclub")
+    const gymId = req.gymId;
 
     if (!MP_APP_ID || !MP_REDIRECT_URI) {
         res.status(500);
         throw new Error('Credenciales de la aplicación SaaS de Mercado Pago no configuradas en el servidor.');
     }
 
-    // Usamos el parámetro "state" para enviar el ID del gimnasio. 
-    // Así, cuando MP nos responda, sabremos a qué gimnasio pertenece este token.
-    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${MP_APP_ID}&response_type=code&platform_id=mp&state=${gymId}&redirect_uri=${MP_REDIRECT_URI}`;
+    const returnUrl = isSafeReturnUrl(req.query.returnUrl) ? req.query.returnUrl : 'gain-wellness://mp-oauth';
+    const state = encodeOAuthState({ gymId, returnUrl });
+    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${MP_APP_ID}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(MP_REDIRECT_URI)}`;
 
-    // Devolvemos la URL para que el frontend (app móvil/web) abra el navegador en esta dirección
     res.json({ url: authUrl });
 });
 
-// @desc    2. Callback que recibe Mercado Pago (Guarda los tokens)
-// @route   GET /api/mercadopago/callback
-// @access  Public (Lo llama Mercado Pago directamente)
 const mercadoPagoCallback = asyncHandler(async (req, res) => {
     const { code, state, error } = req.query;
+    const { gymId, returnUrl } = parseOAuthState(state);
+    const appReturn = isSafeReturnUrl(returnUrl) ? returnUrl : 'gain-wellness://mp-oauth';
+    const separator = appReturn.includes('?') ? '&' : '?';
 
-    // Si el usuario canceló o hubo error
-    if (error) {
-        console.error("Error en la vinculación de MP:", error);
-        return res.redirect(`${process.env.WEB_APP_URL}/admin/integrations?error=mp_auth_failed`);
+    if (error || !code || !gymId) {
+        console.error('Error en la vinculación de MP:', error || 'faltan parámetros');
+        return res.redirect(`${appReturn}${separator}success=0&error=mp_auth_failed`);
     }
-
-    if (!code || !state) {
-        return res.status(400).send('Faltan parámetros requeridos de Mercado Pago.');
-    }
-
-    const gymId = state; // Recuperamos el ID del gimnasio que enviamos en el paso 1
 
     try {
-        // 1. Intercambiar el "code" por el "access_token" real
         const tokenResponse = await axios.post('https://api.mercadopago.com/oauth/token', {
             client_secret: MP_CLIENT_SECRET,
             client_id: MP_APP_ID,
             grant_type: 'authorization_code',
-            code: code,
+            code,
             redirect_uri: MP_REDIRECT_URI
         }, {
             headers: {
@@ -61,69 +134,52 @@ const mercadoPagoCallback = asyncHandler(async (req, res) => {
         });
 
         const { access_token, refresh_token, public_key, user_id } = tokenResponse.data;
-
-        // 2. Conectarnos a la base de datos específica de este gimnasio
         const { connection } = await connectToGymDB(gymId);
         if (!connection) throw new Error('No se pudo conectar a la base de datos del cliente.');
 
         const { Settings } = getModels(connection);
-
-        // 3. Buscar las configuraciones o crearlas si no existen
         let settings = await Settings.findById('main_settings');
         if (!settings) {
             settings = new Settings({ _id: 'main_settings' });
         }
 
-        // 4. Guardar los datos de Mercado Pago
         settings.mercadoPago = {
             isLinked: true,
             accessToken: access_token,
             refreshToken: refresh_token,
             publicKey: public_key,
-            userId: user_id,
+            userId: user_id ? String(user_id) : null,
             linkedAt: new Date()
         };
-
         await settings.save();
 
-        // 5. Redirigir al administrador de vuelta a la app/web con mensaje de éxito
-        // (Ajusta la URL según cómo manejes las rutas en tu frontend)
-        const redirectUrl = `${process.env.WEB_APP_URL}/admin/integrations?success=mp_linked`;
-        res.redirect(302, redirectUrl);
-
-    } catch (error) {
-        console.error("Error obteniendo el token de MP:", error?.response?.data || error.message);
-        const redirectUrl = `${process.env.WEB_APP_URL}/admin/integrations?error=token_exchange_failed`;
-        res.redirect(302, redirectUrl);
+        return res.redirect(`${appReturn}${separator}success=1`);
+    } catch (err) {
+        console.error('Error obteniendo el token de MP:', err?.response?.data || err.message);
+        return res.redirect(`${appReturn}${separator}success=0&error=token_exchange_failed`);
     }
 });
 
-// @desc    3. Obtener el estado de la vinculación (Para la UI del admin)
-// @route   GET /api/mercadopago/status
-// @access  Private/Admin
 const getMercadoPagoStatus = asyncHandler(async (req, res) => {
     const { Settings } = getModels(req.gymDBConnection);
     const settings = await Settings.findById('main_settings');
 
-    if (settings && settings.mercadoPago && settings.mercadoPago.isLinked) {
+    if (settings?.mercadoPago?.isLinked) {
         res.json({
             isLinked: true,
             linkedAt: settings.mercadoPago.linkedAt,
-            publicKey: settings.mercadoPago.publicKey // Segura para enviar al frontend
+            publicKey: settings.mercadoPago.publicKey || null
         });
     } else {
         res.json({ isLinked: false });
     }
 });
 
-// @desc    4. Desvincular Mercado Pago
-// @route   DELETE /api/mercadopago/unlink
-// @access  Private/Admin
 const unlinkMercadoPago = asyncHandler(async (req, res) => {
     const { Settings } = getModels(req.gymDBConnection);
     const settings = await Settings.findById('main_settings');
 
-    if (settings && settings.mercadoPago) {
+    if (settings?.mercadoPago) {
         settings.mercadoPago = {
             isLinked: false,
             accessToken: null,
@@ -135,12 +191,202 @@ const unlinkMercadoPago = asyncHandler(async (req, res) => {
         await settings.save();
     }
 
-    res.json({ message: "Cuenta de Mercado Pago desvinculada exitosamente." });
+    res.json({ message: 'Cuenta de Mercado Pago desvinculada exitosamente.' });
 });
+
+const mercadoPagoReturn = asyncHandler(async (req, res) => {
+    const status = req.query.status || req.query.collection_status || 'unknown';
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
+    res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pago Mercado Pago</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; background:#f4f6f8; color:#1f2a37; }
+    .card { background:#fff; padding:28px 24px; border-radius:16px; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.08); max-width:360px; }
+    h1 { font-size:20px; margin:0 0 8px; }
+    p { margin:0; opacity:.75; line-height:1.4; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>${status === 'approved' || status === 'success' ? 'Pago recibido' : status === 'pending' ? 'Pago pendiente' : 'Volvé a la app'}</h1>
+    <p>Ya podés cerrar esta ventana y volver a Gain Wellness. Si el pago se acreditó, tus créditos o pases se actualizan solos.</p>
+  </div>
+  <script>
+    try { window.location.href = 'gain-wellness://payment-result?status=${encodeURIComponent(status)}'; } catch (e) {}
+  </script>
+</body>
+</html>`);
+});
+
+const extractPaymentId = (req) => {
+    return req.body?.data?.id || req.body?.data?.id?.toString?.() || req.query['data.id'] || req.query.id || null;
+};
+
+const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
+    const { connection, pais } = await connectToGymDB(gymId);
+    const models = getModels(connection);
+    const { Settings, PaymentRequest, User } = models;
+
+    const settings = await getMpSettings(Settings);
+    if (!settings) {
+        throw new Error(`Mercado Pago no vinculado para el gimnasio ${gymId}`);
+    }
+
+    const payment = await withMpClient(settings, (client) => new Payment(client).get({ id: paymentId }));
+    if (!payment) return { skipped: true, reason: 'payment_not_found' };
+
+    const ticketId = payment.external_reference;
+    if (!ticketId) return { skipped: true, reason: 'no_external_reference' };
+
+    if (payment.status === 'rejected' || payment.status === 'cancelled') {
+        await PaymentRequest.findOneAndUpdate(
+            { _id: ticketId, status: 'pending' },
+            {
+                $set: {
+                    status: 'rejected',
+                    mpPaymentId: String(payment.id),
+                    mpStatus: payment.status,
+                    adminNotes: `Mercado Pago: ${payment.status_detail || payment.status}`,
+                    reviewedAt: Date.now()
+                }
+            }
+        );
+        return { skipped: true, reason: payment.status };
+    }
+
+    if (payment.status !== 'approved') {
+        await PaymentRequest.findOneAndUpdate(
+            { _id: ticketId },
+            { $set: { mpPaymentId: String(payment.id), mpStatus: payment.status } }
+        );
+        return { skipped: true, reason: payment.status };
+    }
+
+    const ticket = await PaymentRequest.findOneAndUpdate(
+        { _id: ticketId, status: 'pending' },
+        {
+            $set: {
+                status: 'approved',
+                mpPaymentId: String(payment.id),
+                mpStatus: payment.status,
+                adminNotes: `Aprobado automáticamente por Mercado Pago (${payment.status_detail || 'accredited'}).`,
+                reviewedAt: Date.now()
+            }
+        },
+        { new: true }
+    ).populate('package');
+
+    if (!ticket) {
+        return { skipped: true, reason: 'already_approved' };
+    }
+
+    const user = await User.findById(ticket.user);
+    if (!user) throw new Error('Usuario del ticket no encontrado');
+
+    try {
+        await fulfillApprovedPayment({
+            models,
+            user,
+            pkg: ticket.package,
+            amount: Number(payment.transaction_amount || ticket.amountTransferred),
+            description: ticket.package
+                ? `Pago Mercado Pago: ${ticket.package.name}`
+                : 'Abono de saldo por Mercado Pago',
+            createdBy: user._id,
+            receiptUrl: undefined,
+            ticketId: ticket._id
+        });
+    } catch (error) {
+        ticket.status = 'pending';
+        ticket.adminNotes = 'Error al acreditar el paquete. El webhook se reintentará.';
+        await ticket.save();
+        throw error;
+    }
+
+    return { ok: true, currencyHint: CURRENCY_BY_COUNTRY[pais] || 'ARS' };
+};
+
+const mercadoPagoWebhook = asyncHandler(async (req, res) => {
+    const type = req.body?.type || req.body?.topic || req.query.topic || req.query.type;
+    const action = req.body?.action || '';
+    const gymId = req.query.gymId;
+
+    const normalizedType = String(type || action || '').toLowerCase();
+    if (normalizedType && !normalizedType.includes('payment')) {
+        return res.sendStatus(200);
+    }
+
+    const paymentId = extractPaymentId(req);
+    if (!paymentId) {
+        return res.sendStatus(200);
+    }
+
+    if (!gymId) {
+        console.error('Webhook MP sin gymId', { paymentId, query: req.query });
+        return res.sendStatus(200);
+    }
+
+    try {
+        await fulfillMercadoPagoPayment(gymId, paymentId);
+        return res.sendStatus(200);
+    } catch (error) {
+        console.error('Error procesando webhook de Mercado Pago:', error?.response?.data || error.message);
+        return res.status(500).json({ message: 'Error procesando webhook' });
+    }
+});
+
+const createCheckoutPreference = async ({ req, settings, ticket, pkg, amountToPay, user }) => {
+    const publicBase = getPublicBaseUrl(req);
+    const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
+    const title = pkg?.name || 'Pago de saldo';
+    const description = pkg?.description || (pkg ? `Paquete ${pkg.name}` : 'Abono de saldo');
+
+    const body = {
+        items: [{
+            id: pkg?._id?.toString() || 'saldo',
+            title,
+            description,
+            quantity: 1,
+            unit_price: Number(amountToPay),
+            currency_id: currency
+        }],
+        payer: {
+            name: user.nombre,
+            surname: user.apellido,
+            email: user.email
+        },
+        back_urls: {
+            success: `${publicBase}/api/mercadopago/return?status=success`,
+            failure: `${publicBase}/api/mercadopago/return?status=failure`,
+            pending: `${publicBase}/api/mercadopago/return?status=pending`
+        },
+        auto_return: 'approved',
+        notification_url: `${publicBase}/api/mercadopago/webhook?gymId=${encodeURIComponent(req.gymId)}`,
+        external_reference: ticket._id.toString(),
+        metadata: {
+            gymId: req.gymId,
+            ticketId: ticket._id.toString(),
+            userId: user._id.toString(),
+            packageId: pkg?._id?.toString() || null
+        },
+        statement_descriptor: 'GAIN WELLNESS'
+    };
+
+    return withMpClient(settings, (client) => new Preference(client).create({ body }));
+};
 
 export {
     linkMercadoPago,
     mercadoPagoCallback,
     getMercadoPagoStatus,
-    unlinkMercadoPago
+    unlinkMercadoPago,
+    mercadoPagoWebhook,
+    mercadoPagoReturn,
+    createCheckoutPreference,
+    getMpSettings
 };

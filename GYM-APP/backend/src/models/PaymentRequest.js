@@ -8,7 +8,15 @@ const paymentRequestSchema = new mongoose.Schema({
     package: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentPackage' }, 
     
     amountTransferred: { type: Number, required: true }, // Cuánta plata dice que transfirió
-    receiptUrl: { type: String, required: true }, // La URL de la foto del comprobante
+    receiptUrl: { type: String, default: '' },
+    method: {
+        type: String,
+        enum: ['transfer', 'mercadopago'],
+        default: 'transfer'
+    },
+    mpPreferenceId: { type: String },
+    mpPaymentId: { type: String },
+    mpStatus: { type: String },
     
     status: { 
         type: String, 

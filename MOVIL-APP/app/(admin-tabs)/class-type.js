@@ -13,6 +13,7 @@ import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome6, Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
+import PackageFormModal from '@/components/admin/PackageFormModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO } from 'date-fns';
 
@@ -268,10 +269,8 @@ const ClassTypeManagementScreen = () => {
     const [packages, setPackages] = useState([]);
     const [editingPackage, setEditingPackage] = useState(null);
     const [searchPackageTerm, setSearchPackageTerm] = useState('');
+    const [packageFilter, setPackageFilter] = useState('all');
     const [isPackageModalVisible, setIsPackageModalVisible] = useState(false);
-    const [packageFormData, setPackageFormData] = useState({
-        name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: ''
-    });
 
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -359,21 +358,8 @@ const ClassTypeManagementScreen = () => {
     };
 
     // --- LÓGICA PAQUETES ---
-    const handlePackageFormChange = (name, value) => {
-        setPackageFormData(prev => ({ ...prev, [name]: value }));
-    };
     const handleEditPackage = (pkg) => {
         setEditingPackage(pkg);
-        setPackageFormData({
-            name: pkg.name,
-            description: pkg.description || '',
-            price: pkg.price.toString(),
-            isPaseLibre: pkg.isPaseLibre || false,
-            isMembresia: pkg.isMembresia || false,
-            durationDays: pkg.durationDays?.toString() || '30',
-            creditsAmount: pkg.creditsAmount?.toString() || '1',
-            tipoClase: pkg.tipoClase?._id || pkg.tipoClase || ''
-        });
         setIsPackageModalVisible(true);
     };
 
@@ -395,35 +381,17 @@ const ClassTypeManagementScreen = () => {
         });
     };
 
-    const handlePackageSubmit = async () => {
-        if (!packageFormData.name || !packageFormData.price) {
-            return setAlertInfo({ visible: true, title: 'Atención', message: 'El nombre y el precio son obligatorios.' });
+    const handlePackageSubmit = async (payload) => {
+        if (editingPackage) {
+            await apiClient.put(`/payments/packages/${editingPackage._id}`, payload);
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete actualizado exitosamente.' });
+        } else {
+            await apiClient.post('/payments/packages', payload);
+            setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete de venta creado exitosamente.' });
         }
-        
-        const payload = {
-            name: packageFormData.name,
-            description: packageFormData.description,
-            price: Number(packageFormData.price),
-            isPaseLibre: packageFormData.isPaseLibre,
-            isMembresia: packageFormData.isMembresia,
-            durationDays: Number(packageFormData.durationDays) || 30,
-            creditsAmount: Number(packageFormData.creditsAmount) || 0,
-            tipoClase: packageFormData.tipoClase || null
-        };
-
-        try {
-            if (editingPackage) {
-                await apiClient.put(`/payments/packages/${editingPackage._id}`, payload);
-                setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete actualizado exitosamente.' });
-            } else {
-                await apiClient.post('/payments/packages', payload);
-                setAlertInfo({ visible: true, title: 'Éxito', message: 'Paquete de venta creado exitosamente.' });
-            }
-            setIsPackageModalVisible(false);
-            performDataFetch();
-        } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'Error al guardar el paquete.' });
-        }
+        setIsPackageModalVisible(false);
+        setEditingPackage(null);
+        performDataFetch();
     };
 
     // --- LÓGICA FAB MULTIUSO ---
@@ -435,7 +403,6 @@ const ClassTypeManagementScreen = () => {
         } else {
             // 🔥 Aseguramos limpiar el formulario al crear uno nuevo
             setEditingPackage(null);
-            setPackageFormData({ name: '', description: '', price: '', isPaseLibre: false, isMembresia: false, durationDays: '30', creditsAmount: '1', tipoClase: classTypes[0]?._id || '' });
             setIsPackageModalVisible(true);
         }
     };
@@ -446,9 +413,15 @@ const ClassTypeManagementScreen = () => {
     }, [classTypes, searchTerm]);
 
     const filteredPackages = useMemo(() => {
-        if (!searchPackageTerm) return packages;
-        return packages.filter(pkg => pkg.name.toLowerCase().includes(searchPackageTerm.toLowerCase()));
-    }, [packages, searchPackageTerm]);
+        return packages.filter(pkg => {
+            const matchesSearch = !searchPackageTerm || pkg.name.toLowerCase().includes(searchPackageTerm.toLowerCase());
+            if (!matchesSearch) return false;
+            if (packageFilter === 'pase') return !!pkg.isPaseLibre;
+            if (packageFilter === 'membresia') return !!pkg.isMembresia;
+            if (packageFilter === 'creditos') return !pkg.isPaseLibre && !pkg.isMembresia;
+            return true;
+        });
+    }, [packages, searchPackageTerm, packageFilter]);
 
     // --- ESCENAS DE LAS PESTAÑAS ---
     const CreditsRoute = useCallback(() => (
@@ -505,20 +478,45 @@ const ClassTypeManagementScreen = () => {
                 />
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10, paddingBottom: 4 }}>
+                {[
+                    { id: 'all', label: 'Todos' },
+                    { id: 'creditos', label: 'Créditos' },
+                    { id: 'pase', label: 'Pase Libre' },
+                    { id: 'membresia', label: 'Membresía' }
+                ].map(filter => {
+                    const active = packageFilter === filter.id;
+                    return (
+                        <TouchableOpacity
+                            key={filter.id}
+                            onPress={() => setPackageFilter(filter.id)}
+                            style={[styles.filterChip, active && { backgroundColor: gymColor, borderColor: gymColor }]}
+                        >
+                            <Text style={{ color: active ? '#fff' : Colors[colorScheme].text, fontWeight: '700', fontSize: 13 }}>{filter.label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
             <FlatList
                 data={filteredPackages}
-                renderItem={({ item }) => (
+                renderItem={({ item }) => {
+                    const kindLabel = item.isPaseLibre ? 'Pase Libre' : item.isMembresia ? 'Membresía' : 'Créditos';
+                    const kindColor = item.isPaseLibre ? '#0e8a6f' : item.isMembresia ? '#7c3aed' : gymColor;
+                    return (
                     <View style={styles.itemCard}>
                         <View style={styles.cardContent}>
+                            <View style={[styles.kindBadge, { backgroundColor: kindColor + '18' }]}>
+                                <Text style={{ color: kindColor, fontWeight: '800', fontSize: 11 }}>{kindLabel}</Text>
+                            </View>
                             <ThemedText style={styles.itemTitle}>{item.name}</ThemedText>
                             <ThemedText style={[styles.cardDescription, {fontWeight: 'bold', color: gymColor}]}>
-                                ${item.price}
+                                ${Number(item.price || 0).toLocaleString('es-AR')}
                             </ThemedText>
                             <ThemedText style={styles.cardDescription}>
-                                {item.isPaseLibre ? `Acceso Libre (${item.durationDays} días)` : item.isMembresia ? `Membresía QR (${item.durationDays} días)` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'Clase'}`}
+                                {item.isPaseLibre ? `Acceso libre · ${item.durationDays} días` : item.isMembresia ? `Solo QR · ${item.durationDays} días` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'clase'}`}
                             </ThemedText>
+                            {item.description ? <ThemedText style={styles.cardDescription}>{item.description}</ThemedText> : null}
                         </View>
-                        {/* 🔥 NUEVOS BOTONES 🔥 */}
                         <View style={styles.cardActions}>
                             <TouchableOpacity onPress={() => handleEditPackage(item)} style={styles.actionButton}>
                                 <FontAwesome6 name="edit" size={21} color={Colors[colorScheme].text} />
@@ -528,14 +526,14 @@ const ClassTypeManagementScreen = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
-                )}
+                )}}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay paquetes de venta creados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
         </View>
-    ), [filteredPackages, searchPackageTerm, colorScheme, gymColor, isRefreshing]);
+    ), [filteredPackages, searchPackageTerm, packageFilter, colorScheme, gymColor, isRefreshing]);
 
     const renderScene = SceneMap({
         credits: CreditsRoute,
@@ -581,80 +579,14 @@ const ClassTypeManagementScreen = () => {
                 colorScheme={colorScheme}
             />
 
-            {/* --- MODAL CREAR PAQUETE DE VENTA --- */}
-            <Modal visible={isPackageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsPackageModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
-                    <Pressable style={styles.modalBackdrop} onPress={() => setIsPackageModalVisible(false)} />
-                    <View style={styles.modalContainer}>
-                        <TouchableOpacity onPress={() => setIsPackageModalVisible(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            <ThemedText style={styles.modalTitle}>Crear Paquete de Venta</ThemedText>
-                            
-                            <ThemedText style={styles.inputLabel}>Nombre del Paquete</ThemedText>
-                            <TextInput style={styles.input} placeholder="Ej: Promo 10 Clases" value={packageFormData.name} onChangeText={(text) => handlePackageFormChange('name', text)} placeholderTextColor="#999" />
-                            
-                            <ThemedText style={styles.inputLabel}>Precio ($)</ThemedText>
-                            <TextInput style={styles.input} placeholder="Ej: 15000" keyboardType="numeric" value={packageFormData.price} onChangeText={(text) => handlePackageFormChange('price', text)} placeholderTextColor="#999" />
-                            
-                            <ThemedText style={styles.inputLabel}>Descripción (Opcional)</ThemedText>
-                            <TextInput style={styles.input} placeholder="Ej: Incluye matricula gratis" value={packageFormData.description} onChangeText={(text) => handlePackageFormChange('description', text)} placeholderTextColor="#999" />
-
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Es Acceso Libre (Turnos + QR)?</ThemedText>
-                                <Switch trackColor={{ true: gymColor }} value={packageFormData.isPaseLibre} onValueChange={(val) => {
-                                    handlePackageFormChange('isPaseLibre', val);
-                                    if (val) handlePackageFormChange('isMembresia', false);
-                                }} />
-                            </View>
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Es Membresía (Solo QR)?</ThemedText>
-                                <Switch trackColor={{ true: gymColor }} value={packageFormData.isMembresia} onValueChange={(val) => {
-                                    handlePackageFormChange('isMembresia', val);
-                                    if (val) handlePackageFormChange('isPaseLibre', false);
-                                }} />
-                            </View>
-
-                            {(packageFormData.isPaseLibre || packageFormData.isMembresia) ? (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Duración (Días)</ThemedText>
-                                    <TextInput style={styles.input} placeholder="Ej: 30" keyboardType="numeric" value={packageFormData.durationDays} onChangeText={(text) => handlePackageFormChange('durationDays', text)} placeholderTextColor="#999" />
-                                </>
-                            ) : (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Cantidad de Créditos</ThemedText>
-                                    <TextInput style={styles.input} placeholder="Ej: 8" keyboardType="numeric" value={packageFormData.creditsAmount} onChangeText={(text) => handlePackageFormChange('creditsAmount', text)} placeholderTextColor="#999" />
-                                    
-                                    <ThemedText style={styles.inputLabel}>¿Qué crédito entrega?</ThemedText>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
-                                        {classTypes.map(type => (
-                                            <TouchableOpacity 
-                                                key={type._id} 
-                                                onPress={() => handlePackageFormChange('tipoClase', type._id)}
-                                                style={[styles.dayChip, packageFormData.tipoClase === type._id && { backgroundColor: gymColor, borderColor: gymColor }]}
-                                            >
-                                                <Text style={{ color: packageFormData.tipoClase === type._id ? '#fff' : Colors[colorScheme].text }}>
-                                                    {type.nombre}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </>
-                            )}
-
-                            <View style={styles.modalActions}>
-                                <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsPackageModalVisible(false)}>
-                                    <Text style={styles.buttonText}>Cancelar</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.button, { backgroundColor: gymColor || '#1a5276' }]} onPress={handlePackageSubmit}>
-                                    <Text style={styles.buttonText}>Crear</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </ScrollView>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
+            <PackageFormModal
+                visible={isPackageModalVisible}
+                onClose={() => { setIsPackageModalVisible(false); setEditingPackage(null); }}
+                onSubmit={handlePackageSubmit}
+                editingPackage={editingPackage}
+                classTypes={classTypes}
+                gymColor={gymColor}
+            />
 
             {/* --- MODAL EDITAR CREDITO BASE --- */}
             <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
@@ -716,6 +648,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardContent: { flex: 1 },
     itemTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
     cardDescription: { fontSize: 14, opacity: 0.7, marginTop: 4, color: Colors[colorScheme].text },
+    kindBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginBottom: 6 },
+    filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors[colorScheme].border, backgroundColor: Colors[colorScheme].cardBackground, marginRight: 8 },
     cardActions: { flexDirection: 'row', alignItems: 'center' },
     actionButton: { padding: 8, marginLeft: 10 },
     

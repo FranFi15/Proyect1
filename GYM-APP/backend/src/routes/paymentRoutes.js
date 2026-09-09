@@ -7,27 +7,29 @@ import {
     getPackages, 
     submitTransferReceipt, 
     getPendingRequests, 
-    processTransferTicket 
+    processTransferTicket,
+    createMercadoPagoPreference,
+    getMyTicket
 } from '../controllers/paymentController.js';
-import { protect } from '../middlewares/authMiddleware.js';
+import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
 import { upload } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
-// Aplica los middlewares a todas las rutas (Asumo que tienes estos por cómo armaste los otros)
 router.use(protect);
 router.use(gymTenantMiddleware);
 
-// Rutas de Paquetes
-router.post('/packages', createPackage); // Solo admin (luego lo puedes proteger con un middleware de admin)
-router.put('/packages/:id', updatePackage);
-router.delete('/packages/:id', deletePackage);
-router.get('/packages', getPackages); // Clientes y Admin
+router.post('/packages', authorizeRoles('admin'), createPackage);
+router.put('/packages/:id', authorizeRoles('admin'), updatePackage);
+router.delete('/packages/:id', authorizeRoles('admin'), deletePackage);
+router.get('/packages', getPackages);
 
-// Rutas de Tickets (Comprobantes)
-router.post('/ticket', upload.single('receipt'), submitTransferReceipt); // El cliente envía comprobante
-router.get('/tickets/pending', getPendingRequests); // El admin ve los pendientes
-router.put('/ticket/:id/process', processTransferTicket); // El admin aprueba/rechaza
+router.post('/ticket', upload.single('receipt'), submitTransferReceipt);
+router.get('/tickets/pending', authorizeRoles('admin'), getPendingRequests);
+router.put('/ticket/:id/process', authorizeRoles('admin'), processTransferTicket);
+router.get('/ticket/:id', getMyTicket);
+
+router.post('/mercadopago/preference', createMercadoPagoPreference);
 
 export default router;

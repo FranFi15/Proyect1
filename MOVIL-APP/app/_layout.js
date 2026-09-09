@@ -18,7 +18,8 @@ SplashScreen.preventAutoHideAsync();
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
     }),
@@ -120,8 +121,9 @@ function AppContent() {
         }
 
         const isResetPasswordScreen = segments.some(s => s === 'reset-password');
+        const isExternalReturn = segments.some(s => s === 'payment-result' || s === 'mp-oauth');
 
-        if (isResetPasswordScreen) {
+        if (isResetPasswordScreen || isExternalReturn) {
             return;
         }
 

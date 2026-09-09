@@ -26,6 +26,12 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import sucursalRoutes from './routes/sucursalRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import mercadopagoAdminRoutes from './routes/mercadopagoRoutes.js';
+import {
+    mercadoPagoCallback,
+    mercadoPagoWebhook,
+    mercadoPagoReturn
+} from './controllers/mercadopagoController.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -107,6 +113,12 @@ app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
 app.use('/api/sucursales', gymTenantMiddleware, sucursalRoutes);
 app.use('/api/reviews', gymTenantMiddleware, reviewRoutes);
+
+app.get('/api/mercadopago/callback', mercadoPagoCallback);
+app.get('/api/mercadopago/webhook', mercadoPagoWebhook);
+app.post('/api/mercadopago/webhook', mercadoPagoWebhook);
+app.get('/api/mercadopago/return', mercadoPagoReturn);
+app.use('/api/mercadopago', gymTenantMiddleware, mercadopagoAdminRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);
