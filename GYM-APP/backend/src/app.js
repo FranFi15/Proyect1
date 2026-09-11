@@ -26,6 +26,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import sucursalRoutes from './routes/sucursalRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import storeRoutes from './routes/storeRoutes.js';
 import mercadopagoAdminRoutes from './routes/mercadopagoRoutes.js';
 import {
     mercadoPagoCallback,
@@ -111,6 +112,7 @@ app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
+app.use('/api/store', gymTenantMiddleware, storeRoutes);
 app.use('/api/sucursales', gymTenantMiddleware, sucursalRoutes);
 app.use('/api/reviews', gymTenantMiddleware, reviewRoutes);
 

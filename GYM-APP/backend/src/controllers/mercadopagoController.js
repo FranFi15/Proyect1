@@ -230,7 +230,7 @@ const extractPaymentId = (req) => {
 const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
     const { connection, pais } = await connectToGymDB(gymId);
     const models = getModels(connection);
-    const { Settings, PaymentRequest, User } = models;
+    const { Settings, PaymentRequest, User, StoreOrder } = models;
 
     const settings = await getMpSettings(Settings);
     if (!settings) {
@@ -242,6 +242,57 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
 
     const ticketId = payment.external_reference;
     if (!ticketId) return { skipped: true, reason: 'no_external_reference' };
+
+    // Store orders use external_reference "store:<orderId>"
+    if (String(ticketId).startsWith('store:')) {
+        const orderId = String(ticketId).slice('store:'.length);
+        if (payment.status === 'rejected' || payment.status === 'cancelled') {
+            await StoreOrder.findOneAndUpdate(
+                { _id: orderId, status: 'pending' },
+                {
+                    $set: {
+                        status: 'rejected',
+                        mpPaymentId: String(payment.id),
+                        mpStatus: payment.status,
+                        adminNotes: `Mercado Pago: ${payment.status_detail || payment.status}`,
+                        reviewedAt: Date.now(),
+                    },
+                }
+            );
+            return { skipped: true, reason: payment.status, kind: 'store' };
+        }
+
+        if (payment.status !== 'approved') {
+            await StoreOrder.findOneAndUpdate(
+                { _id: orderId },
+                { $set: { mpPaymentId: String(payment.id), mpStatus: payment.status } }
+            );
+            return { skipped: true, reason: payment.status, kind: 'store' };
+        }
+
+        const order = await StoreOrder.findOneAndUpdate(
+            { _id: orderId, status: 'pending' },
+            {
+                $set: {
+                    mpPaymentId: String(payment.id),
+                    mpStatus: payment.status,
+                },
+            },
+            { new: true }
+        );
+        if (!order) return { skipped: true, reason: 'already_processed', kind: 'store' };
+
+        const user = await User.findById(order.user);
+        const { fulfillPaidStoreOrder } = await import('../services/storeFulfillment.js');
+        await fulfillPaidStoreOrder({
+            models,
+            order,
+            user,
+            adminNotes: `Aprobado automáticamente por Mercado Pago (${payment.status_detail || 'accredited'}).`,
+            reviewedBy: null,
+        });
+        return { ok: true, kind: 'store', currencyHint: CURRENCY_BY_COUNTRY[pais] || 'ARS' };
+    }
 
     if (payment.status === 'rejected' || payment.status === 'cancelled') {
         await PaymentRequest.findOneAndUpdate(

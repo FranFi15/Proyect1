@@ -14,6 +14,8 @@ import getPaymentPackageModel from '../models/PaymentPackage.js';
 import getPaymentRequestModel from '../models/PaymentRequest.js';
 import getSucursalModel from '../models/Sucursal.js';
 import getReviewModel from '../models/Review.js';
+import getStoreItemModel from '../models/StoreItem.js';
+import getStoreOrderModel from '../models/StoreOrder.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -39,7 +41,9 @@ const getModels = (dbConnection) => {
         PaymentRequest: getPaymentRequestModel(dbConnection),
         Sucursal: getSucursalModel(dbConnection),
         Review: getReviewModel(dbConnection),
-        SentNotification: getSentNotificationModel(dbConnection)
+        SentNotification: getSentNotificationModel(dbConnection),
+        StoreItem: getStoreItemModel(dbConnection),
+        StoreOrder: getStoreOrderModel(dbConnection),
     };
 
     return models;
