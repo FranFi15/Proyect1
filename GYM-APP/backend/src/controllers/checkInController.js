@@ -348,7 +348,10 @@ const getClientCheckInOptions = asyncHandler(async (req, res) => {
         fecha: { $gte: todayStart, $lte: todayEnd },
         usuariosInscritos: userId,
         estado: 'activa',
-    }).populate('tipoClase', 'nombre').sort({ horaInicio: 'asc' });
+    })
+        .populate('tipoClase', 'nombre')
+        .populate('sucursal', 'nombre')
+        .sort({ horaInicio: 'asc' });
 
     const recordedIds = user.historialAsistencias
         .filter(h => new Date(h.fecha) >= todayStart && h.claseId)
@@ -364,7 +367,11 @@ const getClientCheckInOptions = asyncHandler(async (req, res) => {
         nombre: c.nombre || c.tipoClase?.nombre || 'Turno General',
         horario: `${c.horaInicio}hs - ${c.horaFin}hs`,
         subtitle: 'Ya estás inscripto',
-        actionLabel: 'Registrar presentismo'
+        actionLabel: 'Registrar presentismo',
+        tipoClaseId: c.tipoClase?._id?.toString() || null,
+        tipoClaseNombre: c.tipoClase?.nombre || c.nombre || 'Turno',
+        sucursalId: c.sucursal?._id?.toString() || c.sucursal?.toString?.() || null,
+        sucursalNombre: c.sucursal?.nombre || 'Sin sede',
     }));
 
     const recordedLibreToday = user.historialAsistencias.some(h =>
@@ -427,6 +434,7 @@ const getClientCheckInOptions = asyncHandler(async (req, res) => {
 
             const todayClasses = await Clase.find(classQuery)
                 .populate('tipoClase', 'nombre esUniversal')
+                .populate('sucursal', 'nombre')
                 .sort({ horaInicio: 'asc' });
 
             const enrolledIds = new Set(
@@ -459,6 +467,10 @@ const getClientCheckInOptions = asyncHandler(async (req, res) => {
                         : 'Inscribirte con crédito + presentismo',
                     actionLabel: 'Inscribirme y presentismo',
                     cupos: Number.isFinite(capacity) ? Math.max(0, capacity - enrolledCount) : null,
+                    tipoClaseId: tipoId,
+                    tipoClaseNombre: tipo.nombre || clase.nombre || 'Turno',
+                    sucursalId: clase.sucursal?._id?.toString() || clase.sucursal?.toString?.() || null,
+                    sucursalNombre: clase.sucursal?.nombre || 'Sin sede',
                 });
             }
         }
