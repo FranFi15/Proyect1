@@ -20,8 +20,8 @@ router.use(protect);
 router.use(gymTenantMiddleware);
 
 router.get('/items', getStoreItems);
-router.post('/items', authorizeRoles('admin'), createStoreItem);
-router.put('/items/:id', authorizeRoles('admin'), updateStoreItem);
+router.post('/items', authorizeRoles('admin'), upload.single('image'), createStoreItem);
+router.put('/items/:id', authorizeRoles('admin'), upload.single('image'), updateStoreItem);
 router.delete('/items/:id', authorizeRoles('admin'), deleteStoreItem);
 
 router.post('/orders/ticket', upload.single('receipt'), submitStoreTransferOrder);

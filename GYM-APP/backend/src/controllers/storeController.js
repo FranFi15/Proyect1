@@ -100,25 +100,49 @@ const notifyAdminsNewStoreOrder = async (User, clientUser, amount, orderCode) =>
 
 // ---------- Items CRUD ----------
 
+const parseStoreOptions = (options) => {
+    if (Array.isArray(options)) {
+        return options.map((o) => String(o).trim()).filter(Boolean);
+    }
+    if (typeof options !== 'string' || !options.trim()) return [];
+    try {
+        const parsed = JSON.parse(options);
+        if (Array.isArray(parsed)) {
+            return parsed.map((o) => String(o).trim()).filter(Boolean);
+        }
+    } catch {
+        // newline / comma separated free text
+    }
+    return options.split(/\n|,/).map((o) => o.trim()).filter(Boolean);
+};
+
+const parseStoreIsActive = (value, fallback = true) => {
+    if (value == null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    const normalized = String(value).trim().toLowerCase();
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    return fallback;
+};
+
+const getUploadedImageUrl = (file) =>
+    file?.secure_url || file?.path || file?.url || '';
+
 const createStoreItem = asyncHandler(async (req, res) => {
     const { StoreItem } = getModels(req.gymDBConnection);
     const { name, price, amount, options, isActive } = req.body;
-    if (!name || price == null) {
+    if (!name || price == null || price === '') {
         res.status(400);
         throw new Error('Nombre y precio son obligatorios.');
     }
-    const cleanOptions = Array.isArray(options)
-        ? options.map((o) => String(o).trim()).filter(Boolean)
-        : typeof options === 'string'
-          ? options.split('\n').map((o) => o.trim()).filter(Boolean)
-          : [];
 
     const item = await StoreItem.create({
         name: String(name).trim(),
         price: Number(price),
         amount: Math.max(0, Number(amount) || 0),
-        options: cleanOptions,
-        isActive: isActive !== false,
+        options: parseStoreOptions(options),
+        imageUrl: getUploadedImageUrl(req.file),
+        isActive: parseStoreIsActive(isActive, true),
     });
     res.status(201).json(item);
 });
@@ -140,16 +164,20 @@ const updateStoreItem = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Producto no encontrado.');
     }
-    const { name, price, amount, options, isActive } = req.body;
+    const { name, price, amount, options, isActive, clearImage } = req.body;
     if (name != null) item.name = String(name).trim();
-    if (price != null) item.price = Number(price);
-    if (amount != null) item.amount = Math.max(0, Number(amount) || 0);
-    if (options != null) {
-        item.options = Array.isArray(options)
-            ? options.map((o) => String(o).trim()).filter(Boolean)
-            : String(options).split('\n').map((o) => o.trim()).filter(Boolean);
+    if (price != null && price !== '') item.price = Number(price);
+    if (amount != null && amount !== '') item.amount = Math.max(0, Number(amount) || 0);
+    if (options != null) item.options = parseStoreOptions(options);
+    if (isActive != null && isActive !== '') item.isActive = parseStoreIsActive(isActive, item.isActive);
+
+    const uploadedUrl = getUploadedImageUrl(req.file);
+    if (uploadedUrl) {
+        item.imageUrl = uploadedUrl;
+    } else if (parseStoreIsActive(clearImage, false)) {
+        item.imageUrl = '';
     }
-    if (isActive != null) item.isActive = !!isActive;
+
     await item.save();
     res.json(item);
 });

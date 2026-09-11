@@ -5,6 +5,7 @@ const storeItemSchema = new mongoose.Schema({
     price: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0, default: 0 }, // stock
     options: { type: [String], default: [] }, // free-text options defined by admin
+    imageUrl: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
 }, {
     timestamps: true
