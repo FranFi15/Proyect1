@@ -30,6 +30,38 @@ const parseStoreCartPayload = (body) => {
         .filter((entry) => !!entry.storeItemId);
 };
 
+/** Accepts [{name,amount}], legacy string[], or JSON string. */
+const normalizeStoreOptions = (options) => {
+    let raw = options;
+    if (typeof raw === 'string') {
+        try {
+            raw = JSON.parse(raw);
+        } catch {
+            raw = raw.split(/\n/).map((line) => line.trim()).filter(Boolean);
+        }
+    }
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+        .map((entry) => {
+            if (typeof entry === 'string') {
+                const name = entry.trim();
+                return name ? { name, amount: 0 } : null;
+            }
+            if (!entry || typeof entry !== 'object') return null;
+            const name = String(entry.name || entry.label || entry.option || '').trim();
+            if (!name) return null;
+            return {
+                name,
+                amount: Math.max(0, Number(entry.amount ?? entry.stock ?? 0) || 0),
+            };
+        })
+        .filter(Boolean);
+};
+
+const sumOptionStock = (options) =>
+    (options || []).reduce((sum, opt) => sum + Math.max(0, Number(opt.amount) || 0), 0);
+
 const loadStoreCart = async (StoreItem, entries) => {
     const cart = [];
     for (const entry of entries) {
@@ -39,19 +71,35 @@ const loadStoreCart = async (StoreItem, entries) => {
             err.statusCode = 400;
             throw err;
         }
+
+        const options = normalizeStoreOptions(item.options);
         const qty = entry.quantity;
-        if (Number(item.amount) < qty) {
-            const err = new Error(`Stock insuficiente para "${item.name}". Disponible: ${item.amount}.`);
-            err.statusCode = 400;
-            throw err;
-        }
-        if (Array.isArray(item.options) && item.options.length > 0) {
-            if (!entry.selectedOption || !item.options.includes(entry.selectedOption)) {
+
+        if (options.length > 0) {
+            if (!entry.selectedOption) {
+                const err = new Error(`Elegí una opción para "${item.name}".`);
+                err.statusCode = 400;
+                throw err;
+            }
+            const option = options.find((o) => o.name === entry.selectedOption);
+            if (!option) {
                 const err = new Error(`Elegí una opción válida para "${item.name}".`);
                 err.statusCode = 400;
                 throw err;
             }
+            if (Number(option.amount) < qty) {
+                const err = new Error(
+                    `Stock insuficiente para "${item.name}" (${option.name}). Disponible: ${option.amount}.`
+                );
+                err.statusCode = 400;
+                throw err;
+            }
+        } else if (Number(item.amount) < qty) {
+            const err = new Error(`Stock insuficiente para "${item.name}". Disponible: ${item.amount}.`);
+            err.statusCode = 400;
+            throw err;
         }
+
         cart.push({
             item,
             quantity: qty,
@@ -100,22 +148,6 @@ const notifyAdminsNewStoreOrder = async (User, clientUser, amount, orderCode) =>
 
 // ---------- Items CRUD ----------
 
-const parseStoreOptions = (options) => {
-    if (Array.isArray(options)) {
-        return options.map((o) => String(o).trim()).filter(Boolean);
-    }
-    if (typeof options !== 'string' || !options.trim()) return [];
-    try {
-        const parsed = JSON.parse(options);
-        if (Array.isArray(parsed)) {
-            return parsed.map((o) => String(o).trim()).filter(Boolean);
-        }
-    } catch {
-        // newline / comma separated free text
-    }
-    return options.split(/\n|,/).map((o) => o.trim()).filter(Boolean);
-};
-
 const parseStoreIsActive = (value, fallback = true) => {
     if (value == null || value === '') return fallback;
     if (typeof value === 'boolean') return value;
@@ -130,17 +162,23 @@ const getUploadedImageUrl = (file) =>
 
 const createStoreItem = asyncHandler(async (req, res) => {
     const { StoreItem } = getModels(req.gymDBConnection);
-    const { name, price, amount, options, isActive } = req.body;
+    const { name, price, options, isActive } = req.body;
     if (!name || price == null || price === '') {
         res.status(400);
         throw new Error('Nombre y precio son obligatorios.');
     }
 
+    const normalizedOptions = normalizeStoreOptions(options);
+    if (normalizedOptions.length === 0) {
+        res.status(400);
+        throw new Error('Agregá al menos una opción con stock.');
+    }
+
     const item = await StoreItem.create({
         name: String(name).trim(),
         price: Number(price),
-        amount: Math.max(0, Number(amount) || 0),
-        options: parseStoreOptions(options),
+        options: normalizedOptions,
+        amount: sumOptionStock(normalizedOptions),
         imageUrl: getUploadedImageUrl(req.file),
         isActive: parseStoreIsActive(isActive, true),
     });
@@ -152,7 +190,13 @@ const getStoreItems = asyncHandler(async (req, res) => {
     const isAdmin = req.user?.roles?.includes('admin');
     const query = isAdmin && req.query.all === '1'
         ? {}
-        : { isActive: true, amount: { $gt: 0 } };
+        : {
+            isActive: true,
+            $or: [
+                { amount: { $gt: 0 } },
+                { 'options.amount': { $gt: 0 } },
+            ],
+        };
     const items = await StoreItem.find(query).sort({ createdAt: -1 });
     res.json(items);
 });
@@ -164,11 +208,18 @@ const updateStoreItem = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Producto no encontrado.');
     }
-    const { name, price, amount, options, isActive, clearImage } = req.body;
+    const { name, price, options, isActive, clearImage } = req.body;
     if (name != null) item.name = String(name).trim();
     if (price != null && price !== '') item.price = Number(price);
-    if (amount != null && amount !== '') item.amount = Math.max(0, Number(amount) || 0);
-    if (options != null) item.options = parseStoreOptions(options);
+    if (options != null) {
+        const normalizedOptions = normalizeStoreOptions(options);
+        if (normalizedOptions.length === 0) {
+            res.status(400);
+            throw new Error('Agregá al menos una opción con stock.');
+        }
+        item.options = normalizedOptions;
+        item.amount = sumOptionStock(normalizedOptions);
+    }
     if (isActive != null && isActive !== '') item.isActive = parseStoreIsActive(isActive, item.isActive);
 
     const uploadedUrl = getUploadedImageUrl(req.file);

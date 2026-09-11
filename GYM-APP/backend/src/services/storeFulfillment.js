@@ -9,8 +9,27 @@ export const generateOrderCode = () => {
     return code;
 };
 
+const normalizeOptionRows = (rawOptions) => {
+    if (!Array.isArray(rawOptions)) return [];
+    return rawOptions
+        .map((entry) => {
+            if (typeof entry === 'string') {
+                const name = entry.trim();
+                return name ? { name, amount: 0 } : null;
+            }
+            if (!entry || typeof entry !== 'object') return null;
+            const name = String(entry.name || '').trim();
+            if (!name) return null;
+            return {
+                name,
+                amount: Math.max(0, Number(entry.amount) || 0),
+            };
+        })
+        .filter(Boolean);
+};
+
 /**
- * Mark store order as paid: decrement stock, notify client with pickup code.
+ * Mark store order as paid: decrement option stock, notify client with pickup code.
  * Caller must ensure order is currently pending (or already transitioning).
  */
 export const fulfillPaidStoreOrder = async ({
@@ -26,7 +45,18 @@ export const fulfillPaidStoreOrder = async ({
         const item = await StoreItem.findById(line.storeItem);
         if (!item) continue;
         const qty = Math.max(1, Number(line.quantity) || 1);
-        item.amount = Math.max(0, Number(item.amount || 0) - qty);
+        const options = normalizeOptionRows(item.options);
+
+        if (options.length > 0 && line.selectedOption) {
+            const idx = options.findIndex((o) => o.name === line.selectedOption);
+            if (idx >= 0) {
+                options[idx].amount = Math.max(0, Number(options[idx].amount || 0) - qty);
+            }
+            item.options = options;
+            item.amount = options.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+        } else {
+            item.amount = Math.max(0, Number(item.amount || 0) - qty);
+        }
         await item.save();
     }
 

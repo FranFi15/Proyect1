@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 const storeItemSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 },
-    amount: { type: Number, required: true, min: 0, default: 0 }, // stock
-    options: { type: [String], default: [] }, // free-text options defined by admin
+    // Cached total stock across options (kept in sync on save / fulfillment)
+    amount: { type: Number, required: true, min: 0, default: 0 },
+    // [{ name, amount }] — Mixed keeps legacy string options readable
+    options: { type: [mongoose.Schema.Types.Mixed], default: [] },
     imageUrl: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
 }, {
