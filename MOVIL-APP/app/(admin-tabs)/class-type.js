@@ -1,249 +1,22 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     StyleSheet, View, Text, FlatList, TouchableOpacity, TextInput,
     useColorScheme, ActivityIndicator, RefreshControl, Switch,
-    KeyboardAvoidingView, ScrollView, Platform, Button, Pressable, Modal, useWindowDimensions
+    ScrollView, Platform, Modal, useWindowDimensions
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { TabView, SceneMap, TabBar } from 'react-native-tab-view'; // <-- Añadido para las pestañas
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
-import { FontAwesome6, Ionicons, Octicons, FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, Octicons, FontAwesome6 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import PackageFormModal from '@/components/admin/PackageFormModal';
 import FilterModal from '@/components/FilterModal';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, parseISO } from 'date-fns';
-
-// Importamos el componente específico para Web
-import WebDatePicker from '@/components/WebDatePicker';
-
-// --- COMPONENTE INTERNO: GESTIÓN DE SCOREBOARDS (MODAL) ---
-// (Mantenido intacto como lo tenías)
-const ScoreboardManagerModal = ({ visible, onClose, gymColor, colorScheme }) => {
-    const styles = getStyles(colorScheme, gymColor);
-    const [viewMode, setViewMode] = useState('list'); 
-    const [scoreboards, setScoreboards] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        nombre: '', descripcion: '', metrics: [], metricUnit: '', hasDeadline: false, fechaLimite: new Date(), visible: true
-    });
-    const [editingId, setEditingId] = useState(null);
-    const [datePickerConfig, setDatePickerConfig] = useState({ visible: false, currentValue: new Date() });
-
-    const AVAILABLE_METRICS = [
-        { id: 'peso', label: 'Peso', icon: 'dumbbell' },
-        { id: 'tiempo', label: 'Tiempo', icon: 'stopwatch' },
-        { id: 'distancia', label: 'Distancia', icon: 'road' },
-        { id: 'repeticiones', label: 'Reps', icon: 'redo' },
-    ];
-
-    useEffect(() => {
-        if (visible && viewMode === 'list') fetchScoreboards();
-    }, [visible, viewMode]);
-
-    const fetchScoreboards = async () => {
-        setLoading(true);
-        try {
-            const res = await apiClient.get('/scoreboards/active');
-            setScoreboards(res.data || []);
-        } catch (e) { console.error(e); } 
-        finally { setLoading(false); }
-    };
-
-    const handleEdit = (item) => {
-        setEditingId(item._id);
-        setFormData({
-            nombre: item.nombre, descripcion: item.descripcion, metrics: item.metrics || [],
-            metricUnit: item.metricUnit || '', hasDeadline: !!item.fechaLimite,
-            fechaLimite: item.fechaLimite ? parseISO(item.fechaLimite) : new Date(), visible: item.visible
-        });
-        setViewMode('form');
-    };
-
-    const handleCreate = () => {
-        setEditingId(null);
-        setFormData({ nombre: '', descripcion: '', metrics: ['tiempo'], metricUnit: '', hasDeadline: false, fechaLimite: new Date(), visible: true });
-        setViewMode('form');
-    };
-
-    const handleSubmit = async () => {
-        if (!formData.nombre) return alert('El nombre es obligatorio');
-        const payload = { ...formData, fechaLimite: formData.hasDeadline ? formData.fechaLimite : null };
-        try {
-            if (editingId) await apiClient.put(`/scoreboards/${editingId}`, payload);
-            else await apiClient.post('/scoreboards', payload);
-            setViewMode('list');
-        } catch (e) { alert('Error al guardar'); }
-    };
-
-    const handleDelete = async (id) => {
-        try {
-            await apiClient.delete(`/scoreboards/${id}`);
-            fetchScoreboards();
-        } catch (e) { alert('Error al eliminar'); }
-    };
-
-    const toggleMetric = (id) => {
-        setFormData(prev => {
-            const exists = prev.metrics.includes(id);
-            return { ...prev, metrics: exists ? prev.metrics.filter(m => m !== id) : [...prev.metrics, id] };
-        });
-    };
-
-    const onDateChange = (event, selectedDate) => {
-        if (event.type === 'dismissed') {
-            setDatePickerConfig(prev => ({ ...prev, visible: false }));
-            return;
-        }
-        const currentDate = selectedDate || datePickerConfig.currentValue;
-        setDatePickerConfig(prev => ({ ...prev, visible: false }));
-        setFormData(prev => ({ ...prev, fechaLimite: currentDate }));
-    };
-
-    const confirmIOSDate = () => {
-        setFormData(prev => ({ ...prev, fechaLimite: datePickerConfig.currentValue }));
-        setDatePickerConfig(prev => ({ ...prev, visible: false }));
-    };
-
-    return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
-                <Pressable style={styles.modalBackdrop} onPress={onClose} />
-                <View style={[styles.modalContainerFull, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
-                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                        {viewMode === 'form' && (
-                            <TouchableOpacity onPress={() => setViewMode('list')} style={{marginRight: 12}}>
-                                <Ionicons name="arrow-back" size={24} color="#fff" />
-                            </TouchableOpacity>
-                        )}
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.headerBannerTitle}>
-                                {viewMode === 'list' ? 'Desafíos' : (editingId ? 'Editar Desafío' : 'Nuevo Desafío')}
-                            </Text>
-                            <Text style={styles.headerBannerSub}>Retos y clasificaciones del gimnasio</Text>
-                        </View>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
-                            <Ionicons name="close" size={24} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {viewMode === 'list' ? (
-                        <>
-                            {loading ? <ActivityIndicator color={gymColor} /> : (
-                                <FlatList
-                                    data={scoreboards}
-                                    keyExtractor={item => item._id}
-                                    contentContainerStyle={{paddingBottom: 80}}
-                                    ListEmptyComponent={<Text style={styles.emptyText}>No hay desafíos activos.</Text>}
-                                    renderItem={({ item }) => (
-                                        <View style={styles.itemCard}>
-                                            <View style={styles.cardContent}>
-                                                <ThemedText style={styles.itemTitle}>{item.nombre}</ThemedText>
-                                                <Text style={styles.cardDescription}>{item.descripcion || 'Sin descripción'}</Text>
-                                                <View style={{flexDirection:'row', gap: 5, marginTop: 5}}>
-                                                    {item.metrics.map(m => <View key={m} style={styles.miniChip}><Text style={{fontSize:10, color:Colors[colorScheme].text}}>{m}</Text></View>)}
-                                                </View>
-                                                <Text style={{fontSize: 12, color: item.fechaLimite ? (new Date(item.fechaLimite) < new Date() ? '#e74c3c' : Colors[colorScheme].icon) : Colors[colorScheme].icon, marginTop: 5}}>
-                                                    {item.fechaLimite ? `Vence: ${format(parseISO(item.fechaLimite), 'dd/MM/yyyy')}` : '∞ Permanente'}
-                                                </Text>
-                                            </View>
-                                            <View style={styles.cardActions}>
-                                                <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}><FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} /></TouchableOpacity>
-                                                <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.actionButton}><Octicons name="trash" size={22} color="#e74c3c" /></TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    )}
-                                />
-                            )}
-                            <TouchableOpacity style={styles.fabInsideModal} onPress={handleCreate}>
-                                <Ionicons name="add" size={30} color="#fff" />
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <ScrollView>
-                            <ThemedText style={styles.inputLabel}>Nombre</ThemedText>
-                            <TextInput style={styles.input} value={formData.nombre} onChangeText={t => setFormData({...formData, nombre: t})} placeholder="Ej: Murph" placeholderTextColor="#999"/>
-                            
-                            <ThemedText style={styles.inputLabel}>Descripción</ThemedText>
-                            <TextInput style={[styles.input, {height: 80, textAlignVertical: 'top', paddingTop:10}]} value={formData.descripcion} onChangeText={t => setFormData({...formData, descripcion: t})} multiline placeholder="Detalles..." placeholderTextColor="#999"/>
-
-                            <ThemedText style={styles.inputLabel}>Métricas</ThemedText>
-                            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15}}>
-                                {AVAILABLE_METRICS.map(m => (
-                                    <TouchableOpacity key={m.id} onPress={() => toggleMetric(m.id)} style={[styles.dayChip, formData.metrics.includes(m.id) && {backgroundColor: gymColor, borderColor: gymColor}]}>
-                                        <Text style={{color: formData.metrics.includes(m.id) ? '#fff' : Colors[colorScheme].text}}>{m.label}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Tiene fecha límite?</ThemedText>
-                                <Switch value={formData.hasDeadline} onValueChange={v => setFormData({...formData, hasDeadline: v})} trackColor={{true: gymColor}} />
-                            </View>
-
-                            {formData.hasDeadline && (
-                                <>
-                                    {Platform.OS === 'web' ? (
-                                        <View style={{ marginBottom: 20, zIndex: 9999, position: 'relative'}}>
-                                            <WebDatePicker
-                                                selected={formData.fechaLimite}
-                                                onChange={(date) => setFormData(prev => ({ ...prev, fechaLimite: date }))}
-                                                dateFormat="dd/MM/yyyy"
-                                                customInput={
-                                                    <TouchableOpacity style={styles.input}>
-                                                        <Text style={{color: Colors[colorScheme].text, marginTop: 12}}>
-                                                            {format(formData.fechaLimite, 'dd/MM/yyyy')}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                }
-                                            />
-                                        </View>
-                                    ) : (
-                                        <TouchableOpacity onPress={() => setDatePickerConfig({visible: true, currentValue: formData.fechaLimite})} style={styles.input}>
-                                            <Text style={{color: Colors[colorScheme].text, marginTop: 12}}>
-                                                {format(formData.fechaLimite, 'dd/MM/yyyy')}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </>
-                            )}
-
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>Visible</ThemedText>
-                                <Switch value={formData.visible} onValueChange={v => setFormData({...formData, visible: v})} trackColor={{true: '#2ecc71'}} />
-                            </View>
-
-                            <Button title="Guardar" onPress={handleSubmit} color={gymColor} />
-                        </ScrollView>
-                    )}
-                </View>
-            </KeyboardAvoidingView>
-
-            {datePickerConfig.visible && Platform.OS === 'android' && (
-                <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="default" onChange={onDateChange} />
-            )}
-            
-            {datePickerConfig.visible && Platform.OS === 'ios' && (
-                <Modal transparent animationType="fade">
-                    <View style={styles.iosPickerOverlay}>
-                        <View style={styles.iosPickerContainer}>
-                            <View style={styles.iosPickerHeader}>
-                                <Button title="Cancelar" onPress={() => setDatePickerConfig(p => ({...p, visible: false}))} />
-                                <Button title="Confirmar" onPress={confirmIOSDate} />
-                            </View>
-                            <DateTimePicker value={datePickerConfig.currentValue} mode="date" display="inline" onChange={(e, d) => setDatePickerConfig(p => ({...p, currentValue: d || p.currentValue}))} />
-                        </View>
-                    </View>
-                </Modal>
-            )}
-        </Modal>
-    );
-};
-
+import KeyboardAwareSheet from '@/components/KeyboardAwareSheet';
+import DesafiosAdminModal from '@/components/admin/DesafiosAdminModal';
 
 // --- PANTALLA PRINCIPAL ---
 const ClassTypeManagementScreen = () => {
@@ -292,22 +65,26 @@ const ClassTypeManagementScreen = () => {
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar los datos.' });
         } finally {
-            setIsLoading(false);
             setIsRefreshing(false);
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            setIsLoading(true);
-            performDataFetch();
-        }, [performDataFetch])
+    const { refresh } = useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setIsLoading(true);
+            try {
+                await performDataFetch();
+            } finally {
+                if (isInitial) setIsLoading(false);
+            }
+        },
+        { ttlMs: 60_000 }
     );
 
-    const onRefresh = useCallback(() => {
+    const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        performDataFetch();
-    }, [performDataFetch]);
+        await refresh();
+    }, [refresh]);
     
     // --- LÓGICA CRÉDITOS ---
     const handleFormChange = (name, value) => {
@@ -563,12 +340,10 @@ const ClassTypeManagementScreen = () => {
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
 
-            {/* --- MODAL SCOREBOARD MANAGER --- */}
-            <ScoreboardManagerModal 
-                visible={isScoreboardModalVisible} 
-                onClose={() => setIsScoreboardModalVisible(false)} 
+            <DesafiosAdminModal
+                visible={isScoreboardModalVisible}
+                onClose={() => setIsScoreboardModalVisible(false)}
                 gymColor={gymColor}
-                colorScheme={colorScheme}
             />
 
             <PackageFormModal
@@ -599,37 +374,102 @@ const ClassTypeManagementScreen = () => {
             />
 
             {/* --- MODAL EDITAR CREDITO BASE --- */}
-            <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
-                    <Pressable style={styles.modalBackdrop} onPress={() => setIsModalVisible(false)} />
-                    <View style={styles.modalContainer}>
-                        <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
-                            <Ionicons name="close-circle" size={30} color={Colors[colorScheme].icon} />
-                        </TouchableOpacity>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            <ThemedText style={styles.modalTitle}>
-                                {editingClassType ? 'Editar Crédito Base' : 'Añadir Crédito Base'}
-                            </ThemedText>
-                            
-                            <ThemedText style={styles.inputLabel}>Nombre del Crédito</ThemedText>
-                            <TextInput style={styles.input} placeholder="Ej: Crossfit" value={formData.nombre} onChangeText={(text) => handleFormChange('nombre', text)} placeholderTextColor="#999" />
-                            
-                            <View style={styles.switchContainer}>
-                                <ThemedText style={styles.inputLabel}>¿Reiniciar mensualmente?</ThemedText>
-                                <Switch trackColor={{ true: gymColor }} value={formData.resetMensual} onValueChange={(value) => handleFormChange('resetMensual', value)} />
+            <Modal
+                visible={isModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setIsModalVisible(false)}
+                statusBarTranslucent
+                presentationStyle="overFullScreen"
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <KeyboardAwareSheet
+                        onDismiss={() => setIsModalVisible(false)}
+                        backgroundColor={Colors[colorScheme].background}
+                        borderRadius={20}
+                        style={styles.creditSheet}
+                    >
+                        <View style={styles.creditRoot}>
+                            <View style={[styles.creditHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1, paddingRight: 10 }}>
+                                    <Text style={styles.creditHeaderKicker}>
+                                        {editingClassType ? 'Editar crédito' : 'Nuevo crédito'}
+                                    </Text>
+                                    <Text style={styles.creditHeaderTitle} numberOfLines={1}>
+                                        {editingClassType?.nombre || formData.nombre || 'Crédito base'}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity
+                                    onPress={() => setIsModalVisible(false)}
+                                    style={styles.creditCloseBtn}
+                                    hitSlop={10}
+                                >
+                                    <Ionicons name="close" size={22} color="#fff" />
+                                </TouchableOpacity>
                             </View>
 
-                            <View style={styles.modalActions}>
-                                <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setIsModalVisible(false)}>
-                                    <Text style={styles.buttonText}>Cancelar</Text>
+                            <ScrollView
+                                keyboardShouldPersistTaps="handled"
+                                keyboardDismissMode="interactive"
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={styles.creditScroll}
+                            >
+                                <View style={styles.creditCard}>
+                                    <Text style={styles.creditCardTitle}>Datos del crédito</Text>
+                                    <Text style={styles.creditCardSub}>
+                                        Definí el nombre y si se reinicia cada mes.
+                                    </Text>
+
+                                    <Text style={styles.creditLabel}>Nombre del crédito</Text>
+                                    <TextInput
+                                        style={styles.creditInput}
+                                        placeholder="Ej: Crossfit"
+                                        placeholderTextColor={Colors[colorScheme].icon}
+                                        value={formData.nombre}
+                                        onChangeText={(text) => handleFormChange('nombre', text)}
+                                    />
+
+                                    <View style={styles.creditSwitchRow}>
+                                        <View style={{ flex: 1, paddingRight: 12 }}>
+                                            <Text style={styles.creditSwitchTitle}>Reinicio mensual</Text>
+                                            <Text style={styles.creditSwitchSub}>
+                                                Los créditos vencen y se renuevan cada mes.
+                                            </Text>
+                                        </View>
+                                        <Switch
+                                            trackColor={{ false: '#767577', true: gymColor || '#1a5276' }}
+                                            thumbColor="#f4f3f4"
+                                            value={formData.resetMensual}
+                                            onValueChange={(value) => handleFormChange('resetMensual', value)}
+                                        />
+                                    </View>
+
+                                    <View style={[styles.creditStatusStrip, formData.resetMensual ? styles.creditStatusOk : styles.creditStatusNeutral]}>
+                                        <Ionicons
+                                            name={formData.resetMensual ? 'refresh-circle' : 'infinite'}
+                                            size={18}
+                                            color={formData.resetMensual ? '#1e7e34' : (gymColor || '#1a5276')}
+                                        />
+                                        <Text style={styles.creditStatusText}>
+                                            {formData.resetMensual ? 'Vencimiento mensual activo' : 'Sin vencimiento automático'}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.creditPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
+                                    onPress={handleFormSubmit}
+                                    activeOpacity={0.85}
+                                >
+                                    <Ionicons name={editingClassType ? 'save-outline' : 'add-circle-outline'} size={18} color="#fff" />
+                                    <Text style={styles.creditPrimaryBtnText}>
+                                        {editingClassType ? 'Guardar cambios' : 'Crear crédito'}
+                                    </Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.button, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit}>
-                                    <Text style={styles.buttonText}>{editingClassType ? 'Actualizar' : 'Guardar'}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </ScrollView>
-                    </View>
-                </KeyboardAvoidingView>
+                            </ScrollView>
+                        </View>
+                    </KeyboardAwareSheet>
+                </View>
             </Modal>
 
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} onClose={() => setAlertInfo({ visible: false })} buttons={alertInfo.buttons || [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]} gymColor={gymColor} />
@@ -688,16 +528,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         right: 90, bottom: 20, backgroundColor: '#f39c12', borderRadius: 30, 
         elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, zIndex: 999
     },
-    fabInsideModal: {
-        position: 'absolute', right: 20, bottom: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: gymColor, alignItems: 'center', justifyContent: 'center', elevation: 5
-    },
 
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: Colors[colorScheme].text },
     modalOverlayWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
     
     modalContainer: { width: '100%', maxHeight: '80%', backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 25, elevation: 5, },
-    modalContainerFull: { width: '100%', height: '90%', marginTop: 50, backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, padding: 20, elevation: 5 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10},
 
     modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
@@ -705,38 +541,98 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
     inputLabel: { fontSize: 14, marginBottom: 8, opacity: 0.9, color: Colors[colorScheme].text, fontWeight: 'bold' },
     input: { height: 50, borderColor: Colors[colorScheme].border, borderWidth: 1, borderRadius: 5, paddingHorizontal: 15, marginBottom: 20, backgroundColor: Colors[colorScheme].cardBackground, color: Colors[colorScheme].text, fontSize: 16 },
-    switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingVertical: 10 },
     modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 10 },
     button: { flex: 1, paddingVertical: 12, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
     cancelButton: { backgroundColor: '#6c757d' },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    dayChip: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5, marginRight: 8, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    miniChip: { backgroundColor: Colors[colorScheme].background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    
-    iosPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-    iosPickerContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, paddingBottom: 20, paddingHorizontal: 10 },
-    iosPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, marginBottom: 10 },
-    headerBanner: {
+    creditSheet: {
+        width: '100%',
+        height: '72%',
+        maxHeight: '72%',
+        overflow: 'hidden',
+    },
+    creditRoot: { flex: 1, width: '100%', backgroundColor: Colors[colorScheme].background },
+    creditHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 18 },
+    creditHeaderKicker: {
+        color: '#fff',
+        opacity: 0.8,
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        marginBottom: 4,
+    },
+    creditHeaderTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
+    creditCloseBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    creditScroll: { padding: 14, paddingBottom: 36 },
+    creditCard: {
+        backgroundColor: colorScheme === 'dark' ? '#1c1f20' : '#f4f6f7',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
+    creditCardTitle: { fontSize: 16, fontWeight: '700', color: Colors[colorScheme].text },
+    creditCardSub: { fontSize: 13, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 4, marginBottom: 14 },
+    creditLabel: { fontSize: 12, fontWeight: '600', color: Colors[colorScheme].text, opacity: 0.7, marginBottom: 6 },
+    creditInput: {
+        height: 48,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        marginBottom: 8,
+        color: Colors[colorScheme].text,
+        fontSize: 15,
+        backgroundColor: Colors[colorScheme].background,
+    },
+    creditSwitchRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 20,
         justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: Colors[colorScheme].border,
+        marginTop: 8,
     },
-    headerBannerTitle: {
-        fontSize: 19,
-        fontWeight: 'bold',
-        color: '#fff',
+    creditSwitchTitle: { fontSize: 14, fontWeight: '700', color: Colors[colorScheme].text, marginBottom: 2 },
+    creditSwitchSub: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.55, lineHeight: 16 },
+    creditStatusStrip: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
     },
-    headerBannerSub: {
-        fontSize: 13,
-        color: '#fff',
-        opacity: 0.85,
-        marginTop: 2,
+    creditStatusOk: {
+        backgroundColor: colorScheme === 'dark' ? '#13251a' : '#eefaf1',
+        borderColor: colorScheme === 'dark' ? '#1e7e3466' : '#b7e4c7',
     },
-    closeButtonBanner: {
-        padding: 4,
-    }
+    creditStatusNeutral: {
+        backgroundColor: colorScheme === 'dark' ? '#1a2228' : '#eef3f7',
+        borderColor: Colors[colorScheme].border,
+    },
+    creditStatusText: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors[colorScheme].text },
+    creditPrimaryBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 13,
+        borderRadius: 12,
+        marginTop: 16,
+    },
+    creditPrimaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
 
 export default ClassTypeManagementScreen;

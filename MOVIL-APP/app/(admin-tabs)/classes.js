@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
     StyleSheet,
     View,
@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     FlatList,
     useColorScheme,
-    Button,
     Pressable,
     TextInput,
     Platform, 
@@ -16,8 +15,9 @@ import {
     useWindowDimensions,
     KeyboardAvoidingView,
     Modal,
+    Keyboard,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -28,31 +28,16 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, parseISO, isBefore, startOfDay, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Picker nativo
-import DateTimePicker from '@react-native-community/datetimepicker';
-
-// 💡 PASO 1: Importar el picker para la web y sus estilos
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
+import KeyboardAwareSheet from '@/components/KeyboardAwareSheet';
+import SheetDatePicker from '@/components/SheetDatePicker';
+import ClassCard from '@/components/ClassCard';
 import { TabView, TabBar } from 'react-native-tab-view';
 
-const formatTeachers = (clase) => {
-    if (clase.profesores && clase.profesores.length > 0) {
-        return clase.profesores
-            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
-            .filter(name => name !== '')
-            .join(', ');
-    } else if (clase.profesor && clase.profesor.nombre) {
-        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
-    } else {
-        return 'Sin profesor asignado';
-    }
-};
-
-// ... (configuración de LocaleConfig se mantiene igual)
 LocaleConfig.locales['es'] = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     monthNamesShort: ['Ene.', 'Feb.', 'Mar.', 'Abr.', 'May.', 'Jun.', 'Jul.', 'Ago.', 'Sep.', 'Oct.', 'Nov.', 'Dic.'],
@@ -61,7 +46,6 @@ LocaleConfig.locales['es'] = {
     today: 'Hoy'
 };
 LocaleConfig.defaultLocale = 'es';
-
 
 const ManageClassesScreen = () => {
     // ... (todos tus estados y hooks se mantienen igual)
@@ -118,15 +102,14 @@ const ManageClassesScreen = () => {
     const [extendingGroup, setExtendingGroup] = useState(null);
     const [extendUntilDate, setExtendUntilDate] = useState('');
     const [dayToManage, setDayToManage] = useState(new Date());
-    const [expandedCardId, setExpandedCardId] = useState(null);
 
     const [activeModal, setActiveModal] = useState(null);
     const [datePickerConfig, setDatePickerConfig] = useState({
         visible: false,
-        field: null, // 'fecha', 'fechaInicio', 'fechaFin', 'extendUntilDate', or 'dayToManage'
+        field: null,
         currentValue: new Date(),
-        onConfirm: () => {}
     });
+    const datePickerCallbackRef = useRef(null);
 
     const [formData, setFormData] = useState({
         tipoClase: '',
@@ -148,10 +131,9 @@ const ManageClassesScreen = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
 
-    // ... (fetchAllData, useFocusEffect, onRefresh, etc. se mantienen igual)
-    const fetchAllData = useCallback(async () => {
+    const fetchAllData = useCallback(async ({ bustCache = false } = {}) => {
         try {
-            const cacheBuster = `?t=${new Date().getTime()}`;
+            const cacheBuster = bustCache ? `?t=${new Date().getTime()}` : '';
             const [classesRes, teachersRes, usersRes, typesRes, sucursalesRes] = await Promise.all([
                 apiClient.get(`/classes/admin${cacheBuster}`),
                 apiClient.get('/users?role=profesor'),
@@ -170,20 +152,21 @@ const ManageClassesScreen = () => {
         }
     }, []);
 
-    useFocusEffect(
-        useCallback(() => {
-            const loadInitialData = async () => {
-                setLoading(true);
+    const { refresh } = useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setLoading(true);
+            try {
                 await fetchAllData();
-                setLoading(false);
-            };
-            loadInitialData();
-        }, [fetchAllData])
+            } finally {
+                if (isInitial) setLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
     );
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        await fetchAllData();
+        await fetchAllData({ bustCache: true });
         setIsRefreshing(false);
     }, [fetchAllData]);
 
@@ -436,32 +419,29 @@ const ManageClassesScreen = () => {
         });
     };
   
-    const showDatePickerFor = (field, initialDate, onConfirmCallback) => {
+    const closeDatePicker = useCallback(() => {
+        setDatePickerConfig((prev) => ({ ...prev, visible: false }));
+        datePickerCallbackRef.current = null;
+    }, []);
+
+    const showDatePickerFor = useCallback((field, initialDate, onConfirmCallback) => {
+        Keyboard.dismiss();
+        const seed = initialDate instanceof Date && isValid(initialDate) ? initialDate : new Date();
+        datePickerCallbackRef.current = onConfirmCallback;
         setDatePickerConfig({
             visible: true,
-            field: field,
-            currentValue: initialDate || new Date(),
-            onConfirm: onConfirmCallback,
+            field,
+            currentValue: seed,
         });
-    };
-    
-    const handleDateChange = (event, selectedDate) => {
-        const newDate = selectedDate || datePickerConfig.currentValue;
+    }, []);
 
-        if (Platform.OS === 'android') {
-            setDatePickerConfig({ visible: false }); // Close picker immediately on Android
-            if (event.type !== 'dismissed') {
-                datePickerConfig.onConfirm(newDate); // Confirm date on Android
-            }
-        } else { // iOS
-            setDatePickerConfig(prev => ({ ...prev, currentValue: newDate }));
+    const confirmSheetDate = useCallback((date) => {
+        const cb = datePickerCallbackRef.current;
+        closeDatePicker();
+        if (date instanceof Date && isValid(date)) {
+            cb?.(date);
         }
-    };
-    
-    const confirmIosDate = () => {
-        datePickerConfig.onConfirm(datePickerConfig.currentValue);
-        setDatePickerConfig({ visible: false }); // Close modal
-    };
+    }, [closeDatePicker]);
 
     const renderDateField = (label, field, value, onConfirmCallback) => {
         const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
@@ -677,90 +657,54 @@ const ManageClassesScreen = () => {
             .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
     }, [correctlyGroupedClasses, selectedRecurrentClassTypeFilter]);
 
-    const getClassStyle = (clase) => {
-        if (clase.estado === 'cancelada') {
-            return styles.cancelledClass;
-        }
-        const fillRatio = clase.capacidad > 0 ? (clase.usuariosInscritos || []).length / clase.capacidad : 0;
-        if (fillRatio === 1) return styles.fullClass;
-        if (fillRatio >= 0.8) return styles.almostFullClass;
-        if (fillRatio < 0.4) return styles.emptyClass;
-        if (fillRatio < 0.7) return styles.almostEmptyClass;
-        return {}; 
-    };
+    const renderCardAction = (label, icon, color, onPress, iconSet = 'ionicons') => (
+        <TouchableOpacity
+            key={label}
+            style={[styles.cardActionChip, { backgroundColor: color + '18', borderColor: color + '33' }]}
+            onPress={onPress}
+            activeOpacity={0.85}
+        >
+            {iconSet === 'fa6' ? (
+                <FontAwesome6 name={icon} size={14} color={color} />
+            ) : iconSet === 'octicons' ? (
+                <Octicons name={icon} size={15} color={color} />
+            ) : (
+                <Ionicons name={icon} size={16} color={color} />
+            )}
+            <Text style={[styles.cardActionChipText, { color }]} numberOfLines={1}>{label}</Text>
+        </TouchableOpacity>
+    );
 
     const renderClassItem = ({ item }) => {
-        const dynamicStyle = getClassStyle(item);
         const isCancelled = item.estado === 'cancelada';
-        const isExpanded = expandedCardId === item._id;
+        const accent = gymColor || '#1a5276';
+
+        const footer = isCancelled ? (
+            <View style={styles.cardActionsRow}>
+                {renderCardAction('Reactivar', 'refresh-circle', '#2ecc71', () => handleReactivateClass(item))}
+                {renderCardAction('Eliminar', 'trash', Colors[colorScheme].text, () => handleDeleteClass(item), 'octicons')}
+            </View>
+        ) : (
+            <View style={styles.cardActionsRow}>
+                {renderCardAction('Inscriptos', 'people', accent, () => handleViewRoster(item._id))}
+                {renderCardAction('Editar', 'edit', accent, () => handleEdit(item), 'fa6')}
+                {renderCardAction('Cancelar', 'close-circle', '#e74c3c', () => handleCancelClass(item))}
+                {renderCardAction('Eliminar', 'trash', Colors[colorScheme].text, () => handleDeleteClass(item), 'octicons')}
+            </View>
+        );
 
         return (
-            <ThemedView style={[styles.classItem, dynamicStyle]}>
-                <TouchableOpacity 
-                    activeOpacity={0.7} 
-                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
-                    style={{ flexDirection: 'row', alignItems: 'center' }}
-                >
-                    <View style={{ flex: 1 }}>
-                        <ThemedText style={[styles.className, isCancelled && styles.disabledText]}>
-                           {item.nombre || "Turno"} - {item.tipoClase?.nombre}
-                        </ThemedText>
-                        {item.sucursal?.nombre && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
-                                <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, isCancelled && styles.disabledText]}>
-                                    {item.sucursal.nombre}
-                                </ThemedText>
-                            </View>
-                        )}
-                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                            Horario: {item.horaInicio}hs - {item.horaFin}hs
-                        </ThemedText>
-                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                            A cargo de: {formatTeachers(item)}
-                        </ThemedText>
-                        <ThemedText style={[styles.classInfoText, isCancelled && styles.disabledText]}>
-                            Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}
-                        </ThemedText>
+            <ClassCard
+                item={item}
+                gymColor={gymColor}
+                muted={isCancelled}
+                badges={isCancelled ? (
+                    <View style={styles.statusPillMuted}>
+                        <Text style={[styles.statusPillMutedText, { color: Colors.light.error }]}>CANCELADA</Text>
                     </View>
-                    <View style={{ paddingLeft: 10 }}>
-                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
-                    </View>
-                </TouchableOpacity>
-
-                {isExpanded && (
-                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
-                        {isCancelled ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                <Text style={styles.badgeCancelled}>CANCELADO</Text>
-                                <View style={{ flexDirection: 'row', gap: 15 }}>
-                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleReactivateClass(item)}>
-                                        <Ionicons name="refresh-circle" size={24} color="#2ecc71" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
-                                        <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : (
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
-                                <TouchableOpacity style={styles.actionButton} onPress={() => handleViewRoster(item._id)}>
-                                    <Ionicons name="people" size={22} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(item)}>
-                                    <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.actionButton} onPress={() => handleCancelClass(item)}>
-                                    <Ionicons name="close-circle" size={22} color={'#e74c3c'} />
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteClass(item)}>
-                                    <Octicons name="trash" size={21} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
-                )}
-            </ThemedView>
+                ) : null}
+                footer={footer}
+            />
         );
     };
 
@@ -777,7 +721,7 @@ const ManageClassesScreen = () => {
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
             capacidad: group.capacidad ? group.capacidad.toString() : '',
-            diasDeSemana: [...group.diasDeSemana],
+            diasDeSemana: [...(group.diasDeSemana || [])],
             sucursal: group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '')
         });
         setShowBulkEditModal(true);
@@ -875,27 +819,69 @@ const ManageClassesScreen = () => {
         });
     };
 
-    const handleCancelDay = (refund) => {
-        const date = format(dayToManage, 'yyyy-MM-dd');
+    const handleCancelDay = () => {
+        const dateLabel = format(dayToManage, 'dd/MM/yyyy');
         setAlertInfo({
             visible: true,
-            title: "Confirmar Acción",
-            message: `¿Seguro que quieres cancelar todos los turnos del ${format(dayToManage, 'dd/MM/yyyy')} ${refund ? 'con' : 'sin'} reembolso?`,
+            title: 'Cancelar turnos del día',
+            message: `¿Querés cancelar todos los turnos del ${dateLabel}? Elegí si se reembolsan los créditos.`,
             buttons: [
-                { text: "Volver", style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                { text: 'Volver', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
                 {
-                    text: "Confirmar", style: 'destructive', onPress: async () => {
+                    text: 'Sin reembolso',
+                    style: 'destructive',
+                    onPress: async () => {
                         setAlertInfo({ visible: false });
                         try {
-                            await apiClient.post('/classes/cancel-day', { date, refundCredits: refund });
-                            setAlertInfo({ visible: true, title: 'Éxito', message: `Todos los turnos del día han sido cancelados.`, buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            await apiClient.post('/classes/cancel-day', {
+                                date: format(dayToManage, 'yyyy-MM-dd'),
+                                refundCredits: false,
+                            });
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Éxito',
+                                message: 'Todos los turnos del día han sido cancelados.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
                             fetchAllData();
                         } catch (error) {
-                            setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || "No se pudo completar la operación.", buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Error',
+                                message: error.response?.data?.message || 'No se pudo completar la operación.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
                         }
-                    }
-                }
-            ]
+                    },
+                },
+                {
+                    text: 'Con reembolso',
+                    style: 'primary',
+                    onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        try {
+                            await apiClient.post('/classes/cancel-day', {
+                                date: format(dayToManage, 'yyyy-MM-dd'),
+                                refundCredits: true,
+                            });
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Éxito',
+                                message: 'Todos los turnos del día han sido cancelados.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
+                            fetchAllData();
+                        } catch (error) {
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Error',
+                                message: error.response?.data?.message || 'No se pudo completar la operación.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
+                        }
+                    },
+                },
+            ],
         });
     };
 
@@ -924,51 +910,38 @@ const ManageClassesScreen = () => {
     };
 
     const renderGroupedClassItem = ({ item }) => {
-        const isExpanded = expandedCardId === item._id;
+        const isExpiring = item.cantidadDeInstancias === 1;
+        const accent = gymColor || '#1a5276';
         return (
-            <View style={[styles.card, item.cantidadDeInstancias === 1 && styles.expiringCard]}>
-                <TouchableOpacity 
-                    activeOpacity={0.7} 
-                    onPress={() => setExpandedCardId(isExpanded ? null : item._id)} 
-                    style={{ flexDirection: 'row', alignItems: 'center' }}
-                >
-                    <View style={{ flex: 1 }}>
-                        <ThemedText style={styles.cardTitle}>{item.nombre}</ThemedText>
-                        <ThemedText style={styles.cardSubtitle}>{item.tipoClase?.nombre || 'N/A'}</ThemedText>
-                        {item.sucursal?.nombre && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
-                                <ThemedText style={[styles.cardInfo, { marginBottom: 0 }]}>
-                                    {item.sucursal.nombre}
-                                </ThemedText>
-                            </View>
-                        )}
-                        <ThemedText style={styles.cardInfo}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-                        <ThemedText style={styles.cardInfo}>Días: {item.diasDeSemana.sort().join(', ')}</ThemedText>
-                        <ThemedText style={styles.cardInfo}>A cargo de: {formatTeachers(item)}</ThemedText>
-                        <ThemedText style={styles.cardInfo}>Turnos restantes: {item.cantidadDeInstancias}</ThemedText>
+            <ClassCard
+                item={item}
+                gymColor={gymColor}
+                showCapacity={false}
+                badges={isExpiring ? (
+                    <View style={styles.statusPillWarn}>
+                        <Text style={styles.statusPillWarnText}>ÚLTIMO</Text>
                     </View>
-                    <View style={{ paddingLeft: 10 }}>
-                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
-                    </View>
-                </TouchableOpacity>
-
-                {isExpanded && (
-                    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
-                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenBulkEditModal(item)}>
-                                <FontAwesome6 name="edit" size={22} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenExtendModal(item)}>
-                                <Ionicons name="add-circle" size={24} color={gymColor || '#1a5276'} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionButton} onPress={() => handleBulkDelete(item)}>
-                                <Octicons name="trash" size={23} color="#e74c3c" />
-                            </TouchableOpacity>
+                ) : null}
+                extraMeta={
+                    <>
+                        <View style={styles.metaRowInline}>
+                            <Ionicons name="calendar-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.55, marginRight: 6 }} />
+                            <Text style={styles.metaRowInlineText}>Días: {(item.diasDeSemana || []).slice().sort().join(', ')}</Text>
                         </View>
+                        <View style={styles.metaRowInline}>
+                            <Ionicons name="layers-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.55, marginRight: 6 }} />
+                            <Text style={styles.metaRowInlineText}>Turnos restantes: {item.cantidadDeInstancias}</Text>
+                        </View>
+                    </>
+                }
+                footer={
+                    <View style={styles.cardActionsRow}>
+                        {renderCardAction('Editar', 'edit', accent, () => handleOpenBulkEditModal(item), 'fa6')}
+                        {renderCardAction('Extender', 'add-circle', accent, () => handleOpenExtendModal(item))}
+                        {renderCardAction('Eliminar', 'trash', '#e74c3c', () => handleBulkDelete(item), 'octicons')}
                     </View>
-                )}
-            </View>
+                }
+            />
         );
     };
 
@@ -1044,26 +1017,55 @@ const ManageClassesScreen = () => {
                 );
             case 'day-management':
                 return (
-                    <View style={styles.dayManagementContainer}>
-                        <ThemedText style={styles.sectionTitle}>Gestión por Día Completo</ThemedText>
-                        <ThemedText style={styles.inputLabel}>Selecciona una fecha:</ThemedText>
-                        
-                        {renderDateField(
-                'Día a gestionar', 
-                'dayToManage', 
-                format(dayToManage, 'yyyy-MM-dd'), 
-                (date) => setDayToManage(date) 
-            )}
-
-                        <View style={styles.dayActions}>
-                            <View style={styles.buttonWrapper}>
-                                <Button title="Cancelar Turnos del Día" onPress={() => handleCancelDay(true)} color='#500000ff' />
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={styles.dayMgmtContent}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.dayMgmtHero}>
+                            <View style={[styles.dayMgmtIconWrap, { backgroundColor: (gymColor || '#1a5276') + '18' }]}>
+                                <Ionicons name="calendar" size={28} color={gymColor || '#1a5276'} />
                             </View>
-                            <View style={styles.buttonWrapper}>
-                                <Button title="Reactivar Turnos del Día" onPress={handleReactivateDay} color='#005013ff' />
-                            </View>
+                            <Text style={styles.dayMgmtTitle}>Gestión por día</Text>
+                            <Text style={styles.dayMgmtSubtitle}>
+                                Cancelá o reactivá todos los turnos de una fecha en un solo paso.
+                            </Text>
                         </View>
-                    </View>
+
+                        <View style={styles.dayMgmtCard}>
+                            <Text style={styles.dayMgmtCardLabel}>Fecha a gestionar</Text>
+                            {renderDateField(
+                                'Día a gestionar',
+                                'dayToManage',
+                                format(dayToManage, 'yyyy-MM-dd'),
+                                (date) => setDayToManage(date)
+                            )}
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.dayMgmtActionBtn, { backgroundColor: '#e74c3c' }]}
+                            onPress={handleCancelDay}
+                            activeOpacity={0.88}
+                        >
+                            <Ionicons name="close-circle" size={22} color="#fff" />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.dayMgmtActionTitle}>Cancelar turnos del día</Text>
+                                <Text style={styles.dayMgmtActionSub}>Con opción de reembolso de créditos</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.dayMgmtActionBtn, { backgroundColor: '#2ecc71' }]}
+                            onPress={handleReactivateDay}
+                            activeOpacity={0.88}
+                        >
+                            <Ionicons name="refresh-circle" size={22} color="#fff" />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.dayMgmtActionTitle}>Reactivar turnos del día</Text>
+                                <Text style={styles.dayMgmtActionSub}>Vuelve a habilitar los turnos cancelados</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </ScrollView>
                 );
             default:
                 return null;
@@ -1110,369 +1112,482 @@ const ManageClassesScreen = () => {
             }}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
-            {datePickerConfig.visible && Platform.OS === 'ios' && (
-                <Modal transparent={true} animationType="fade" visible={datePickerConfig.visible}>
-                    <Pressable style={styles.iosPickerOverlay} onPress={() => setDatePickerConfig(p => ({...p, visible: false}))}>
-                        <Pressable style={styles.iosPickerContainer}>
-                            <DateTimePicker 
-                                value={datePickerConfig.currentValue} 
-                                mode="date" 
-                                display="inline" 
-                                onChange={handleDateChange} 
-                                themeVariant={colorScheme}
-                            />
-                            <Button title="Confirmar" onPress={confirmIosDate} color={gymColor} />
-                        </Pressable>
-                    </Pressable>
+            {showAddModal && (
+                <Modal
+                    visible={showAddModal && !datePickerConfig.visible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowAddModal(false)}
+                    statusBarTranslucent
+                    presentationStyle="overFullScreen"
+                >
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <KeyboardAwareSheet
+                        onDismiss={() => setShowAddModal(false)}
+                        backgroundColor={Colors[colorScheme].background}
+                        borderRadius={24}
+                        style={[styles.addClassModalView, { maxHeight: '92%' }]}
+                    >
+                            {/* Header Banner */}
+                            <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#007bff' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.addClassHeaderTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</Text>
+                                    <Text style={styles.addClassHeaderSub}>{editingClass ? 'Modifica los parámetros y profesores' : 'Programa un turno individual o recurrente'}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.addClassCloseBtn}>
+                                    <Ionicons name="close" size={22} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                {/* Sección 1: Información Principal */}
+                                <View style={styles.formCard}>
+                                    <View style={styles.formSectionHeader}>
+                                        <Ionicons name="information-circle" size={20} color={gymColor || '#007bff'} />
+                                        <ThemedText style={styles.formSectionTitle}>1. Información General</ThemedText>
+                                    </View>
+
+                                    <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
+                                    <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholder="Ej: Crossfit Matutino" placeholderTextColor={Colors[colorScheme].icon} />
+
+                                    <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
+                                    <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
+                                        <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
+                                        <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                    </TouchableOpacity>
+
+                                    {sucursales && sucursales.length > 0 && (
+                                        <>
+                                            <ThemedText style={styles.inputLabel}>Sucursal del Turno</ThemedText>
+                                            <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formSucursal')}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                                    <ThemedText style={styles.filterButtonText}>
+                                                        {sucursales.find(s => s._id === formData.sucursal)?.nombre || 'Todas / Sucursal 1'}
+                                                    </ThemedText>
+                                                </View>
+                                                <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                            </TouchableOpacity>
+                                        </>
+                                    )}
+
+                                    <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
+                                    <View style={styles.weekDayContainer}> 
+                                        {teachers.map(teacher => (
+                                            <TouchableOpacity 
+                                                key={teacher._id} 
+                                                onPress={() => handleProfessorSelection(teacher._id)} 
+                                                style={[
+                                                    styles.dayChip, 
+                                                    formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
+                                                ]}
+                                            >
+                                                <Text style={
+                                                    formData.profesores && formData.profesores.includes(teacher._id) 
+                                                    ? styles.dayChipTextSelected 
+                                                    : styles.dayChipText
+                                                }>
+                                                    {teacher.nombre} {teacher.apellido}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <ThemedText style={styles.inputLabel}>Capacidad Máxima (Cupos)</ThemedText>
+                                    <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} placeholder="Ej: 20" placeholderTextColor={Colors[colorScheme].icon} />
+                                </View>
+
+                                {/* Sección 2: Programación */}
+                                <View style={styles.formCard}>
+                                    <View style={styles.formSectionHeader}>
+                                        <Ionicons name="time" size={20} color={gymColor || '#007bff'} />
+                                        <ThemedText style={styles.formSectionTitle}>2. Programación y Horarios</ThemedText>
+                                    </View>
+
+                                    <ThemedText style={styles.inputLabel}>Tipo de Programación</ThemedText>
+                                    <TouchableOpacity style={[styles.filterButton, !!editingClass && { opacity: 0.6 }]} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
+                                        <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
+                                        <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
+                                    </TouchableOpacity>
+
+                                    {formData.tipoInscripcion === 'libre' ? (
+                                        <>
+                                            <ThemedText style={styles.inputLabel}>Fecha de la Clase</ThemedText>
+                                            {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
+                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                    <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                    <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                                </View>
+                                            </View>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
+                                                    {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                                    {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
+                                                </View>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
+                                                    <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
+                                                    <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                                </View>
+                                            </View>
+                                            <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
+                                            <View style={styles.weekDayContainer}>
+                                                {daysOfWeekOptions.map(day => (
+                                                    <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
+                                                        <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </>
+                                    )}
+                                </View>
+
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit} activeOpacity={0.85}>
+                                        <Ionicons name={editingClass ? "checkmark-circle-outline" : "add-circle-outline"} size={22} color="#fff" />
+                                        <Text style={styles.submitActionBtnText}>{editingClass ? 'Actualizar Turno' : 'Crear Turno'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                    </KeyboardAwareSheet>
+                    {['formClassType', 'formSucursal', 'formInscriptionType'].includes(activeModal) && getModalConfig && (
+                        <FilterModal
+                            embedded
+                            visible
+                            onClose={() => setActiveModal(null)}
+                            onSelect={(id) => {
+                                getModalConfig.onSelect(id);
+                                setActiveModal(null);
+                            }}
+                            title={getModalConfig.title}
+                            options={getModalConfig.options}
+                            selectedValue={getModalConfig.selectedValue}
+                            theme={{ colors: Colors[colorScheme], gymColor }}
+                        />
+                    )}
+                    <CustomAlert
+                        inline
+                        visible={alertInfo.visible}
+                        title={alertInfo.title}
+                        message={alertInfo.message}
+                        buttons={alertInfo.buttons}
+                        onClose={() => setAlertInfo((prev) => ({ ...prev, visible: false }))}
+                        gymColor={gymColor}
+                    />
+                    </View>
                 </Modal>
             )}
 
-            {/* --- DATE PICKER FOR ANDROID (INVISIBLE) --- */}
-            {datePickerConfig.visible && Platform.OS === 'android' && (
-                <DateTimePicker
-                    value={datePickerConfig.currentValue}
-                    mode="date"
-                    display="default"
-                    onChange={handleDateChange}
-                />
-            )}    
-            {showAddModal && (
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
-                <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
-                    <Pressable style={styles.addClassModalView}>
-                        {/* Header Banner */}
-                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#007bff' }]}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.addClassHeaderTitle}>{editingClass ? 'Editar Turno' : 'Crear Nuevo Turno'}</Text>
-                                <Text style={styles.addClassHeaderSub}>{editingClass ? 'Modifica los parámetros y profesores' : 'Programa un turno individual o recurrente'}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.addClassCloseBtn}>
-                                <Ionicons name="close" size={22} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
-                            {/* Sección 1: Información Principal */}
-                            <View style={styles.formCard}>
-                                <View style={styles.formSectionHeader}>
-                                    <Ionicons name="information-circle" size={20} color={gymColor || '#007bff'} />
-                                    <ThemedText style={styles.formSectionTitle}>1. Información General</ThemedText>
-                                </View>
-
-                                <ThemedText style={styles.inputLabel}>Nombre del Turno</ThemedText>
-                                <TextInput style={styles.input} value={formData.nombre} onChangeText={text => handleFormChange('nombre', text)} placeholder="Ej: Crossfit Matutino" placeholderTextColor={Colors[colorScheme].icon} />
-
-                                <ThemedText style={styles.inputLabel}>Tipo de Turno</ThemedText>
-                                <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formClassType')}>
-                                    <ThemedText style={styles.filterButtonText}>{getDisplayName(formData.tipoClase, 'classType')}</ThemedText>
-                                    <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                                </TouchableOpacity>
-
-                                {sucursales && sucursales.length > 0 && (
-                                    <>
-                                        <ThemedText style={styles.inputLabel}>Sucursal del Turno</ThemedText>
-                                        <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('formSucursal')}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                                                <ThemedText style={styles.filterButtonText}>
-                                                    {sucursales.find(s => s._id === formData.sucursal)?.nombre || 'Todas / Sucursal 1'}
-                                                </ThemedText>
-                                            </View>
-                                            <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                                        </TouchableOpacity>
-                                    </>
-                                )}
-
-                                <ThemedText style={styles.inputLabel}>Profesores a Cargo</ThemedText>
-                                <View style={styles.weekDayContainer}> 
-                                    {teachers.map(teacher => (
-                                        <TouchableOpacity 
-                                            key={teacher._id} 
-                                            onPress={() => handleProfessorSelection(teacher._id)} 
-                                            style={[
-                                                styles.dayChip, 
-                                                formData.profesores && formData.profesores.includes(teacher._id) && styles.dayChipSelected
-                                            ]}
-                                        >
-                                            <Text style={
-                                                formData.profesores && formData.profesores.includes(teacher._id) 
-                                                ? styles.dayChipTextSelected 
-                                                : styles.dayChipText
-                                            }>
-                                                {teacher.nombre} {teacher.apellido}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <ThemedText style={styles.inputLabel}>Capacidad Máxima (Cupos)</ThemedText>
-                                <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} placeholder="Ej: 20" placeholderTextColor={Colors[colorScheme].icon} />
-                            </View>
-
-                            {/* Sección 2: Programación */}
-                            <View style={styles.formCard}>
-                                <View style={styles.formSectionHeader}>
-                                    <Ionicons name="time" size={20} color={gymColor || '#007bff'} />
-                                    <ThemedText style={styles.formSectionTitle}>2. Programación y Horarios</ThemedText>
-                                </View>
-
-                                <ThemedText style={styles.inputLabel}>Tipo de Programación</ThemedText>
-                                <TouchableOpacity style={[styles.filterButton, !!editingClass && { opacity: 0.6 }]} onPress={() => !editingClass && setActiveModal('formInscriptionType')} disabled={!!editingClass}>
-                                    <ThemedText style={[styles.filterButtonText, !!editingClass && styles.disabledText]}>{getDisplayName(formData.tipoInscripcion, 'inscription')}</ThemedText>
-                                    <FontAwesome6 name="chevron-down" size={12} color={!!editingClass ? Colors[colorScheme].icon : Colors[colorScheme].text} />
-                                </TouchableOpacity>
-
-                                {formData.tipoInscripcion === 'libre' ? (
-                                    <>
-                                        <ThemedText style={styles.inputLabel}>Fecha de la Clase</ThemedText>
-                                        {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
-                                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
-                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
-                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                            </View>
-                                        </View>
-                                    </>
-                                ) : (
-                                    <>
-                                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                                {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                                {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
-                                            </View>
-                                        </View>
-                                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
-                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
-                                                <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
-                                            </View>
-                                        </View>
-                                        <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
-                                        <View style={styles.weekDayContainer}>
-                                            {daysOfWeekOptions.map(day => (
-                                                <TouchableOpacity key={day} onPress={() => handleDaySelection(day)} style={[styles.dayChip, formData.diaDeSemana.includes(day) && styles.dayChipSelected]}>
-                                                    <Text style={formData.diaDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0, 3)}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </>
-                                )}
-                            </View>
-
-                            <View style={styles.modalActions}>
-                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleFormSubmit} activeOpacity={0.85}>
-                                    <Ionicons name={editingClass ? "checkmark-circle-outline" : "add-circle-outline"} size={22} color="#fff" />
-                                    <Text style={styles.submitActionBtnText}>{editingClass ? 'Actualizar Turno' : 'Crear Turno'}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </ScrollView>
-                    </Pressable>
-                </Pressable>
-                </KeyboardAvoidingView>
-            )}
-
            {showRosterModal && viewingClassRoster && (
-                <Modal visible={showRosterModal} transparent={true} onRequestClose={() => setShowRosterModal(false)} animationType='fade'>
-                    <Pressable style={styles.modalOverlay} onPress={() => setShowRosterModal(false)}>  
-                        <Pressable style={styles.addClassModalView}>
+                <Modal
+                    visible={showRosterModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowRosterModal(false)}
+                    statusBarTranslucent
+                    presentationStyle="overFullScreen"
+                >
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <KeyboardAwareSheet
+                            onDismiss={() => setShowRosterModal(false)}
+                            backgroundColor={Colors[colorScheme].background}
+                            style={{ maxHeight: '90%' }}
+                        >
                             <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.addClassHeaderTitle}>Gestionar Inscriptos</Text>
-                                    <Text style={styles.addClassHeaderSub}>{viewingClassRoster.nombre} - {viewingClassRoster.horaInicio}hs</Text>
+                                    <Text style={styles.addClassHeaderSub}>
+                                        {viewingClassRoster.nombre} · {viewingClassRoster.horaInicio}–{viewingClassRoster.horaFin}
+                                    </Text>
                                 </View>
                                 <TouchableOpacity onPress={() => setShowRosterModal(false)} style={styles.addClassCloseBtn}>
                                     <Ionicons name="close" size={22} color="#fff" />
                                 </TouchableOpacity>
                             </View>
 
-                            <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
+                            <ScrollView
+                                contentContainerStyle={styles.addClassScrollContent}
+                                showsVerticalScrollIndicator={false}
+                                keyboardShouldPersistTaps="handled"
+                            >
                                 <View style={styles.rosterSection}>
-                                    <ThemedText style={styles.sectionTitle}>Inscriptos ({viewingClassRoster.usuariosInscritos.length})</ThemedText>
-                                    {viewingClassRoster.usuariosInscritos.map(user => (
-                        <View key={user._id} style={styles.rosterItem}>
-                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
-                            <Text style={styles.rosterSubtext}>DNI : {user.dni}</Text>
-                            <TouchableOpacity onPress={() => handleRemoveUser(viewingClassRoster._id, user)}>
-                                <Ionicons name="remove-circle" size={24} color="#e74c3c" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
+                                    <View style={styles.rosterSectionHeader}>
+                                        <Text style={styles.rosterSectionTitle}>Inscriptos</Text>
+                                        <View style={[styles.rosterCountPill, { backgroundColor: (gymColor || '#1a5276') + '18' }]}>
+                                            <Text style={[styles.rosterCountText, { color: gymColor || '#1a5276' }]}>
+                                                {(viewingClassRoster.usuariosInscritos || []).length}/{viewingClassRoster.capacidad}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {(viewingClassRoster.usuariosInscritos || []).length === 0 ? (
+                                        <Text style={styles.rosterEmpty}>Nadie inscrito en este turno.</Text>
+                                    ) : (
+                                        (viewingClassRoster.usuariosInscritos || []).map((user) => (
+                                            <View key={user._id} style={styles.rosterRow}>
+                                                <View style={[styles.rosterAvatar, { backgroundColor: (gymColor || '#1a5276') + '22' }]}>
+                                                    <Text style={[styles.rosterAvatarText, { color: gymColor || '#1a5276' }]}>
+                                                        {(user.nombre?.[0] || '').toUpperCase()}{(user.apellido?.[0] || '').toUpperCase()}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.rosterName}>{user.nombre} {user.apellido}</Text>
+                                                    <Text style={styles.rosterDni}>DNI {user.dni || '—'}</Text>
+                                                </View>
+                                                <TouchableOpacity
+                                                    style={styles.rosterIconBtn}
+                                                    onPress={() => handleRemoveUser(viewingClassRoster._id, user)}
+                                                >
+                                                    <Ionicons name="remove-circle" size={26} color="#e74c3c" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))
+                                    )}
                                 </View>
-                                
+
                                 <View style={styles.rosterSection}>
-                                    <ThemedText style={styles.sectionTitle}>Añadir Socio</ThemedText>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Buscar por nombre o DNI..."
-                                        placeholderTextColor={Colors[colorScheme].icon}
-                                        value={rosterSearchTerm}
-                                        onChangeText={setRosterSearchTerm}
-                                    />
-                                   {usersNotInClass.map(user => (
-                        <View key={user._id} style={styles.rosterItem}>
-                            <Text style={styles.rosterText}>{user.nombre} {user.apellido}</Text>
-                            <Text style={styles.rosterSubtext}>DNI : {user.dni}</Text>
-                            <TouchableOpacity onPress={() => handleAddUser(viewingClassRoster._id, user)}>
-                                <Ionicons name="add-circle" size={24} color="#2ecc71" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
+                                    <Text style={styles.rosterSectionTitle}>Añadir socio</Text>
+                                    <View style={styles.rosterSearchWrap}>
+                                        <Ionicons name="search" size={16} color={Colors[colorScheme].icon} style={{ marginRight: 8 }} />
+                                        <TextInput
+                                            style={styles.rosterSearchInput}
+                                            placeholder="Buscar por nombre o DNI..."
+                                            placeholderTextColor={Colors[colorScheme].icon}
+                                            value={rosterSearchTerm}
+                                            onChangeText={setRosterSearchTerm}
+                                        />
+                                    </View>
+                                    {rosterSearchTerm.length > 0 && usersNotInClass.length === 0 && (
+                                        <Text style={styles.rosterEmpty}>Sin resultados.</Text>
+                                    )}
+                                    {usersNotInClass.map((user) => (
+                                        <View key={user._id} style={styles.rosterRow}>
+                                            <View style={[styles.rosterAvatar, { backgroundColor: '#2ecc7122' }]}>
+                                                <Text style={[styles.rosterAvatarText, { color: '#2ecc71' }]}>
+                                                    {(user.nombre?.[0] || '').toUpperCase()}{(user.apellido?.[0] || '').toUpperCase()}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.rosterName}>{user.nombre} {user.apellido}</Text>
+                                                <Text style={styles.rosterDni}>DNI {user.dni || '—'}</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={styles.rosterIconBtn}
+                                                onPress={() => handleAddUser(viewingClassRoster._id, user)}
+                                            >
+                                                <Ionicons name="add-circle" size={26} color="#2ecc71" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
                                 </View>
                             </ScrollView>
+                        </KeyboardAwareSheet>
+                    </View>
+                </Modal>
+            )}
+
+            {showCancelModal && classToCancel && (
+                <Modal
+                    visible={showCancelModal}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setShowCancelModal(false)}
+                    statusBarTranslucent
+                    presentationStyle="overFullScreen"
+                >
+                    <Pressable style={styles.cancelOverlay} onPress={() => setShowCancelModal(false)}>
+                        <Pressable style={styles.cancelCard} onPress={(e) => e.stopPropagation?.()}>
+                            <View style={styles.cancelIconWrap}>
+                                <Ionicons name="warning" size={28} color="#e74c3c" />
+                            </View>
+                            <Text style={styles.cancelTitle}>Confirmar cancelación</Text>
+                            <Text style={styles.cancelMessage}>
+                                ¿Querés cancelar “{classToCancel.nombre}” ({classToCancel.horaInicio}hs)? Elegí si se reembolsan los créditos a los inscriptos.
+                            </Text>
+                            <TouchableOpacity
+                                style={[styles.cancelChoiceBtn, { backgroundColor: '#2ecc71' }]}
+                                onPress={() => confirmCancelClass(true)}
+                                activeOpacity={0.88}
+                            >
+                                <Ionicons name="cash-outline" size={18} color="#fff" />
+                                <Text style={styles.cancelChoiceText}>Sí, reembolsar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.cancelChoiceBtn, { backgroundColor: '#e74c3c' }]}
+                                onPress={() => confirmCancelClass(false)}
+                                activeOpacity={0.88}
+                            >
+                                <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                                <Text style={styles.cancelChoiceText}>No reembolsar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.cancelDismissBtn}
+                                onPress={() => setShowCancelModal(false)}
+                            >
+                                <Text style={styles.cancelDismissText}>Volver</Text>
+                            </TouchableOpacity>
                         </Pressable>
                     </Pressable>
                 </Modal>
             )}
-
-            {showCancelModal && (
-                <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-                    <Pressable style={[styles.addClassModalView, { height: 'auto', maxHeight: '55%', paddingBottom: 20 }]}>
-                        <View style={[styles.addClassHeader, { backgroundColor: '#e74c3c' }]}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.addClassHeaderTitle}>Confirmar Cancelación</Text>
-                                <Text style={styles.addClassHeaderSub}>Devolución de créditos</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowCancelModal(false)} style={styles.addClassCloseBtn}>
-                                <Ionicons name="close" size={22} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                        <View style={{ padding: 24, alignItems: 'center' }}>
-                            <ThemedText style={{ fontSize: 16, textAlign: 'center', marginBottom: 25 }}>¿Deseas devolver los créditos a los usuarios inscritos en este turno?</ThemedText>
-                            <View style={{ flexDirection: 'row', gap: 15, width: '100%' }}>
-                                <TouchableOpacity style={[styles.submitActionBtn, { flex: 1, backgroundColor: '#2ecc71', paddingVertical: 12 }]} onPress={() => confirmCancelClass(true)}>
-                                    <Text style={styles.submitActionBtnText}>Sí, reembolsar</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.submitActionBtn, { flex: 1, backgroundColor: '#e74c3c', paddingVertical: 12 }]} onPress={() => confirmCancelClass(false)}>
-                                    <Text style={styles.submitActionBtnText}>No reembolsar</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </Pressable>
-                </Pressable>
-            )}
             
             {showBulkEditModal && (
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
-                <Pressable style={styles.modalOverlay} onPress={() => setShowBulkEditModal(false)}>
-                    <Pressable style={styles.addClassModalView}>
-                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.addClassHeaderTitle}>Editar Grupo Recurrente</Text>
-                                <Text style={styles.addClassHeaderSub}>{editingGroup?.nombre}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.addClassCloseBtn}>
-                                <Ionicons name="close" size={22} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
-                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Inicio:</ThemedText>
-                            <TextInput style={styles.input} value={bulkUpdates.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
-                            <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin:</ThemedText>
-                            <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
-                            <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
-                            <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
-                            {sucursales && sucursales.length > 0 && (
-                                <>
-                                    <ThemedText style={styles.inputLabel}>Sucursal del Grupo:</ThemedText>
-                                    <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('bulkSucursal')}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                                            <ThemedText style={styles.filterButtonText}>
-                                                {sucursales.find(s => s._id === bulkUpdates.sucursal)?.nombre || 'Seleccionar Sucursal'}
-                                            </ThemedText>
-                                        </View>
-                                        <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                            <ThemedText style={styles.inputLabel}>A cargo de (Seleccionar para cambiar)</ThemedText>
-                            <View style={styles.weekDayContainer}> 
-                                {teachers.map(teacher => (
-                                    <TouchableOpacity 
-                                        key={teacher._id} 
-                                        onPress={() => handleBulkProfessorSelection(teacher._id)} 
-                                        style={[
-                                            styles.dayChip, 
-                                            bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id) && styles.dayChipSelected
-                                        ]}
-                                    >
-                                        <Text style={
-                                            bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id) 
-                                            ? styles.dayChipTextSelected 
-                                            : styles.dayChipText
-                                        }>
-                                            {teacher.nombre} {teacher.apellido}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            <ThemedText style={styles.inputLabel}>Nuevos Días de la Semana:</ThemedText>
-                            <View style={styles.weekDayContainer}>
-                                {daysOfWeekOptions.map(day => (
-                                    <TouchableOpacity key={day} onPress={() => handleBulkDaySelection(day)} style={[styles.dayChip, bulkUpdates.diasDeSemana.includes(day) && styles.dayChipSelected]}>
-                                        <Text style={bulkUpdates.diasDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0,3)}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            <View style={[styles.modalActions, { marginTop: 20 }]}>
-                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleBulkUpdate}>
-                                    <FontAwesome6 name="save" size={18} color="#fff" />
-                                    <Text style={styles.submitActionBtnText}>Guardar Cambios</Text>
+                <Modal
+                    visible={showBulkEditModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowBulkEditModal(false)}
+                    statusBarTranslucent
+                    presentationStyle="overFullScreen"
+                >
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <KeyboardAwareSheet
+                            onDismiss={() => setShowBulkEditModal(false)}
+                            backgroundColor={Colors[colorScheme].background}
+                            style={{ maxHeight: '92%' }}
+                        >
+                            <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.addClassHeaderTitle}>Editar Grupo Recurrente</Text>
+                                    <Text style={styles.addClassHeaderSub}>{editingGroup?.nombre}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowBulkEditModal(false)} style={styles.addClassCloseBtn}>
+                                    <Ionicons name="close" size={22} color="#fff" />
                                 </TouchableOpacity>
                             </View>
-                        </ScrollView>
-                    </Pressable>
-                </Pressable>
-                </KeyboardAvoidingView>
+                            <ScrollView
+                                contentContainerStyle={styles.addClassScrollContent}
+                                showsVerticalScrollIndicator={false}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                <ThemedText style={styles.inputLabel}>Nuevo Horario de Inicio:</ThemedText>
+                                <TextInput style={styles.input} value={bulkUpdates.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
+                                <ThemedText style={styles.inputLabel}>Nuevo Horario de Fin:</ThemedText>
+                                <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
+                                <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
+                                <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
+                                {sucursales && sucursales.length > 0 && (
+                                    <>
+                                        <ThemedText style={styles.inputLabel}>Sucursal del Grupo:</ThemedText>
+                                        <TouchableOpacity style={styles.filterButton} onPress={() => setActiveModal('bulkSucursal')}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                                <ThemedText style={styles.filterButtonText}>
+                                                    {sucursales.find(s => s._id === bulkUpdates.sucursal)?.nombre || 'Seleccionar Sucursal'}
+                                                </ThemedText>
+                                            </View>
+                                            <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                                <ThemedText style={styles.inputLabel}>A cargo de (Seleccionar para cambiar)</ThemedText>
+                                <View style={styles.weekDayContainer}>
+                                    {teachers.map(teacher => (
+                                        <TouchableOpacity
+                                            key={teacher._id}
+                                            onPress={() => handleBulkProfessorSelection(teacher._id)}
+                                            style={[
+                                                styles.dayChip,
+                                                bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id) && styles.dayChipSelected
+                                            ]}
+                                        >
+                                            <Text style={
+                                                bulkUpdates.profesores && bulkUpdates.profesores.includes(teacher._id)
+                                                    ? styles.dayChipTextSelected
+                                                    : styles.dayChipText
+                                            }>
+                                                {teacher.nombre} {teacher.apellido}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <ThemedText style={styles.inputLabel}>Nuevos Días de la Semana:</ThemedText>
+                                <View style={styles.weekDayContainer}>
+                                    {daysOfWeekOptions.map(day => (
+                                        <TouchableOpacity key={day} onPress={() => handleBulkDaySelection(day)} style={[styles.dayChip, bulkUpdates.diasDeSemana.includes(day) && styles.dayChipSelected]}>
+                                            <Text style={bulkUpdates.diasDeSemana.includes(day) ? styles.dayChipTextSelected : styles.dayChipText}>{day.substring(0,3)}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <View style={[styles.modalActions, { marginTop: 20 }]}>
+                                    <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={handleBulkUpdate}>
+                                        <FontAwesome6 name="save" size={18} color="#fff" />
+                                        <Text style={styles.submitActionBtnText}>Guardar Cambios</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </KeyboardAwareSheet>
+                    </View>
+                </Modal>
             )}
 
             {showExtendModal && (
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper} keyboardVerticalOffset={70}>
-                <Pressable style={styles.modalOverlay} onPress={() => setShowExtendModal(false)}>
-                    <Pressable style={[styles.addClassModalView, { height: 'auto', maxHeight: '60%' }]}>
-                        <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.addClassHeaderTitle}>Extender Turnos Recurrentes</Text>
-                                <Text style={styles.addClassHeaderSub}>{extendingGroup?.nombre}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.addClassCloseBtn}>
-                                <Ionicons name="close" size={22} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView contentContainerStyle={styles.addClassScrollContent} showsVerticalScrollIndicator={false}>
-                            <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
-                            {renderDateField(
-                                'Fecha de extensión',
-                                'extendUntilDate',
-                                extendUntilDate, // Este ya es un string 'yyyy-MM-dd'
-                                (date) => setExtendUntilDate(format(date, 'yyyy-MM-dd')) // Formateamos al guardar
-                            )}
-                            <View style={[styles.modalActions, { marginTop: 20 }]}>
-                                <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={() => handleExtendSubmit()}>
-                                    <Ionicons name="calendar-outline" size={20} color="#fff" />
-                                    <Text style={styles.submitActionBtnText}>Confirmar Extensión</Text>
+                <Modal
+                    visible={showExtendModal && !datePickerConfig.visible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowExtendModal(false)}
+                    statusBarTranslucent
+                    presentationStyle="overFullScreen"
+                >
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                        <KeyboardAwareSheet
+                            onDismiss={() => setShowExtendModal(false)}
+                            backgroundColor={Colors[colorScheme].background}
+                            style={{ maxHeight: '70%' }}
+                        >
+                            <View style={[styles.addClassHeader, { backgroundColor: gymColor || '#1a5276' }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.addClassHeaderTitle}>Extender Turnos Recurrentes</Text>
+                                    <Text style={styles.addClassHeaderSub}>{extendingGroup?.nombre}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setShowExtendModal(false)} style={styles.addClassCloseBtn}>
+                                    <Ionicons name="close" size={22} color="#fff" />
                                 </TouchableOpacity>
                             </View>
-                        </ScrollView>
-                    </Pressable>
-                </Pressable>
-                </KeyboardAvoidingView>
+                            <ScrollView
+                                contentContainerStyle={styles.addClassScrollContent}
+                                showsVerticalScrollIndicator={false}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                <ThemedText style={styles.inputLabel}>Extender hasta:</ThemedText>
+                                {renderDateField(
+                                    'Fecha de extensión',
+                                    'extendUntilDate',
+                                    extendUntilDate,
+                                    (date) => setExtendUntilDate(format(date, 'yyyy-MM-dd'))
+                                )}
+                                <View style={[styles.modalActions, { marginTop: 20 }]}>
+                                    <TouchableOpacity style={[styles.submitActionBtn, { backgroundColor: gymColor || '#1a5276' }]} onPress={() => handleExtendSubmit()}>
+                                        <Ionicons name="calendar-outline" size={20} color="#fff" />
+                                        <Text style={styles.submitActionBtnText}>Confirmar Extensión</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </KeyboardAwareSheet>
+                    </View>
+                </Modal>
             )}
 
 
-            {getModalConfig && (
+            {getModalConfig && !['formClassType', 'formSucursal', 'formInscriptionType'].includes(activeModal) && (
                 <FilterModal
                     visible={!!activeModal}
                     onClose={() => setActiveModal(null)}
@@ -1487,15 +1602,25 @@ const ManageClassesScreen = () => {
                 />
             )}
 
-           
-            <CustomAlert
-                visible={alertInfo.visible}
-                title={alertInfo.title}
-                message={alertInfo.message}
-                buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
-                gymColor={gymColor} 
+            <SheetDatePicker
+                visible={datePickerConfig.visible}
+                value={datePickerConfig.currentValue}
+                title="Seleccionar Fecha"
+                gymColor={gymColor}
+                onClose={closeDatePicker}
+                onConfirm={confirmSheetDate}
             />
+
+            {!showAddModal && (
+                <CustomAlert
+                    visible={alertInfo.visible}
+                    title={alertInfo.title}
+                    message={alertInfo.message}
+                    buttons={alertInfo.buttons}
+                    onClose={() => setAlertInfo((prev) => ({ ...prev, visible: false }))}
+                    gymColor={gymColor}
+                />
+            )}
         </ThemedView>
     );
 };
@@ -1512,11 +1637,11 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     cardSubtitle: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 10 },
     cardInfo: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 4 },
     actionButton: { padding: 8, marginLeft: 15 },
-    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 8,shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,},
+    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', left: 20, bottom: 20, backgroundColor: gymColor ||'#1a5276', borderRadius: 30, elevation: 12, zIndex: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,},
     modalOverlayWrapper: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
     modalOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, zIndex: 1000, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
     modalView: { height: '90%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, elevation: 5 },
-    addClassModalView: { height: '88%', width: '100%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 8, overflow: 'hidden' },
+    addClassModalView: { maxHeight: '92%', width: '100%', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 8, overflow: 'hidden' },
     addClassHeader: { paddingVertical: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     addClassHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
     addClassHeaderSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
@@ -1542,6 +1667,241 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     dayChipSelected: { backgroundColor: gymColor || '#1a5276', borderColor: gymColor || '#1a5276' },
     dayChipText: { color :Colors[colorScheme].text, fontSize: 13 },
     dayChipTextSelected: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+    cardActionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    cardActionChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        minWidth: '46%',
+        flexGrow: 1,
+    },
+    cardActionChipText: {
+        fontSize: 12,
+        fontWeight: '800',
+        flexShrink: 1,
+    },
+    rosterSection: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        padding: 14,
+        marginBottom: 14,
+    },
+    rosterSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    rosterSectionTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: Colors[colorScheme].text,
+        marginBottom: 10,
+    },
+    rosterCountPill: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    rosterCountText: {
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    rosterEmpty: {
+        textAlign: 'center',
+        color: Colors[colorScheme].icon,
+        fontSize: 13,
+        paddingVertical: 12,
+    },
+    rosterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Colors[colorScheme].border,
+    },
+    rosterAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    rosterAvatarText: {
+        fontWeight: '800',
+        fontSize: 13,
+    },
+    rosterName: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: Colors[colorScheme].text,
+    },
+    rosterDni: {
+        fontSize: 12,
+        color: Colors[colorScheme].icon,
+        marginTop: 2,
+    },
+    rosterIconBtn: {
+        padding: 4,
+    },
+    rosterSearchWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 46,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].background,
+        paddingHorizontal: 12,
+        marginBottom: 8,
+    },
+    rosterSearchInput: {
+        flex: 1,
+        color: Colors[colorScheme].text,
+        fontSize: 15,
+        paddingVertical: 0,
+    },
+    cancelOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    cancelCard: {
+        width: '100%',
+        maxWidth: 400,
+        backgroundColor: Colors[colorScheme].background,
+        borderRadius: 20,
+        padding: 22,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        alignItems: 'center',
+    },
+    cancelIconWrap: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#e74c3c22',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
+    },
+    cancelTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: Colors[colorScheme].text,
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    cancelMessage: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: Colors[colorScheme].text,
+        opacity: 0.75,
+        textAlign: 'center',
+        marginBottom: 18,
+    },
+    cancelChoiceBtn: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginBottom: 10,
+    },
+    cancelChoiceText: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 15,
+    },
+    cancelDismissBtn: {
+        paddingVertical: 10,
+        marginTop: 2,
+    },
+    cancelDismissText: {
+        color: Colors[colorScheme].icon,
+        fontWeight: '700',
+        fontSize: 14,
+    },
+    dayMgmtContent: {
+        padding: 20,
+        paddingBottom: 100,
+    },
+    dayMgmtHero: {
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingTop: 8,
+    },
+    dayMgmtIconWrap: {
+        width: 64,
+        height: 64,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 14,
+    },
+    dayMgmtTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: Colors[colorScheme].text,
+        marginBottom: 6,
+    },
+    dayMgmtSubtitle: {
+        fontSize: 14,
+        lineHeight: 20,
+        textAlign: 'center',
+        color: Colors[colorScheme].text,
+        opacity: 0.7,
+        paddingHorizontal: 12,
+    },
+    dayMgmtCard: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        padding: 16,
+        marginBottom: 16,
+    },
+    dayMgmtCardLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors[colorScheme].text,
+        opacity: 0.8,
+        marginBottom: 4,
+    },
+    dayMgmtActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+        marginBottom: 12,
+    },
+    dayMgmtActionTitle: {
+        color: '#fff',
+        fontWeight: '800',
+        fontSize: 15,
+    },
+    dayMgmtActionSub: {
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 12,
+        marginTop: 2,
+    },
     rosterItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     rosterText: { fontSize: 16, color: Colors[colorScheme].text, marginBottom: 3 },
     rosterSubtext: { fontSize: 12, color: Colors[colorScheme].icon,  marginBottom: 5 },
@@ -1567,7 +1927,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     filterButtonText: { fontSize: 16, color: Colors[colorScheme].text },
     disabledText: { color: Colors[colorScheme].icon },
      iosPickerOverlay: {
-        flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0,0,0,0.4)',
     },
@@ -1599,6 +1958,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginRight: 15,
     },
     tabLabel: { fontSize: 12, fontWeight: 'bold', textTransform: 'none' }, 
+    statusPillMuted: { backgroundColor: Colors[colorScheme].background, borderWidth: 1, borderColor: Colors[colorScheme].border, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    statusPillMutedText: { color: Colors[colorScheme].icon, fontWeight: '800', fontSize: 10 },
+    statusPillWarn: { backgroundColor: '#fff3cd', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    statusPillWarnText: { color: '#856404', fontWeight: '800', fontSize: 10 },
+    metaRowInline: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    metaRowInlineText: { flexShrink: 1, fontSize: 13, color: Colors[colorScheme].text, opacity: 0.72, fontWeight: '500' },
     classItem: {
         padding: 20,
         marginHorizontal: 16,

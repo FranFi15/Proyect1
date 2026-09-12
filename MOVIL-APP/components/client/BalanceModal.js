@@ -1,6 +1,15 @@
-// components/BalanceModal.js
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, RefreshControl, Modal, Image } from 'react-native';
+import {
+    View,
+    Text,
+    FlatList,
+    StyleSheet,
+    TouchableOpacity,
+    useColorScheme,
+    ActivityIndicator,
+    RefreshControl,
+    Image,
+} from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,37 +17,41 @@ import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
+import KeyboardAwareSheet from '@/components/KeyboardAwareSheet';
 
 const BalanceModal = ({ onClose }) => {
     const { user, gymColor } = useAuth();
+    const accent = gymColor || '#1a5276';
     const [profile, setProfile] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
-    // 🔥 NUEVO: Estado para el visor de imágenes
-    const [imageViewerData, setImageViewerData] = useState(null); 
-    
+    const [imageViewerData, setImageViewerData] = useState(null);
     const colorScheme = useColorScheme() ?? 'light';
-    const styles = getStyles(colorScheme, gymColor);
-
+    const styles = getStyles(colorScheme, accent);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async ({ silent = false } = {}) => {
         if (!user?._id) {
             setLoading(false);
             setRefreshing(false);
             return;
         }
+        if (silent) setRefreshing(true);
         try {
             const [profileResponse, transactionsResponse] = await Promise.all([
                 apiClient.get('/users/me'),
-                apiClient.get('/transactions/my-transactions')
+                apiClient.get('/transactions/my-transactions'),
             ]);
             setProfile(profileResponse.data);
             setTransactions(transactionsResponse.data);
         } catch (error) {
-            setAlertInfo({ visible: true, title: 'Error', message: 'No se pudo cargar tu información de saldo.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo cargar tu información de saldo.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -46,131 +59,337 @@ const BalanceModal = ({ onClose }) => {
     }, [user?._id]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        let cancelled = false;
+        (async () => {
+            if (!user?._id) {
+                if (!cancelled) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+                return;
+            }
+            try {
+                const [profileResponse, transactionsResponse] = await Promise.all([
+                    apiClient.get('/users/me'),
+                    apiClient.get('/transactions/my-transactions'),
+                ]);
+                if (cancelled) return;
+                setProfile(profileResponse.data);
+                setTransactions(transactionsResponse.data);
+            } catch (error) {
+                if (cancelled) return;
+                setAlertInfo({
+                    visible: true,
+                    title: 'Error',
+                    message: 'No se pudo cargar tu información de saldo.',
+                    buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                });
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?._id]);
 
     const onRefresh = () => {
-        setRefreshing(true);
-        fetchData();
+        fetchData({ silent: true });
     };
 
-    const renderTransaction = ({ item }) => (
-        <View style={styles.transactionCard}>
-            <View style={styles.transactionInfo}>
-                <Text style={styles.transactionDescription}>{item.description}</Text>
-                <Text style={styles.transactionDate}>{format(new Date(item.createdAt), "d MMM yyyy, HH:mm", { locale: es })}</Text>
-                
-                {/* 🔥 NUEVO: Botón para ver comprobante si existe */}
-                {item.receiptUrl && (
-                    <TouchableOpacity 
-                        style={styles.viewReceiptBtn} 
-                        onPress={() => setImageViewerData(item.receiptUrl)}
-                    >
-                        <Ionicons name="image-outline" size={14} color={Colors[colorScheme].text} />
-                        <Text style={{ color: Colors[colorScheme].text, fontSize: 12, marginLeft: 4, fontWeight: 'bold' }}>Ver Comprobante</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-            <Text style={[styles.transactionAmount, item.type === 'charge' ? styles.debtText : styles.okText]}>
-                {item.type === 'charge' ? '-' : '+'} ${parseFloat(item.amount).toFixed(2)}
-            </Text>
-        </View>
-    );
+    const balance = profile?.balance ?? 0;
+    const isDebt = balance < 0;
 
-    return (
-        <View style={styles.modalContainer}>
-            <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
-                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.headerBannerTitle}>Historial de Saldo</Text>
-                        <Text style={styles.headerBannerSub}>Tus cargos y pagos registrados</Text>
-                    </View>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
-                        <Ionicons name="close" size={24} color="#fff" />
-                    </TouchableOpacity>
+    const renderTransaction = ({ item }) => {
+        const isCharge = item.type === 'charge';
+        return (
+            <View style={styles.transactionCard}>
+                <View style={[styles.txIcon, { backgroundColor: isCharge ? '#a7282818' : '#28a74518' }]}>
+                    <Ionicons
+                        name={isCharge ? 'arrow-up' : 'arrow-down'}
+                        size={16}
+                        color={isCharge ? '#a72828' : '#28a745'}
+                    />
                 </View>
-                
-                <View style={{ flex: 1, padding: 20 }}>
-                    {loading ? <ActivityIndicator color={gymColor} size="large" /> : (
-                        <>
-                            <View style={styles.summaryContainer}>
-                                <Text style={styles.summaryLabel}>Saldo Actual:</Text>
-                                <Text style={[styles.summaryBalance, (profile?.balance ?? 0) < 0 ? styles.debtText : styles.okText]}>
-                                    ${(profile?.balance ?? 0).toFixed(2)}
-                                </Text>
-                            </View>
-                            <FlatList
-                                data={transactions}
-                                renderItem={renderTransaction}
-                                keyExtractor={(item) => item._id}
-                                ListEmptyComponent={<Text style={styles.emptyText}>No tienes movimientos recientes.</Text>}
-                                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-                            />
-                        </>
+                <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionDescription} numberOfLines={2}>{item.description}</Text>
+                    <Text style={styles.transactionDate}>
+                        {format(new Date(item.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
+                    </Text>
+                    {!!item.receiptUrl && (
+                        <TouchableOpacity
+                            style={[styles.viewReceiptBtn, { backgroundColor: accent + '18' }]}
+                            onPress={() => setImageViewerData(item.receiptUrl)}
+                        >
+                            <Ionicons name="image-outline" size={14} color={accent} />
+                            <Text style={[styles.viewReceiptText, { color: accent }]}>Ver comprobante</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
+                <Text style={[styles.transactionAmount, isCharge ? styles.debtText : styles.okText]}>
+                    {isCharge ? '-' : '+'}${parseFloat(item.amount).toFixed(2)}
+                </Text>
             </View>
+        );
+    };
 
-            {/* 🔥 NUEVO: Modal visor de imágenes a pantalla completa */}
-            {imageViewerData && (
-                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
-                    <View style={styles.imageViewerOverlay}>
-                        <TouchableOpacity style={styles.imageViewerClose} onPress={() => setImageViewerData(null)}>
-                            <Ionicons name="close" size={40} color="#fff" />
-                        </TouchableOpacity>
-                        <Image source={{ uri: imageViewerData }} style={styles.imageViewerImage} resizeMode="contain" />
+    return (
+        <View style={styles.root}>
+            <KeyboardAwareSheet
+                onDismiss={onClose}
+                backgroundColor={Colors[colorScheme].background}
+                borderRadius={20}
+                style={styles.sheet}
+            >
+                <View style={[styles.header, { backgroundColor: accent }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerKicker}>Cuenta</Text>
+                        <Text style={styles.headerTitle}>Historial de saldo</Text>
                     </View>
-                </Modal>
+                    <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={10}>
+                        <Ionicons name="close" size={22} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+
+                {loading ? (
+                    <View style={styles.loading}>
+                        <ActivityIndicator color={accent} size="large" />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={transactions}
+                        renderItem={renderTransaction}
+                        keyExtractor={(item) => item._id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={
+                            <View style={styles.summaryCard}>
+                                <Text style={styles.summaryLabel}>Saldo actual</Text>
+                                <Text style={[styles.summaryBalance, isDebt ? styles.debtText : styles.okText]}>
+                                    ${balance.toFixed(2)}
+                                </Text>
+                                <Text style={styles.summaryHint}>
+                                    {isDebt ? 'Tenés un saldo pendiente' : 'Tu cuenta está al día'}
+                                </Text>
+                            </View>
+                        }
+                        ListEmptyComponent={
+                            <Text style={styles.emptyText}>No tenés movimientos recientes.</Text>
+                        }
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                tintColor={accent}
+                                colors={[accent]}
+                            />
+                        }
+                    />
+                )}
+            </KeyboardAwareSheet>
+
+            {!!imageViewerData && (
+                <View style={styles.imageViewerOverlay}>
+                    <TouchableOpacity
+                        style={styles.imageViewerBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setImageViewerData(null)}
+                    />
+                    <TouchableOpacity
+                        style={styles.imageViewerClose}
+                        onPress={() => setImageViewerData(null)}
+                        hitSlop={12}
+                    >
+                        <Ionicons name="close" size={32} color="#fff" />
+                    </TouchableOpacity>
+                    <Image
+                        source={{ uri: imageViewerData }}
+                        style={styles.imageViewerImage}
+                        resizeMode="contain"
+                    />
+                </View>
             )}
 
-            <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} />
+            <CustomAlert
+                inline
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo((prev) => ({ ...prev, visible: false }))}
+                gymColor={accent}
+            />
         </View>
     );
 };
 
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, elevation: 5 },
-    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 1 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: Colors[colorScheme].text },
-    summaryContainer: { alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
-    summaryLabel: { fontSize: 16, color: Colors[colorScheme].text, opacity: 0.8 },
-    summaryBalance: { fontSize: 30, fontWeight: 'bold' },
-    transactionCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
-    transactionInfo: { flex: 1, marginRight: 10 },
-    transactionDescription: { fontSize: 14, color: Colors[colorScheme].text },
-    transactionDate: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
-    transactionAmount: { fontSize: 16, fontWeight: 'bold' },
-    debtText: { color: '#a72828ff'  },
-    okText: { color: '#28a745' },
-    emptyText: { textAlign: 'center', padding: 20, color: Colors[colorScheme].text, opacity: 0.7 },
-    
-    // Estilos del visor
-    viewReceiptBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 6, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: gymColor + '15', borderRadius: 4 },
-    imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-    imageViewerClose: { position: 'absolute', top: 40, right: 20, zIndex: 20 },
-    imageViewerImage: { width: '100%', height: '80%' },
-    headerBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 20,
-        justifyContent: 'space-between',
-    },
-    headerBannerTitle: {
-        fontSize: 19,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    headerBannerSub: {
-        fontSize: 13,
-        color: '#fff',
-        opacity: 0.85,
-        marginTop: 2,
-    },
-    closeButtonBanner: {
-        padding: 4,
-    }
-});
+const getStyles = (colorScheme, accent) => {
+    const colors = Colors[colorScheme];
+    const soft = colorScheme === 'dark' ? '#1c1f20' : '#f4f6f7';
+    return StyleSheet.create({
+        root: {
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+        },
+        sheet: {
+            width: '100%',
+            height: '92%',
+            maxHeight: '92%',
+            overflow: 'hidden',
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 18,
+        },
+        headerKicker: {
+            color: '#fff',
+            opacity: 0.8,
+            fontSize: 12,
+            fontWeight: '600',
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+            marginBottom: 4,
+        },
+        headerTitle: {
+            color: '#fff',
+            fontSize: 20,
+            fontWeight: '700',
+        },
+        closeBtn: {
+            width: 34,
+            height: 34,
+            borderRadius: 17,
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        loading: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        listContent: {
+            padding: 16,
+            paddingBottom: 32,
+            flexGrow: 1,
+        },
+        summaryCard: {
+            backgroundColor: soft,
+            borderRadius: 16,
+            paddingVertical: 20,
+            paddingHorizontal: 16,
+            alignItems: 'center',
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        summaryLabel: {
+            fontSize: 13,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+            color: colors.text,
+            opacity: 0.55,
+        },
+        summaryBalance: {
+            fontSize: 34,
+            fontWeight: '900',
+            marginTop: 6,
+        },
+        summaryHint: {
+            marginTop: 6,
+            fontSize: 13,
+            color: colors.text,
+            opacity: 0.65,
+        },
+        transactionCard: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            backgroundColor: soft,
+            borderRadius: 14,
+            padding: 14,
+            marginBottom: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+            gap: 10,
+        },
+        txIcon: {
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 2,
+        },
+        transactionInfo: {
+            flex: 1,
+        },
+        transactionDescription: {
+            fontSize: 14,
+            fontWeight: '700',
+            color: colors.text,
+        },
+        transactionDate: {
+            fontSize: 12,
+            color: colors.text,
+            opacity: 0.55,
+            marginTop: 3,
+        },
+        transactionAmount: {
+            fontSize: 15,
+            fontWeight: '800',
+            marginTop: 2,
+        },
+        debtText: { color: '#a72828' },
+        okText: { color: '#28a745' },
+        emptyText: {
+            textAlign: 'center',
+            paddingVertical: 28,
+            color: colors.text,
+            opacity: 0.65,
+        },
+        viewReceiptBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 8,
+            alignSelf: 'flex-start',
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            borderRadius: 8,
+            gap: 4,
+        },
+        viewReceiptText: {
+            fontSize: 12,
+            fontWeight: '700',
+        },
+        imageViewerOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.92)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 30,
+        },
+        imageViewerBackdrop: {
+            ...StyleSheet.absoluteFillObject,
+        },
+        imageViewerClose: {
+            position: 'absolute',
+            top: 48,
+            right: 20,
+            zIndex: 2,
+            padding: 4,
+        },
+        imageViewerImage: {
+            width: '100%',
+            height: '80%',
+            zIndex: 1,
+        },
+    });
+};
 
 export default BalanceModal;

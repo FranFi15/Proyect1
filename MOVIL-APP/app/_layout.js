@@ -3,27 +3,30 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
 import { Platform, Alert, AppState, View, ActivityIndicator, StyleSheet } from 'react-native';
 import notificationService from '../services/notificationService';
+import { getNotifications, isPushNotificationsAvailable } from '../services/expoNotificationsSafe';
 import userService from '../services/userService';
 import ImportantNotificationModal from '../components/ImportantNotificationModal';
 import { Colors } from '@/constants/Colors';
-import CustomAlert from '@/components/CustomAlert';
+import CustomAlert from '../components/CustomAlert';
 import AppTermsModal from '../components/AppTermsModal';
 
 
 
 SplashScreen.preventAutoHideAsync();
 
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-    }),
-});
+const Notifications = getNotifications();
+if (Notifications?.setNotificationHandler) {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+        }),
+    });
+}
 
 const findMostRecentImportantUnread = (notifications) => {
     if (!notifications || notifications.length === 0) return null;
@@ -159,6 +162,8 @@ function AppContent() {
     }, [loading, user, clientId, segments, router, navigationState?.key]); 
 
     useEffect(() => {
+        if (!isPushNotificationsAvailable() || !Notifications) return undefined;
+
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             console.log('Notificación recibida en primer plano:', notification);
             refreshUser();

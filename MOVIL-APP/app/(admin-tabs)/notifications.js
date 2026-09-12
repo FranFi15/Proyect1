@@ -7,7 +7,7 @@ import {
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useFocusEffect } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -169,7 +169,6 @@ const NotificationAdminScreen = () => {
     };
 
     const fetchInitialData = useCallback(async () => {
-        setLoading(true);
         try {
             const [usersRes, classesRes, sentRes, receivedRes] = await Promise.all([
                 apiClient.get('/users?populate=creditos'),
@@ -183,12 +182,20 @@ const NotificationAdminScreen = () => {
             setReceivedNotifications(receivedRes.data || []);
         } catch (error) {
             console.error("Error fetching admin data:", error);
-        } finally {
-            setLoading(false);
         }
     }, []);
 
-    useFocusEffect(useCallback(() => { fetchInitialData(); }, [fetchInitialData]));
+    useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setLoading(true);
+            try {
+                await fetchInitialData();
+            } finally {
+                if (isInitial) setLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
+    );
 
     const filteredUsers = useMemo(() => {
         if (!userSearchTerm) return allUsers;

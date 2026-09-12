@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
         return userDataFromServer;
     };
 
-    const logout = async (redirect = true) => {
+    const logout = useCallback(async (redirect = true) => {
         try {
             // Intentamos notificar al backend (opcional)
             try { await authService.logout(); } catch(e){}
@@ -153,14 +153,14 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('[AuthContext] Error durante el logout:', error);
         }
-    };
+    }, [router]);
 
     const handleSessionExpiredConfirm = useCallback(async () => {
         setSessionAlertVisible(false); 
         setTimeout(async () => {
             await logout(true); 
         }, 300);
-    }, []);
+    }, [logout]);
 
     useEffect(() => {
         registerSessionExpiredHandler(() => {
@@ -168,14 +168,17 @@ export const AuthProvider = ({ children }) => {
         });
     }, []);
 
-    const refreshUser = async () => {
+    const userRef = React.useRef(user);
+    userRef.current = user;
+
+    const refreshUser = useCallback(async () => {
         try {
             const updatedUserData = await authService.getMe();
             if (updatedUserData) {
-                if (JSON.stringify(user) !== JSON.stringify(updatedUserData)) {
+                if (JSON.stringify(userRef.current) !== JSON.stringify(updatedUserData)) {
                     setUser(updatedUserData);
                 }
-            } else if (user) {
+            } else if (userRef.current) {
                 await logout();
             }
         } catch (error) {
@@ -184,7 +187,7 @@ export const AuthProvider = ({ children }) => {
                 await logout();
             }
         }
-    };
+    }, [logout]);
 
     const register = async (userData) => {
         try {
