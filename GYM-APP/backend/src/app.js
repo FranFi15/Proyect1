@@ -44,6 +44,7 @@ import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { scheduleClassReminders } from './cron/ClassReminderJob.js';
+import { scheduleScoreboardResultsJob } from './cron/ScoreboardResultsJob.js';
 
 
 
@@ -139,6 +140,7 @@ scheduleDebtorNotifications();
 schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
 scheduleClassReminders();
+scheduleScoreboardResultsJob();
 
 
 

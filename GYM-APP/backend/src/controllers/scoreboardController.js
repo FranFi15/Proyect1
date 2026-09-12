@@ -182,7 +182,7 @@ const getLeaderboard = asyncHandler(async (req, res) => {
 
     const entries = await ScoreboardEntry.find({ scoreboard: scoreboardId })
         .populate('user', 'nombre apellido') // Solo mostramos datos públicos
-        .sort({ rx: -1, peso: -1, repeticiones: -1, distancia: -1, tiempo: 1 }); 
+        .sort({ peso: -1, repeticiones: -1, distancia: -1, tiempo: 1 }); 
 
     res.json({
         locked: false,

@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler'; 
 import getModels from '../utils/getModels.js';
+import { sendSingleNotification } from './notificationController.js';
 
 const createTemplate = asyncHandler(async (req, res) => {
     const { TrainingTemplate } = getModels(req.gymDBConnection);
@@ -166,12 +167,131 @@ const getPlansForUser = asyncHandler(async (req, res) => {
 });
 
 const getMyVisiblePlans = asyncHandler(async (req, res) => {
-    const { TrainingPlan } = getModels(req.gymDBConnection);
+    const { TrainingPlan, PlanFeedback } = getModels(req.gymDBConnection);
     const plans = await TrainingPlan.find({
         user: req.user._id,
         isVisibleToUser: true,
-    }).sort({ createdAt: -1 });
-    res.json(plans);
+    })
+        .populate('createdBy', 'nombre apellido')
+        .sort({ createdAt: -1 });
+
+    const planIds = plans.map((p) => p._id);
+    const feedbacks = await PlanFeedback.find({
+        plan: { $in: planIds },
+        user: req.user._id,
+    }).select('plan rating comment updatedAt');
+
+    const feedbackByPlan = new Map(
+        feedbacks.map((f) => [f.plan.toString(), f])
+    );
+
+    const withFeedback = plans.map((plan) => {
+        const plain = plan.toObject();
+        const fb = feedbackByPlan.get(plan._id.toString());
+        plain.hasFeedback = Boolean(fb);
+        plain.feedback = fb
+            ? { rating: fb.rating, comment: fb.comment, updatedAt: fb.updatedAt }
+            : null;
+        return plain;
+    });
+
+    res.json(withFeedback);
+});
+
+const submitPlanFeedback = asyncHandler(async (req, res) => {
+    const { TrainingPlan, PlanFeedback, User, Notification } = getModels(req.gymDBConnection);
+    const { rating, comment } = req.body;
+    const plan = await TrainingPlan.findById(req.params.planId);
+
+    if (!plan) {
+        res.status(404);
+        throw new Error('Plan no encontrado');
+    }
+    if (plan.user.toString() !== req.user._id.toString()) {
+        res.status(403);
+        throw new Error('No autorizado para opinar sobre este plan.');
+    }
+    if (!plan.isVisibleToUser) {
+        res.status(403);
+        throw new Error('Este plan no está disponible.');
+    }
+
+    const normalizedComment = typeof comment === 'string' ? comment.trim() : '';
+    let normalizedRating = null;
+    if (rating !== undefined && rating !== null && rating !== '') {
+        const n = Number(rating);
+        if (!Number.isInteger(n) || n < 1 || n > 5) {
+            res.status(400);
+            throw new Error('La calificación debe ser un número entre 1 y 5.');
+        }
+        normalizedRating = n;
+    }
+
+    if (!normalizedRating && !normalizedComment) {
+        res.status(400);
+        throw new Error('Dejá una calificación o un comentario.');
+    }
+
+    const professorId = plan.createdBy;
+    const existing = await PlanFeedback.findOne({ plan: plan._id, user: req.user._id });
+    const isUpdate = Boolean(existing);
+
+    let feedback;
+    if (existing) {
+        existing.rating = normalizedRating;
+        existing.comment = normalizedComment;
+        existing.professor = professorId;
+        feedback = await existing.save();
+    } else {
+        feedback = await PlanFeedback.create({
+            plan: plan._id,
+            user: req.user._id,
+            professor: professorId,
+            rating: normalizedRating,
+            comment: normalizedComment,
+        });
+    }
+
+    const clientName = `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim() || 'Un cliente';
+    const title = isUpdate ? 'Feedback actualizado' : 'Nuevo feedback de entrenamiento';
+    const stars = normalizedRating ? ` · ${normalizedRating}/5` : '';
+    const preview = normalizedComment
+        ? (normalizedComment.length > 120 ? `${normalizedComment.slice(0, 117)}...` : normalizedComment)
+        : 'Sin comentario';
+    const message = `${clientName} finalizó "${plan.name}"${stars}: ${preview}`;
+
+    try {
+        if (professorId) {
+            await sendSingleNotification(
+                Notification,
+                User,
+                professorId,
+                title,
+                message,
+                'plan_feedback',
+                false
+            );
+        }
+    } catch (notifyErr) {
+        console.error('Error notificando feedback de plan:', notifyErr?.message || notifyErr);
+    }
+
+    res.status(isUpdate ? 200 : 201).json(feedback);
+});
+
+const getPlanFeedbacks = asyncHandler(async (req, res) => {
+    const { PlanFeedback } = getModels(req.gymDBConnection);
+    const isAdmin = req.user.roles?.includes('admin');
+
+    const filter = isAdmin ? {} : { professor: req.user._id };
+
+    const feedbacks = await PlanFeedback.find(filter)
+        .populate('user', 'nombre apellido fotoPerfil email')
+        .populate('plan', 'name description')
+        .populate('professor', 'nombre apellido')
+        .sort({ updatedAt: -1 });
+
+    res.json(feedbacks);
 });
 
 const updatePlan = asyncHandler(async (req, res) => {
@@ -269,6 +389,7 @@ export {
     getMyVisiblePlans,
     updatePlan,
     deletePlan,
-    deleteAllPlans
-
+    deleteAllPlans,
+    submitPlanFeedback,
+    getPlanFeedbacks,
 };
