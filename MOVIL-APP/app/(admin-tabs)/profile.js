@@ -31,6 +31,7 @@ import SucursalesModal from '@/components/admin/SucursalesModal';
 import GeneralSettingsModal from '@/components/admin/GeneralSettingsModal';
 import StatsPanelModal from '@/components/admin/StatsPanelModal';
 import AdminStoreModal from '@/components/admin/AdminStoreModal';
+import AdminBeneficiosModal from '@/components/admin/AdminBeneficiosModal';
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading } = useAuth();
@@ -269,6 +270,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Tienda</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('beneficios')}>
+                        <Ionicons name="gift" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Beneficios</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('settings')}>
                         <Ionicons name="settings" size={24} color={Colors[colorScheme].icon} />
                         <ThemedText style={styles.menuButtonText}>Configuración </ThemedText>
@@ -333,6 +339,12 @@ const ProfileScreen = () => {
 
             <AdminStoreModal
                 visible={activeModal === 'tienda'}
+                onClose={() => setActiveModal(null)}
+                gymColor={gymColor}
+            />
+
+            <AdminBeneficiosModal
+                visible={activeModal === 'beneficios'}
                 onClose={() => setActiveModal(null)}
                 gymColor={gymColor}
             />

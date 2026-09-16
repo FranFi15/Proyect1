@@ -33,6 +33,7 @@ import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert';
 import OrdenMedicaModal from '@/components/client/OrdenMedicaModal';
 import FotoPerfilModal from '@/components/client/FotoPerfilModal';
+import BeneficiosModal from '@/components/client/BeneficiosModal';
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading, refreshUser } = useAuth();
@@ -316,6 +317,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Mis Créditos</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('beneficios')}>
+                        <Ionicons name="gift" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Beneficios</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
                         <FontAwesome6 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{ marginLeft: 1, marginRight: 1 }} />
                         <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
@@ -362,6 +368,12 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>
+
+            <BeneficiosModal
+                visible={activeModal === 'beneficios'}
+                onClose={() => setActiveModal(null)}
+                gymColor={gymColor}
+            />
 
             <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {

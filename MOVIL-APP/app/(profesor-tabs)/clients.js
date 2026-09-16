@@ -45,7 +45,7 @@ const ProfessorClientsScreen = () => {
     const [index, setIndex] = useState(0);
     const [routes] = useState([
         { key: 'clients', title: 'Clientes' },
-        { key: 'feedback', title: 'Feedback' },
+        { key: 'historial', title: 'Historial' },
     ]);
 
     const [users, setUsers] = useState([]);
@@ -204,28 +204,29 @@ const ProfessorClientsScreen = () => {
                 onPress={() => handleCardPress(item)}
                 onLongPress={() => toggleSelectionMode(item._id)}
                 delayLongPress={300}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
             >
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                        {item.fotoPerfil ? (
-                            <Image source={{ uri: item.fotoPerfil }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#eee' }} />
-                        ) : (
-                            <View style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: accent, justifyContent: 'center', alignItems: 'center' }}>
-                                <Ionicons name="person" size={22} color="#fff" />
-                            </View>
-                        )}
-                        <View style={{flex: 1}}>
-                            <Text style={styles.cardTitle}>{item.nombre} {item.apellido}</Text>
-                            <Text style={styles.cardSubtitle}>{item.email}</Text>
+                <View style={[styles.accentBar, { backgroundColor: accent }]} />
+                <View style={styles.cardBody}>
+                    {item.fotoPerfil ? (
+                        <Image source={{ uri: item.fotoPerfil }} style={styles.avatar} />
+                    ) : (
+                        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: accent }]}>
+                            <Ionicons name="person" size={20} color="#fff" />
                         </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre} {item.apellido}</Text>
+                        <Text style={styles.cardSubtitle} numberOfLines={1}>{item.email}</Text>
                     </View>
-                    {isSelectionMode && (
+                    {isSelectionMode ? (
                         <MaterialCommunityIcons 
                             name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
                             size={24} 
                             color={isSelected ? accent : Colors[colorScheme].icon} 
                         />
+                    ) : (
+                        <Ionicons name="chevron-forward" size={18} color={Colors[colorScheme].icon} />
                     )}
                 </View>
             </TouchableOpacity>
@@ -243,22 +244,28 @@ const ProfessorClientsScreen = () => {
 
         return (
             <View style={styles.feedbackCard}>
-                <View style={styles.feedbackTopRow}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.feedbackClient} numberOfLines={1}>{clientName}</Text>
-                        <Text style={styles.feedbackPlan} numberOfLines={1}>{planName}</Text>
+                <View style={[styles.accentBar, { backgroundColor: accent }]} />
+                <View style={styles.feedbackCardBody}>
+                    <View style={styles.feedbackTopRow}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={styles.feedbackClient} numberOfLines={1}>{clientName}</Text>
+                            <Text style={styles.feedbackPlan} numberOfLines={1}>{planName}</Text>
+                        </View>
+                        <StarRow rating={item.rating} accent={accent} />
                     </View>
-                    <StarRow rating={item.rating} accent={accent} />
+                    {!!item.comment && (
+                        <Text style={styles.feedbackComment}>{item.comment}</Text>
+                    )}
+                    {!item.comment && !item.rating && (
+                        <Text style={styles.feedbackCommentMuted}>Sin comentario</Text>
+                    )}
+                    {!!dateLabel && (
+                        <View style={styles.metaRow}>
+                            <Ionicons name="calendar-outline" size={12} color={Colors[colorScheme].icon} />
+                            <Text style={styles.feedbackDate}>{dateLabel}</Text>
+                        </View>
+                    )}
                 </View>
-                {!!item.comment && (
-                    <Text style={styles.feedbackComment}>{item.comment}</Text>
-                )}
-                {!item.comment && !item.rating && (
-                    <Text style={styles.feedbackCommentMuted}>Sin comentario</Text>
-                )}
-                {!!dateLabel && (
-                    <Text style={styles.feedbackDate}>{dateLabel}</Text>
-                )}
             </View>
         );
     };
@@ -312,7 +319,7 @@ const ProfessorClientsScreen = () => {
         </ThemedView>
     );
 
-    const renderFeedbackRoute = () => (
+    const renderHistorialRoute = () => (
         <ThemedView style={{ flex: 1 }}>
             <View style={styles.searchInputContainer}>
                 <TextInput
@@ -333,11 +340,11 @@ const ProfessorClientsScreen = () => {
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={accent} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="chatbubble-ellipses-outline" size={40} color={Colors[colorScheme].icon} style={{ marginBottom: 12 }} />
+                        <Ionicons name="time-outline" size={40} color={Colors[colorScheme].icon} style={{ marginBottom: 12 }} />
                         <Text style={styles.emptyText}>
                             {feedbackSearch
                                 ? 'No hay feedback que coincida.'
-                                : 'Cuando un cliente finalice un plan y deje feedback, lo vas a ver acá.'}
+                                : 'Acá vas a ver el historial de feedback de tus planes cuando los clientes los finalicen.'}
                         </Text>
                     </View>
                 }
@@ -349,8 +356,8 @@ const ProfessorClientsScreen = () => {
         switch (route.key) {
             case 'clients':
                 return renderClientsRoute();
-            case 'feedback':
-                return renderFeedbackRoute();
+            case 'historial':
+                return renderHistorialRoute();
             default:
                 return null;
         }
@@ -402,7 +409,7 @@ const ProfessorClientsScreen = () => {
                                 >
                                     {route.title}
                                 </Text>
-                                {route.key === 'feedback' && feedbacks.length > 0 && (
+                                {route.key === 'historial' && feedbacks.length > 0 && (
                                     <View style={styles.tabBadge}>
                                         <Text style={styles.tabBadgeText}>{feedbacks.length}</Text>
                                     </View>
@@ -431,7 +438,9 @@ const ProfessorClientsScreen = () => {
     );
 };
 
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+const getStyles = (colorScheme, gymColor) => {
+    const soft = colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : '#f7f8fa';
+    return StyleSheet.create({
     container: { flex: 1 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     selectionBar: {
@@ -445,24 +454,74 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderRadius: 12,
     },
     selectionText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-    searchInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginVertical: 10, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 10, borderWidth: 1, borderColor: Colors[colorScheme].border },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 15,
+        marginVertical: 10,
+        backgroundColor: soft,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+    },
     searchInput: { flex: 1, height: 50, paddingHorizontal: 15, color: Colors[colorScheme].text, fontSize: 16 },
     searchIcon: { marginRight: 15 },
-    card: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 14, padding: 18, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,  borderWidth: 1, borderColor: Colors[colorScheme].border},
-    cardSelected: { borderColor: gymColor, backgroundColor: gymColor + '10' },
-    cardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    cardSubtitle: { fontSize: 14, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 4 },
-    emptyContainer: { flex: 1, marginTop: 50, alignItems: 'center', paddingHorizontal: 20 },
-    emptyText: { fontSize: 16, color: Colors[colorScheme].icon, textAlign: 'center' },
-    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: gymColor, borderRadius: 30, elevation: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-    feedbackCard: {
-        backgroundColor: Colors[colorScheme].cardBackground,
-        borderRadius: 14,
-        padding: 16,
+    card: {
+        flexDirection: 'row',
+        backgroundColor: soft,
+        borderRadius: 16,
         marginVertical: 6,
         marginHorizontal: 15,
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
+        overflow: 'hidden',
+    },
+    cardSelected: { borderColor: gymColor, backgroundColor: gymColor + '10' },
+    accentBar: { width: 5 },
+    cardBody: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        gap: 12,
+    },
+    avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#eee' },
+    avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+    cardTitle: { fontSize: 16, fontWeight: '800', color: Colors[colorScheme].text },
+    cardSubtitle: { fontSize: 13, color: Colors[colorScheme].text, opacity: 0.65, marginTop: 3 },
+    emptyContainer: { flex: 1, marginTop: 50, alignItems: 'center', paddingHorizontal: 20 },
+    emptyText: { fontSize: 16, color: Colors[colorScheme].icon, textAlign: 'center' },
+    fab: {
+        position: 'absolute',
+        width: 60,
+        height: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+        right: 20,
+        bottom: 20,
+        backgroundColor: gymColor,
+        borderRadius: 30,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    feedbackCard: {
+        flexDirection: 'row',
+        backgroundColor: soft,
+        borderRadius: 16,
+        marginVertical: 6,
+        marginHorizontal: 15,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        overflow: 'hidden',
+    },
+    feedbackCardBody: {
+        flex: 1,
+        paddingVertical: 14,
+        paddingHorizontal: 12,
     },
     feedbackTopRow: {
         flexDirection: 'row',
@@ -492,8 +551,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontStyle: 'italic',
         color: Colors[colorScheme].icon,
     },
-    feedbackDate: {
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
         marginTop: 10,
+    },
+    feedbackDate: {
         fontSize: 12,
         fontWeight: '600',
         color: Colors[colorScheme].icon,
@@ -509,6 +573,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 4,
     },
     tabBadgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
-});
+    });
+};
 
 export default ProfessorClientsScreen;

@@ -1447,9 +1447,10 @@ const ManageClientsScreen = () => {
                                         style={dynamicStyles.creditsInput}
                                         value={planData.creditsToAdd}
                                         onChangeText={text => setPlanData(prev => ({ ...prev, creditsToAdd: text }))}
-                                        keyboardType="numeric"
                                         placeholder="Ej: 8 o -2"
                                         placeholderTextColor={Colors[colorScheme].icon}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
                                     />
 
                                     <TouchableOpacity

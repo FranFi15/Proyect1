@@ -1,54 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard, TouchableWithoutFeedback, ScrollView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import {
+    Modal,
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    TextInput,
+    FlatList,
+    Keyboard,
+    Pressable,
+    ScrollView,
+    Platform,
+} from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { Ionicons, FontAwesome5, MaterialCommunityIcons, Octicons, FontAwesome6 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, Octicons, FontAwesome6 } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
-
-// Importamos TU alerta personalizada
 import CustomAlert from '@/components/CustomAlert';
 
-// Fórmula de Brzycki
 const calculate1RM = (weight, reps) => {
     if (!weight || !reps) return 0;
     if (reps === 1) return weight;
     if (reps > 30) return 0;
-    return Math.round(weight / (1.0278 - (0.0278 * reps)));
+    return Math.round(weight / (1.0278 - 0.0278 * reps));
 };
 
-const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme, gymColor, onRecordsUpdate }) => {
-    const styles = getStyles(colorScheme, gymColor);
-    
-    const [tab, setTab] = useState('list'); 
-    const [records, setRecords] = useState(initialRecords);
-    
-    // --- ESTADOS DE EDICIÓN Y CÁLCULO ---
+const rmFromInputs = (weightText, repsText) => {
+    const w = parseFloat(weightText);
+    const r = parseFloat(repsText);
+    if (isNaN(w) || isNaN(r)) return '';
+    const calc = calculate1RM(w, r);
+    return calc > 0 ? String(calc) : '';
+};
+
+const RMCalculatorBody = ({
+    onClose,
+    initialRecords = [],
+    colorScheme,
+    gymColor,
+    onRecordsUpdate,
+}) => {
+    const styles = useMemo(() => getStyles(colorScheme, gymColor), [colorScheme, gymColor]);
+    const accent = gymColor || '#1a5276';
+
+    const [tab, setTab] = useState('list');
+    const [records, setRecords] = useState(() =>
+        Array.isArray(initialRecords) ? initialRecords : []
+    );
     const [editingIndex, setEditingIndex] = useState(null);
     const [exerciseName, setExerciseName] = useState('');
-    const [weightInput, setWeightInput] = useState(''); // Input Peso
-    const [repsInput, setRepsInput] = useState('');     // Input Repes
-    const [finalRM, setFinalRM] = useState('');         // El RM Final (Editable)
-
-    // Estado para Modal de Porcentajes
+    const [weightInput, setWeightInput] = useState('');
+    const [repsInput, setRepsInput] = useState('');
+    const [finalRM, setFinalRM] = useState('');
     const [percentageItem, setPercentageItem] = useState(null);
+    const [alertInfo, setAlertInfo] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: [],
+    });
 
-    // Estado para CustomAlert
-    const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
-
-    useEffect(() => {
-        setRecords(initialRecords);
-    }, [initialRecords]);
-
-    // Cálculo automático al escribir peso/repes
-    useEffect(() => {
-        const w = parseFloat(weightInput);
-        const r = parseFloat(repsInput);
-        if (!isNaN(w) && !isNaN(r)) {
-            const calc = calculate1RM(w, r);
-            if (calc > 0) setFinalRM(calc.toString());
-        }
-    }, [weightInput, repsInput]);
-
-    const closeAlert = () => setAlertInfo({ ...alertInfo, visible: false });
+    const closeAlert = () => setAlertInfo((prev) => ({ ...prev, visible: false }));
 
     const resetForm = () => {
         setExerciseName('');
@@ -58,10 +69,22 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         setEditingIndex(null);
     };
 
+    const handleWeightChange = (text) => {
+        setWeightInput(text);
+        const next = rmFromInputs(text, repsInput);
+        if (next) setFinalRM(next);
+    };
+
+    const handleRepsChange = (text) => {
+        setRepsInput(text);
+        const next = rmFromInputs(weightInput, text);
+        if (next) setFinalRM(next);
+    };
+
     const handleEdit = (item, index) => {
         setExerciseName(item.exercise);
-        setFinalRM(item.weight.toString());
-        setWeightInput(''); 
+        setFinalRM(String(item.weight));
+        setWeightInput('');
         setRepsInput('');
         setEditingIndex(index);
         setTab('calculator');
@@ -73,7 +96,7 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
                 visible: true,
                 title: 'Falta información',
                 message: 'Por favor ingresa nombre y valor de RM.',
-                buttons: [{ text: 'Entendido', onPress: closeAlert }]
+                buttons: [{ text: 'Entendido', onPress: closeAlert }],
             });
             return;
         }
@@ -82,45 +105,47 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
         if (isNaN(rmValue) || rmValue <= 0) return;
 
         const newRecord = {
-            exercise: exerciseName,
+            exercise: exerciseName.trim(),
             weight: rmValue,
-            date: new Date()
+            date: new Date(),
         };
 
-        let updatedList = [...records];
+        const previous = records;
+        const updatedList = [...records];
         if (editingIndex !== null) {
-            updatedList[editingIndex] = newRecord; 
+            updatedList[editingIndex] = newRecord;
         } else {
-            updatedList.push(newRecord); 
+            updatedList.push(newRecord);
         }
 
-        setRecords(updatedList); 
-        
+        setRecords(updatedList);
+
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
+            onRecordsUpdate?.(updatedList);
 
-            if (onRecordsUpdate) {
-            onRecordsUpdate(updatedList);
-        }
-            
             setAlertInfo({
                 visible: true,
                 title: editingIndex !== null ? 'Actualizado' : 'Guardado',
                 message: `RM para ${newRecord.exercise} registrado exitosamente.`,
-                buttons: [{ 
-                    text: 'Ver Lista', 
-                    onPress: () => {
-                        closeAlert();
-                        resetForm();
-                        setTab('list');
-                    }
-                }]
+                buttons: [
+                    {
+                        text: 'Ver Lista',
+                        onPress: () => {
+                            closeAlert();
+                            resetForm();
+                            setTab('list');
+                        },
+                    },
+                ],
             });
-
-        } catch (error) {
-            setRecords(records); // Revertir
+        } catch {
+            setRecords(previous);
             setAlertInfo({
-                visible: true, title: 'Error', message: 'No se pudo guardar.', buttons: [{ text: 'OK', onPress: closeAlert }]
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo guardar.',
+                buttons: [{ text: 'OK', onPress: closeAlert }],
             });
         }
     };
@@ -132,277 +157,471 @@ const RMCalculatorModal = ({ visible, onClose, initialRecords = [], colorScheme,
             message: '¿Estás seguro de que quieres eliminar este registro?',
             buttons: [
                 { text: 'Cancelar', style: 'cancel', onPress: closeAlert },
-                { text: 'Eliminar', style: 'destructive', onPress: () => { closeAlert(); handleDelete(index); } }
-            ]
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: () => {
+                        closeAlert();
+                        handleDelete(index);
+                    },
+                },
+            ],
         });
     };
 
     const handleDelete = async (index) => {
+        const previous = records;
         const updatedList = records.filter((_, i) => i !== index);
         setRecords(updatedList);
         try {
             await apiClient.put('/users/profile/rm', { rmRecords: updatedList });
-            if (onRecordsUpdate) {
-                onRecordsUpdate(updatedList);
-            }
-        } catch (error) { console.error(error); }
-    };
-
-    // Modal interno de Porcentajes
-    const renderPercentageModal = () => {
-        if (!percentageItem) return null;
-        const percentages = [105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 50];
-        
-        return (
-            <Modal visible={!!percentageItem} transparent={true} animationType="fade" onRequestClose={() => setPercentageItem(null)}>
-                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setPercentageItem(null)}>
-                    <View style={[styles.modalContainer, { height: 'auto', maxHeight: '85%', justifyContent: 'flex-start', paddingTop:0 }]}> 
-                        <View style={[styles.header, { borderBottomWidth: 1, borderColor: Colors[colorScheme].border, padding: 15 }]}>
-                            <View style={{flex:1}}>
-                                <Text style={[styles.recordTitle, {fontSize: 18}]}>{percentageItem.exercise}</Text>
-                                <Text style={{color: Colors[colorScheme].icon, fontSize:12}}>RM Base: {percentageItem.weight}kg</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setPercentageItem(null)}>
-                                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView contentContainerStyle={{padding: 15}}>
-                            <View style={styles.percentageGrid}>
-                                {percentages.map((p) => (
-                                    <View key={p} style={styles.percentageRow}>
-                                        <Text style={[styles.percentageLabel, p > 100 && {color: gymColor}]}>{p}%</Text>
-                                        <Text style={[styles.percentageValue, p > 100 && {color: gymColor, fontWeight:'bold'}]}>
-                                            {Math.round(percentageItem.weight * (p / 100))} kg
-                                        </Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </ScrollView>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-        );
+            onRecordsUpdate?.(updatedList);
+        } catch (error) {
+            console.error(error);
+            setRecords(previous);
+        }
     };
 
     return (
-        <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContainer, { borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
-                        
-                        {/* HEADER BANNER */}
-                        <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.headerBannerTitle}>Mis RMs</Text>
-                                <Text style={styles.headerBannerSub}>Calculadora y registros máximos</Text>
-                            </View>
-                            <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+                {/* Dismiss keyboard only when tapping the dimmed backdrop */}
+                <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        onClose?.();
+                    }}
+                />
+
+                <View
+                    style={[styles.modalContainer, { borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}
+                    // Stop backdrop press from bubbling into the sheet (critical on web).
+                    onStartShouldSetResponder={() => true}
+                >
+                    <View style={[styles.headerBanner, { backgroundColor: accent }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerBannerTitle}>Mis RMs</Text>
+                            <Text style={styles.headerBannerSub}>Calculadora y registros máximos</Text>
                         </View>
-
-                        {/* TABS */}
-                        <View style={styles.tabsContainer}>
-                            <TouchableOpacity 
-                                style={[styles.tab, tab === 'list' && styles.activeTab]} 
-                                onPress={() => { setTab('list'); resetForm(); }}
-                            >
-                                <Text style={[styles.tabText, tab === 'list' && styles.activeTabText]}>Mis RMs</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.tab, tab === 'calculator' && styles.activeTab]} 
-                                onPress={() => setTab('calculator')}
-                            >
-                                <Text style={[styles.tabText, tab === 'calculator' && styles.activeTabText]}>
-                                    {editingIndex !== null ? 'Editar' : 'Calculadora'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* CONTENIDO */}
-                        <View style={styles.content}>
-                            {tab === 'list' ? (
-                                <FlatList
-                                    data={records}
-                                    keyExtractor={(item, index) => index.toString()}
-                                    ListEmptyComponent={
-                                        <View style={{alignItems:'center', marginTop: 50}}>
-                                            <FontAwesome5 name="dumbbell" size={40} color={Colors[colorScheme].icon} style={{opacity:0.5}}/>
-                                            <Text style={styles.emptyText}>No tienes RMs guardados.</Text>
-                                            <TouchableOpacity onPress={() => setTab('calculator')} style={{marginTop: 10}}>
-                                                <Text style={{color: gymColor, fontWeight:'bold'}}>Calcular uno ahora</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    }
-                                    renderItem={({ item, index }) => (
-                                        <View style={styles.recordItem}>
-                                            <View style={{flex: 1}}>
-                                                <Text style={styles.recordTitle}>{item.exercise}</Text>
-                                                <Text style={styles.recordDate}>{new Date(item.date).toLocaleDateString()}</Text>
-                                            </View>
-
-                                            
-                                            <View style={styles.actionsContainer}>
-                                                {/* BOTÓN % TABLA */}
-                                                <TouchableOpacity style={styles.percentButton} onPress={() => setPercentageItem(item)}>
-                                                    <FontAwesome5 name="percentage" size={16} color={Colors[colorScheme].icon} />
-                                                </TouchableOpacity>
-
-                                                {/* PESO */}
-                                                <Text style={styles.recordWeight}>{item.weight} kg</Text>
-                                                
-                                                {/* EDITAR */}
-                                                <TouchableOpacity onPress={() => handleEdit(item, index)} style={{padding: 5, paddingRight: 0}}>
-                                                    <FontAwesome6 name="edit" size={18} color={Colors[colorScheme].icon} />
-                                                </TouchableOpacity>
-
-                                                {/* BORRAR */}
-                                                <TouchableOpacity onPress={() => confirmDelete(index)} style={{ padding: 5, paddingLeft: 0 }}>
-                                                    <Octicons name="trash" size={20} color="#ff4444" style={{opacity:0.8}} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    )}
-                                />
-                            ) : (
-                                <View style={{flex: 1}}>
-                                    <Text style={styles.label}>Ejercicio</Text>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        placeholder="Ej: Sentadilla, Press Banca..." 
-                                        placeholderTextColor={Colors[colorScheme].icon}
-                                        value={exerciseName}
-                                        onChangeText={setExerciseName}
-                                    />
-
-                                    <View style={{flexDirection:'row', gap: 15}}>
-                                        <View style={{flex: 1}}>
-                                            <Text style={styles.label}>Peso (kg)</Text>
-                                            <TextInput 
-                                                style={styles.input} 
-                                                keyboardType="numeric" 
-                                                placeholder="0" 
-                                                placeholderTextColor={Colors[colorScheme].icon}
-                                                value={weightInput}
-                                                onChangeText={setWeightInput}
-                                            />
-                                        </View>
-                                        <View style={{flex: 1}}>
-                                            <Text style={styles.label}>Repeticiones</Text>
-                                            <TextInput 
-                                                style={styles.input} 
-                                                keyboardType="numeric" 
-                                                placeholder="0" 
-                                                placeholderTextColor={Colors[colorScheme].icon}
-                                                value={repsInput}
-                                                onChangeText={setRepsInput}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    {/* RESULTADO EDITABLE */}
-                                    <View style={styles.resultBox}>
-                                        <Text style={styles.resultLabel}>RM Calculado</Text>
-                                        <View style={{flexDirection:'row', alignItems:'center', justifyContent:'center'}}>
-                                            <TextInput 
-                                                style={styles.resultInput}
-                                                value={finalRM}
-                                                onChangeText={setFinalRM}
-                                                keyboardType="numeric"
-                                                placeholder="0"
-                                                placeholderTextColor={Colors[colorScheme].text}
-                                            />
-                                            <Text style={{fontSize: 20, color: Colors[colorScheme].text, fontWeight:'bold'}}> kg</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.disclaimer}>*Usando la fórmula de Brzycki.</Text>
-
-                                    <TouchableOpacity style={styles.saveButton} onPress={handleSaveRM}>
-                                        <Text style={styles.saveButtonText}>{editingIndex !== null ? 'Actualizar RM' : 'Guardar RM'}</Text>
-                                    </TouchableOpacity>
-
-                                    {editingIndex !== null && (
-                                        <TouchableOpacity onPress={() => { resetForm(); setTab('list'); }} style={{marginTop:15, alignItems:'center'}}>
-                                            <Text style={{color: Colors[colorScheme].icon}}>Cancelar Edición</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            )}
-                        </View>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner} hitSlop={10}>
+                            <Ionicons name="close" size={24} color="#fff" />
+                        </TouchableOpacity>
                     </View>
 
-                    <CustomAlert 
-                        visible={alertInfo.visible}
-                        title={alertInfo.title}
-                        message={alertInfo.message}
-                        buttons={alertInfo.buttons}
-                        onClose={closeAlert}
-                        gymColor={gymColor}
-                    />
+                    <View style={styles.tabsContainer}>
+                        <TouchableOpacity
+                            style={[styles.tab, tab === 'list' && styles.activeTab]}
+                            onPress={() => {
+                                setTab('list');
+                                resetForm();
+                            }}
+                        >
+                            <Text style={[styles.tabText, tab === 'list' && styles.activeTabText]}>Mis RMs</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tab, tab === 'calculator' && styles.activeTab]}
+                            onPress={() => setTab('calculator')}
+                        >
+                            <Text style={[styles.tabText, tab === 'calculator' && styles.activeTabText]}>
+                                {editingIndex !== null ? 'Editar' : 'Calculadora'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
-                    {renderPercentageModal()}
+                    <View style={styles.content}>
+                        {tab === 'list' ? (
+                            <FlatList
+                                data={records}
+                                keyExtractor={(item, index) =>
+                                    `${item.exercise || 'rm'}-${item.date || index}-${index}`
+                                }
+                                keyboardShouldPersistTaps="handled"
+                                ListEmptyComponent={
+                                    <View style={{ alignItems: 'center', marginTop: 50 }}>
+                                        <FontAwesome5
+                                            name="dumbbell"
+                                            size={40}
+                                            color={Colors[colorScheme].icon}
+                                            style={{ opacity: 0.5 }}
+                                        />
+                                        <Text style={styles.emptyText}>No tienes RMs guardados.</Text>
+                                        <TouchableOpacity
+                                            onPress={() => setTab('calculator')}
+                                            style={{ marginTop: 10 }}
+                                        >
+                                            <Text style={{ color: accent, fontWeight: 'bold' }}>
+                                                Calcular uno ahora
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                }
+                                renderItem={({ item, index }) => (
+                                    <View style={styles.recordItem}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.recordTitle}>{item.exercise}</Text>
+                                            <Text style={styles.recordDate}>
+                                                {new Date(item.date).toLocaleDateString()}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.actionsContainer}>
+                                            <TouchableOpacity
+                                                style={styles.percentButton}
+                                                onPress={() => setPercentageItem(item)}
+                                            >
+                                                <FontAwesome5
+                                                    name="percentage"
+                                                    size={16}
+                                                    color={Colors[colorScheme].icon}
+                                                />
+                                            </TouchableOpacity>
+                                            <Text style={styles.recordWeight}>{item.weight} kg</Text>
+                                            <TouchableOpacity
+                                                onPress={() => handleEdit(item, index)}
+                                                style={{ padding: 5, paddingRight: 0 }}
+                                            >
+                                                <FontAwesome6
+                                                    name="edit"
+                                                    size={18}
+                                                    color={Colors[colorScheme].icon}
+                                                />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={() => confirmDelete(index)}
+                                                style={{ padding: 5, paddingLeft: 0 }}
+                                            >
+                                                <Octicons
+                                                    name="trash"
+                                                    size={20}
+                                                    color="#ff4444"
+                                                    style={{ opacity: 0.8 }}
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                )}
+                            />
+                        ) : (
+                            <ScrollView
+                                keyboardShouldPersistTaps="handled"
+                                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                                contentContainerStyle={{ paddingBottom: 24 }}
+                            >
+                                <Text style={styles.label}>Ejercicio</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Ej: Sentadilla, Press Banca..."
+                                    placeholderTextColor={Colors[colorScheme].icon}
+                                    value={exerciseName}
+                                    onChangeText={setExerciseName}
+                                    autoCorrect={false}
+                                />
+
+                                <View style={{ flexDirection: 'row', gap: 15 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.label}>Peso (kg)</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            placeholderTextColor={Colors[colorScheme].icon}
+                                            value={weightInput}
+                                            onChangeText={handleWeightChange}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.label}>Repeticiones</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            placeholderTextColor={Colors[colorScheme].icon}
+                                            value={repsInput}
+                                            onChangeText={handleRepsChange}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={styles.resultBox}>
+                                    <Text style={styles.resultLabel}>RM Calculado</Text>
+                                    <View
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <TextInput
+                                            style={styles.resultInput}
+                                            value={finalRM}
+                                            onChangeText={setFinalRM}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            placeholderTextColor={Colors[colorScheme].text}
+                                        />
+                                        <Text
+                                            style={{
+                                                fontSize: 20,
+                                                color: Colors[colorScheme].text,
+                                                fontWeight: 'bold',
+                                            }}
+                                        >
+                                            {' '}
+                                            kg
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.disclaimer}>*Usando la fórmula de Brzycki.</Text>
+
+                                <TouchableOpacity style={styles.saveButton} onPress={handleSaveRM}>
+                                    <Text style={styles.saveButtonText}>
+                                        {editingIndex !== null ? 'Actualizar RM' : 'Guardar RM'}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {editingIndex !== null && (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            resetForm();
+                                            setTab('list');
+                                        }}
+                                        style={{ marginTop: 15, alignItems: 'center' }}
+                                    >
+                                        <Text style={{ color: Colors[colorScheme].icon }}>
+                                            Cancelar Edición
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </ScrollView>
+                        )}
+                    </View>
                 </View>
-            </TouchableWithoutFeedback>
-        </Modal>
+
+                <CustomAlert
+                    visible={alertInfo.visible}
+                    title={alertInfo.title}
+                    message={alertInfo.message}
+                    buttons={alertInfo.buttons}
+                    onClose={closeAlert}
+                    gymColor={accent}
+                />
+
+                <Modal
+                    visible={!!percentageItem}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setPercentageItem(null)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            onPress={() => setPercentageItem(null)}
+                        />
+                        <View
+                            style={[
+                                styles.modalContainer,
+                                { height: 'auto', maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+                            ]}
+                            onStartShouldSetResponder={() => true}
+                        >
+                            <View
+                                style={[
+                                    styles.header,
+                                    {
+                                        borderBottomWidth: 1,
+                                        borderColor: Colors[colorScheme].border,
+                                        padding: 15,
+                                    },
+                                ]}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.recordTitle, { fontSize: 18 }]}>
+                                        {percentageItem?.exercise}
+                                    </Text>
+                                    <Text style={{ color: Colors[colorScheme].icon, fontSize: 12 }}>
+                                        RM Base: {percentageItem?.weight}kg
+                                    </Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setPercentageItem(null)}>
+                                    <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView contentContainerStyle={{ padding: 15 }}>
+                                <View style={styles.percentageGrid}>
+                                    {[105, 100, 95, 90, 85, 80, 75, 70, 65, 60, 50].map((p) => (
+                                        <View key={p} style={styles.percentageRow}>
+                                            <Text
+                                                style={[
+                                                    styles.percentageLabel,
+                                                    p > 100 && { color: accent },
+                                                ]}
+                                            >
+                                                {p}%
+                                            </Text>
+                                            <Text
+                                                style={[
+                                                    styles.percentageValue,
+                                                    p > 100 && { color: accent, fontWeight: 'bold' },
+                                                ]}
+                                            >
+                                                {Math.round((percentageItem?.weight || 0) * (p / 100))} kg
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
     );
 };
 
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', },
-    modalContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, height: '85%', overflow: 'hidden' },
-    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingRight: 15, paddingTop: 10, },
-    tabsContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
-    tab: { flex: 1, padding: 15, alignItems: 'center' },
-    activeTab: { borderBottomWidth: 2, borderBottomColor: gymColor },
-    tabText: { color: Colors[colorScheme].icon, fontWeight: '600' },
-    activeTabText: { color: gymColor, fontWeight: 'bold' },
-    content: { flex: 1, padding: 20 },
-    emptyText: { color: Colors[colorScheme].text, marginTop: 10, fontSize: 16 },
-    
-    // LISTA
-    recordItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
-    recordTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
-    recordDate: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
-    actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, },
-    percentButton: { backgroundColor: gymColor + '20', padding: 6, borderRadius: 5 },
-    recordWeight: { fontSize: 18, fontWeight: 'bold', color: gymColor, minWidth: 40, textAlign:'right' },
-    
-    // CALCULADORA
-    label: { color: Colors[colorScheme].text, marginBottom: 5, fontWeight:'600' },
-    input: { backgroundColor: Colors[colorScheme].inputBackground, color: Colors[colorScheme].text, padding: 12, borderRadius: 5, marginBottom: 15, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    resultBox: { backgroundColor: Colors[colorScheme].cardBackground, padding: 20, borderRadius: 5, alignItems: 'center', marginVertical: 10, borderWidth: 1, borderColor: gymColor + '40' },
-    resultLabel: { color: Colors[colorScheme].text, fontSize: 14, marginBottom: 5 },
-    resultInput: { fontSize: 32, fontWeight: 'bold', color: Colors[colorScheme].text, minWidth: 30, textAlign:'center',  },
-    saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-    saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    disclaimer: { color: Colors[colorScheme].icon, fontSize: 10, textAlign: 'center', marginTop: 10, marginBottom:10 },
+const RMCalculatorModal = ({
+    visible,
+    onClose,
+    initialRecords,
+    colorScheme,
+    gymColor,
+    onRecordsUpdate,
+}) => (
+    <Modal
+        visible={!!visible}
+        animationType="fade"
+        transparent
+        onRequestClose={onClose}
+        statusBarTranslucent
+    >
+        {visible ? (
+            <RMCalculatorBody
+                onClose={onClose}
+                initialRecords={initialRecords}
+                colorScheme={colorScheme}
+                gymColor={gymColor}
+                onRecordsUpdate={onRecordsUpdate}
+            />
+        ) : null}
+    </Modal>
+);
 
-    // TABLA PORCENTAJES
-    percentageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', padding: 10 },
-    percentageRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderBottomWidth: 1, borderColor: Colors[colorScheme].border },
-    percentageLabel: { color: Colors[colorScheme].text, fontWeight: '600' },
-    percentageValue: { color: Colors[colorScheme].text },
-    headerBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 20,
-        justifyContent: 'space-between',
-    },
-    headerBannerTitle: {
-        fontSize: 19,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    headerBannerSub: {
-        fontSize: 13,
-        color: '#fff',
-        opacity: 0.85,
-        marginTop: 2,
-    },
-    closeButtonBanner: {
-        padding: 4,
-    }
-});
+const getStyles = (colorScheme, gymColor) =>
+    StyleSheet.create({
+        modalOverlay: {
+            flex: 1,
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+        },
+        modalContainer: {
+            backgroundColor: Colors[colorScheme].background,
+            borderTopLeftRadius: 5,
+            borderTopRightRadius: 5,
+            height: '85%',
+            overflow: 'hidden',
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            paddingRight: 15,
+            paddingTop: 10,
+        },
+        tabsContainer: {
+            flexDirection: 'row',
+            borderBottomWidth: 1,
+            borderBottomColor: Colors[colorScheme].border,
+        },
+        tab: { flex: 1, padding: 15, alignItems: 'center' },
+        activeTab: { borderBottomWidth: 2, borderBottomColor: gymColor },
+        tabText: { color: Colors[colorScheme].icon, fontWeight: '600' },
+        activeTabText: { color: gymColor, fontWeight: 'bold' },
+        content: { flex: 1, padding: 20 },
+        emptyText: { color: Colors[colorScheme].text, marginTop: 10, fontSize: 16 },
+        recordItem: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 15,
+            borderBottomWidth: 1,
+            borderBottomColor: Colors[colorScheme].border,
+        },
+        recordTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
+        recordDate: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
+        actionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+        percentButton: { backgroundColor: gymColor + '20', padding: 6, borderRadius: 5 },
+        recordWeight: {
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: gymColor,
+            minWidth: 40,
+            textAlign: 'right',
+        },
+        label: { color: Colors[colorScheme].text, marginBottom: 5, fontWeight: '600' },
+        input: {
+            backgroundColor: Colors[colorScheme].inputBackground,
+            color: Colors[colorScheme].text,
+            padding: 12,
+            borderRadius: 5,
+            marginBottom: 15,
+            borderWidth: 1,
+            borderColor: Colors[colorScheme].border,
+        },
+        resultBox: {
+            backgroundColor: Colors[colorScheme].cardBackground,
+            padding: 20,
+            borderRadius: 5,
+            alignItems: 'center',
+            marginVertical: 10,
+            borderWidth: 1,
+            borderColor: gymColor + '40',
+        },
+        resultLabel: { color: Colors[colorScheme].text, fontSize: 14, marginBottom: 5 },
+        resultInput: {
+            fontSize: 32,
+            fontWeight: 'bold',
+            color: Colors[colorScheme].text,
+            minWidth: 30,
+            textAlign: 'center',
+        },
+        saveButton: {
+            backgroundColor: gymColor,
+            padding: 15,
+            borderRadius: 5,
+            alignItems: 'center',
+            marginTop: 10,
+        },
+        saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+        disclaimer: {
+            color: Colors[colorScheme].icon,
+            fontSize: 10,
+            textAlign: 'center',
+            marginTop: 10,
+            marginBottom: 10,
+        },
+        percentageGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            padding: 10,
+        },
+        percentageRow: {
+            width: '100%',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            padding: 10,
+            borderBottomWidth: 1,
+            borderColor: Colors[colorScheme].border,
+        },
+        percentageLabel: { color: Colors[colorScheme].text, fontWeight: '600' },
+        percentageValue: { color: Colors[colorScheme].text },
+        headerBanner: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 18,
+            paddingHorizontal: 20,
+            justifyContent: 'space-between',
+        },
+        headerBannerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
+        headerBannerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },
+        closeButtonBanner: { padding: 4 },
+    });
 
 export default RMCalculatorModal;

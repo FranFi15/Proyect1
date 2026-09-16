@@ -93,7 +93,7 @@ const PlanDetailBody = ({
             setLocalAlert({
                 visible: true,
                 title: '¡Gracias!',
-                message: 'Tu feedback se envió al profesor.',
+                message: 'Tu feedback quedó guardado en el historial del profesor.',
                 buttons: [
                     {
                         text: 'OK',
@@ -195,7 +195,7 @@ const PlanDetailBody = ({
                         >
                             <Text style={styles.feedbackTitle}>¿Cómo te fue?</Text>
                             <Text style={styles.feedbackHint}>
-                                Tu profesor recibe una notificación con este feedback.
+                                Tu profesor va a ver este feedback en el historial de planes.
                             </Text>
 
                             <Text style={styles.feedbackLabel}>Calificación</Text>

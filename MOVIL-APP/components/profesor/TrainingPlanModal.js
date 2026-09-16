@@ -141,16 +141,45 @@ const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme
     const styles = getStyles(colorScheme, gymColor);
     
     const renderItem = ({ item }) => (
-        <View style={styles.planCard}>
-            <View style={{ flex: 1 }}>
-                <Text style={styles.planTitle}>{item.name}</Text>
-                <Text style={styles.planDate}>Creado: {new Date(item.createdAt).toLocaleDateString()}</Text>
+        <TouchableOpacity
+            style={styles.planCard}
+            onPress={() => onEdit(item)}
+            activeOpacity={0.85}
+        >
+            <View style={[styles.accentBar, { backgroundColor: gymColor || '#1a5276' }]} />
+            <View style={styles.planCardBody}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.planTitle} numberOfLines={2}>{item.name}</Text>
+                    {!!item.description && (
+                        <Text style={styles.planDesc} numberOfLines={2}>{item.description}</Text>
+                    )}
+                    <View style={styles.planMetaRow}>
+                        <Ionicons name="calendar-outline" size={12} color={Colors[colorScheme].icon} />
+                        <Text style={styles.planDate}>
+                            {item.createdAt
+                                ? format(new Date(item.createdAt), 'dd/MM/yyyy')
+                                : 'Sin fecha'}
+                        </Text>
+                        {item.isVisibleToUser ? (
+                            <View style={[styles.planPill, { backgroundColor: (gymColor || '#1a5276') + '22' }]}>
+                                <Text style={[styles.planPillText, { color: gymColor || '#1a5276' }]}>Visible</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.planPillMuted}>
+                                <Text style={styles.planPillMutedText}>Oculto</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+                <TouchableOpacity onPress={() => onEdit(item)} style={styles.iconBtn} hitSlop={8}>
+                    <FontAwesome6 name="edit" size={18} color={gymColor || '#1a5276'} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(item._id)} style={styles.iconBtn} hitSlop={8}>
+                    <Octicons name="trash" size={18} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={18} color={Colors[colorScheme].icon} />
             </View>
-            <View style={styles.planActions}>
-                <TouchableOpacity onPress={() => onEdit(item)}><FontAwesome6 name="edit" size={21} color={gymColor} /></TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(item._id)}><Octicons name="trash" size={24} color={Colors[colorScheme].text} /></TouchableOpacity>
-            </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -187,15 +216,74 @@ const PlanList = ({ plans, onEdit, onDelete, onDeleteAll, onNewPlan, colorScheme
     );
 };
 
+const ClientFeedbackHistorial = ({ feedbacks, colorScheme, gymColor }) => {
+    const styles = getStyles(colorScheme, gymColor);
+    const accent = gymColor || '#1a5276';
+
+    const renderItem = ({ item }) => (
+        <View style={styles.feedbackCard}>
+            <View style={[styles.accentBar, { backgroundColor: accent }]} />
+            <View style={styles.feedbackCardBody}>
+                <View style={styles.feedbackTopRow}>
+                    <Text style={styles.feedbackPlanName} numberOfLines={1}>
+                        {item.plan?.name || 'Plan'}
+                    </Text>
+                    {!!item.rating && (
+                        <View style={{ flexDirection: 'row', gap: 2 }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <Ionicons
+                                    key={star}
+                                    name={star <= item.rating ? 'star' : 'star-outline'}
+                                    size={14}
+                                    color={star <= item.rating ? accent : '#9aa0a6'}
+                                />
+                            ))}
+                        </View>
+                    )}
+                </View>
+                {!!item.comment ? (
+                    <Text style={styles.feedbackComment}>{item.comment}</Text>
+                ) : (
+                    <Text style={styles.feedbackCommentMuted}>Sin comentario</Text>
+                )}
+                <View style={styles.planMetaRow}>
+                    <Ionicons name="calendar-outline" size={12} color={Colors[colorScheme].icon} />
+                    <Text style={styles.feedbackDate}>
+                        {item.updatedAt
+                            ? format(new Date(item.updatedAt), 'dd/MM/yyyy HH:mm')
+                            : ''}
+                    </Text>
+                </View>
+            </View>
+        </View>
+    );
+
+    return (
+        <FlatList
+            data={feedbacks}
+            renderItem={renderItem}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+            ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                    Este cliente todavía no dejó feedback en sus planes.
+                </Text>
+            }
+        />
+    );
+};
+
 const TrainingPlanModal = ({ clients, visible, onClose }) => {
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
     const [plans, setPlans] = useState([]);
+    const [feedbacks, setFeedbacks] = useState([]);
     const [availableClasses, setAvailableClasses] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState('list'); 
+    const [listTab, setListTab] = useState('planes'); // planes | historial
     const [currentPlan, setCurrentPlan] = useState(null);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [targetConfig, setTargetConfig] = useState({ type: 'manual', id: null, name: '' });
@@ -208,12 +296,19 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
         setLoading(true);
         try {
             if (isSingleClient) {
-                const plansRes = await apiClient.get(`/plans/user/${clients[0]._id}`);
-                setPlans(plansRes.data);
-                setView('list'); 
+                const userId = clients[0]._id;
+                const [plansRes, feedbackRes] = await Promise.all([
+                    apiClient.get(`/plans/user/${userId}`),
+                    apiClient.get(`/plans/feedback?userId=${userId}`),
+                ]);
+                setPlans(plansRes.data || []);
+                setFeedbacks(feedbackRes.data || []);
+                setView('list');
+                setListTab('planes');
             } 
             else {
                 setPlans([]);
+                setFeedbacks([]);
                 setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false });
                 setView('newPlan'); 
 
@@ -368,14 +463,63 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                 );
             default: 
                 return (
-                    <PlanList 
-                        plans={plans} 
-                        onEdit={(p) => { setCurrentPlan(p); setView('editPlan'); }} 
-                        onDelete={handleDeletePlan} 
-                        onDeleteAll={handleDeleteAll}
-                        onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} 
-                        colorScheme={colorScheme} 
-                    />
+                    <View style={{ flex: 1 }}>
+                        {isSingleClient && (
+                            <View style={styles.listTabRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.listTabBtn,
+                                        listTab === 'planes' && { backgroundColor: gymColor || '#1a5276' },
+                                    ]}
+                                    onPress={() => setListTab('planes')}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.listTabText,
+                                            listTab === 'planes' && styles.listTabTextActive,
+                                        ]}
+                                    >
+                                        Planes
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.listTabBtn,
+                                        listTab === 'historial' && { backgroundColor: gymColor || '#1a5276' },
+                                    ]}
+                                    onPress={() => setListTab('historial')}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.listTabText,
+                                            listTab === 'historial' && styles.listTabTextActive,
+                                        ]}
+                                    >
+                                        Historial{feedbacks.length > 0 ? ` (${feedbacks.length})` : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {listTab === 'historial' && isSingleClient ? (
+                            <ClientFeedbackHistorial
+                                feedbacks={feedbacks}
+                                colorScheme={colorScheme}
+                                gymColor={gymColor}
+                            />
+                        ) : (
+                            <PlanList 
+                                plans={plans} 
+                                onEdit={(p) => { setCurrentPlan(p); setView('editPlan'); }} 
+                                onDelete={handleDeletePlan} 
+                                onDeleteAll={handleDeleteAll}
+                                onNewPlan={() => { setCurrentPlan({ name: '', description: '', content: '', isVisibleToUser: false }); setView('newPlan'); }} 
+                                colorScheme={colorScheme} 
+                            />
+                        )}
+                    </View>
                 );
         }
     };
@@ -389,7 +533,9 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                             <Text style={styles.headerBannerTitle}>
                                 {isSingleClient ? `Planes de ${clients[0].nombre}` : `Gestión de Planes`}
                             </Text>
-                            <Text style={styles.headerBannerSub}>Asignación y rutinas</Text>
+                            <Text style={styles.headerBannerSub}>
+                                {isSingleClient ? 'Planes y feedback del cliente' : 'Asignación y rutinas'}
+                            </Text>
                         </View>
                         <TouchableOpacity onPress={() => onClose()} style={styles.closeButtonBanner}>
                             <Ionicons name="close" size={24} color="#fff" />
@@ -443,18 +589,67 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     );
 };
 
-const getStyles = (colorScheme, gymColor) => StyleSheet.create({
+const getStyles = (colorScheme, gymColor) => {
+    const soft = colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : '#f7f8fa';
+    return StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContainer: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 10, borderTopRightRadius: 10, padding: 15 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    planCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, padding: 20, marginVertical: 6, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41,  borderWidth: 1, borderColor: Colors[colorScheme].border },
-    planTitle: { fontSize: 16, fontWeight: '600', color: Colors[colorScheme].text },
-    planDate: { fontSize: 12, opacity: 0.6, marginTop: 4, color: Colors[colorScheme].text },
+    planCard: {
+        flexDirection: 'row',
+        backgroundColor: soft,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        marginBottom: 10,
+        overflow: 'hidden',
+    },
+    accentBar: { width: 5 },
+    planCardBody: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        gap: 10,
+    },
+    planTitle: { fontSize: 16, fontWeight: '800', color: Colors[colorScheme].text },
+    planDesc: {
+        marginTop: 3,
+        fontSize: 13,
+        color: Colors[colorScheme].text,
+        opacity: 0.65,
+        lineHeight: 18,
+    },
+    planMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 6,
+        flexWrap: 'wrap',
+    },
+    planDate: { fontSize: 12, opacity: 0.7, color: Colors[colorScheme].icon, fontWeight: '500' },
+    planPill: {
+        marginLeft: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 999,
+    },
+    planPillText: { fontSize: 11, fontWeight: '800' },
+    planPillMuted: {
+        marginLeft: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 999,
+        backgroundColor: Colors[colorScheme].border,
+    },
+    planPillMutedText: { fontSize: 11, fontWeight: '700', color: Colors[colorScheme].icon },
+    iconBtn: { padding: 6 },
     planActions: { flexDirection: 'row', gap: 15, marginTop: 5 },
     footerContainer: { marginTop: 10, marginBottom: 20 },
     footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 20, gap: 10 },
-    button: { padding: 12, borderRadius: 5, alignItems: 'center', backgroundColor: gymColor, justifyContent: 'center' },
+    button: { padding: 12, borderRadius: 14, alignItems: 'center', backgroundColor: gymColor, justifyContent: 'center' },
     buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors[colorScheme].border },
     buttonTextSecondary: { color: Colors[colorScheme].text },
@@ -469,11 +664,9 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     listItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border },
     listItemText: { color: Colors[colorScheme].text, fontSize: 16 },
     listItemSubtext: { color: Colors[colorScheme].text, opacity: 0.7, fontSize: 12 },
-    
-    // --- ESTILO NUEVO: BOTÓN DE PLANTILLAS ---
     templateButton: {
         flexDirection: 'row',
-        backgroundColor: '#34495e', 
+        backgroundColor: '#34495e',
         padding: 12,
         borderRadius: 8,
         alignItems: 'center',
@@ -486,6 +679,72 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         marginLeft: 10,
         fontSize: 16
+    },
+    listTabRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 12,
+    },
+    listTabBtn: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        backgroundColor: soft,
+    },
+    listTabText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors[colorScheme].text,
+    },
+    listTabTextActive: {
+        color: '#fff',
+    },
+    feedbackCard: {
+        flexDirection: 'row',
+        backgroundColor: soft,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        marginBottom: 10,
+        overflow: 'hidden',
+    },
+    feedbackCardBody: {
+        flex: 1,
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+    },
+    feedbackTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        marginBottom: 6,
+    },
+    feedbackPlanName: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '800',
+        color: Colors[colorScheme].text,
+    },
+    feedbackComment: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: Colors[colorScheme].text,
+        opacity: 0.85,
+    },
+    feedbackCommentMuted: {
+        fontSize: 13,
+        fontStyle: 'italic',
+        color: Colors[colorScheme].icon,
+    },
+    feedbackDate: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors[colorScheme].icon,
     },
     headerBanner: {
         flexDirection: 'row',
@@ -506,8 +765,14 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         marginTop: 2,
     },
     closeButtonBanner: {
-        padding: 4,
-    }
-});
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    });
+};
 
 export default TrainingPlanModal;

@@ -1,6 +1,5 @@
 import asyncHandler from 'express-async-handler'; 
 import getModels from '../utils/getModels.js';
-import { sendSingleNotification } from './notificationController.js';
 
 const createTemplate = asyncHandler(async (req, res) => {
     const { TrainingTemplate } = getModels(req.gymDBConnection);
@@ -199,7 +198,7 @@ const getMyVisiblePlans = asyncHandler(async (req, res) => {
 });
 
 const submitPlanFeedback = asyncHandler(async (req, res) => {
-    const { TrainingPlan, PlanFeedback, User, Notification } = getModels(req.gymDBConnection);
+    const { TrainingPlan, PlanFeedback } = getModels(req.gymDBConnection);
     const { rating, comment } = req.body;
     const plan = await TrainingPlan.findById(req.params.planId);
 
@@ -252,38 +251,18 @@ const submitPlanFeedback = asyncHandler(async (req, res) => {
         });
     }
 
-    const clientName = `${req.user.nombre || ''} ${req.user.apellido || ''}`.trim() || 'Un cliente';
-    const title = isUpdate ? 'Feedback actualizado' : 'Nuevo feedback de entrenamiento';
-    const stars = normalizedRating ? ` · ${normalizedRating}/5` : '';
-    const preview = normalizedComment
-        ? (normalizedComment.length > 120 ? `${normalizedComment.slice(0, 117)}...` : normalizedComment)
-        : 'Sin comentario';
-    const message = `${clientName} finalizó "${plan.name}"${stars}: ${preview}`;
-
-    try {
-        if (professorId) {
-            await sendSingleNotification(
-                Notification,
-                User,
-                professorId,
-                title,
-                message,
-                'plan_feedback',
-                false
-            );
-        }
-    } catch (notifyErr) {
-        console.error('Error notificando feedback de plan:', notifyErr?.message || notifyErr);
-    }
-
     res.status(isUpdate ? 200 : 201).json(feedback);
 });
 
 const getPlanFeedbacks = asyncHandler(async (req, res) => {
     const { PlanFeedback } = getModels(req.gymDBConnection);
     const isAdmin = req.user.roles?.includes('admin');
+    const { userId } = req.query;
 
     const filter = isAdmin ? {} : { professor: req.user._id };
+    if (userId) {
+        filter.user = userId;
+    }
 
     const feedbacks = await PlanFeedback.find(filter)
         .populate('user', 'nombre apellido fotoPerfil email')

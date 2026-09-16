@@ -12,17 +12,34 @@ const apiClient = axios.create({
 
 let isLoggingOut = false;
 
-// Interceptor para añadir el token de autorización
+// Interceptor para añadir el token de autorización y el tenant del gym
 apiClient.interceptors.request.use(
-    async (config) => {
-        const userString = await AsyncStorage.getItem('user');
+    async (requestConfig) => {
+        requestConfig.headers = requestConfig.headers || {};
+
+        const [userString, storedClientId] = await Promise.all([
+            AsyncStorage.getItem('user'),
+            AsyncStorage.getItem('clientId'),
+        ]);
+
         if (userString) {
-            const user = JSON.parse(userString);
-            if (user && user.token) {
-                config.headers.Authorization = `Bearer ${user.token}`;
+            try {
+                const user = JSON.parse(userString);
+                if (user?.token) {
+                    requestConfig.headers.Authorization = `Bearer ${user.token}`;
+                }
+            } catch (e) {
+                console.warn('No se pudo parsear el usuario guardado para Authorization');
             }
         }
-        return config;
+
+        // Always attach tenant header from storage so polling/hot-reload
+        // never race AuthContext defaults.
+        if (storedClientId) {
+            requestConfig.headers['x-client-id'] = storedClientId;
+        }
+
+        return requestConfig;
     },
     (error) => {
         return Promise.reject(error);

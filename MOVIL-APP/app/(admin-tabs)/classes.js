@@ -28,8 +28,7 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { format, parseISO, isBefore, startOfDay, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import WebDatePicker from '@/components/WebDatePicker';
 
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
@@ -449,7 +448,7 @@ const ManageClassesScreen = () => {
 
         if (Platform.OS === 'web') {
             return (
-                <DatePicker
+                <WebDatePicker
                     selected={value ? parseISO(value) : null}
                     onChange={onConfirmCallback}
                     dateFormat="dd/MM/yyyy"

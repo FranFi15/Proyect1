@@ -43,6 +43,11 @@ export async function registerForPushNotificationsAsync() {
     return { status: 'unavailable', token: null };
   }
 
+  // Admins mostly use web; Expo web push needs vapidPublicKey and is not required.
+  if (Platform.OS === 'web') {
+    return { status: 'unavailable', token: null };
+  }
+
   if (!Device.isDevice) {
     throw new Error('Las notificaciones push solo funcionan en dispositivos físicos.');
   }
