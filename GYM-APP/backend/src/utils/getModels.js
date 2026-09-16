@@ -17,6 +17,7 @@ import getSucursalModel from '../models/Sucursal.js';
 import getReviewModel from '../models/Review.js';
 import getStoreItemModel from '../models/StoreItem.js';
 import getStoreOrderModel from '../models/StoreOrder.js';
+import getBenefitModel from '../models/Benefit.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -46,6 +47,7 @@ const getModels = (dbConnection) => {
         SentNotification: getSentNotificationModel(dbConnection),
         StoreItem: getStoreItemModel(dbConnection),
         StoreOrder: getStoreOrderModel(dbConnection),
+        Benefit: getBenefitModel(dbConnection),
     };
 
     return models;
