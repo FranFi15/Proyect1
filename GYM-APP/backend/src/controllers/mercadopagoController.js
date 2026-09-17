@@ -5,9 +5,27 @@ import getModels from '../utils/getModels.js';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 
-const MP_APP_ID = process.env.MP_APP_ID;
-const MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET;
-const MP_REDIRECT_URI = process.env.MP_REDIRECT_URI;
+const getMpAppCredentials = () => ({
+    clientId: String(process.env.MP_APP_ID || '').trim(),
+    clientSecret: String(process.env.MP_CLIENT_SECRET || '').trim(),
+    redirectUri: String(process.env.MP_REDIRECT_URI || '').trim(),
+});
+
+const exchangeMpOAuthToken = async (body) => {
+    // Mercado Pago expects JSON for /oauth/token. Sending a plain object with
+    // x-www-form-urlencoded makes credentials unreadable → invalid_client.
+    const response = await axios.post(
+        'https://api.mercadopago.com/oauth/token',
+        body,
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        }
+    );
+    return response.data;
+};
 
 const CURRENCY_BY_COUNTRY = {
     Argentina: 'ARS',
@@ -53,19 +71,18 @@ const getMpSettings = async (Settings) => {
 };
 
 const refreshMpAccessToken = async (settings) => {
-    const tokenResponse = await axios.post('https://api.mercadopago.com/oauth/token', {
-        client_secret: MP_CLIENT_SECRET,
-        client_id: MP_APP_ID,
+    const { clientId, clientSecret } = getMpAppCredentials();
+    if (!clientId || !clientSecret) {
+        throw new Error('Credenciales OAuth de Mercado Pago incompletas en el servidor.');
+    }
+
+    const { access_token, refresh_token, public_key } = await exchangeMpOAuthToken({
+        client_secret: clientSecret,
+        client_id: clientId,
         grant_type: 'refresh_token',
-        refresh_token: settings.mercadoPago.refreshToken
-    }, {
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-        }
+        refresh_token: settings.mercadoPago.refreshToken,
     });
 
-    const { access_token, refresh_token, public_key } = tokenResponse.data;
     settings.mercadoPago.accessToken = access_token;
     if (refresh_token) settings.mercadoPago.refreshToken = refresh_token;
     if (public_key) settings.mercadoPago.publicKey = public_key;
@@ -95,15 +112,16 @@ const encodeOAuthState = (payload) => Buffer.from(JSON.stringify(payload)).toStr
 
 const linkMercadoPago = asyncHandler(async (req, res) => {
     const gymId = req.gymId;
+    const { clientId, clientSecret, redirectUri } = getMpAppCredentials();
 
-    if (!MP_APP_ID || !MP_REDIRECT_URI) {
+    if (!clientId || !clientSecret || !redirectUri) {
         res.status(500);
         throw new Error('Credenciales de la aplicación SaaS de Mercado Pago no configuradas en el servidor.');
     }
 
     const returnUrl = isSafeReturnUrl(req.query.returnUrl) ? req.query.returnUrl : 'gain-wellness://mp-oauth';
     const state = encodeOAuthState({ gymId, returnUrl });
-    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${MP_APP_ID}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(MP_REDIRECT_URI)}`;
+    const authUrl = `https://auth.mercadopago.com/authorization?client_id=${encodeURIComponent(clientId)}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
     res.json({ url: authUrl });
 });
@@ -113,27 +131,27 @@ const mercadoPagoCallback = asyncHandler(async (req, res) => {
     const { gymId, returnUrl } = parseOAuthState(state);
     const appReturn = isSafeReturnUrl(returnUrl) ? returnUrl : 'gain-wellness://mp-oauth';
     const separator = appReturn.includes('?') ? '&' : '?';
+    const { clientId, clientSecret, redirectUri } = getMpAppCredentials();
 
     if (error || !code || !gymId) {
         console.error('Error en la vinculación de MP:', error || 'faltan parámetros');
         return res.redirect(`${appReturn}${separator}success=0&error=mp_auth_failed`);
     }
 
+    if (!clientId || !clientSecret || !redirectUri) {
+        console.error('Error obteniendo el token de MP: faltan MP_APP_ID / MP_CLIENT_SECRET / MP_REDIRECT_URI');
+        return res.redirect(`${appReturn}${separator}success=0&error=token_exchange_failed`);
+    }
+
     try {
-        const tokenResponse = await axios.post('https://api.mercadopago.com/oauth/token', {
-            client_secret: MP_CLIENT_SECRET,
-            client_id: MP_APP_ID,
+        const { access_token, refresh_token, public_key, user_id } = await exchangeMpOAuthToken({
+            client_secret: clientSecret,
+            client_id: clientId,
             grant_type: 'authorization_code',
             code,
-            redirect_uri: MP_REDIRECT_URI
-        }, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
-            }
+            redirect_uri: redirectUri,
         });
 
-        const { access_token, refresh_token, public_key, user_id } = tokenResponse.data;
         const { connection } = await connectToGymDB(gymId);
         if (!connection) throw new Error('No se pudo conectar a la base de datos del cliente.');
 
