@@ -6,6 +6,12 @@ import {
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { format } from 'date-fns';
+import es from 'date-fns/locale/es';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const colorScheme = useColorScheme() ?? 'light';
@@ -20,9 +26,11 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
     const [reviewsPublic, setReviewsPublic] = useState(false);
+    const [mpStatus, setMpStatus] = useState({ isLinked: false, linkedAt: null });
+    const [mpBusy, setMpBusy] = useState(false);
 
     const [internalAlert, setInternalAlert] = useState({ visible: false, title: '', message: '', buttons: [] });
-    const [activeTab, setActiveTab] = useState('calendario'); // 'calendario' | 'resenas' | 'bienvenida' | 'bancos'
+    const [activeTab, setActiveTab] = useState('calendario'); // 'calendario' | 'resenas' | 'bienvenida' | 'pagos'
 
     const showAlert = (alertData) => {
         setInternalAlert({
@@ -43,9 +51,10 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         if (!apiClient || !visible) return;
         setLoading(true);
         try {
-            const [typesRes, settingsRes] = await Promise.all([
+            const [typesRes, settingsRes, mpRes] = await Promise.all([
                 apiClient.get('/tipos-clase'),
-                apiClient.get('/settings')
+                apiClient.get('/settings'),
+                apiClient.get('/mercadopago/status').catch(() => ({ data: { isLinked: false } }))
             ]);
 
             setClassTypes(typesRes.data?.tiposClase || []);
@@ -72,6 +81,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                     });
                 }
             }
+
+            setMpStatus(mpRes.data || { isLinked: false });
         } catch (error) {
             console.error("Error cargando configuración:", error);
             showAlert({ title: 'Error', message: 'No se pudieron cargar las configuraciones generales.' });
@@ -116,6 +127,54 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         }
     };
 
+    const handleLinkMercadoPago = async () => {
+        setMpBusy(true);
+        try {
+            const returnUrl = Linking.createURL('mp-oauth');
+            const { data } = await apiClient.get('/mercadopago/auth', { params: { returnUrl } });
+            if (!data?.url) throw new Error('No se recibió la URL de Mercado Pago.');
+            await WebBrowser.openAuthSessionAsync(data.url, returnUrl);
+            const statusRes = await apiClient.get('/mercadopago/status');
+            setMpStatus(statusRes.data || { isLinked: false });
+            showAlert({
+                title: statusRes.data?.isLinked ? 'Mercado Pago vinculado' : 'Vinculación incompleta',
+                message: statusRes.data?.isLinked
+                    ? 'Los clientes ya pueden pagar créditos, pase libre y membresía con tu cuenta.'
+                    : 'No se completó la vinculación. Podés intentarlo de nuevo.'
+            });
+        } catch (error) {
+            showAlert({ title: 'Error', message: error.response?.data?.message || 'No se pudo iniciar la vinculación con Mercado Pago.' });
+        } finally {
+            setMpBusy(false);
+        }
+    };
+
+    const handleUnlinkMercadoPago = () => {
+        showAlert({
+            title: 'Desvincular Mercado Pago',
+            message: 'Los clientes dejarán de ver el pago con Mercado Pago. Las transferencias siguen disponibles.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Desvincular',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setMpBusy(true);
+                        try {
+                            await apiClient.delete('/mercadopago/unlink');
+                            setMpStatus({ isLinked: false });
+                            showAlert({ title: 'Listo', message: 'Cuenta de Mercado Pago desvinculada.' });
+                        } catch (error) {
+                            showAlert({ title: 'Error', message: 'No se pudo desvincular Mercado Pago.' });
+                        } finally {
+                            setMpBusy(false);
+                        }
+                    }
+                }
+            ]
+        });
+    };
+
     if (!visible) return null;
 
     return (
@@ -126,7 +185,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                     <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.headerBannerTitle}>Configuración General</Text>
-                            <Text style={styles.headerBannerSub}>Calendario, bienvenida y datos bancarios</Text>
+                            <Text style={styles.headerBannerSub}>Calendario, pagos y bienvenida</Text>
                         </View>
                         <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
                             <Ionicons name="close" size={24} color="#fff" />
@@ -171,10 +230,10 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                     <Text style={{ color: activeTab === 'bienvenida' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Bienvenida</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'bancos' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
-                                    onPress={() => setActiveTab('bancos')}
+                                    style={{ flex: 1, paddingVertical: 8, borderRadius: 6, backgroundColor: activeTab === 'pagos' ? (gymColor || '#007bff') : 'transparent', alignItems: 'center' }}
+                                    onPress={() => setActiveTab('pagos')}
                                 >
-                                    <Text style={{ color: activeTab === 'bancos' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Transferencias</Text>
+                                    <Text style={{ color: activeTab === 'pagos' ? '#fff' : Colors[colorScheme].text, fontWeight: 'bold', fontSize: 10 }}>Pagos</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -236,12 +295,44 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                 </View>
                             )}
 
-                            {/* CONTENIDO DE BANCOS */}
-                            {activeTab === 'bancos' && (
+                            {activeTab === 'pagos' && (
                                 <View>
-                                    <Text style={styles.sectionTitle}>Datos Bancarios (Transferencias)</Text>
+                                    <Text style={styles.sectionTitle}>Mercado Pago</Text>
                                     <Text style={styles.cardDescription}>
-                                        Estos datos se mostrarán a los clientes cuando quieran informar un pago.
+                                        Vinculá la cuenta del gimnasio. El dinero entra directo a ese Mercado Pago y los paquetes se acreditan solos.
+                                    </Text>
+                                    <View style={styles.mpCard}>
+                                        <View style={[styles.mpDot, { backgroundColor: mpStatus.isLinked ? '#16a34a' : '#94a3b8' }]} />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.mpTitle}>{mpStatus.isLinked ? 'Cuenta vinculada' : 'Sin vincular'}</Text>
+                                            <Text style={styles.cardDescription}>
+                                                {mpStatus.isLinked && mpStatus.linkedAt
+                                                    ? `Desde el ${format(new Date(mpStatus.linkedAt), "d MMM yyyy", { locale: es })}`
+                                                    : 'Los clientes van a poder pagar con tarjeta, débito o dinero en cuenta.'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    {mpStatus.isLinked ? (
+                                        <TouchableOpacity
+                                            style={[styles.mpBtn, styles.mpBtnDanger]}
+                                            onPress={handleUnlinkMercadoPago}
+                                            disabled={mpBusy}
+                                        >
+                                            {mpBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Desvincular</Text>}
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={[styles.mpBtn, { backgroundColor: '#009EE3' }]}
+                                            onPress={handleLinkMercadoPago}
+                                            disabled={mpBusy}
+                                        >
+                                            {mpBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Vincular Mercado Pago</Text>}
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <Text style={[styles.sectionTitle, { marginTop: 22 }]}>Datos bancarios (Transferencias)</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Siguen disponibles como alternativa. Estos datos se muestran si el cliente elige transferir.
                                     </Text>
 
                                     <Text style={styles.inputLabel}>CBU / CVU:</Text>
@@ -290,7 +381,12 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingVertical: 5 },
     dayChip: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8, marginRight: 8, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border },
     saveBtn: { paddingVertical: 15, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 15, marginBottom: 10 },
-    saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+    saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    mpCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, backgroundColor: Colors[colorScheme].cardBackground, borderWidth: 1, borderColor: Colors[colorScheme].border, marginBottom: 12 },
+    mpDot: { width: 10, height: 10, borderRadius: 5 },
+    mpTitle: { fontSize: 16, fontWeight: '800', color: Colors[colorScheme].text, marginBottom: 2 },
+    mpBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+    mpBtnDanger: { backgroundColor: '#c0392b' }
 });
 
 export default GeneralSettingsModal;

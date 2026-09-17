@@ -1,112 +1,107 @@
-import { Tabs } from 'expo-router';
 import React from 'react';
-import { Image, View, Text, useColorScheme, Platform } from 'react-native';
+import { View, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
+import {
+  SwipeableTabs,
+  SwipeableTabsHeader,
+  SwipeableBottomTabBar,
+  getSwipeableTabScreenOptions,
+} from '../../components/SwipeableTabs';
 
-function HeaderLogoTitle() {
-  const { gymLogo } = useAuth();
-  if (!gymLogo) return null;
-  return <Image style={{ width: 120, height: 70, resizeMode: 'contain' }} source={{ uri: gymLogo }} />;
-}
+export const unstable_settings = {
+  initialRouteName: 'clients',
+};
 
-export default function ProfessorTabsLayout() {
-  const { user, gymColor } = useAuth();
+export default function AdminTabsLayout() {
+  const { gymColor } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
+  const inactiveColor = Colors[colorScheme].icon;
+  const backgroundColor = Colors[colorScheme].cardBackground;
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: gymColor,
-        tabBarInactiveTintColor: Colors[colorScheme].icon,
-        tabBarStyle: {
-          backgroundColor: Colors[colorScheme].cardBackground,
-        },
-        headerStyle: {
-          backgroundColor: gymColor,
-          shadowColor: 'transparent',
-          // 2. Añade la altura condicional aquí
-          height: Platform.select({
-            ios: 120,
-            android: 80,
-          }),
-        },
-        headerTitleAlign: 'center',
-        headerTitle: (props) => <HeaderLogoTitle {...props} />,
-      }}
-    >
-      <Tabs.Screen
-        name="clients"
-        options={{
-          title: 'Usuarios',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'people' : 'people-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="class-type"
-        options={{
-          title: 'Créditos',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'list' : 'list-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="classes"
-        options={{
-          title: 'Turnos',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'calendar' : 'calendar-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'Notificar',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Mi Perfil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
-        }}
-      />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <SwipeableTabsHeader backgroundColor={gymColor} />
+      <SwipeableTabs
+        style={{ flex: 1 }}
+        tabBarPosition="bottom"
+        screenOptions={getSwipeableTabScreenOptions()}
+        tabBar={(props) => (
+          <SwipeableBottomTabBar
+            {...props}
+            activeColor={gymColor}
+            inactiveColor={inactiveColor}
+            backgroundColor={backgroundColor}
+          />
+        )}
+      >
+        <SwipeableTabs.Screen
+          name="clients"
+          options={{
+            title: 'Usuarios',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'people' : 'people-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <SwipeableTabs.Screen
+          name="class-type"
+          options={{
+            title: 'Créditos',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'list' : 'list-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <SwipeableTabs.Screen
+          name="classes"
+          options={{
+            title: 'Turnos',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'calendar' : 'calendar-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <SwipeableTabs.Screen
+          name="notifications"
+          options={{
+            title: 'Notificar',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <SwipeableTabs.Screen
+          name="profile"
+          options={{
+            title: 'Mi Perfil',
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? 'person' : 'person-outline'}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </SwipeableTabs>
+    </View>
   );
 }

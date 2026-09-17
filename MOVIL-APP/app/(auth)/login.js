@@ -10,7 +10,8 @@ import {
     Text,
     ScrollView,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Keyboard,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -23,13 +24,13 @@ import CustomAlert from '@/components/CustomAlert';
 const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const { login, logout, gymName, gymLogo, gymColor } = useAuth();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
     const [isReady, setIsReady] = useState(false);
 
-    
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -44,23 +45,43 @@ const LoginPage = () => {
         return () => clearTimeout(timer);
     }, []);
 
+    const showError = (message) => {
+        Keyboard.dismiss();
+        setAlertInfo({
+            visible: true,
+            title: 'Error de Autenticación',
+            message: message || 'Usuario o contraseña incorrectos. Por favor, intenta de nuevo.',
+            buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo((prev) => ({ ...prev, visible: false })) }],
+        });
+    };
+
     const handleLogin = async () => {
+        if (isLoading) return;
+        if (!email.trim() || !password) {
+            showError('Completá email y contraseña para continuar.');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const credentials = { email, contraseña: password };
+            const credentials = { email: email.trim(), contraseña: password };
             await login(credentials);
         } catch (e) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error de Autenticación',
-                message: e.message || 'Usuario o contraseña incorrectos. Por favor, intenta de nuevo.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-            });
+            const message =
+                e?.response?.data?.message ||
+                e?.message ||
+                'Usuario o contraseña incorrectos. Por favor, intenta de nuevo.';
+            // Ignore session-expired noise if it ever leaks through
+            if (message === 'SESSION_EXPIRED') {
+                showError('Usuario o contraseña incorrectos. Por favor, intenta de nuevo.');
+            } else {
+                showError(message);
+            }
         } finally {
             setIsLoading(false);
         }
     };
-    
+
     const goToRegister = () => router.push('/(auth)/register');
     const goToForgotPassword = () => router.push('/(auth)/forgot-password');
     const handleGoBackToIdentifier = () => {
@@ -73,11 +94,14 @@ const LoginPage = () => {
     return (
         <ThemedView style={styles.outerContainer}>
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
                 enabled={isReady}
             >
-                <ScrollView contentContainerStyle={styles.container}>
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    keyboardShouldPersistTaps="handled"
+                >
                     {gymLogo ? (
                         <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
                     ) : (
@@ -85,7 +109,6 @@ const LoginPage = () => {
                     )}
 
                     <ThemedText type="title" style={styles.title}>Iniciar Sesión</ThemedText>
-                    
 
                     <TextInput
                         style={styles.input}
@@ -95,21 +118,42 @@ const LoginPage = () => {
                         onChangeText={setEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!isLoading}
                     />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Contraseña"
-                        placeholderTextColor={Colors[colorScheme].icon}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-                    <TouchableOpacity onPress={goToForgotPassword}>
+
+                    <View style={styles.passwordWrap}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Contraseña"
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            editable={!isLoading}
+                        />
+                        <TouchableOpacity
+                            style={styles.eyeButton}
+                            onPress={() => setShowPassword((prev) => !prev)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                            <Ionicons
+                                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                size={22}
+                                color={Colors[colorScheme].icon}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity onPress={goToForgotPassword} disabled={isLoading}>
                         <Text style={styles.forgotPasswordLink}>¿Olvidaste tu contraseña?</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={styles.loginButton}
+                        style={[styles.loginButton, isLoading && { opacity: 0.75 }]}
                         onPress={handleLogin}
                         disabled={isLoading}
                     >
@@ -122,25 +166,25 @@ const LoginPage = () => {
 
                     <View style={styles.registerContainer}>
                         <ThemedText style={styles.registerText}>¿No tenés una cuenta? </ThemedText>
-                        <TouchableOpacity onPress={goToRegister}>
+                        <TouchableOpacity onPress={goToRegister} disabled={isLoading}>
                             <Text style={styles.registerLink}>Regístrate</Text>
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.changeGymButton} onPress={handleGoBackToIdentifier}>
+                    <TouchableOpacity style={styles.changeGymButton} onPress={handleGoBackToIdentifier} disabled={isLoading}>
                         <Ionicons name="swap-horizontal-outline" size={16} color={styles.changeGymText.color} />
-                        <Text style={styles.changeGymText}>{" "} Cambiar de Institución</Text>
+                        <Text style={styles.changeGymText}>{' '} Cambiar de Institución</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* --- 4. Añadir el componente CustomAlert al final --- */}
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
                 message={alertInfo.message}
                 buttons={alertInfo.buttons}
-                onClose={() => setAlertInfo({ ...alertInfo, visible: false })}
+                onClose={() => setAlertInfo((prev) => ({ ...prev, visible: false }))}
                 gymColor={gymColor}
+                inline
             />
         </ThemedView>
     );
@@ -161,7 +205,31 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         paddingHorizontal: 12,
         backgroundColor: Colors[colorScheme].background,
         color: Colors[colorScheme].text,
-        fontSize: 16
+        fontSize: 16,
+    },
+    passwordWrap: {
+        height: 45,
+        borderColor: Colors[colorScheme].border,
+        borderWidth: 1,
+        borderRadius: 5,
+        marginBottom: 12,
+        backgroundColor: Colors[colorScheme].background,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingRight: 4,
+    },
+    passwordInput: {
+        flex: 1,
+        height: '100%',
+        paddingHorizontal: 12,
+        color: Colors[colorScheme].text,
+        fontSize: 16,
+    },
+    eyeButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     loginButton: {
         backgroundColor: gymColor || '#00177d',

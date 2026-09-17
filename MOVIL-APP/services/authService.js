@@ -32,7 +32,7 @@ const login = async (credentials) => {
         }
         throw new Error('Respuesta de login inválida del servidor.');
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Error de autenticación');
+        throw new Error(error.response?.data?.message || error.message || 'Error de autenticación');
     }
 };
 

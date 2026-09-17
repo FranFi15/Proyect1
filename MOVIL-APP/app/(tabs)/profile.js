@@ -10,6 +10,7 @@ import {
     Modal,
     Linking,
     Image,
+    InteractionManager,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -19,8 +20,8 @@ import { Colors } from '@/constants/Colors';
 // Agregamos FontAwesome5 para el icono de pesa
 import { Ionicons, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
-import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from '../../services/notificationService';
+import { getNotifications } from '../../services/expoNotificationsSafe';
 import apiClient from '../../services/apiClient';
 
 // Importamos los componentes para los modales
@@ -32,6 +33,7 @@ import RMCalculatorModal from '@/components/client/RMCalculatorModal';
 import CustomAlert from '@/components/CustomAlert';
 import OrdenMedicaModal from '@/components/client/OrdenMedicaModal';
 import FotoPerfilModal from '@/components/client/FotoPerfilModal';
+import BeneficiosModal from '@/components/client/BeneficiosModal';
 
 const ProfileScreen = () => {
     const { logout, user, gymColor, loading: authLoading, refreshUser } = useAuth();
@@ -47,6 +49,26 @@ const ProfileScreen = () => {
 
     const [activeModal, setActiveModal] = useState(null); // 'balance', 'plans', 'edit', 'rm'
 
+    const handlePaymentResult = useCallback((payload) => {
+        // Close Comprar first; show confirmation on profile after the Modal finishes dismissing.
+        setActiveModal(null);
+        InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => {
+                setAlertInfo({
+                    visible: true,
+                    title: payload?.title || 'Pago',
+                    message: payload?.message || '',
+                    buttons: [{
+                        text: 'Listo',
+                        style: 'primary',
+                        onPress: () => setAlertInfo((prev) => ({ ...prev, visible: false })),
+                    }],
+                });
+                refreshUser?.();
+            }, 450);
+        });
+    }, [refreshUser]);
+
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
     const colorScheme = useColorScheme() ?? 'light';
@@ -60,6 +82,11 @@ const ProfileScreen = () => {
 
     useEffect(() => {
         const checkNotificationStatus = async () => {
+            const Notifications = getNotifications();
+            if (!Notifications) {
+                setNotificationsEnabled(false);
+                return;
+            }
             const { status } = await Notifications.getPermissionsAsync();
             setNotificationsEnabled(status === 'granted');
         };
@@ -114,6 +141,13 @@ const ProfileScreen = () => {
                         visible: true,
                         title: '¡Listo!',
                         message: 'Has activado las notificaciones.'
+                    });
+                } else if (result.status === 'unavailable') {
+                    setAlertInfo({
+                        visible: true,
+                        title: 'No disponible',
+                        message: 'Las notificaciones push no están disponibles en Expo Go en Android. Usá un development build para activarlas.',
+                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
                     });
                 } else if (result.status === 'denied') {
                     setAlertInfo({
@@ -283,6 +317,11 @@ const ProfileScreen = () => {
                         <ThemedText style={styles.menuButtonText}>Mis Créditos</ThemedText>
                     </TouchableOpacity>
 
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('beneficios')}>
+                        <Ionicons name="gift" size={24} color={Colors[colorScheme].icon} />
+                        <ThemedText style={styles.menuButtonText}>Beneficios</ThemedText>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuButton} onPress={() => setActiveModal('rm')}>
                         <FontAwesome6 name="dumbbell" size={22} color={Colors[colorScheme].icon} style={{ marginLeft: 1, marginRight: 1 }} />
                         <ThemedText style={styles.menuButtonText}>Mis RMs y Calculadora</ThemedText>
@@ -317,15 +356,24 @@ const ProfileScreen = () => {
             </ScrollView>
 
             {/* Renderizado de los Modales */}
-            <Modal visible={activeModal === 'balance'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'balance'} transparent animationType="slide" onRequestClose={() => setActiveModal(null)} presentationStyle="overFullScreen" statusBarTranslucent>
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
             <Modal visible={activeModal === 'payment'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
-                <TransferPaymentModal onClose={() => setActiveModal(null)} />
+                <TransferPaymentModal
+                    onClose={() => setActiveModal(null)}
+                    onPaymentResult={handlePaymentResult}
+                />
             </Modal>
             <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>
+
+            <BeneficiosModal
+                visible={activeModal === 'beneficios'}
+                onClose={() => setActiveModal(null)}
+                gymColor={gymColor}
+            />
 
             <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
                 <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {

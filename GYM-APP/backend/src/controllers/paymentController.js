@@ -2,9 +2,54 @@
 import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
-import { format } from 'date-fns';
 import { Expo } from 'expo-server-sdk';
+import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
+import { createCheckoutPreference, getMpSettings } from './mercadopagoController.js';
 const expo = new Expo();
+
+const parseCartPayload = (body) => {
+    let rawItems = body.items || body.packageIds || null;
+    if (typeof rawItems === 'string') {
+        try {
+            rawItems = JSON.parse(rawItems);
+        } catch {
+            rawItems = null;
+        }
+    }
+
+    const cartMap = new Map();
+
+    if (Array.isArray(rawItems)) {
+        for (const entry of rawItems) {
+            const id = typeof entry === 'string'
+                ? entry
+                : (entry.packageId || entry.package || entry.id || entry._id);
+            if (!id) continue;
+            const quantity = Math.max(1, Number(entry.quantity) || 1);
+            cartMap.set(String(id), (cartMap.get(String(id)) || 0) + quantity);
+        }
+    }
+
+    if (body.packageId) {
+        cartMap.set(String(body.packageId), (cartMap.get(String(body.packageId)) || 0) + 1);
+    }
+
+    return [...cartMap.entries()].map(([packageId, quantity]) => ({ packageId, quantity }));
+};
+
+const loadCartPackages = async (PaymentPackage, cartEntries) => {
+    const loaded = [];
+    for (const entry of cartEntries) {
+        const pkg = await PaymentPackage.findById(entry.packageId);
+        if (!pkg || !pkg.isActive) {
+            const err = new Error('Uno o más paquetes no están disponibles.');
+            err.statusCode = 404;
+            throw err;
+        }
+        loaded.push({ pkg, quantity: entry.quantity });
+    }
+    return loaded;
+};
 
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
@@ -17,7 +62,14 @@ const createPackage = asyncHandler(async (req, res) => {
     }
 
     const newPackage = await PaymentPackage.create({
-        name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays
+        name,
+        description,
+        price,
+        isPaseLibre: !!isPaseLibre,
+        isMembresia: !isPaseLibre && !!isMembresia,
+        durationDays,
+        creditsAmount: isPaseLibre || isMembresia ? 0 : creditsAmount,
+        tipoClase: isPaseLibre || isMembresia ? null : tipoClase
     });
 
     res.status(201).json(newPackage);
@@ -70,7 +122,8 @@ const getPackages = asyncHandler(async (req, res) => {
 // @desc    El cliente envía el comprobante de transferencia
 const submitTransferReceipt = asyncHandler(async (req, res) => {
     const { PaymentRequest, PaymentPackage, User } = getModels(req.gymDBConnection);
-    const { packageId, amountTransferred } = req.body;
+    const { amountTransferred } = req.body;
+    const cartEntries = parseCartPayload(req.body);
 
     let receiptUrl = null;
     if (req.file) {
@@ -82,20 +135,31 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
         throw new Error('El monto y el comprobante de transferencia son obligatorios.');
     }
 
-    if (packageId) {
-        const pkg = await PaymentPackage.findById(packageId);
-        if (!pkg) {
-            res.status(404);
-            throw new Error('Paquete no encontrado.');
+    let cart = [];
+    if (cartEntries.length > 0) {
+        try {
+            cart = await loadCartPackages(PaymentPackage, cartEntries);
+        } catch (error) {
+            res.status(error.statusCode || 400);
+            throw error;
         }
+    }
+
+    const expectedTotal = cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0);
+    const amount = Number(amountTransferred);
+    if (cart.length > 0 && Math.abs(amount - expectedTotal) > 0.01) {
+        res.status(400);
+        throw new Error(`El monto no coincide con el carrito ($${expectedTotal}).`);
     }
 
     const ticket = await PaymentRequest.create({
         user: req.user._id,
-        package: packageId || null,
-        amountTransferred: Number(amountTransferred),
+        package: cart[0]?.pkg._id || null,
+        items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
+        amountTransferred: amount,
         receiptUrl,
-        status: 'pending'
+        status: 'pending',
+        method: 'transfer'
     });
 
     // 🔥 LA MAGIA DE LAS NOTIFICACIONES PUSH 🔥
@@ -139,10 +203,14 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
 const getPendingRequests = asyncHandler(async (req, res) => {
     const { PaymentRequest } = getModels(req.gymDBConnection);
     // Traemos los pendientes ordenados por los más viejos primero (FIFO)
-    const tickets = await PaymentRequest.find({ status: 'pending' })
+    const tickets = await PaymentRequest.find({ status: 'pending', method: { $ne: 'mercadopago' } })
         .populate('user', 'nombre apellido email dni')
         .populate({
             path: 'package',
+            populate: { path: 'tipoClase', select: 'nombre' }
+        })
+        .populate({
+            path: 'items.package',
             populate: { path: 'tipoClase', select: 'nombre' }
         })
         .sort({ createdAt: 1 });
@@ -152,11 +220,13 @@ const getPendingRequests = asyncHandler(async (req, res) => {
 
 // @desc    Aprobar o Rechazar un Ticket (Admin)
 const processTransferTicket = asyncHandler(async (req, res) => {
-    const { PaymentRequest, User, Transaction, Notification } = getModels(req.gymDBConnection);
+    const { PaymentRequest, User, Transaction, Notification, CreditLog } = getModels(req.gymDBConnection);
     const { action, adminNotes } = req.body; // action puede ser 'approve' o 'reject'
     const ticketId = req.params.id;
 
-    const ticket = await PaymentRequest.findById(ticketId).populate('package');
+    const ticket = await PaymentRequest.findById(ticketId)
+        .populate('package')
+        .populate('items.package');
     if (!ticket) {
         res.status(404);
         throw new Error('Ticket no encontrado');
@@ -168,6 +238,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
     }
 
     const user = await User.findById(ticket.user);
+    const cart = resolveTicketCart(ticket);
 
     if (action === 'reject') {
         ticket.status = 'rejected';
@@ -187,85 +258,122 @@ const processTransferTicket = asyncHandler(async (req, res) => {
     }
 
     if (action === 'approve') {
-        // --- 1. REGISTRAR EL PAGO (Ingreso de plata) ---
-        user.balance += ticket.amountTransferred; // Si debía -15000, ahora queda en 0
-        
-        await Transaction.create({
-            user: user._id,
-            type: 'payment',
+        const names = cart.map(e => e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name);
+        await fulfillApprovedPayment({
+            models: { Transaction, CreditLog, Notification, User },
+            user,
+            packages: cart,
             amount: ticket.amountTransferred,
-            description: ticket.package ? `Transferencia por: ${ticket.package.name}` : 'Abono de deuda por transferencia',
-            createdBy: req.user._id ,
-            receiptUrl: ticket.receiptUrl
+            description: names.length > 0
+                ? `Transferencia por: ${names.join(', ')}`
+                : 'Abono de deuda por transferencia',
+            createdBy: req.user._id,
+            receiptUrl: ticket.receiptUrl,
+            ticketId: ticket._id
         });
 
-        // --- 2. ENTREGAR EL PAQUETE (Si compró uno) ---
-        if (ticket.package) {
-            // A. Restamos el valor del paquete al balance para generar la "Venta"
-            user.balance -= ticket.package.price;
-            
-            await Transaction.create({
-                user: user._id,
-                type: 'charge',
-                amount: ticket.package.price,
-                description: `Cargo por compra de paquete: ${ticket.package.name}`,
-                createdBy: req.user._id 
-            });
-
-            // B. Entregar los créditos o el Pase Libre
-            if (ticket.package.isPaseLibre) {
-                const hoy = new Date();
-                user.paseLibreDesde = hoy;
-                const vencimientoPase = new Date(hoy);
-                vencimientoPase.setDate(hoy.getDate() + ticket.package.durationDays);
-                vencimientoPase.setUTCHours(23, 59, 59, 999);
-                user.paseLibreHasta = vencimientoPase;
-            } else if (ticket.package.isMembresia) {
-                const hoy = new Date();
-                user.membresiaDesde = hoy;
-                const vencimientoMembresia = new Date(hoy);
-                vencimientoMembresia.setDate(hoy.getDate() + ticket.package.durationDays);
-                vencimientoMembresia.setUTCHours(23, 59, 59, 999);
-                user.membresiaHasta = vencimientoMembresia;
-            } else if (ticket.package.tipoClase && ticket.package.creditsAmount > 0) {
-                const tipoClaseId = ticket.package.tipoClase.toString();
-                const currentCredits = user.creditosPorTipo.get(tipoClaseId) || 0;
-                user.creditosPorTipo.set(tipoClaseId, currentCredits + ticket.package.creditsAmount);
-                
-                const fechaVto = new Date();
-                fechaVto.setDate(fechaVto.getDate() + 30); // Vencimiento a 30 días
-                
-                user.vencimientosDetallados.push({
-                    tipoClaseId: tipoClaseId,
-                    cantidad: ticket.package.creditsAmount,
-                    fechaVencimiento: fechaVto,
-                    idCarga: ticket._id.toString() // Guardamos el ID del ticket como ref
-                });
-            }
-        }
-
-        // --- 3. CERRAR TICKET Y NOTIFICAR ---
         ticket.status = 'approved';
         ticket.adminNotes = adminNotes || 'Pago verificado correctamente.';
         ticket.reviewedBy = req.user._id;
         ticket.reviewedAt = Date.now();
-        
-        user.markModified('creditosPorTipo');
         await ticket.save();
-        await user.save();
-
-        await sendSingleNotification(
-            Notification, User, user._id, 
-            "Transferencia Aprobada ", 
-            `Verificamos tu pago de $${ticket.amountTransferred}. Tu saldo fue actualizado.`, 
-            'transaction_payment', false
-        );
 
         return res.json({ message: 'Transferencia aprobada. Balance y créditos actualizados.' });
     }
 
     res.status(400);
     throw new Error('Acción no válida');
+});
+
+const createMercadoPagoPreference = asyncHandler(async (req, res) => {
+    const { PaymentPackage, PaymentRequest, Settings } = getModels(req.gymDBConnection);
+    const { amount } = req.body;
+    const cartEntries = parseCartPayload(req.body);
+
+    const settings = await getMpSettings(Settings);
+    if (!settings) {
+        res.status(400);
+        throw new Error('Este gimnasio todavía no tiene Mercado Pago vinculado.');
+    }
+
+    let cart = [];
+    if (cartEntries.length > 0) {
+        try {
+            cart = await loadCartPackages(PaymentPackage, cartEntries);
+        } catch (error) {
+            res.status(error.statusCode || 400);
+            throw error;
+        }
+    }
+
+    let amountToPay = cart.length > 0
+        ? cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0)
+        : Number(amount);
+
+    if (!amountToPay || Number.isNaN(amountToPay) || amountToPay <= 0) {
+        res.status(400);
+        throw new Error('El monto a pagar no es válido.');
+    }
+
+    const ticket = await PaymentRequest.create({
+        user: req.user._id,
+        package: cart[0]?.pkg._id || null,
+        items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
+        amountTransferred: amountToPay,
+        receiptUrl: '',
+        status: 'pending',
+        method: 'mercadopago'
+    });
+
+    try {
+        const preference = await createCheckoutPreference({
+            req,
+            settings,
+            ticket,
+            cart,
+            amountToPay,
+            user: req.user
+        });
+
+        ticket.mpPreferenceId = preference.id;
+        await ticket.save();
+
+        res.status(201).json({
+            ticketId: ticket._id,
+            preferenceId: preference.id,
+            checkoutUrl: preference.init_point || preference.sandbox_init_point || preference.body?.init_point
+        });
+    } catch (error) {
+        ticket.status = 'rejected';
+        ticket.adminNotes = 'No se pudo crear la preferencia de Mercado Pago.';
+        await ticket.save();
+        console.error('Error creando preferencia MP:', error?.cause || error?.message || error);
+        res.status(502);
+        throw new Error('No se pudo iniciar el pago con Mercado Pago. Intentá de nuevo.');
+    }
+});
+
+const getMyTicket = asyncHandler(async (req, res) => {
+    const { PaymentRequest } = getModels(req.gymDBConnection);
+    const ticket = await PaymentRequest.findById(req.params.id)
+        .populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays')
+        .populate('items.package', 'name price isPaseLibre isMembresia creditsAmount durationDays');
+
+    if (!ticket || ticket.user.toString() !== req.user._id.toString()) {
+        res.status(404);
+        throw new Error('Ticket no encontrado');
+    }
+
+    res.json({
+        _id: ticket._id,
+        status: ticket.status,
+        method: ticket.method,
+        amountTransferred: ticket.amountTransferred,
+        mpStatus: ticket.mpStatus || null,
+        package: ticket.package,
+        items: ticket.items || [],
+        createdAt: ticket.createdAt
+    });
 });
 
 export {
@@ -275,5 +383,7 @@ export {
     deletePackage,
     submitTransferReceipt,
     getPendingRequests,
-    processTransferTicket
+    processTransferTicket,
+    createMercadoPagoPreference,
+    getMyTicket
 };

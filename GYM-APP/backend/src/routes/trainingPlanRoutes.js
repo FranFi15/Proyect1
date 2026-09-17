@@ -10,7 +10,9 @@ import {
     getMyVisiblePlans,
     updatePlan,
     deletePlan,
-    deleteAllPlans
+    deleteAllPlans,
+    submitPlanFeedback,
+    getPlanFeedbacks,
 } from '../controllers/trainingPlanController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -30,6 +32,8 @@ router.route('/templates/:templateId')
 router.get('/my-plans', protect, getMyVisiblePlans);
 router.delete('/my-plans/all', protect, deleteAllPlans);
 
+router.get('/feedback', protect, authorizeRoles('admin', 'profesor'), getPlanFeedbacks);
+
 // Crear un plan para un usuario
 router.route('/')
     .post(protect, authorizeRoles('admin', 'profesor'), createPlanForUser);
@@ -39,6 +43,8 @@ router.route('/user/:userId')
     .get(protect, authorizeRoles('admin', 'profesor'), getPlansForUser);
 
 router.delete('/user/:userId/all', protect, authorizeRoles('admin', 'profesor'), deleteAllPlans);    
+
+router.post('/:planId/feedback', protect, submitPlanFeedback);
 
 // Modificar o eliminar un plan específico
 router.route('/:planId')

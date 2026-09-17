@@ -15,7 +15,7 @@ import {
     ScrollView,
     Modal,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -158,8 +158,7 @@ const NotificationTeacherScreen = () => {
     };
 
     const fetchTeacherData = useCallback(async () => {
-        if (!user || !user._id) return;
-        setLoading(true);
+        if (!user || !user._id) return false;
         try {
             const classesRes = await apiClient.get('/classes/profesor/me');
             const teacherClasses = classesRes.data || [];
@@ -176,12 +175,21 @@ const NotificationTeacherScreen = () => {
             setMyStudents(Array.from(studentMap.values()));
         } catch (error) {
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar tus datos.', buttons: [{ text: 'OK' }] });
-        } finally {
-            setLoading(false);
         }
     }, [user]);
 
-    useFocusEffect(useCallback(() => { fetchTeacherData(); }, [fetchTeacherData]));
+    useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (!user || !user._id) return false;
+            if (isInitial) setLoading(true);
+            try {
+                await fetchTeacherData();
+            } finally {
+                if (isInitial) setLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
+    );
 
     const filteredStudents = useMemo(() => {
         if (!userSearchTerm) return myStudents;

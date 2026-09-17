@@ -78,8 +78,56 @@ const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor,
 
     if (inline) {
         return (
-            <View style={[StyleSheet.absoluteFillObject, { zIndex: 99999, elevation: 20 }]}>
-                {content}
+            <View
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 99999,
+                    elevation: 99999,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    paddingHorizontal: 20,
+                }}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={[styles.iconContainer, { borderColor: Colors[colorScheme].background }]}>
+                        <View style={[styles.iconInnerContainer, { backgroundColor: primaryColor }]}>
+                            <Image source={logoSource} style={styles.logoImage} resizeMode="cover" />
+                        </View>
+                    </View>
+
+                    <View style={styles.contentContainer}>
+                        <Text style={styles.title}>{title}</Text>
+                        <Text style={styles.message}>{message}</Text>
+                    </View>
+
+                    <View style={styles.buttonsContainer}>
+                        {((buttons && buttons.length > 0) ? buttons : [{ text: 'Aceptar', onPress: onClose }]).map((button, index) => {
+                            const isCancel = button.style === 'cancel';
+                            const isDestructive = button.style === 'destructive';
+
+                            const buttonStyle = [
+                                styles.button,
+                                isDestructive ? styles.destructiveButton :
+                                isCancel ? styles.cancelButton : styles.primaryButton
+                            ];
+                            const textStyle = [
+                                styles.buttonText,
+                                isCancel ? styles.cancelButtonText : styles.primaryButtonText
+                            ];
+
+                            return (
+                                <TouchableOpacity key={index} style={buttonStyle} onPress={button.onPress}>
+                                    <Text style={textStyle}>{button.text}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </View>
             </View>
         );
     }
@@ -90,6 +138,8 @@ const CustomAlert = ({ visible, title, message, onClose, buttons = [], gymColor,
             transparent={true}
             animationType="fade"
             onRequestClose={onClose}
+            statusBarTranslucent
+            presentationStyle="overFullScreen"
         >
             {content}
         </Modal>

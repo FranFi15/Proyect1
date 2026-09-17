@@ -5,7 +5,8 @@ import { ThemedText } from '@/components/ThemedText';
 import notificationService from '../../services/notificationService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { Octicons, Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import apiClient from '../../services/apiClient';
@@ -158,10 +159,8 @@ const NotificationsScreen = () => {
     const fetchNotifications = useCallback(async () => {
         if (!user) {
             setError("Usuario no autenticado.");
-            setLoading(false);
             return;
         }
-        if (!isRefreshing) setLoading(true);
         setError(null);
         try {
             const fetchedNotifications = await notificationService.getNotifications();
@@ -169,37 +168,36 @@ const NotificationsScreen = () => {
             setNotifications(grouped);
         } catch (err) {
             setError(err.message || 'Error al cargar notificaciones.');
-        } finally {
-            if (!isRefreshing) setLoading(false);
         }
-    }, [user, isRefreshing]);
+    }, [user]);
 
-    useFocusEffect(
-        useCallback(() => {
-            const markAndRefresh = async () => {
-                try {
-
-                    await apiClient.put('/notifications/mark-all-read');
-
-                    await refreshUser();
-                } catch (error) {
-                    console.error("Error marking notifications as read:", error);
-                } finally {
-
-                    await fetchNotifications();
+    const { refresh } = useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (!user) return false;
+            if (isInitial) setLoading(true);
+            try {
+                // Only mark as read when there are unread items
+                if ((user.unreadNotificationsCount || 0) > 0) {
+                    try {
+                        await apiClient.put('/notifications/mark-all-read');
+                        await refreshUser();
+                    } catch (error) {
+                        console.error("Error marking notifications as read:", error);
+                    }
                 }
-            };
-
-            if (user) {
-                markAndRefresh();
+                await fetchNotifications();
+            } finally {
+                if (isInitial) setLoading(false);
             }
-        }, [user])
+        },
+        { ttlMs: 30_000 }
     );
 
-    const onRefresh = useCallback(() => {
+    const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        fetchNotifications().finally(() => setIsRefreshing(false));
-    }, [fetchNotifications]);
+        await refresh();
+        setIsRefreshing(false);
+    }, [refresh]);
 
     const handleNotificationPress = async (notification) => {
         if (!notification.read) {

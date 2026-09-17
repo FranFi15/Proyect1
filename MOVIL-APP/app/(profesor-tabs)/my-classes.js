@@ -17,7 +17,7 @@ import {
     Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useFocusEffect } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,6 +29,7 @@ import { es } from 'date-fns/locale';
 import CustomAlert from '@/components/CustomAlert';
 import QrScannerModal from '@/components/profesor/QrScannerModal';
 import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
+import ClassCard, { ClassCardAction } from '@/components/ClassCard';
 
 // --- Funciones Helper ---
 const capitalize = (str) => {
@@ -80,14 +81,17 @@ const ProfessorMyClassesScreen = () => {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        const loadData = async () => {
-            setLoading(true);
-            await fetchMyClasses();
-            setLoading(false);
-        };
-        loadData();
-    }, [fetchMyClasses]));
+    useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setLoading(true);
+            try {
+                await fetchMyClasses();
+            } finally {
+                if (isInitial) setLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
+    );
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
@@ -158,15 +162,19 @@ const ProfessorMyClassesScreen = () => {
     }, [myClasses]);
 
     const renderClassItem = ({ item }) => (
-        <ThemedView style={styles.classItem}>
-            <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || 'General'}</ThemedText>
-            <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio} - {item.horaFin}</ThemedText>
-            <ThemedText style={styles.classInfoText}>Inscritos: {item.usuariosInscritos.length}/{item.capacidad}</ThemedText>
-            <Pressable style={styles.viewStudentsButton} onPress={() => handleOpenClassModal(item._id)}>
-                <FontAwesome5 name="users" size={16} color="#fff" />
-                <Text style={styles.viewStudentsButtonText}>Ver Clientes</Text>
-            </Pressable>
-        </ThemedView>
+        <ClassCard
+            item={item}
+            gymColor={gymColor}
+            showTeachers={false}
+            footer={
+                <ClassCardAction
+                    title="Ver Clientes"
+                    onPress={() => handleOpenClassModal(item._id)}
+                    iconName="users"
+                    color={gymColor || '#1a5276'}
+                />
+            }
+        />
     );
 
     const renderStudentListItem = ({ item }) => (

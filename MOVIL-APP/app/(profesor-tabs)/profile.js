@@ -18,8 +18,8 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons, Octicons } from '@expo/vector-icons';
 import { format, parseISO, isValid } from 'date-fns';
 import es from 'date-fns/locale/es';
-import * as Notifications from 'expo-notifications';
-import {registerForPushNotificationsAsync} from '../../services/notificationService';
+import { registerForPushNotificationsAsync } from '../../services/notificationService';
+import { getNotifications } from '../../services/expoNotificationsSafe';
 import apiClient from '../../services/apiClient';
 
 // Importamos los componentes para los modales
@@ -55,6 +55,11 @@ const ProfileScreen = () => {
 
     useEffect(() => {
         const checkNotificationStatus = async () => {
+            const Notifications = getNotifications();
+            if (!Notifications) {
+                setNotificationsEnabled(false);
+                return;
+            }
             const { status } = await Notifications.getPermissionsAsync();
             setNotificationsEnabled(status === 'granted');
         };
@@ -98,10 +103,17 @@ const ProfileScreen = () => {
 
                 if (result.status === 'granted') {
                     setNotificationsEnabled(true);
-                    setAlertInfo({ 
-                        visible: true, 
-                        title: '¡Listo!', 
-                        message: 'Has activado las notificaciones.' 
+                    setAlertInfo({
+                        visible: true,
+                        title: '¡Listo!',
+                        message: 'Has activado las notificaciones.'
+                    });
+                } else if (result.status === 'unavailable') {
+                    setAlertInfo({
+                        visible: true,
+                        title: 'No disponible',
+                        message: 'Las notificaciones push no están disponibles en Expo Go en Android. Usá un development build para activarlas.',
+                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
                     });
                 } else if (result.status === 'denied') {
                     // El usuario ya había denegado el permiso. Lo guiamos a los ajustes.

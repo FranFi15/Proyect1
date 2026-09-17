@@ -5,8 +5,8 @@ import {
     Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback, Image
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { useFocusEffect } from 'expo-router';
-import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { TabView, TabBar } from 'react-native-tab-view';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -19,6 +19,9 @@ import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import QrModal from '../../components/client/QrModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
+import PresentismoOptionsModal from '../../components/client/PresentismoOptionsModal';
+import ClassCard, { ClassCardAction } from '@/components/ClassCard';
+import DesafiosModal from '@/components/client/DesafiosModal';
 
 // Servicios y Contexto
 import apiClient from '../../services/apiClient';
@@ -40,305 +43,6 @@ const capitalize = (str) => {
     const formattedStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     return formattedStr.replace(' De ', ' de ');
 };
-
-const formatTeachers = (clase) => {
-    if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
-        return clase.profesores.map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '').filter(n => n !== '').join(', ');
-    }
-    if (clase.profesor && clase.profesor.nombre) {
-        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
-    }
-    return 'Sin profesor asignado';
-};
-
-// --- COMPONENTE CLIENT SCOREBOARD MODAL (Estilo RM) ---
-const ClientScoreboardModal = ({ visible, onClose, gymColor, colorScheme }) => {
-    const styles = getStyles(colorScheme, gymColor);
-    const [viewMode, setViewMode] = useState('list'); // 'list' | 'detail'
-    const [activeScoreboards, setActiveScoreboards] = useState([]);
-    const [selectedScoreboard, setSelectedScoreboard] = useState(null);
-    const [leaderboardData, setLeaderboardData] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [submitLoading, setSubmitLoading] = useState(false);
-
-    const [scores, setScores] = useState({ peso: '', tiempo: '', distancia: '', repeticiones: '', calorias: '', nota: '', rx: true });
-
-    useEffect(() => {
-        if (visible) {
-            fetchActiveScoreboards();
-            setViewMode('list');
-        }
-    }, [visible]);
-
-    const fetchActiveScoreboards = async () => {
-        setLoading(true);
-        try {
-            const res = await apiClient.get('/scoreboards/active');
-            setActiveScoreboards(res.data || []);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
-
-    const handleSelectScoreboard = async (scoreboard) => {
-        setSelectedScoreboard(scoreboard);
-        setScores({ peso: '', tiempo: '', distancia: '', repeticiones: '', calorias: '', nota: '', rx: true });
-        setViewMode('detail');
-        fetchLeaderboard(scoreboard._id);
-    };
-
-    const fetchLeaderboard = async (id) => {
-        setLoading(true);
-        try {
-            const res = await apiClient.get(`/scoreboards/${id}/leaderboard`);
-            setLeaderboardData(res.data);
-
-            if (!res.data.locked && res.data.userEntry) {
-                const e = res.data.userEntry;
-                setScores({
-                    peso: e.peso?.toString() || '',
-                    tiempo: e.tiempo || '',
-                    distancia: e.distancia?.toString() || '',
-                    repeticiones: e.repeticiones?.toString() || '',
-                    nota: e.nota || '',
-                    rx: e.rx
-                });
-            }
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
-
-    const handleSubmitScore = async () => {
-        setSubmitLoading(true);
-        try {
-            const payload = {
-                scoreboardId: selectedScoreboard._id,
-                rx: scores.rx,
-                ...(scores.peso && { peso: Number(scores.peso) }),
-                ...(scores.distancia && { distancia: Number(scores.distancia) }),
-                ...(scores.repeticiones && { repeticiones: Number(scores.repeticiones) }),
-                ...(scores.tiempo && { tiempo: scores.tiempo }),
-                ...(scores.nota && { nota: scores.nota }),
-            };
-
-            await apiClient.post('/scoreboards/submit', payload);
-            fetchLeaderboard(selectedScoreboard._id);
-        } catch (e) {
-            alert('Error al guardar resultado');
-        } finally {
-            setSubmitLoading(false);
-        }
-    };
-
-    const renderMetricInput = (metric) => {
-        const labels = { peso: 'Peso (kg)', tiempo: 'Tiempo', distancia: 'Distancia (mts)', repeticiones: 'Repeticiones', calorias: 'Calorías' };
-        const placeholders = { peso: 'Ej: 80.5', tiempo: 'Ej: 12:30', distancia: 'Ej: 5000', repeticiones: 'Ej: 50' };
-
-        return (
-            <View key={metric} style={{ marginBottom: 15 }}>
-                <ThemedText style={styles.inputLabel}>{labels[metric] || metric}</ThemedText>
-                <TextInput
-                    style={styles.input}
-                    placeholder={placeholders[metric]}
-                    placeholderTextColor="#999"
-                    keyboardType={metric === 'tiempo' ? 'default' : 'numeric'}
-                    value={scores[metric]}
-                    onChangeText={t => setScores(prev => ({ ...prev, [metric]: t }))}
-                />
-            </View>
-        );
-    };
-
-    const renderContent = () => {
-        if (viewMode === 'list') {
-            if (loading) return <ActivityIndicator color={gymColor} style={{ marginTop: 50 }} />;
-            return (
-                <FlatList
-                    data={activeScoreboards}
-                    keyExtractor={item => item._id}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                    ListEmptyComponent={<Text style={styles.emptyText}>No hay desafíos activos.</Text>}
-                    keyboardShouldPersistTaps="handled"
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.scoreboardItem} onPress={() => handleSelectScoreboard(item)}>
-                            <View style={{ flex: 1 }}>
-                                <ThemedText style={styles.scoreboardTitle}>{item.nombre}</ThemedText>
-                                <Text style={styles.scoreboardSubtitle}>
-                                    {item.isLimitedTime
-                                        ? `Vence: ${format(parseISO(item.fechaLimite), 'dd/MM')}`
-                                        : 'Desafío Permanente'}
-                                </Text>
-                            </View>
-                            <View style={[styles.statusBadge, item.completedByUser ? { backgroundColor: '#2ecc71' } : { backgroundColor: Colors[colorScheme].icon }]}>
-                                <Text style={styles.statusBadgeText}>{item.completedByUser ? 'Ver Ranking' : 'Participar'}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    )}
-                />
-            );
-        }
-
-        if (!selectedScoreboard || !leaderboardData) return <ActivityIndicator color={gymColor} style={{ marginTop: 50 }} />;
-
-        const isEditing = !!leaderboardData.userEntry;
-
-        return (
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <ThemedText style={styles.detailTitle}>{selectedScoreboard.nombre}</ThemedText>
-                {selectedScoreboard.descripcion ? (
-                    <Text style={styles.detailDesc}>{selectedScoreboard.descripcion}</Text>
-                ) : null}
-
-                <View style={styles.divider} />
-
-                {leaderboardData.locked ? (
-                    <View style={styles.lockedContainer}>
-                        <FontAwesome5
-                            name={isEditing ? "edit" : "lock"}
-                            size={30}
-                            color={gymColor}
-                            style={{ alignSelf: 'center', marginBottom: 10 }}
-                        />
-                        <ThemedText style={styles.lockedText}>
-                            {isEditing ? "Actualiza tu Resultado" : "Participa para desbloquear el Ranking."}
-                        </ThemedText>
-
-                        <View style={styles.formContainer}>
-                            {selectedScoreboard.metrics.map(m => renderMetricInput(m))}
-
-                            <TouchableOpacity
-                                style={[styles.mainButton, { backgroundColor: gymColor }]}
-                                onPress={handleSubmitScore}
-                                disabled={submitLoading}
-                            >
-                                {submitLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainButtonText}>Guardar Resultado</Text>}
-                            </TouchableOpacity>
-                        </View>
-
-                    </View>
-
-                ) : (
-                    <View>
-                        {/* TARJETA DE MI RESULTADO */}
-                        {(() => {
-                            const e = leaderboardData.userEntry;
-                            let myResultString = 'Sin datos';
-                            if (e) {
-                                const parts = [];
-                                if (e.peso) parts.push(`${e.peso}kg`);
-                                if (e.tiempo) parts.push(e.tiempo);
-                                if (e.repeticiones) parts.push(`${e.repeticiones} reps`);
-                                if (e.distancia) parts.push(`${e.distancia}m`);
-                                if (parts.length > 0) myResultString = parts.join(' - ');
-                            }
-
-                            const myIndex = leaderboardData.entries.findIndex(entry => entry.user._id === leaderboardData.userEntry.user);
-                            const position = myIndex + 1;
-
-                            return (
-                                <View style={styles.myScoreContainer}>
-
-                                    <ThemedText style={{ fontWeight: 'bold', marginBottom: 2 }}>Tu Resultado:</ThemedText>
-                                    <ThemedText style={{ fontSize: 20, fontWeight: '600' }}>{myResultString}</ThemedText>
-                                    <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
-                                        {position === 1 ? (
-                                            <FontAwesome5 name="medal" size={20} color="#FFD700" /> // Oro
-                                        ) : position === 2 ? (
-                                            <FontAwesome5 name="medal" size={20} color="#C0C0C0" /> // Plata
-                                        ) : position === 3 ? (
-                                            <FontAwesome5 name="medal" size={20} color="#CD7F32" /> // Bronce
-                                        ) : (
-                                            <ThemedText style={{ fontSize: 24, fontWeight: 'bold', color: gymColor }}>#{position}</ThemedText>
-                                        )}
-                                    </View>
-
-                                    <TouchableOpacity onPress={() => setLeaderboardData(prev => ({ ...prev, locked: true }))} style={{ padding: 5 }}>
-                                        <FontAwesome6 name="edit" size={18} color={Colors[colorScheme].text} />
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })()}
-
-                        <View style={styles.rankingHeader}>
-                            <Text style={[styles.rankingHeadText, { flex: 1 }]}>    #    Atletas</Text>
-                            <Text style={[styles.rankingHeadText, { width: 100, textAlign: 'right' }]}>Resultados</Text>
-                        </View>
-
-                        {leaderboardData.entries.map((entry, index) => {
-                            const isMe = entry.user._id === leaderboardData.userEntry?.user;
-                            const resultParts = [];
-                            if (entry.peso) resultParts.push(`${entry.peso}kg`);
-                            if (entry.tiempo) resultParts.push(entry.tiempo);
-                            if (entry.repeticiones) resultParts.push(`${entry.repeticiones} reps`);
-                            if (entry.distancia) resultParts.push(`${entry.distancia}m`);
-                            const resultString = resultParts.join(' - ');
-
-                            return (
-                                <View key={entry._id} style={[styles.rankingRow, isMe]}>
-                                    <View style={{ width: 40, alignItems: 'center' }}>
-                                        {index === 0 ? <FontAwesome5 name="medal" size={14} color="#FFD700" /> :
-                                            index === 1 ? <FontAwesome5 name="medal" size={14} color="#C0C0C0" /> :
-                                                index === 2 ? <FontAwesome5 name="medal" size={14} color="#CD7F32" /> :
-                                                    <Text style={[styles.rankingText, { fontWeight: 'bold' }]}>{index + 1}</Text>
-                                        }
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.rankingText, { fontWeight: 'bold' }]}>
-                                            {entry.user.nombre} {entry.user.apellido}
-                                        </Text>
-                                    </View>
-                                    <Text style={[styles.rankingText, { width: 80, textAlign: 'right', fontSize: 13 }]}>
-                                        {resultString}
-                                    </Text>
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
-            </ScrollView>
-        );
-    };
-
-    return (
-        <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContainer, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
-                    <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                        {viewMode === 'detail' && (
-                            <TouchableOpacity onPress={() => setViewMode('list')} style={{ marginRight: 12 }}>
-                                <Ionicons name="arrow-back" size={24} color="#fff" />
-                            </TouchableOpacity>
-                        )}
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.headerBannerTitle}>
-                                {viewMode === 'list' ? 'Desafíos' : 'Detalle del Desafío'}
-                            </Text>
-                            <Text style={styles.headerBannerSub}>Retos y puntuaciones del gimnasio</Text>
-                        </View>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButtonBanner}>
-                            <Ionicons name="close" size={24} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={{ flex: 1, padding: 20 }}>
-                        {renderContent()}
-                    </View>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
-// --- FIN MODAL SCOREBOARD ---
-
-const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff', styles }) => (
-    <TouchableOpacity
-        style={[styles.actionButton, { backgroundColor: color }]}
-        onPress={onPress}
-    >
-        <FontAwesome5 name={iconName} size={16} color={iconColor} />
-        <Text style={styles.actionButtonText}>{title}</Text>
-    </TouchableOpacity>
-);
 
 const CalendarScreen = () => {
     const layout = useWindowDimensions();
@@ -368,13 +72,20 @@ const CalendarScreen = () => {
     const [isQrModalVisible, setQrModalVisible] = useState(false);
     const [isScannerVisible, setScannerVisible] = useState(false);
     const [isQrImageModalVisible, setQrImageModalVisible] = useState(false);
+    const [presentismoModal, setPresentismoModal] = useState({
+        visible: false,
+        options: [],
+        message: '',
+        qrData: null,
+    });
 
     let isProcessingScan = false;
     
     const confirmCheckIn = async (type, id, qrData) => {
-        setAlertInfo({ ...alertInfo, visible: false });
+        setAlertInfo(prev => ({ ...prev, visible: false }));
         try {
             const response = await apiClient.post('/check-in/client-scan-confirm', { type, id, qrData });
+            setPresentismoModal(prev => ({ ...prev, visible: false }));
             setTimeout(() => {
                 setAlertInfo({ 
                     visible: true, 
@@ -384,8 +95,9 @@ const CalendarScreen = () => {
                 });
                 refreshUser();
                 fetchData();
-            }, 500);
+            }, 350);
         } catch (error) {
+            setPresentismoModal(prev => ({ ...prev, visible: false }));
             setTimeout(() => {
                 setAlertInfo({ 
                     visible: true, 
@@ -393,7 +105,8 @@ const CalendarScreen = () => {
                     message: error.response?.data?.message || 'No se pudo confirmar la asistencia.',
                     buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
                 });
-            }, 500);
+            }, 350);
+            throw error;
         }
     };
 
@@ -406,19 +119,15 @@ const CalendarScreen = () => {
             const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
             
             if (response.data.options && response.data.options.length > 0) {
-                const buttons = response.data.options.map(opt => ({
-                    text: `${opt.nombre} (${opt.horario})`,
-                    style: 'primary',
-                    onPress: () => confirmCheckIn(opt.type, opt.id, data)
-                }));
-                buttons.push({ text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) });
-
-                setAlertInfo({ 
-                    visible: true, 
-                    title: 'Selecciona tu clase', 
-                    message: response.data.message || '¿A qué vas a asistir hoy?',
-                    buttons: buttons
-                });
+                // Delay so the scanner Modal fully closes on iOS before opening options
+                setTimeout(() => {
+                    setPresentismoModal({
+                        visible: true,
+                        options: response.data.options,
+                        message: response.data.message || '¿Qué querés registrar?',
+                        qrData: data,
+                    });
+                }, 350);
             } else {
                 setAlertInfo({ 
                     visible: true, 
@@ -462,8 +171,6 @@ const CalendarScreen = () => {
     const fetchData = useCallback(async () => {
         if (!user) return;
         try {
-            await refreshUser();
-
             const [classesResponse, typesResponse, scoreboardsResponse, sucursalesResponse] = await Promise.all([
                 apiClient.get('/classes'),
                 apiClient.get('/tipos-clase?forCreation=true'),
@@ -496,25 +203,27 @@ const CalendarScreen = () => {
             console.error(error);
             setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron cargar algunos datos.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
         } finally {
-            setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [user, colorScheme, gymColor, refreshUser]);
+    }, [user, colorScheme, gymColor]);
 
-    useFocusEffect(useCallback(() => {
-        const loadInitialData = async () => {
-            setIsLoading(true);
-            await fetchData();
-            setIsLoading(false);
-        };
-        loadInitialData();
-    }, [fetchData]));
+    const { refresh } = useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setIsLoading(true);
+            try {
+                await fetchData();
+            } finally {
+                if (isInitial) setIsLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
+    );
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        await fetchData();
+        await refresh();
         setIsRefreshing(false);
-    }, [fetchData]);
+    }, [refresh]);
 
     const visibleClasses = useMemo(() => {
         const now = new Date();
@@ -621,101 +330,142 @@ const CalendarScreen = () => {
 
     const renderClassItem = ({ item }) => {
         const { isEnrolled, isFull, isWaiting, isCancelled, isFinished, didAttend } = item;
-        const dynamicStyle = getClassStyle(item, styles, colorScheme);
-        return (
-            <ThemedView style={[styles.classItem, dynamicStyle, isFinished && styles.finishedClass]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <ThemedText style={[styles.className, (isCancelled || isFinished) && styles.disabledText, { flex: 1 }]}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
-                    {didAttend && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f7ee', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 8 }}>
-                            <Ionicons name="checkmark-circle" size={14} color="#28a745" />
-                            <Text style={{ color: '#28a745', fontWeight: 'bold', fontSize: 11, marginLeft: 4 }}>PRESENTE</Text>
-                        </View>
-                    )}
-                </View>
-                {item.sucursal?.nombre && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
-                        <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, (isCancelled || isFinished) && styles.disabledText]}>
-                            {item.sucursal.nombre}
-                        </ThemedText>
-                    </View>
-                )}
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <ThemedText style={[styles.classInfoText, { marginBottom: 0 }, (isCancelled || isFinished) && styles.disabledText]}>
-                        A cargo de: {formatTeachers(item)}
-                    </ThemedText>
-                    {item.profesores?.[0]?.ratingAverage > 0 && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 6 }}>
-                            <Ionicons name="star" size={12} color="#FFD700" />
-                            <Text style={{ fontSize: 12, color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 2 }}>
-                                {item.profesores[0].ratingAverage.toFixed(1)}
-                            </Text>
-                        </View>
-                    )}
-                </View>
+        const statusBadge = didAttend ? (
+            <View style={styles.statusPillPresent}>
+                <Ionicons name="checkmark-circle" size={12} color="#28a745" />
+                <Text style={styles.statusPillPresentText}>PRESENTE</Text>
+            </View>
+        ) : isCancelled ? (
+            <View style={styles.statusPillMuted}>
+                <Text style={[styles.statusPillMutedText, { color: Colors.light.error }]}>CANCELADA</Text>
+            </View>
+        ) : isFinished ? (
+            <View style={styles.statusPillMuted}>
+                <Text style={styles.statusPillMutedText}>FINALIZADO</Text>
+            </View>
+        ) : null;
 
-                <ThemedText style={[styles.classInfoText, (isCancelled || isFinished) && styles.disabledText]}>Cupos: {(item.usuariosInscritos || []).length}/{item.capacidad}</ThemedText>
-                <View style={styles.buttonContainer}>
-                    {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text> : didAttend ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}><Ionicons name="checkmark-circle" size={16} color="#28a745" /><Text style={{ color: '#28a745', fontWeight: 'bold', marginLeft: 6 }}>PRESENTISMO REGISTRADO</Text></View> : isFinished ? <Text style={styles.badgeFinished}>FINALIZADO</Text> : isEnrolled ? <ActionButton title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" styles={styles} /> : isFull ? (isWaiting ? <ActionButton title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" styles={styles} /> : <ActionButton title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" styles={styles} />) : <ActionButton title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" styles={styles} />}
+        let footer = null;
+        if (isCancelled) {
+            footer = <Text style={styles.badgeCancelled}>Turno cancelado</Text>;
+        } else if (didAttend) {
+            footer = (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
+                    <Ionicons name="checkmark-circle" size={16} color="#28a745" />
+                    <Text style={{ color: '#28a745', fontWeight: '800', marginLeft: 6, fontSize: 13 }}>Presentismo registrado</Text>
                 </View>
-            </ThemedView>
+            );
+        } else if (isFinished) {
+            footer = <Text style={styles.badgeFinished}>Finalizado</Text>;
+        } else if (isEnrolled) {
+            footer = <ClassCardAction title="Anular Inscripción" onPress={() => handleUnenroll(item._id)} iconName="calendar-times" color="#e74c3c" />;
+        } else if (isFull) {
+            footer = isWaiting
+                ? <ClassCardAction title="En lista de espera" onPress={() => handleUnsubscribe(item._id)} iconName="user-clock" color="#f0ad4e" />
+                : <ClassCardAction title="Notificarme Disponibilidad" onPress={() => handleSubscribe(item._id)} iconName="bell" color="#1a5276" />;
+        } else {
+            footer = <ClassCardAction title="Inscribirme" onPress={() => handleEnroll(item._id)} iconName="calendar-check" color="#2ecc71" />;
+        }
+
+        return (
+            <ClassCard
+                item={item}
+                gymColor={gymColor}
+                muted={isFinished && !didAttend}
+                badges={statusBadge}
+                footer={footer}
+            />
         );
     };
 
-    const CalendarScene = () => (
-        <ThemedView style={{ flex: 1 }}>
-            <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
-            <View style={styles.headerActions}>
-                <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
-                    <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
-                    <ThemedText style={styles.qrButtonText}>Dar Presentismo</ThemedText>
-                </TouchableOpacity>
-                {user?.qrIngresoUrl && (
-                    <TouchableOpacity style={[styles.qrButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground }]} onPress={() => setQrImageModalVisible(true)}>
-                        <Ionicons name="qr-code" size={24} color={gymColor || Colors.light.tint} />
-                        <ThemedText style={[styles.qrButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</ThemedText>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </ThemedView>
-    );
-
-    const ListScene = () => (
-        <ThemedView style={{ flex: 1 }}>
-            <ThemedText style={[styles.listHeader, { paddingBottom: 10 }]}>{formattedDateTitle}</ThemedText>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 15, marginBottom: 12 }}>
-                {sucursales.length > 1 && (
-                    <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setSucursalFilterVisible(true)}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                            <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                            <ThemedText style={styles.filterButtonText} numberOfLines={1}>
-                                {selectedSucursal === 'all' ? 'Todas' : (sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal')}
-                            </ThemedText>
+    // Avoid SceneMap + inline scene components: recreating scene types each render
+    // breaks hooks when nested inside swipeable Material Top Tabs.
+    const renderScene = ({ route }) => {
+        switch (route.key) {
+            case 'calendar':
+                return (
+                    <ThemedView style={{ flex: 1 }}>
+                        <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
+                        <View style={styles.headerActions}>
+                            <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
+                                <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
+                                <ThemedText style={styles.qrButtonText}>Dar Presentismo</ThemedText>
+                            </TouchableOpacity>
+                            {user?.qrIngresoUrl && (
+                                <TouchableOpacity style={[styles.qrButton, { marginTop: 10, backgroundColor: Colors[colorScheme].cardBackground }]} onPress={() => setQrImageModalVisible(true)}>
+                                    <Ionicons name="qr-code" size={24} color={gymColor || Colors.light.tint} />
+                                    <ThemedText style={[styles.qrButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</ThemedText>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
-                    </TouchableOpacity>
-                )}
-                <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setFilterModalVisible(true)}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                        <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                        <ThemedText style={styles.filterButtonText} numberOfLines={1}>
-                            {selectedClassType === 'all' ? 'Turnos: Todos' : (classTypes.find(t => t._id === selectedClassType)?.nombre || 'Filtrar')}
-                        </ThemedText>
-                    </View>
-                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-            </View>
-            {visibleClasses.length === 0 && !isLoading ? <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText> : (selectedDate ? <FlatList data={visibleClasses} keyExtractor={item => item._id} renderItem={renderClassItem} ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>} contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />} /> : <SectionList sections={sectionedClasses} keyExtractor={(item, index) => item._id + index} renderItem={renderClassItem} renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>} ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>} contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />} />)}
-        </ThemedView>
-    );
+                    </ThemedView>
+                );
+            case 'list':
+                return (
+                    <ThemedView style={{ flex: 1 }}>
+                        <ThemedText style={[styles.listHeader, { paddingBottom: 10 }]}>{formattedDateTitle}</ThemedText>
 
-    const renderScene = SceneMap({ calendar: CalendarScene, list: ListScene });
+                        <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 15, marginBottom: 12 }}>
+                            {sucursales.length > 1 && (
+                                <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setSucursalFilterVisible(true)}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                        <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                        <ThemedText style={styles.filterButtonText} numberOfLines={1}>
+                                            {selectedSucursal === 'all' ? 'Todas' : (sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal')}
+                                        </ThemedText>
+                                    </View>
+                                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setFilterModalVisible(true)}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                    <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                    <ThemedText style={styles.filterButtonText} numberOfLines={1}>
+                                        {selectedClassType === 'all' ? 'Turnos: Todos' : (classTypes.find(t => t._id === selectedClassType)?.nombre || 'Filtrar')}
+                                    </ThemedText>
+                                </View>
+                                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
+                            </TouchableOpacity>
+                        </View>
+                        {visibleClasses.length === 0 && !isLoading ? (
+                            <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
+                        ) : (
+                            selectedDate ? (
+                                <FlatList
+                                    data={visibleClasses}
+                                    keyExtractor={item => item._id}
+                                    renderItem={renderClassItem}
+                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos para este día.</ThemedText>}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                                />
+                            ) : (
+                                <SectionList
+                                    sections={sectionedClasses}
+                                    keyExtractor={(item, index) => item._id + index}
+                                    renderItem={renderClassItem}
+                                    renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+                                    ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay próximos turnos.</ThemedText>}
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                                />
+                            )
+                        )}
+                    </ThemedView>
+                );
+            default:
+                return null;
+        }
+    };
 
-    if (isLoading) return <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={Colors[colorScheme].tint} /><ThemedText style={styles.loadingText}>Cargando clases...</ThemedText></ThemedView>;
+    if (isLoading) {
+        return (
+            <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+                <ThemedText style={styles.loadingText}>Cargando clases...</ThemedText>
+            </ThemedView>
+        );
+    }
 
     return (
         <View style={{ flex: 1 }}>
@@ -733,12 +483,10 @@ const CalendarScreen = () => {
                 </TouchableOpacity>
             )}
 
-            {/* MODAL SCOREBOARD INTEGRADO CON ESTILO RM */}
-            <ClientScoreboardModal
+            <DesafiosModal
                 visible={isScoreboardVisible}
                 onClose={() => setScoreboardVisible(false)}
                 gymColor={gymColor}
-                colorScheme={colorScheme}
             />
 
             <FilterModal visible={isFilterModalVisible} onClose={() => setFilterModalVisible(false)} options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]} onSelect={(id) => { setSelectedClassType(id); setFilterModalVisible(false); }} selectedValue={selectedClassType} title="Tipo de Turno" theme={{ colors: Colors[colorScheme], gymColor }} />
@@ -746,6 +494,16 @@ const CalendarScreen = () => {
             <CustomAlert visible={alertInfo.visible} title={alertInfo.title} message={alertInfo.message} buttons={alertInfo.buttons} onClose={() => setAlertInfo({ ...alertInfo, visible: false })} gymColor={gymColor} inline={true} />
             <QrModal visible={isQrModalVisible} onClose={() => setQrModalVisible(false)} user={user} gymColor={gymColor} />
             <QrScannerModal visible={isScannerVisible} onClose={() => setScannerVisible(false)} onBarcodeScanned={handleClientReceptionScan} />
+            <PresentismoOptionsModal
+                visible={presentismoModal.visible}
+                options={presentismoModal.options}
+                message={presentismoModal.message}
+                gymColor={gymColor}
+                onClose={() => setPresentismoModal(prev => ({ ...prev, visible: false }))}
+                onSelect={async (opt) => {
+                    await confirmCheckIn(opt.type, opt.id, presentismoModal.qrData);
+                }}
+            />
             
             <Modal
                 visible={isQrImageModalVisible}
@@ -773,16 +531,6 @@ const CalendarScreen = () => {
 };
 
 // HELPERS
-const getClassStyle = (clase, styles, colorScheme) => {
-    if (clase.estado === 'cancelada') return styles.cancelledClass;
-    const fillRatio = clase.capacidad > 0 ? (clase.usuariosInscritos || []).length / clase.capacidad : 0;
-    if (fillRatio === 1) return styles.fullClass;
-    if (fillRatio >= 0.8) return styles.almostFullClass;
-    if (fillRatio < 0.4) return styles.emptyClass;
-    if (fillRatio < 0.7) return styles.almostEmptyClass;
-    return {};
-};
-
 const getCalendarTheme = (colorScheme, gymColor) => ({
     calendarBackground: Colors[colorScheme].background,
     textSectionTitleColor: Colors[colorScheme].text,
@@ -806,27 +554,16 @@ const getCalendarTheme = (colorScheme, gymColor) => ({
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     container: { flex: 1 },
-    actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5 },
-    actionButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 14 },
     listHeader: { textAlign: 'center', fontSize: 20, fontWeight: 'bold', padding: 15, color: Colors[colorScheme].text, backgroundColor: Colors[colorScheme].background },
     sectionHeader: { fontSize: 18, fontWeight: 'bold', paddingVertical: 10, paddingHorizontal: 15, backgroundColor: Colors[colorScheme].background, opacity: 0.9, color: Colors[colorScheme].text },
 
-    classItem: { padding: 20, marginHorizontal: 16, marginVertical: 8, borderRadius: 14, elevation: 2, backgroundColor: Colors[colorScheme].background, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    className: { fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: Colors[colorScheme].text },
-    classInfoText: { fontSize: 14, opacity: 0.8, marginBottom: 4, color: Colors[colorScheme].text },
-    buttonContainer: { marginTop: 12, alignSelf: 'flex-start' },
-    emptyText: { textAlign: 'center', marginTop: 30, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
-
-    // --- ESTILOS DE CLASES ---
-    cancelledClass: { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5', borderColor: '#555', borderWidth: 1, borderLeftWidth: 0 },
-    finishedClass: { opacity: 0.6 },
-    disabledText: { color: Colors[colorScheme].icon },
     badgeCancelled: { color: Colors.light.error, fontStyle: 'italic', fontWeight: 'bold' },
     badgeFinished: { color: Colors[colorScheme].icon, fontStyle: 'italic', fontWeight: 'bold' },
-    emptyClass: { borderLeftWidth: 15, borderColor: '#006400', backgroundColor: colorScheme === 'dark' ? 'rgba(76, 175, 80, 0.2)' : '#e8f5e9' },
-    almostEmptyClass: { borderLeftWidth: 15, borderColor: '#FFC107', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 193, 7, 0.2)' : '#fffde7' },
-    almostFullClass: { borderLeftWidth: 15, borderColor: '#ff7707', backgroundColor: colorScheme === 'dark' ? 'rgba(255, 119, 7, 0.2)' : '#fff3e0' },
-    fullClass: { borderLeftWidth: 15, borderColor: '#F44336', backgroundColor: colorScheme === 'dark' ? 'rgba(244, 67, 54, 0.2)' : '#ffebee' },
+    statusPillPresent: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f7ee', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, gap: 4 },
+    statusPillPresentText: { color: '#28a745', fontWeight: '800', fontSize: 10 },
+    statusPillMuted: { backgroundColor: Colors[colorScheme].background, borderWidth: 1, borderColor: Colors[colorScheme].border, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    statusPillMutedText: { color: Colors[colorScheme].icon, fontWeight: '800', fontSize: 10 },
+    emptyText: { textAlign: 'center', marginTop: 30, fontSize: 16, opacity: 0.7, color: Colors[colorScheme].text },
 
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 10, fontSize: 16, color: Colors[colorScheme].text },
@@ -839,57 +576,6 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     // FABs
     fabWhatsApp: { position: 'absolute', width: 50, height: 50, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#25D366', borderRadius: 30, elevation: 8, zIndex: 999 },
     fabScoreboard: { position: 'absolute', width: 50, height: 50, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 80, backgroundColor: gymColor, borderRadius: 30, elevation: 8, zIndex: 999 },
-
-    // --- ESTILOS DEL MODAL (Tipo RM) ---
-    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 5, borderTopRightRadius: 5, height: '85%', overflow: 'hidden' },
-    header: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 10 },
-
-    // Scoreboard Items
-    scoreboardItem: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: gymColor, width: '100%', paddingBottom: 10, marginBottom: 20 },
-    scoreboardTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[colorScheme].text },
-    scoreboardSubtitle: { fontSize: 12, color: Colors[colorScheme].icon, marginTop: 2 },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 10 },
-    statusBadgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-
-    // Detail
-    detailTitle: { fontSize: 25, fontWeight: 'bold', textAlign: 'center', color: Colors[colorScheme].text, marginBottom: 5 },
-    detailDesc: { fontSize: 12, textAlign: 'center', color: Colors[colorScheme].text, opacity: 0.8, marginBottom: 15 },
-    lockedContainer: { alignItems: 'center', padding: 20 },
-    lockedText: { fontSize: 16, textAlign: 'center', color: Colors[colorScheme].text, marginBottom: 20 },
-    formContainer: { width: '100%' },
-    inputLabel: { fontSize: 14, color: Colors[colorScheme].text, marginBottom: 5, fontWeight: '600' },
-    input: { backgroundColor: Colors[colorScheme].background, borderRadius: 5, padding: 12, borderWidth: 1, borderColor: Colors[colorScheme].border, color: Colors[colorScheme].text },
-    mainButton: { padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-    mainButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-    // My Score & Ranking
-    myScoreContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, padding: 15, backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 5, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 1.41, borderWidth: 1, borderColor: Colors[colorScheme].border },
-    rankingHeader: { flexDirection: 'row', width: '100%', paddingVertical: 10, },
-    rankingHeadText: { fontSize: 15, fontWeight: 'bold', color: Colors[colorScheme].text },
-    rankingRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: gymColor },
-    rankingText: { fontSize: 14, color: Colors[colorScheme].text },
-    headerBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 20,
-        justifyContent: 'space-between',
-    },
-    headerBannerTitle: {
-        fontSize: 19,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    headerBannerSub: {
-        fontSize: 13,
-        color: '#fff',
-        opacity: 0.85,
-        marginTop: 2,
-    },
-    closeButtonBanner: {
-        padding: 4,
-    }
 });
 
 export default CalendarScreen;

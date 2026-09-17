@@ -11,7 +11,7 @@ import {
     RefreshControl,
     useWindowDimensions // <-- AÑADIDO
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,37 +20,18 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import apiClient from '../../services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
-import { FontAwesome5, Ionicons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import RateClassModal from '@/components/client/RateClassModal';
+import ClassCard, { ClassCardAction, formatClassTeachers } from '@/components/ClassCard';
 
 // --- AÑADIDO: Importaciones para TabView ---
-import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
+import { TabView, TabBar } from 'react-native-tab-view';
 
 const capitalize = (str) => {
     if (typeof str !== 'string' || str.length === 0) return '';
     const formattedStr = str.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     return formattedStr.replace(' De ', ' de ');
-};
-
-const formatTeachers = (clase) => {
-    if (!clase) return 'Sin profesor asignado';
-
-    // 1. Prioridad: Array de profesores (Nueva estructura)
-    if (clase.profesores && Array.isArray(clase.profesores) && clase.profesores.length > 0) {
-        return clase.profesores
-            .map(p => p ? `${p.nombre} ${p.apellido || ''}`.trim() : '')
-            .filter(name => name !== '')
-            .join(', ');
-    }
-
-    // 2. Fallback: Profesor único (Estructura antigua)
-    if (clase.profesor && clase.profesor.nombre) {
-        return `${clase.profesor.nombre} ${clase.profesor.apellido || ''}`.trim();
-    }
-
-    // 3. Default
-    return 'Sin profesor asignado';
 };
 
 let isProcessingScan = false;
@@ -164,16 +145,6 @@ const MyClassesScreen = () => {
         }
     };
 
-    const ActionButton = ({ onPress, iconName, title, color, iconColor = '#fff' }) => (
-        <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: color }]}
-            onPress={onPress}
-        >
-            <FontAwesome5 name={iconName} size={16} color={iconColor} />
-            <Text style={styles.actionButtonText}>{title}</Text>
-        </TouchableOpacity>
-    );
-
     const fetchMyClasses = useCallback(async () => {
         try {
             const userResponse = await apiClient.get('/users/me');
@@ -197,20 +168,23 @@ const MyClassesScreen = () => {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => {
-        const loadData = async () => {
-            setLoading(true);
-            await fetchMyClasses();
-            setLoading(false);
-        };
-        loadData();
-    }, [fetchMyClasses]));
+    const { refresh } = useCachedFocusEffect(
+        async ({ isInitial }) => {
+            if (isInitial) setLoading(true);
+            try {
+                await fetchMyClasses();
+            } finally {
+                if (isInitial) setLoading(false);
+            }
+        },
+        { ttlMs: 45_000 }
+    );
 
     const onRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        await fetchMyClasses();
+        await refresh();
         setIsRefreshing(false);
-    }, [fetchMyClasses]);
+    }, [refresh]);
 
     const handleUnenroll = (classId) => {
         const performUnenroll = async () => {
@@ -298,107 +272,103 @@ const MyClassesScreen = () => {
         const canUnenroll = item.dateTime >= now && !didAttend;
         const isCancelled = item.estado === 'cancelada';
 
-        return (
-            <ThemedView style={styles.classItem}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <ThemedText style={styles.className}>{item.nombre || 'Turno'} - {item.tipoClase?.nombre || ''}</ThemedText>
-                    {didAttend && (
-                        <View style={styles.presentBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#28a745" />
-                            <Text style={styles.presentText}>PRESENTE</Text>
-                        </View>
-                    )}
-                </View>
-                {item.sucursal?.nombre && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.8, marginRight: 4 }} />
-                        <ThemedText style={[styles.classInfoText, { marginBottom: 0 }]}>
-                            {item.sucursal.nombre}
-                        </ThemedText>
-                    </View>
-                )}
-                <ThemedText style={styles.classInfoText}>
-                    A cargo de: {formatTeachers(item)}
-                </ThemedText>
-                <ThemedText style={styles.classInfoText}>Horario: {item.horaInicio}hs - {item.horaFin}hs</ThemedText>
+        const badges = didAttend ? (
+            <View style={styles.presentBadge}>
+                <Ionicons name="checkmark-circle" size={12} color="#28a745" />
+                <Text style={styles.presentText}>PRESENTE</Text>
+            </View>
+        ) : isCancelled ? (
+            <View style={styles.absentBadge}>
+                <Text style={styles.badgeCancelled}>CANCELADA</Text>
+            </View>
+        ) : index === 1 && !didAttend ? (
+            <View style={styles.absentBadge}>
+                <Ionicons name="close-circle" size={12} color="#dc3545" />
+                <Text style={styles.absentText}>AUSENTE</Text>
+            </View>
+        ) : null;
 
-                <View style={styles.buttonContainer}>
-                    {isCancelled ? <Text style={styles.badgeCancelled}>CANCELADA</Text>
-                        : didAttend ? (
-                            index === 1 ? (
-                                <View style={{ width: '100%', alignItems: 'flex-start', paddingTop: 8 }}>
-                                    <ActionButton
-                                        title="Calificar"
-                                        color="#FFD700"
-                                        iconColor="#000"
-                                        onPress={() => setSelectedClassForRate(item)}
-                                        iconName="star"
-                                    />
-                                </View>
-                            ) : null
-                        )
-                        : index === 0 && canUnenroll ? (
-                            <ActionButton
-                                title="Anular Inscripción"
-                                color="#e74c3c"
-                                onPress={() => handleUnenroll(item._id)}
-                                iconName="calendar-times"
-                            />
-                        ) : index === 1 && !didAttend ? (
-                            <View style={styles.absentBadge}>
-                                <Ionicons name="close-circle" size={14} color="#dc3545" />
-                                <Text style={styles.absentText}>AUSENTE</Text>
-                            </View>
-                        ) : null}
-                </View>
-            </ThemedView>
+        let footer = null;
+        if (isCancelled) {
+            footer = <Text style={styles.badgeCancelled}>Turno cancelado</Text>;
+        } else if (didAttend && index === 1) {
+            footer = (
+                <ClassCardAction
+                    title="Calificar"
+                    color="#FFD700"
+                    iconColor="#000"
+                    onPress={() => setSelectedClassForRate(item)}
+                    iconName="star"
+                />
+            );
+        } else if (index === 0 && canUnenroll) {
+            footer = (
+                <ClassCardAction
+                    title="Anular Inscripción"
+                    color="#e74c3c"
+                    onPress={() => handleUnenroll(item._id)}
+                    iconName="calendar-times"
+                />
+            );
+        }
+
+        return (
+            <ClassCard
+                item={item}
+                gymColor={gymColor}
+                muted={index === 1 && !didAttend}
+                badges={badges}
+                footer={footer}
+            />
         );
     };
 
-    const UpcomingScene = () => (
-        <SectionList
-            sections={upcomingClasses}
-            keyExtractor={(item, index) => item._id + index}
-            renderItem={renderClassItem}
-            renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
-            ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes próximos turnos.</ThemedText>}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-        />
-    );
-
-    const PastScene = () => (
-        <SectionList
-            sections={pastClasses}
-            keyExtractor={(item, index) => item._id + index}
-            renderItem={renderClassItem}
-            renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
-            ListHeaderComponent={
-                <View style={styles.summaryCard}>
-                    <ThemedText style={styles.summaryTitle}>Asistencias</ThemedText>
-                    <View style={styles.statsRow}>
-                        <View style={styles.statBox}>
-                            <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{asistenciasMes}</ThemedText>
-                            <ThemedText style={styles.statLabel}>Este Mes</ThemedText>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statBox}>
-                            <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{totalAsistencias}</ThemedText>
-                            <ThemedText style={styles.statLabel}>Total Presentes</ThemedText>
-                        </View>
-                    </View>
-                </View>
-            }
-            ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en el historial.</ThemedText>}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-        />
-    );
-
-    const renderScene = SceneMap({
-        upcoming: UpcomingScene,
-        past: PastScene,
-    });
+    const renderScene = ({ route }) => {
+        switch (route.key) {
+            case 'upcoming':
+                return (
+                    <SectionList
+                        sections={upcomingClasses}
+                        keyExtractor={(item, index) => item._id + index}
+                        renderItem={renderClassItem}
+                        renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+                        ListEmptyComponent={<ThemedText style={styles.emptyText}>No tienes próximos turnos.</ThemedText>}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                    />
+                );
+            case 'past':
+                return (
+                    <SectionList
+                        sections={pastClasses}
+                        keyExtractor={(item, index) => item._id + index}
+                        renderItem={renderClassItem}
+                        renderSectionHeader={({ section: { title } }) => <ThemedText style={styles.sectionHeader}>{title}</ThemedText>}
+                        ListHeaderComponent={
+                            <View style={styles.summaryCard}>
+                                <ThemedText style={styles.summaryTitle}>Asistencias</ThemedText>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.statBox}>
+                                        <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{asistenciasMes}</ThemedText>
+                                        <ThemedText style={styles.statLabel}>Este Mes</ThemedText>
+                                    </View>
+                                    <View style={styles.statDivider} />
+                                    <View style={styles.statBox}>
+                                        <ThemedText style={[styles.statValue, { color: gymColor || '#007bff' }]}>{totalAsistencias}</ThemedText>
+                                        <ThemedText style={styles.statLabel}>Total Presentes</ThemedText>
+                                    </View>
+                                </View>
+                            </View>
+                        }
+                        ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay turnos en el historial.</ThemedText>}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
 
     if (loading) {
         return (
@@ -442,7 +412,7 @@ const MyClassesScreen = () => {
                 claseId={selectedClassForRate?._id}
                 profesorId={selectedClassForRate?.profesor?._id || selectedClassForRate?.profesores?.[0]?._id}
                 className={selectedClassForRate?.tipoClase?.nombre || selectedClassForRate?.nombre}
-                profesorName={formatTeachers(selectedClassForRate)}
+                profesorName={formatClassTeachers(selectedClassForRate)}
             />
         </ThemedView>
     );

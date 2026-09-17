@@ -24,12 +24,26 @@ export const scheduleMonthlyClassGeneration = () => {
             const response = await fetch(`${ADMIN_PANEL_API_URL}/clients/internal/all-clients`, { // Adjust path if needed
                 headers: {
                     'x-internal-api-key': INTERNAL_ADMIN_API_KEY,
+                    Accept: 'application/json',
                 },
             });
-            const clients = await response.json();
+
+            const contentType = response.headers.get('content-type') || '';
+            const rawBody = await response.text();
+            let clients;
+            try {
+                clients = rawBody ? JSON.parse(rawBody) : null;
+            } catch {
+                const preview = rawBody.slice(0, 120).replace(/\s+/g, ' ');
+                throw new Error(
+                    `Respuesta no JSON desde ${ADMIN_PANEL_API_URL}/clients/internal/all-clients `
+                    + `(HTTP ${response.status}, content-type: ${contentType || 'desconocido'}). `
+                    + `Preview: ${preview}`
+                );
+            }
 
             if (!response.ok) {
-                throw new Error(clients.message || 'Error al obtener clientes del panel de administración para generación de clases.');
+                throw new Error(clients?.message || `Error al obtener clientes (HTTP ${response.status}).`);
             }
 
             if (!Array.isArray(clients) || clients.length === 0) {

@@ -29,6 +29,11 @@ const scoreboardSchema = new mongoose.Schema({
     visible: {
         type: Boolean,
         default: true
+    },
+    // Set when end-of-challenge place notifications have been sent
+    resultsNotifiedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

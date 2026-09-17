@@ -26,6 +26,14 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import sucursalRoutes from './routes/sucursalRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import storeRoutes from './routes/storeRoutes.js';
+import benefitRoutes from './routes/benefitRoutes.js';
+import mercadopagoAdminRoutes from './routes/mercadopagoRoutes.js';
+import {
+    mercadoPagoCallback,
+    mercadoPagoWebhook,
+    mercadoPagoReturn
+} from './controllers/mercadopagoController.js';
 
 // Importación de Middlewares
 import { notFound, errorHandler } from './middlewares/errorMiddleware.js';
@@ -37,6 +45,7 @@ import { scheduleDebtorNotifications } from './cron/debtorBalanceNotifier.js';
 import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.js';
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { scheduleClassReminders } from './cron/ClassReminderJob.js';
+import { scheduleScoreboardResultsJob } from './cron/ScoreboardResultsJob.js';
 
 
 
@@ -105,8 +114,16 @@ app.use('/api/check-in', gymTenantMiddleware, checkInRoutes);
 app.use('/api/settings', gymTenantMiddleware, settingsRoutes);
 app.use('/api/scoreboards', gymTenantMiddleware, scoreboardRoutes);
 app.use('/api/payments', gymTenantMiddleware, paymentRoutes);
+app.use('/api/store', gymTenantMiddleware, storeRoutes);
+app.use('/api/benefits', gymTenantMiddleware, benefitRoutes);
 app.use('/api/sucursales', gymTenantMiddleware, sucursalRoutes);
 app.use('/api/reviews', gymTenantMiddleware, reviewRoutes);
+
+app.get('/api/mercadopago/callback', mercadoPagoCallback);
+app.get('/api/mercadopago/webhook', mercadoPagoWebhook);
+app.post('/api/mercadopago/webhook', mercadoPagoWebhook);
+app.get('/api/mercadopago/return', mercadoPagoReturn);
+app.use('/api/mercadopago', gymTenantMiddleware, mercadopagoAdminRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);
@@ -125,6 +142,7 @@ scheduleDebtorNotifications();
 schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
 scheduleClassReminders();
+scheduleScoreboardResultsJob();
 
 
 

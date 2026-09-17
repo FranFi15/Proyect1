@@ -8,12 +8,16 @@ import getCreditLogModel from '../models/CreditLog.js';
 import getTransactionsModel from '../models/Transaction.js';
 import getTrainingPlanModel from '../models/TrainingPlan.js';
 import getTrainingTemplateModel from '../models/TrainingTemplate.js';
+import getPlanFeedbackModel from '../models/PlanFeedback.js';
 import getSettingsModel from '../models/Settings.js';
 import getScoreboardModel from '../models/Scoreboard.js';
 import getPaymentPackageModel from '../models/PaymentPackage.js';
 import getPaymentRequestModel from '../models/PaymentRequest.js';
 import getSucursalModel from '../models/Sucursal.js';
 import getReviewModel from '../models/Review.js';
+import getStoreItemModel from '../models/StoreItem.js';
+import getStoreOrderModel from '../models/StoreOrder.js';
+import getBenefitModel from '../models/Benefit.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -32,6 +36,7 @@ const getModels = (dbConnection) => {
         Transaction: getTransactionsModel(dbConnection),
         TrainingPlan: getTrainingPlanModel(dbConnection),
         TrainingTemplate: getTrainingTemplateModel(dbConnection),
+        PlanFeedback: getPlanFeedbackModel(dbConnection),
         Settings: getSettingsModel(dbConnection),
         Scoreboard,
         ScoreboardEntry,
@@ -39,7 +44,10 @@ const getModels = (dbConnection) => {
         PaymentRequest: getPaymentRequestModel(dbConnection),
         Sucursal: getSucursalModel(dbConnection),
         Review: getReviewModel(dbConnection),
-        SentNotification: getSentNotificationModel(dbConnection)
+        SentNotification: getSentNotificationModel(dbConnection),
+        StoreItem: getStoreItemModel(dbConnection),
+        StoreOrder: getStoreOrderModel(dbConnection),
+        Benefit: getBenefitModel(dbConnection),
     };
 
     return models;
