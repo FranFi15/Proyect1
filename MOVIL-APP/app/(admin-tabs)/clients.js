@@ -543,29 +543,38 @@ const ManageClientsScreen = () => {
     }, [closeDatePicker]);
 
     const renderDateField = (label, value, onChange) => {
-        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : label;
+        const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
+
         if (Platform.OS === 'web') {
             return (
                 <View style={dynamicStyles.dateFieldContainer}>
                     <ThemedText style={dynamicStyles.creditsLabel}>{label}</ThemedText>
                     <WebDatePicker
                         selected={value ? parseISO(value) : null}
-                        onChange={(date) => onChange(format(date, 'yyyy-MM-dd'))}
+                        onChange={(date) => {
+                            if (date instanceof Date && isValid(date)) {
+                                onChange(format(date, 'yyyy-MM-dd'));
+                            }
+                        }}
                         dateFormat="dd/MM/yyyy"
-                        popperPlacement="top-start"
                         customInput={
-                            <TouchableOpacity style={dynamicStyles.dateInputTouchable}>
+                            <View style={dynamicStyles.dateInputTouchable}>
                                 <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
-                            </TouchableOpacity>
+                                <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} />
+                            </View>
                         }
                     />
                 </View>
             );
         }
+
         return (
             <View style={dynamicStyles.dateFieldContainer}>
                 <ThemedText style={dynamicStyles.creditsLabel}>{label}</ThemedText>
-                <TouchableOpacity onPress={() => showDatePickerFor(label, value, onChange)} style={dynamicStyles.dateInputTouchable}>
+                <TouchableOpacity
+                    onPress={() => showDatePickerFor(label, value, onChange)}
+                    style={dynamicStyles.dateInputTouchable}
+                >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                         <Text style={dynamicStyles.dateInputText}>{displayValue}</Text>
                         <Ionicons name="calendar-outline" size={20} color={Colors[colorScheme].text} />
@@ -1487,7 +1496,7 @@ const ManageClientsScreen = () => {
                                         ))}
                                     </View>
 
-                                    <View style={dynamicStyles.row}>
+                                    <View style={[dynamicStyles.row, dynamicStyles.dateRowElevated]}>
                                         <View style={{ flex: 1, marginRight: 6 }}>
                                             {renderDateField('Desde', paseLibreData.desde, (val) => handlePaseLibreDateChange('desde', val))}
                                         </View>
@@ -1497,7 +1506,7 @@ const ManageClientsScreen = () => {
                                     </View>
 
                                     <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
+                                        style={[dynamicStyles.creditsPrimaryBtn, dynamicStyles.creditsPrimaryBtnLow, { backgroundColor: gymColor || '#1a5276' }]}
                                         onPress={handleSavePaseLibre}
                                         activeOpacity={0.85}
                                     >
@@ -1530,7 +1539,7 @@ const ManageClientsScreen = () => {
                                         ))}
                                     </View>
 
-                                    <View style={dynamicStyles.row}>
+                                    <View style={[dynamicStyles.row, dynamicStyles.dateRowElevated]}>
                                         <View style={{ flex: 1, marginRight: 6 }}>
                                             {renderDateField('Desde', membresiaData.desde, (val) => handleMembresiaDateChange('desde', val))}
                                         </View>
@@ -1540,7 +1549,7 @@ const ManageClientsScreen = () => {
                                     </View>
 
                                     <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
+                                        style={[dynamicStyles.creditsPrimaryBtn, dynamicStyles.creditsPrimaryBtnLow, { backgroundColor: gymColor || '#1a5276' }]}
                                         onPress={handleSaveMembresia}
                                         activeOpacity={0.85}
                                     >
@@ -1576,7 +1585,7 @@ const ManageClientsScreen = () => {
                                         ))}
                                     </View>
 
-                                    <View style={dynamicStyles.row}>
+                                    <View style={[dynamicStyles.row, dynamicStyles.dateRowElevated]}>
                                         <View style={{ flex: 1, marginRight: 6 }}>
                                             {renderDateField('Desde', massEnrollFilters.fechaInicio, (val) => handleMassEnrollDateChange('fechaInicio', val))}
                                         </View>
@@ -1837,6 +1846,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: Colors[colorScheme].border,
+        ...(Platform.OS === 'web' ? { overflow: 'visible' } : {}),
     },
     creditsCardTitle: { fontSize: 16, fontWeight: '700', color: Colors[colorScheme].text },
     creditsCardSub: { fontSize: 13, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 4, marginBottom: 14 },
@@ -1972,8 +1982,20 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 12,
+        width: '100%',
     },
-    dateInputText: { fontSize: 15, color: Colors[colorScheme].text },
+    dateInputText: { fontSize: 15, color: Colors[colorScheme].text, flex: 1 },
+    dateRowElevated: {
+        zIndex: 40,
+        position: 'relative',
+        marginBottom: 8,
+        ...(Platform.OS === 'web' ? { overflow: 'visible' } : {}),
+    },
+    creditsPrimaryBtnLow: {
+        zIndex: 1,
+        position: 'relative',
+        elevation: 0,
+    },
     row: { flexDirection: 'row', justifyContent: 'space-between', },
     iosPickerOverlay: { justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
     iosPickerContainer: { backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, paddingBottom: 20, paddingHorizontal: 10 },
