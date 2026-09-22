@@ -1,5 +1,19 @@
 import asyncHandler from 'express-async-handler'; 
 import getModels from '../utils/getModels.js';
+import { sendSingleNotification } from './notificationController.js';
+
+const notifyClientsNewPlan = async (Notification, User, userIds, planName, professor) => {
+    const profName = [professor?.nombre, professor?.apellido].filter(Boolean).join(' ').trim() || 'Tu profesor';
+    const title = 'Nuevo plan de entrenamiento';
+    const message = `${profName} te asignó el plan "${planName}". Revisalo en Mis Planes.`;
+    const uniqueIds = [...new Set((userIds || []).map((id) => id.toString()))];
+
+    await Promise.allSettled(
+        uniqueIds.map((uid) =>
+            sendSingleNotification(Notification, User, uid, title, message, 'training_plan', false)
+        )
+    );
+};
 
 const createTemplate = asyncHandler(async (req, res) => {
     const { TrainingTemplate } = getModels(req.gymDBConnection);
@@ -66,7 +80,7 @@ const deleteTemplate = asyncHandler(async (req, res) => {
 
 
 const createPlanForUser = asyncHandler(async (req, res) => {
-    const { TrainingPlan, TrainingTemplate, User, Clase } = getModels(req.gymDBConnection);
+    const { TrainingPlan, TrainingTemplate, User, Clase, Notification } = getModels(req.gymDBConnection);
     
     const { 
         userIds, userId, 
@@ -131,6 +145,8 @@ const createPlanForUser = asyncHandler(async (req, res) => {
         }
     }
 
+    const visibleToUser = Boolean(isVisibleToUser);
+
     const createdPlans = await Promise.all(targets.map(async (uid) => {
         return await TrainingPlan.create({
             user: uid,
@@ -139,9 +155,13 @@ const createPlanForUser = asyncHandler(async (req, res) => {
             description,
             content: planContent, 
             template: templateId || undefined,
-            isVisibleToUser: isVisibleToUser || false,
+            isVisibleToUser: visibleToUser,
         });
     }));
+
+    if (visibleToUser) {
+        await notifyClientsNewPlan(Notification, User, targets, planName, req.user);
+    }
 
     res.status(201).json({ 
         message: `Plan asignado exitosamente a ${createdPlans.length} cliente(s).`,
@@ -274,7 +294,7 @@ const getPlanFeedbacks = asyncHandler(async (req, res) => {
 });
 
 const updatePlan = asyncHandler(async (req, res) => {
-    const { TrainingPlan, User } = getModels(req.gymDBConnection);
+    const { TrainingPlan, User, Notification } = getModels(req.gymDBConnection);
     const { name, description, content, isVisibleToUser } = req.body;
     const plan = await TrainingPlan.findById(req.params.planId);
 
@@ -289,6 +309,8 @@ const updatePlan = asyncHandler(async (req, res) => {
         throw new Error('No se pueden modificar planes de un usuario inactivo.');
     }
 
+    const wasVisible = Boolean(plan.isVisibleToUser);
+
     plan.name = name !== undefined ? name : plan.name;
     plan.description = description !== undefined ? description : plan.description;
     plan.content = content !== undefined ? content : plan.content;
@@ -297,6 +319,18 @@ const updatePlan = asyncHandler(async (req, res) => {
     }
     
     const updatedPlan = await plan.save();
+
+    // Notify when a plan becomes visible for the first time (common flow: draft → publish).
+    if (!wasVisible && updatedPlan.isVisibleToUser) {
+        await notifyClientsNewPlan(
+            Notification,
+            User,
+            [plan.user],
+            updatedPlan.name,
+            req.user
+        );
+    }
+
     res.json(updatedPlan);
 });
 
