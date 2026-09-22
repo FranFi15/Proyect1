@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
-import { updateClientCount, getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit } from '../utils/superAdminApiClient.js';
+import { getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
 
 
 const getAllUsers = asyncHandler(async (req, res) => {
@@ -209,7 +209,8 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
         }
 
         if (!wasClient && isNowClient) {
-            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
+            const liveCount = await countActiveClients(User);
+            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey, liveCount);
             if (!hasSpace) {
                 res.status(403);
                 throw new Error('No se puede cambiar el rol a "cliente" porque el gimnasio ha alcanzado su límite de socios activos.');
@@ -218,10 +219,8 @@ const updateUserProfileByAdmin = asyncHandler(async (req, res) => {
 
         const updatedUser = await user.save(); 
 
-        if (!wasClient && isNowClient) {
-            updateClientCount(req.gymId, req.apiSecretKey, 'increment');
-        } else if (wasClient && !isNowClient) {
-            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
+        if ((!wasClient && isNowClient) || (wasClient && !isNowClient)) {
+            await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
         }
 
         res.json(updatedUser);
@@ -265,7 +264,7 @@ const deleteUser = asyncHandler(async (req, res) => {
         await user.deleteOne();
 
         if (wasClient) {
-            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
+            await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
         }
 
         res.json({ message: 'Usuario eliminado correctamente.' });
@@ -306,7 +305,7 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
 
         await user.deleteOne();
         if (wasClient) {
-            updateClientCount(req.gymId, req.apiSecretKey, 'decrement');
+            await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
         }
 
         res.json({ message: 'Tu cuenta ha sido eliminada exitosamente.' });
@@ -830,8 +829,19 @@ const requestPlanUpgrade = asyncHandler(async (req, res) => {
 });
 
 const getSubscriptionInfo = asyncHandler(async (req, res) => {
+    const { User } = getModels(req.gymDBConnection);
     const subInfo = await getClientSubscriptionInfo(req.gymId, req.apiSecretKey);
-    res.json(subInfo);
+    const liveCount = await countActiveClients(User);
+
+    // Keep Super Admin in sync with the real gym DB count.
+    if (liveCount !== subInfo.clientCount) {
+        await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
+    }
+
+    res.json({
+        ...subInfo,
+        clientCount: liveCount,
+    });
 });
 
 const updateUserStatus = asyncHandler(async (req, res) => {
@@ -864,7 +874,10 @@ const updateUserStatus = asyncHandler(async (req, res) => {
 
     if (wasClient && isChangingStatus) {
         if (isActive === true) {
-            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
+            const liveCount = await countActiveClients(User);
+            // liveCount still includes this user if already saved as active above —
+            // check against limit using count BEFORE this reactivation: liveCount - 1
+            const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey, liveCount - 1);
             if (!hasSpace) {
                 user.isActive = false; 
                 await user.save();
@@ -872,9 +885,7 @@ const updateUserStatus = asyncHandler(async (req, res) => {
                 throw new Error('No se puede reactivar al cliente, el gimnasio ha alcanzado su límite del plan.');
             }
         }
-        // Determinamos si sumar o restar del contador
-        const action = isActive ? 'increment' : 'decrement';
-        updateClientCount(req.gymId, req.apiSecretKey, action);
+        await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
     }
 
     res.json({ 

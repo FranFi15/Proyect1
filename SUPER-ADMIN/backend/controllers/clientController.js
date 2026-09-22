@@ -1,5 +1,47 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import Client from '../models/Client.js';
+
+const countActiveClientsInTenantDb = async (connectionStringDB) => {
+    if (!connectionStringDB) return null;
+    let conn;
+    try {
+        conn = await mongoose.createConnection(connectionStringDB, {
+            serverSelectionTimeoutMS: 5000,
+            maxPoolSize: 1,
+        }).asPromise();
+
+        // Match gym User model collection without pulling the full schema.
+        const User =
+            conn.models.User ||
+            conn.model(
+                'User',
+                new mongoose.Schema(
+                    {
+                        roles: [String],
+                        isActive: Boolean,
+                    },
+                    { collection: 'users', strict: false }
+                )
+            );
+
+        return await User.countDocuments({
+            roles: 'cliente',
+            isActive: { $ne: false },
+        });
+    } catch (error) {
+        console.error('Error contando clientes activos del tenant:', error.message);
+        return null;
+    } finally {
+        if (conn) {
+            try {
+                await conn.close();
+            } catch {
+                // ignore close errors
+            }
+        }
+    }
+};
 
 const registerClient = asyncHandler(async (req, res) => {
     const { 
@@ -94,7 +136,7 @@ const getClientSubscriptionInfo = asyncHandler(async (req, res) => {
 });
 
 const updateClientCount = asyncHandler(async (req, res) => {
-    const { action } = req.body;
+    const { action, count } = req.body;
     const { clientId } = req.params;
     const client = await Client.findOne({ clientId: clientId });
 
@@ -103,13 +145,16 @@ const updateClientCount = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
 
-    if (action === 'increment') {
+    // Absolute sync from gym DB (preferred — avoids drift from +/- counters).
+    if (typeof count === 'number' && Number.isFinite(count) && count >= 0) {
+        client.clientCount = Math.floor(count);
+    } else if (action === 'increment') {
         client.clientCount += 1;
     } else if (action === 'decrement') {
         client.clientCount = Math.max(0, client.clientCount - 1);
     } else {
         res.status(400);
-        throw new Error("Acción no válida. Debe ser 'increment' o 'decrement'.");
+        throw new Error("Acción no válida. Debe ser 'increment', 'decrement' o enviar 'count'.");
     }
     await client.save();
 
@@ -142,7 +187,37 @@ const upgradeClientPlan = asyncHandler(async (req, res) => {
 
 const getClients = asyncHandler(async (req, res) => {
     const clients = await Client.find({});
-    res.status(200).json(clients);
+    const shouldSync =
+        req.query?.syncCounts === '1' ||
+        req.query?.syncCounts === 'true';
+
+    // Cron and internal callers skip live recount (can be slow across many tenants).
+    if (!shouldSync) {
+        res.status(200).json(clients);
+        return;
+    }
+
+    // Super Admin UI: refresh stored counts from each gym DB.
+    const withLiveCounts = await Promise.all(
+        clients.map(async (client) => {
+            const plain = client.toObject();
+            const liveCount = await countActiveClientsInTenantDb(client.connectionStringDB);
+            if (typeof liveCount === 'number') {
+                if (liveCount !== client.clientCount) {
+                    client.clientCount = liveCount;
+                    try {
+                        await client.save();
+                    } catch (err) {
+                        console.error(`No se pudo guardar clientCount para ${client.clientId}:`, err.message);
+                    }
+                }
+                plain.clientCount = liveCount;
+            }
+            return plain;
+        })
+    );
+
+    res.status(200).json(withLiveCounts);
 });
 
 const getClientById = asyncHandler(async (req, res) => {

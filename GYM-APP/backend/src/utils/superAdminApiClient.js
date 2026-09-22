@@ -5,6 +5,13 @@ const superAdminApiClient = axios.create({
     baseURL: process.env.ADMIN_PANEL_API_URL, 
 });
 
+export const countActiveClients = async (UserModel) => {
+    return UserModel.countDocuments({
+        roles: 'cliente',
+        isActive: { $ne: false },
+    });
+};
+
 export const getClientSubscriptionInfo = async (clientId, apiSecretKey) => {
     try {
         const response = await superAdminApiClient.get(
@@ -20,14 +27,18 @@ export const getClientSubscriptionInfo = async (clientId, apiSecretKey) => {
     }
 };
 
-export const checkClientLimit = async (clientId, internalApiKey) => {
+/**
+ * Prefer live gym DB count when provided — the Super Admin counter can drift.
+ */
+export const checkClientLimit = async (clientId, internalApiKey, liveActiveCount = null) => {
     try {
         const response = await superAdminApiClient.get(
             `/api/clients/internal/${clientId}/subscription-info`, 
             { headers: { 'x-internal-api-key': internalApiKey } }
         );
         const { clientLimit, clientCount } = response.data;
-        return clientCount < clientLimit;
+        const count = typeof liveActiveCount === 'number' ? liveActiveCount : clientCount;
+        return count < clientLimit;
     } catch (error) {
         console.error("Error checking client limit:", error.response?.data?.message || error.message);
         throw new Error('No se pudo verificar el límite del plan. Inténtalo de nuevo.');
@@ -44,6 +55,22 @@ export const updateClientCount = async (clientId, internalApiKey, action) => {
         );
     } catch (error) {
         console.error(`CRITICAL: Failed to ${action} client count for ${clientId}:`, error.message);
+    }
+};
+
+/** Recalculate active clients in the gym DB and push the absolute count to Super Admin. */
+export const syncActiveClientCount = async (UserModel, clientId, internalApiKey) => {
+    try {
+        const count = await countActiveClients(UserModel);
+        await superAdminApiClient.put(
+            `/api/clients/internal/${clientId}/client-count`,
+            { count },
+            { headers: { 'x-internal-api-key': internalApiKey } }
+        );
+        return count;
+    } catch (error) {
+        console.error(`CRITICAL: Failed to sync client count for ${clientId}:`, error.message);
+        return null;
     }
 };
 

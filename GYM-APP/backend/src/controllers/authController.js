@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import generateToken from '../utils/generateToken.js';
 import { calculateAge } from '../utils/ageUtils.js';
 import getModels from '../utils/getModels.js';
-import { checkClientLimit, updateClientCount } from '../utils/superAdminApiClient.js';
+import { checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
 import { sendSingleNotification } from './notificationController.js';
 
 
@@ -64,7 +64,8 @@ const registerUser = asyncHandler(async (req, res) => {
     const roles = userCount === 0 ? ['admin'] : ['cliente'];
 
     if (roles.includes('cliente')) {
-        const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey);
+        const liveCount = await countActiveClients(User);
+        const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey, liveCount);
         if (!hasSpace) {
             res.status(403); 
             throw new Error('La institución ha alcanzado el límite de usuarios. Por favor, contacta al administrador.');
@@ -118,7 +119,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     if (user) {
         if (user.roles.includes('cliente')) {
-            updateClientCount(req.gymId, req.apiSecretKey, 'increment');
+            await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
         }
 
     if (courtesyNotificationData) {

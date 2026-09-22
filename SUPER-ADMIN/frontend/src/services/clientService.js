@@ -25,7 +25,8 @@ apiClient.interceptors.request.use(config => {
 
 const getClients = async () => {
     try {
-        const response = await apiClient.get('/clients');
+        // syncCounts recalculates active clients from each gym DB
+        const response = await apiClient.get('/clients?syncCounts=1');
         return response.data;
     } catch (error) {
         throw error.response?.data?.message || error.message;
