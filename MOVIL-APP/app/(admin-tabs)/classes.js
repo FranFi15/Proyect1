@@ -442,22 +442,26 @@ const ManageClassesScreen = () => {
         }
     }, [closeDatePicker]);
 
-    const renderDateField = (label, field, value, onConfirmCallback) => {
+    const renderDateField = (label, field, value, onConfirmCallback, options = {}) => {
         const displayValue = value ? format(parseISO(value), 'dd/MM/yyyy') : `Seleccionar ${label.toLowerCase()}`;
         const initialDate = value ? parseISO(value) : new Date();
+        const popperPlacement = options.popperPlacement || 'bottom-start';
 
         if (Platform.OS === 'web') {
             return (
-                <WebDatePicker
-                    selected={value ? parseISO(value) : null}
-                    onChange={onConfirmCallback}
-                    dateFormat="dd/MM/yyyy"
-                    customInput={
-                        <View style={styles.dateInputTouchable}>
-                            <Text style={styles.dateInputText}>{displayValue}</Text>
-                        </View>
-                    }
-                />
+                <View style={styles.dateFieldWebWrap}>
+                    <WebDatePicker
+                        selected={value ? parseISO(value) : null}
+                        onChange={onConfirmCallback}
+                        dateFormat="dd/MM/yyyy"
+                        popperPlacement={popperPlacement}
+                        customInput={
+                            <View style={styles.dateInputTouchable}>
+                                <Text style={styles.dateInputText}>{displayValue}</Text>
+                            </View>
+                        }
+                    />
+                </View>
             );
         }
 
@@ -1212,8 +1216,10 @@ const ManageClassesScreen = () => {
                                     {formData.tipoInscripcion === 'libre' ? (
                                         <>
                                             <ThemedText style={styles.inputLabel}>Fecha de la Clase</ThemedText>
-                                            {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')))}
-                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={styles.dateRowElevated}>
+                                                {renderDateField('Fecha', 'fecha', formData.fecha, (date) => handleFormChange('fecha', format(date, 'yyyy-MM-dd')), { popperPlacement: 'top-start' })}
+                                            </View>
+                                            <View style={[styles.timeRowBelowDates, { flexDirection: 'row', gap: 12 }]}>
                                                 <View style={{ flex: 1 }}>
                                                     <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
                                                     <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
@@ -1226,17 +1232,8 @@ const ManageClassesScreen = () => {
                                         </>
                                     ) : (
                                         <>
-                                            <View style={{ flexDirection: 'row', gap: 12 }}>
-                                                <View style={{ flex: 1 }}>
-                                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
-                                                    {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
-                                                    {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
-                                                </View>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            {/* Times first so the web date popper doesn't cover hour inputs */}
+                                            <View style={[styles.timeRowBelowDates, { flexDirection: 'row', gap: 12 }]}>
                                                 <View style={{ flex: 1 }}>
                                                     <ThemedText style={styles.inputLabel}>Hora Inicio</ThemedText>
                                                     <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaInicio} onChangeText={text => handleTimeInputChange(text, 'horaInicio', setFormData)} keyboardType="numeric" maxLength={5} />
@@ -1244,6 +1241,16 @@ const ManageClassesScreen = () => {
                                                 <View style={{ flex: 1 }}>
                                                     <ThemedText style={styles.inputLabel}>Hora Fin</ThemedText>
                                                     <TextInput style={styles.input} placeholder="HH:MM" placeholderTextColor={Colors[colorScheme].icon} value={formData.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setFormData)} keyboardType="numeric" maxLength={5} />
+                                                </View>
+                                            </View>
+                                            <View style={[styles.dateRowElevated, { flexDirection: 'row', gap: 12 }]}>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Generar desde</ThemedText>
+                                                    {renderDateField('Fecha Inicio', 'fechaInicio', formData.fechaInicio, (date) => handleFormChange('fechaInicio', format(date, 'yyyy-MM-dd')))}
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <ThemedText style={styles.inputLabel}>Generar hasta</ThemedText>
+                                                    {renderDateField('Fecha Fin', 'fechaFin', formData.fechaFin, (date) => handleFormChange('fechaFin', format(date, 'yyyy-MM-dd')))}
                                                 </View>
                                             </View>
                                             <ThemedText style={styles.inputLabel}>Días de la Semana</ThemedText>
@@ -1646,7 +1653,37 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     addClassHeaderSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
     addClassCloseBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
     addClassScrollContent: { padding: 18, paddingBottom: 40 },
-    formCard: { backgroundColor: Colors[colorScheme].cardBackground, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors[colorScheme].border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 },
+    formCard: {
+        backgroundColor: Colors[colorScheme].cardBackground,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
+        ...(Platform.OS === 'web' ? { overflow: 'visible' } : {}),
+    },
+    dateRowElevated: {
+        zIndex: 40,
+        position: 'relative',
+        marginBottom: 4,
+        ...(Platform.OS === 'web' ? { overflow: 'visible' } : {}),
+    },
+    timeRowBelowDates: {
+        zIndex: 1,
+        position: 'relative',
+        elevation: 0,
+    },
+    dateFieldWebWrap: {
+        zIndex: 50,
+        position: 'relative',
+        width: '100%',
+        ...(Platform.OS === 'web' ? { overflow: 'visible' } : {}),
+    },
     formSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10 },
     formSectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[colorScheme].text },
     submitActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, paddingHorizontal: 24, borderRadius: 14, width: '100%', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
