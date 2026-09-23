@@ -149,6 +149,8 @@ const registerUser = asyncHandler(async (req, res) => {
             paseLibreHasta: user.paseLibreHasta,
             membresiaDesde: user.membresiaDesde,
             membresiaHasta: user.membresiaHasta,
+            fotoPerfil: user.fotoPerfil,
+            qrIngresoUrl: user.qrIngresoUrl || null,
             // --- CORRECCIÓN DEL BUG: Se añade req.gymId ---
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre) 
         });
@@ -209,6 +211,7 @@ const loginUser = asyncHandler(async (req, res) => {
             token: generateToken(user._id, req.gymId, user.roles, user.email, user.nombre),
             puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
             fotoPerfil: user.fotoPerfil,
+            qrIngresoUrl: user.qrIngresoUrl || null,
             ordenMedicaUrl: user.ordenMedicaUrl,
             ordenMedica: user.ordenMedicaUrl,
             historialAsistencias: user.historialAsistencias || [],

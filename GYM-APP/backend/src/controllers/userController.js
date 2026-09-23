@@ -1139,7 +1139,7 @@ const uploadFotoPerfil = asyncHandler(async (req, res) => {
 const uploadQrIngresoAdmin = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
 
-    const qrUrl = req.file?.path;
+    const qrUrl = req.file?.secure_url || req.file?.path || req.file?.url;
     if (!qrUrl) {
         res.status(400);
         throw new Error('No se ha subido ningún archivo.');
