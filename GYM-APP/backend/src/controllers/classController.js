@@ -33,13 +33,28 @@ const setNoonUTC = (date) => {
     return newDate;
 };
 
+const parseClassMoment = (dateStr, timeStr, timeZone) => {
+    const raw = String(timeStr || '').trim();
+    const match = raw.match(/(\d{1,2})[:.](\d{2})/);
+    const normalized = match
+        ? `${String(Math.min(23, parseInt(match[1], 10))).padStart(2, '0')}:${String(Math.min(59, parseInt(match[2], 10))).padStart(2, '0')}`
+        : raw;
+    let m = moment.tz(`${dateStr} ${normalized}`, 'YYYY-MM-DD HH:mm', true, timeZone);
+    if (!m.isValid()) {
+        m = moment.tz(`${dateStr} ${normalized}`, timeZone);
+    }
+    return m;
+};
+
 const enrichClassWithUTC = (cls, tz) => {
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
     const obj = cls.toObject ? cls.toObject() : { ...cls };
     if (obj.fecha && obj.horaInicio && obj.horaFin) {
         const dateStr = new Date(obj.fecha).toISOString().substring(0, 10);
-        obj.startUTC = moment.tz(`${dateStr} ${obj.horaInicio}`, timeZone).toISOString();
-        obj.endUTC = moment.tz(`${dateStr} ${obj.horaFin}`, timeZone).toISOString();
+        const start = parseClassMoment(dateStr, obj.horaInicio, timeZone);
+        const end = parseClassMoment(dateStr, obj.horaFin, timeZone);
+        if (start.isValid()) obj.startUTC = start.toISOString();
+        if (end.isValid()) obj.endUTC = end.toISOString();
         obj.timezone = timeZone;
     }
     return obj;

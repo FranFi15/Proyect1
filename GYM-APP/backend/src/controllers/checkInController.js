@@ -12,16 +12,6 @@ const getGymTodayRange = (tz) => {
     };
 };
 
-const getCurrentTimeInGym = (tz) => {
-    const timeFormatter = new Intl.DateTimeFormat('es-AR', {
-        timeZone: tz || 'America/Argentina/Buenos_Aires',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
-    return timeFormatter.format(new Date());
-};
-
 const getCreditEntries = (user) => {
     const entries = [];
     const map = user?.creditosPorTipo;
@@ -97,18 +87,29 @@ const hasValidPaseLibreForDate = (user, fechaTurno) => {
     return true;
 };
 
+const normalizeTimeHHMM = (value) => {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    const match = raw.match(/(\d{1,2})[:.](\d{2})/);
+    if (!match) return null;
+    const hours = String(Math.min(23, Math.max(0, parseInt(match[1], 10)))).padStart(2, '0');
+    const minutes = String(Math.min(59, Math.max(0, parseInt(match[2], 10)))).padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
+/** True until horaFin in the gym timezone (allows mid-class presentismo). */
 const isClassStillOpen = (clase, tz) => {
     if (!clase?.fecha || !clase?.horaFin) return true;
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
     const dateStr = new Date(clase.fecha).toISOString().substring(0, 10);
-    const endUTC = moment.tz(`${dateStr} ${clase.horaFin}`, 'YYYY-MM-DD HH:mm', timeZone);
-    if (!endUTC.isValid()) {
-        // Fallback loose parse
-        const loose = moment.tz(`${dateStr} ${clase.horaFin}`, timeZone);
+    const horaFin = normalizeTimeHHMM(clase.horaFin) || String(clase.horaFin).trim();
+    const endMoment = moment.tz(`${dateStr} ${horaFin}`, 'YYYY-MM-DD HH:mm', true, timeZone);
+    if (!endMoment.isValid()) {
+        const loose = moment.tz(`${dateStr} ${horaFin}`, timeZone);
         if (!loose.isValid()) return true;
         return moment().isBefore(loose);
     }
-    return moment().isBefore(endUTC);
+    return moment().isBefore(endMoment);
 };
 
 /**
@@ -239,10 +240,11 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         )
     );
 
+    // Include 'llena': enrolled clients must still be able to presentismo mid-class
     const enrolledClassesToday = await Clase.find({
         fecha: { $gte: todayStart, $lte: todayEnd },
         usuariosInscritos: userId,
-        estado: 'activa',
+        estado: { $in: ['activa', 'llena'] },
     }).populate('tipoClase', 'nombre').sort({ horaInicio: 'asc' });
 
     if (enrolledClassesToday.length === 0) {
@@ -274,8 +276,8 @@ const processGeneralCheckIn = asyncHandler(async (req, res) => {
         });
     }
 
-    const currentTime = getCurrentTimeInGym(req.gymTimezone);
-    const upcomingClasses = enrolledClassesToday.filter(clase => clase.horaFin > currentTime);
+    const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
+    const upcomingClasses = enrolledClassesToday.filter(clase => isClassStillOpen(clase, tz));
 
     if (upcomingClasses.length === 0) {
         if (hasActivePaseLibre || hasActiveMembresia || hasOpenMembership) {
@@ -344,10 +346,11 @@ const getClientCheckInOptions = asyncHandler(async (req, res) => {
         && (!user.paseLibreDesde || new Date(user.paseLibreDesde) <= todayEnd));
     const hasCredits = userHasAnyCredits(user);
 
+    // Include 'llena': capacity-full classes still need presentismo for enrolled clients
     const enrolledClassesToday = await Clase.find({
         fecha: { $gte: todayStart, $lte: todayEnd },
         usuariosInscritos: userId,
-        estado: 'activa',
+        estado: { $in: ['activa', 'llena'] },
     })
         .populate('tipoClase', 'nombre')
         .populate('sucursal', 'nombre')

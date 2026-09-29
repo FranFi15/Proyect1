@@ -224,11 +224,22 @@ const MyClassesScreen = () => {
         });
     };
 
+    const withClassTimes = (cls) => {
+        const dateTime = cls.startUTC
+            ? new Date(cls.startUTC)
+            : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`);
+        const endTime = cls.endUTC
+            ? new Date(cls.endUTC)
+            : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaFin}:00`);
+        return { ...cls, dateTime, endTime };
+    };
+
+    // Keep in "Próximos" until horaFin — mid-class turnos are not historial/ausente yet
     const upcomingClasses = useMemo(() => {
         const now = new Date();
         const filtered = enrolledClasses
-            .map(cls => ({ ...cls, dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
-            .filter(cls => cls.dateTime >= now)
+            .map(withClassTimes)
+            .filter(cls => cls.endTime >= now)
             .sort((a, b) => a.dateTime - b.dateTime);
 
         if (filtered.length === 0) return [];
@@ -248,8 +259,8 @@ const MyClassesScreen = () => {
     const pastClasses = useMemo(() => {
         const now = new Date();
         const filtered = enrolledClasses
-            .map(cls => ({ ...cls, dateTime: cls.startUTC ? new Date(cls.startUTC) : parseISO(`${cls.fecha.substring(0, 10)}T${cls.horaInicio}:00`) }))
-            .filter(cls => cls.dateTime < now)
+            .map(withClassTimes)
+            .filter(cls => cls.endTime < now)
             .sort((a, b) => b.dateTime - a.dateTime);
 
         if (filtered.length === 0) return [];
@@ -271,6 +282,7 @@ const MyClassesScreen = () => {
         const didAttend = item.asistencias?.some(id => id?.toString() === user?._id?.toString()) || userProfile?.historialAsistencias?.some(h => (h.claseId === item._id || h.claseId?._id === item._id || h.claseId?.toString() === item._id?.toString()));
         const canUnenroll = item.dateTime >= now && !didAttend;
         const isCancelled = item.estado === 'cancelada';
+        const classFinished = item.endTime ? item.endTime < now : item.dateTime < now;
 
         const badges = didAttend ? (
             <View style={styles.presentBadge}>
@@ -281,7 +293,7 @@ const MyClassesScreen = () => {
             <View style={styles.absentBadge}>
                 <Text style={styles.badgeCancelled}>CANCELADA</Text>
             </View>
-        ) : index === 1 && !didAttend ? (
+        ) : index === 1 && classFinished && !didAttend ? (
             <View style={styles.absentBadge}>
                 <Ionicons name="close-circle" size={12} color="#dc3545" />
                 <Text style={styles.absentText}>AUSENTE</Text>
@@ -316,7 +328,7 @@ const MyClassesScreen = () => {
             <ClassCard
                 item={item}
                 gymColor={gymColor}
-                muted={index === 1 && !didAttend}
+                muted={index === 1 && !didAttend && classFinished}
                 badges={badges}
                 footer={footer}
             />
