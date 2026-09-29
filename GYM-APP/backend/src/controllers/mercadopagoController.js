@@ -371,7 +371,12 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
                 : 'Abono de saldo por Mercado Pago',
             createdBy: user._id,
             receiptUrl: undefined,
-            ticketId: ticket._id
+            ticketId: ticket._id,
+            transactionMeta: {
+                method: 'mercadopago',
+                source: cart.length > 0 ? 'pack' : 'account',
+                paymentRequestId: ticket._id,
+            },
         });
     } catch (error) {
         ticket.status = 'pending';

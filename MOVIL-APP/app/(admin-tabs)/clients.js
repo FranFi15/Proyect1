@@ -29,6 +29,7 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
+import CajaModal from '@/components/admin/CajaModal';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import ClientStatsModal from '@/components/admin/ClientStatsModal';
@@ -308,6 +309,7 @@ const ManageClientsScreen = () => {
     const [selectedProfesorForReviews, setSelectedProfesorForReviews] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
+    const [cajaModalVisible, setCajaModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
     const [sucursales, setSucursales] = useState([]);
@@ -764,7 +766,22 @@ const ManageClientsScreen = () => {
             {showStats && (
                 <View style={dynamicStyles.statsContainer}>
                     <StatCard label="Clientes Activos" value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`} icon={<Ionicons name="people" size={18} color={gymColor} />} color={Colors[colorScheme].text} action={() => setActiveModal('upgrade')} actionLabel="Ampliar" styles={dynamicStyles} style={{ flex: 1 }} />
-                    <StatCard label="Deuda Total" value={`$${debtStats.totalDebt} `} icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />} color={Colors[colorScheme].text} isValueHidden={!isDebtVisible} onToggleHidden={handleToggleDebtVisibility} styles={dynamicStyles} style={{ flex: 1.3 }} />
+                    <TouchableOpacity
+                        style={[dynamicStyles.statCard, { flex: 1.3, justifyContent: 'center' }]}
+                        onPress={() => setCajaModalVisible(true)}
+                        activeOpacity={0.85}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <FontAwesome5 name="cash-register" size={16} color={gymColor || '#1a5276'} />
+                            <ThemedText style={{ fontWeight: '700', fontSize: 13 }}>Caja</ThemedText>
+                        </View>
+                        <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
+                            Deuda ${debtStats.totalDebt || 0}
+                        </ThemedText>
+                        <ThemedText style={{ fontSize: 11, color: gymColor, fontWeight: '700', marginTop: 4 }}>
+                            Abrir caja →
+                        </ThemedText>
+                    </TouchableOpacity>
                 </View>
             )}
             
@@ -1322,6 +1339,13 @@ const ManageClientsScreen = () => {
                 />
                 </View>
             </Modal>
+
+            <CajaModal
+                visible={cajaModalVisible}
+                onClose={() => setCajaModalVisible(false)}
+                clients={users.filter((u) => u?.roles?.includes('cliente'))}
+                onRefresh={fetchAllData}
+            />
 
             <Modal
                 visible={billingModalVisible}

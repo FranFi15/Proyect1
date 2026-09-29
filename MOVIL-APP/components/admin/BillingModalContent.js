@@ -252,7 +252,17 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                                 <Text style={styles.txDescription} numberOfLines={2}>{item.description}</Text>
                                                 <Text style={styles.txDate}>
                                                     {format(new Date(item.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
+                                                    {item.method && item.method !== 'manual' ? ` · ${item.method}` : ''}
+                                                    {item.source === 'caja' ? ' · caja' : ''}
                                                 </Text>
+                                                {!!item.discountAmount && item.discountAmount > 0 && (
+                                                    <Text style={[styles.txDate, { color: accent }]}>
+                                                        Descuento −${parseFloat(item.discountAmount).toFixed(2)}
+                                                        {item.originalAmount != null
+                                                            ? ` (antes $${parseFloat(item.originalAmount).toFixed(2)})`
+                                                            : ''}
+                                                    </Text>
+                                                )}
                                                 {!!item.receiptUrl && (
                                                     <TouchableOpacity
                                                         style={styles.receiptBtn}

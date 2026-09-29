@@ -269,7 +269,12 @@ const processTransferTicket = asyncHandler(async (req, res) => {
                 : 'Abono de deuda por transferencia',
             createdBy: req.user._id,
             receiptUrl: ticket.receiptUrl,
-            ticketId: ticket._id
+            ticketId: ticket._id,
+            transactionMeta: {
+                method: ticket.method === 'mercadopago' ? 'mercadopago' : 'transfer',
+                source: cart.length > 0 ? 'pack' : 'account',
+                paymentRequestId: ticket._id,
+            },
         });
 
         ticket.status = 'approved';

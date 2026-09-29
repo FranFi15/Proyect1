@@ -1,36 +1,56 @@
 import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema({
-    user: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', 
-        required: true 
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
     },
-    type: { 
-        type: String, 
-        enum: ['charge', 'payment'], // 'charge' = se le cobra, 'payment' = paga
-        required: true 
-    }, 
-    amount: { 
-        type: Number, 
-        required: true // Siempre un número positivo.
-    }, 
-    description: { 
-        type: String, 
-        required: true // Ej: "Abono mensual Yoga", "Pago en efectivo"
+    type: {
+        type: String,
+        enum: ['charge', 'payment'],
+        required: true,
     },
-    // Opcional: para vincular el movimiento a un item específico
-    relatedItem: { 
+    amount: {
+        type: Number,
+        required: true,
+    },
+    description: {
+        type: String,
+        required: true,
+    },
+    relatedItem: {
         itemType: { type: String, enum: ['class_pack', 'subscription'] },
-        itemId: { type: mongoose.Schema.Types.ObjectId }
+        itemId: { type: mongoose.Schema.Types.ObjectId },
     },
-    // El admin/profesor que registró el movimiento
-    createdBy: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User', 
-        required: true 
-    }, 
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
     receiptUrl: { type: String },
+    method: {
+        type: String,
+        enum: ['efectivo', 'transfer', 'mercadopago', 'manual'],
+        default: 'manual',
+    },
+    source: {
+        type: String,
+        enum: ['caja', 'pack', 'store', 'account', 'billing'],
+        default: 'billing',
+    },
+    originalAmount: { type: Number, default: null },
+    discountAmount: { type: Number, default: 0 },
+    discountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Discount',
+        default: null,
+    },
+    paymentRequestId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'PaymentRequest',
+        default: null,
+    },
 }, { timestamps: true });
 
 export default (gymDBConnection) => {

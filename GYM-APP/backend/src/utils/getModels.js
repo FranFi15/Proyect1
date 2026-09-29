@@ -18,6 +18,7 @@ import getReviewModel from '../models/Review.js';
 import getStoreItemModel from '../models/StoreItem.js';
 import getStoreOrderModel from '../models/StoreOrder.js';
 import getBenefitModel from '../models/Benefit.js';
+import getDiscountModel from '../models/Discount.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -48,6 +49,7 @@ const getModels = (dbConnection) => {
         StoreItem: getStoreItemModel(dbConnection),
         StoreOrder: getStoreOrderModel(dbConnection),
         Benefit: getBenefitModel(dbConnection),
+        Discount: getDiscountModel(dbConnection),
     };
 
     return models;

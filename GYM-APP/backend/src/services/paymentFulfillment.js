@@ -101,7 +101,8 @@ export const fulfillApprovedPayment = async ({
     description,
     createdBy,
     receiptUrl,
-    ticketId
+    ticketId,
+    transactionMeta = {},
 }) => {
     const { Transaction, CreditLog, Notification, User } = models;
     const actorId = createdBy || user._id;
@@ -109,6 +110,15 @@ export const fulfillApprovedPayment = async ({
     const cart = Array.isArray(packages) && packages.length > 0
         ? packages
         : (pkg ? [{ pkg, quantity: 1 }] : []);
+
+    const catalogSubtotal = cart.reduce((sum, entry) => {
+        if (!entry?.pkg) return sum;
+        const quantity = Math.max(1, Number(entry.quantity) || 1);
+        return sum + (Number(entry.pkg.price) || 0) * quantity;
+    }, 0);
+
+    const discountAmount = Math.max(0, Number(transactionMeta.discountAmount) || 0);
+    const discountedPackageTotal = Math.max(0, catalogSubtotal - discountAmount);
 
     user.balance += amount;
 
@@ -118,7 +128,15 @@ export const fulfillApprovedPayment = async ({
         amount,
         description,
         createdBy: actorId,
-        receiptUrl: receiptUrl || undefined
+        receiptUrl: receiptUrl || undefined,
+        method: transactionMeta.method || 'manual',
+        source: transactionMeta.source || 'pack',
+        originalAmount: transactionMeta.originalAmount != null
+            ? transactionMeta.originalAmount
+            : (discountAmount > 0 ? amount + discountAmount : null),
+        discountAmount: discountAmount || 0,
+        discountId: transactionMeta.discountId || null,
+        paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
     });
 
     const benefitMessages = [];
@@ -127,7 +145,10 @@ export const fulfillApprovedPayment = async ({
         const quantity = Math.max(1, Number(entry.quantity) || 1);
         if (!itemPkg) continue;
 
-        const lineTotal = Number(itemPkg.price) * quantity;
+        const rawLine = Number(itemPkg.price) * quantity;
+        const lineTotal = catalogSubtotal > 0 && discountAmount > 0
+            ? Math.round((rawLine / catalogSubtotal) * discountedPackageTotal * 100) / 100
+            : rawLine;
         user.balance -= lineTotal;
 
         await Transaction.create({
@@ -137,7 +158,10 @@ export const fulfillApprovedPayment = async ({
             description: quantity > 1
                 ? `Cargo por compra: ${itemPkg.name} x${quantity}`
                 : `Cargo por compra de paquete: ${itemPkg.name}`,
-            createdBy: actorId
+            createdBy: actorId,
+            method: transactionMeta.method || 'manual',
+            source: transactionMeta.source || 'pack',
+            paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
         });
 
         const msg = await grantPackageBenefits(user, itemPkg, ticketId, CreditLog, quantity);
