@@ -9,7 +9,8 @@ import {
     getPendingRequests, 
     processTransferTicket,
     createMercadoPagoPreference,
-    getMyTicket
+    getMyTicket,
+    getMyPricing,
 } from '../controllers/paymentController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
@@ -29,6 +30,8 @@ router.post('/ticket', upload.single('receipt'), submitTransferReceipt);
 router.get('/tickets/pending', authorizeRoles('admin'), getPendingRequests);
 router.put('/ticket/:id/process', authorizeRoles('admin'), processTransferTicket);
 router.get('/ticket/:id', getMyTicket);
+router.get('/my-pricing', getMyPricing);
+router.post('/quote', getMyPricing);
 
 router.post('/mercadopago/preference', createMercadoPagoPreference);
 

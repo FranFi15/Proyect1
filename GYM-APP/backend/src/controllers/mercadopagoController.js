@@ -376,6 +376,11 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
                 method: 'mercadopago',
                 source: cart.length > 0 ? 'pack' : 'account',
                 paymentRequestId: ticket._id,
+                originalAmount: ticket.originalAmount != null
+                    ? ticket.originalAmount
+                    : Number(payment.transaction_amount || ticket.amountTransferred),
+                discountAmount: ticket.discountAmount || 0,
+                discountId: ticket.discountId || null,
             },
         });
     } catch (error) {
@@ -417,7 +422,7 @@ const mercadoPagoWebhook = asyncHandler(async (req, res) => {
     }
 });
 
-const createCheckoutPreference = async ({ req, settings, ticket, pkg, cart, amountToPay, user }) => {
+const createCheckoutPreference = async ({ req, settings, ticket, pkg, cart, amountToPay, user, discountAmount = 0 }) => {
     const publicBase = getPublicBaseUrl(req);
     const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
 
@@ -425,23 +430,41 @@ const createCheckoutPreference = async ({ req, settings, ticket, pkg, cart, amou
         ? cart
         : (pkg ? [{ pkg, quantity: 1 }] : []);
 
-    const items = resolvedCart.length > 0
-        ? resolvedCart.map(entry => ({
+    let items;
+    if (resolvedCart.length > 0 && Number(discountAmount) > 0) {
+        // Single consolidated line so MP charges the discounted total exactly
+        const names = resolvedCart.map((e) => (
+            e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name
+        ));
+        items = [{
+            id: ticket._id.toString(),
+            title: names.join(', '),
+            description: discountAmount > 0
+                ? `Con descuento (−$${Number(discountAmount).toFixed(2)})`
+                : 'Compra de paquetes',
+            quantity: 1,
+            unit_price: Number(amountToPay),
+            currency_id: currency,
+        }];
+    } else if (resolvedCart.length > 0) {
+        items = resolvedCart.map((entry) => ({
             id: entry.pkg._id.toString(),
             title: entry.pkg.name,
             description: entry.pkg.description || `Paquete ${entry.pkg.name}`,
             quantity: Math.max(1, Number(entry.quantity) || 1),
             unit_price: Number(entry.pkg.price),
-            currency_id: currency
-        }))
-        : [{
+            currency_id: currency,
+        }));
+    } else {
+        items = [{
             id: 'saldo',
             title: 'Pago de saldo',
             description: 'Abono de saldo',
             quantity: 1,
             unit_price: Number(amountToPay),
-            currency_id: currency
+            currency_id: currency,
         }];
+    }
 
     const body = {
         items,

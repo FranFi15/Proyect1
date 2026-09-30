@@ -22,7 +22,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const users = await User.find(query)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
 
     const usersWithCalculatedAge = users.map(user => ({
         _id: user._id,
@@ -58,6 +59,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
         todasLasSucursales: user.todasLasSucursales !== undefined ? user.todasLasSucursales : true,
         sucursales: user.sucursales || [],
+        assignedDiscountId: user.assignedDiscountId || null,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         rmRecords: user.rmRecords || [],
@@ -70,7 +72,8 @@ const getMe = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
     
     if (user) {
         const unreadNotificationsCount = await Notification.countDocuments({
@@ -87,6 +90,7 @@ const getMe = asyncHandler(async (req, res) => {
             email: user.email,
             roles: user.roles,
             balance: user.balance,
+            assignedDiscount: user.assignedDiscountId || null,
             creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
             clasesInscritas: user.clasesInscritas,
             telefonoEmergencia: user.telefonoEmergencia,
@@ -138,13 +142,47 @@ const getUserById = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
     if (user) {
         res.json(user);
     } else {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
+});
+
+const updateUserAssignedDiscount = asyncHandler(async (req, res) => {
+    const { User, Discount } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    const { discountId } = req.body;
+    if (discountId === null || discountId === '' || discountId === undefined) {
+        user.assignedDiscountId = null;
+    } else {
+        const discount = await Discount.findById(discountId);
+        if (!discount || !discount.isActive) {
+            res.status(400);
+            throw new Error('El descuento seleccionado no está disponible.');
+        }
+        user.assignedDiscountId = discount._id;
+    }
+
+    await user.save();
+    const updated = await User.findById(user._id)
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
+
+    res.json({
+        message: updated.assignedDiscountId
+            ? 'Descuento asignado al cliente.'
+            : 'Descuento quitado del cliente.',
+        user: updated,
+        assignedDiscount: updated.assignedDiscountId || null,
+    });
 });
 
 
@@ -1135,4 +1173,5 @@ export {
     uploadOrdenMedica,
     uploadFotoPerfil,
     uploadQrIngresoAdmin,
+    updateUserAssignedDiscount,
 };

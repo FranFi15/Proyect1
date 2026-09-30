@@ -26,14 +26,29 @@ const TABS = [
     { id: 'history', label: 'Historial', icon: 'time-outline' },
 ];
 
+const METHODS = [
+    { id: 'efectivo', label: 'Efectivo' },
+    { id: 'transfer', label: 'Transferencia' },
+    { id: 'mercadopago', label: 'Mercado Pago' },
+];
+
+const METHOD_LABELS = {
+    efectivo: 'Efectivo',
+    transfer: 'Transferencia',
+    mercadopago: 'Mercado Pago',
+    deuda: 'Deuda',
+};
+
 const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState('register');
-    const [newTransaction, setNewTransaction] = useState({ amount: '', description: '' });
+    const [newTransaction, setNewTransaction] = useState({ amount: '', description: '', method: 'efectivo' });
     const [currentClient, setCurrentClient] = useState(client);
     const [imageViewerData, setImageViewerData] = useState(null);
+    const [discounts, setDiscounts] = useState([]);
+    const [savingDiscount, setSavingDiscount] = useState(false);
 
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
@@ -47,17 +62,23 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const isDebtor = balance < 0;
     const hasCredit = balance > 0;
     const fullName = `${currentClient?.nombre || ''} ${currentClient?.apellido || ''}`.trim();
+    const assignedDiscountId = currentClient?.assignedDiscountId?._id
+        || currentClient?.assignedDiscountId
+        || currentClient?.assignedDiscount?._id
+        || null;
 
     const fetchData = async () => {
         if (!client?._id) return;
         setLoading(true);
         try {
-            const [transactionsResponse, userResponse] = await Promise.all([
+            const [transactionsResponse, userResponse, discRes] = await Promise.all([
                 getUserTransactions(client._id),
                 apiClient.get(`/users/${client._id}`),
+                apiClient.get('/caja/discounts').catch(() => ({ data: [] })),
             ]);
             setTransactions(transactionsResponse.data);
             setCurrentClient(userResponse.data);
+            setDiscounts(Array.isArray(discRes.data) ? discRes.data.filter((d) => d.isActive) : []);
         } catch (error) {
             setAlertInfo({
                 visible: true,
@@ -74,6 +95,32 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
         fetchData();
     }, [client]);
 
+    const handleAssignDiscount = async (discountId) => {
+        setSavingDiscount(true);
+        try {
+            const res = await apiClient.put(`/users/${client._id}/assigned-discount`, {
+                discountId: discountId || null,
+            });
+            setCurrentClient(res.data.user);
+            onRefresh?.();
+            setAlertInfo({
+                visible: true,
+                title: 'Listo',
+                message: res.data.message || 'Descuento actualizado.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'No se pudo asignar el descuento.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+        } finally {
+            setSavingDiscount(false);
+        }
+    };
+
     const handleCreateTransaction = async (type) => {
         if (!newTransaction.amount || !newTransaction.description) {
             setAlertInfo({
@@ -86,16 +133,20 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
         }
         setSubmitting(true);
         try {
-            const response = await createTransaction({
+            const payload = {
                 userId: client._id,
                 amount: newTransaction.amount,
                 description: newTransaction.description,
                 type,
-            });
+            };
+            if (type === 'payment') {
+                payload.method = newTransaction.method || 'efectivo';
+            }
+            const response = await createTransaction(payload);
 
             setCurrentClient((prevClient) => ({ ...prevClient, balance: response.data.newUserBalance }));
             setTransactions((prevTransactions) => [response.data.transaction, ...prevTransactions]);
-            setNewTransaction({ amount: '', description: '' });
+            setNewTransaction({ amount: '', description: '', method: 'efectivo' });
 
             onRefresh?.();
             setAlertInfo({
@@ -201,6 +252,44 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                 Cargá un pago (puede dejar saldo a favor) o un cargo para este socio.
                             </Text>
 
+                            <Text style={styles.inputLabel}>Descuento del cliente</Text>
+                            <View style={styles.methodRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.methodPill,
+                                        !assignedDiscountId && { backgroundColor: accent, borderColor: accent },
+                                    ]}
+                                    onPress={() => handleAssignDiscount(null)}
+                                    disabled={savingDiscount}
+                                >
+                                    <Text style={[styles.methodPillText, !assignedDiscountId && { color: '#fff' }]}>
+                                        Sin dto
+                                    </Text>
+                                </TouchableOpacity>
+                                {discounts.map((d) => {
+                                    const selected = String(assignedDiscountId) === String(d._id);
+                                    return (
+                                        <TouchableOpacity
+                                            key={d._id}
+                                            style={[
+                                                styles.methodPill,
+                                                selected && { backgroundColor: accent, borderColor: accent },
+                                            ]}
+                                            onPress={() => handleAssignDiscount(d._id)}
+                                            disabled={savingDiscount}
+                                        >
+                                            <Text style={[styles.methodPillText, selected && { color: '#fff' }]} numberOfLines={1}>
+                                                {d.name}
+                                                {d.type === 'percent' ? ` ${d.value}%` : ` $${d.value}`}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            <Text style={styles.hintText}>
+                                Si tiene descuento, se aplica al comprar por transferencia o Mercado Pago.
+                            </Text>
+
                             <Text style={styles.inputLabel}>Monto</Text>
                             <View style={styles.amountRow}>
                                 <Text style={styles.currencyPrefix}>$</Text>
@@ -222,6 +311,27 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                 value={newTransaction.description}
                                 onChangeText={(text) => setNewTransaction((p) => ({ ...p, description: text }))}
                             />
+
+                            <Text style={styles.inputLabel}>Método de pago</Text>
+                            <View style={styles.methodRow}>
+                                {METHODS.map((m) => (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        style={[
+                                            styles.methodPill,
+                                            newTransaction.method === m.id && { backgroundColor: accent, borderColor: accent },
+                                        ]}
+                                        onPress={() => setNewTransaction((p) => ({ ...p, method: m.id }))}
+                                    >
+                                        <Text style={[
+                                            styles.methodPillText,
+                                            newTransaction.method === m.id && { color: '#fff' },
+                                        ]}>
+                                            {m.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
 
                             <View style={styles.actionRow}>
                                 <TouchableOpacity
@@ -267,8 +377,9 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                                 <Text style={styles.txDescription} numberOfLines={2}>{item.description}</Text>
                                                 <Text style={styles.txDate}>
                                                     {format(new Date(item.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
-                                                    {item.method && item.method !== 'manual' ? ` · ${item.method}` : ''}
+                                                    {METHOD_LABELS[item.method] || item.method || '—'}
                                                     {item.source === 'caja' ? ' · caja' : ''}
+                                                    {item.source === 'billing' ? ' · billing' : ''}
                                                 </Text>
                                                 {!!item.discountAmount && item.discountAmount > 0 && (
                                                     <Text style={[styles.txDate, { color: accent }]}>
@@ -439,6 +550,17 @@ const getStyles = (colorScheme, accent) => {
             opacity: 0.7,
             marginBottom: 6,
         },
+        methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+        methodPill: {
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: line,
+            backgroundColor: colors.background,
+        },
+        methodPillText: { fontSize: 12, fontWeight: '700', color: colors.text },
+        hintText: { fontSize: 12, color: colors.icon, marginBottom: 12, marginTop: -2 },
         amountRow: {
             flexDirection: 'row',
             alignItems: 'center',

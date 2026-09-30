@@ -33,6 +33,7 @@ import {
     uploadOrdenMedica,
     uploadFotoPerfil,
     uploadQrIngresoAdmin,
+    updateUserAssignedDiscount,
 } from '../controllers/userController.js'; 
 import { upload } from '../utils/cloudinary.js';
 
@@ -74,7 +75,8 @@ router.route('/:id/plan')
 router.route('/:id/credits/clear')
     .put(protect, authorizeRoles('admin'), clearUserCredits);
 
-router.put('/:id/status', protect, authorizeRoles('admin'), updateUserStatus);    
+router.put('/:id/status', protect, authorizeRoles('admin'), updateUserStatus);
+router.put('/:id/assigned-discount', protect, authorizeRoles('admin'), updateUserAssignedDiscount);
 
 router.route('/:userId/subscription/:tipoClaseId')
     .delete(protect, authorizeRoles('admin'), removeUserSubscription);

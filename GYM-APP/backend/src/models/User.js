@@ -132,6 +132,12 @@ const userSchema = mongoose.Schema({
         default: 0,
         comment: 'Deuda del usuario. Positivo significa que debe dinero.'
     },
+    assignedDiscountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Discount',
+        default: null,
+        comment: 'Descuento de catálogo asignado al cliente (aplicado en MP/transfer).',
+    },
     lastBalanceNotificationDate: {
         type: Date,
         comment: 'Fecha del último envío de notificación de saldo deudor.'
