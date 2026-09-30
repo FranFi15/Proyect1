@@ -35,11 +35,21 @@ export const cartSubtotal = (cart = []) =>
     }, 0);
 
 /**
- * Resolve the effective catalog discount for a user (assignedDiscountId).
+ * Resolve the effective catalog discount for a user.
+ * Prefers Discount.assignedUsers membership; falls back to User.assignedDiscountId.
  */
 export const resolveUserDiscount = async (DiscountModel, user) => {
+    if (!user || !DiscountModel) return null;
+    const userId = user._id || user.id;
+    if (userId) {
+        const linked = await DiscountModel.findOne({
+            assignedUsers: userId,
+            isActive: true,
+        }).sort({ updatedAt: -1 });
+        if (linked && isDiscountValidNow(linked)) return linked;
+    }
     const discountId = user?.assignedDiscountId?._id || user?.assignedDiscountId;
-    if (!discountId || !DiscountModel) return null;
+    if (!discountId) return null;
     const discount = await DiscountModel.findById(discountId);
     if (!discount || !isDiscountValidNow(discount)) return null;
     return discount;

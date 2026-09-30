@@ -47,8 +47,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const [newTransaction, setNewTransaction] = useState({ amount: '', description: '', method: 'efectivo' });
     const [currentClient, setCurrentClient] = useState(client);
     const [imageViewerData, setImageViewerData] = useState(null);
-    const [discounts, setDiscounts] = useState([]);
-    const [savingDiscount, setSavingDiscount] = useState(false);
 
     const { gymColor } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
@@ -62,23 +60,17 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     const isDebtor = balance < 0;
     const hasCredit = balance > 0;
     const fullName = `${currentClient?.nombre || ''} ${currentClient?.apellido || ''}`.trim();
-    const assignedDiscountId = currentClient?.assignedDiscountId?._id
-        || currentClient?.assignedDiscountId
-        || currentClient?.assignedDiscount?._id
-        || null;
 
     const fetchData = async () => {
         if (!client?._id) return;
         setLoading(true);
         try {
-            const [transactionsResponse, userResponse, discRes] = await Promise.all([
+            const [transactionsResponse, userResponse] = await Promise.all([
                 getUserTransactions(client._id),
                 apiClient.get(`/users/${client._id}`),
-                apiClient.get('/caja/discounts').catch(() => ({ data: [] })),
             ]);
             setTransactions(transactionsResponse.data);
             setCurrentClient(userResponse.data);
-            setDiscounts(Array.isArray(discRes.data) ? discRes.data.filter((d) => d.isActive) : []);
         } catch (error) {
             setAlertInfo({
                 visible: true,
@@ -94,32 +86,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
     useEffect(() => {
         fetchData();
     }, [client]);
-
-    const handleAssignDiscount = async (discountId) => {
-        setSavingDiscount(true);
-        try {
-            const res = await apiClient.put(`/users/${client._id}/assigned-discount`, {
-                discountId: discountId || null,
-            });
-            setCurrentClient(res.data.user);
-            onRefresh?.();
-            setAlertInfo({
-                visible: true,
-                title: 'Listo',
-                message: res.data.message || 'Descuento actualizado.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
-            });
-        } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: error.response?.data?.message || 'No se pudo asignar el descuento.',
-                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
-            });
-        } finally {
-            setSavingDiscount(false);
-        }
-    };
 
     const handleCreateTransaction = async (type) => {
         if (!newTransaction.amount || !newTransaction.description) {
@@ -250,44 +216,6 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                             <Text style={styles.sectionTitle}>Nuevo movimiento</Text>
                             <Text style={styles.sectionSub}>
                                 Cargá un pago (puede dejar saldo a favor) o un cargo para este socio.
-                            </Text>
-
-                            <Text style={styles.inputLabel}>Descuento del cliente</Text>
-                            <View style={styles.methodRow}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.methodPill,
-                                        !assignedDiscountId && { backgroundColor: accent, borderColor: accent },
-                                    ]}
-                                    onPress={() => handleAssignDiscount(null)}
-                                    disabled={savingDiscount}
-                                >
-                                    <Text style={[styles.methodPillText, !assignedDiscountId && { color: '#fff' }]}>
-                                        Sin dto
-                                    </Text>
-                                </TouchableOpacity>
-                                {discounts.map((d) => {
-                                    const selected = String(assignedDiscountId) === String(d._id);
-                                    return (
-                                        <TouchableOpacity
-                                            key={d._id}
-                                            style={[
-                                                styles.methodPill,
-                                                selected && { backgroundColor: accent, borderColor: accent },
-                                            ]}
-                                            onPress={() => handleAssignDiscount(d._id)}
-                                            disabled={savingDiscount}
-                                        >
-                                            <Text style={[styles.methodPillText, selected && { color: '#fff' }]} numberOfLines={1}>
-                                                {d.name}
-                                                {d.type === 'percent' ? ` ${d.value}%` : ` $${d.value}`}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                            <Text style={styles.hintText}>
-                                Si tiene descuento, se aplica al comprar por transferencia o Mercado Pago.
                             </Text>
 
                             <Text style={styles.inputLabel}>Monto</Text>

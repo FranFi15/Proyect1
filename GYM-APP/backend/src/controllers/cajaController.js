@@ -685,17 +685,59 @@ const createCajaSale = asyncHandler(async (req, res) => {
 
 // --- Discounts CRUD ---
 
+const normalizeUserIdList = (raw) => {
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.map((id) => String(id)).filter(Boolean))];
+};
+
+/**
+ * Keep Discount.assignedUsers and User.assignedDiscountId in sync.
+ * A client can only be linked to one discount at a time.
+ */
+const syncDiscountAssignedUsers = async (User, Discount, discountId, nextUserIds) => {
+    const next = normalizeUserIdList(nextUserIds);
+    const discount = await Discount.findById(discountId);
+    if (!discount) return null;
+
+    const prev = (discount.assignedUsers || []).map((id) => id.toString());
+    const removed = prev.filter((id) => !next.includes(id));
+
+    if (removed.length) {
+        await User.updateMany(
+            { _id: { $in: removed }, assignedDiscountId: discountId },
+            { $set: { assignedDiscountId: null } }
+        );
+    }
+
+    if (next.length) {
+        await Discount.updateMany(
+            { _id: { $ne: discountId }, assignedUsers: { $in: next } },
+            { $pull: { assignedUsers: { $in: next } } }
+        );
+        await User.updateMany(
+            { _id: { $in: next } },
+            { $set: { assignedDiscountId: discountId } }
+        );
+    }
+
+    discount.assignedUsers = next;
+    await discount.save();
+    return discount;
+};
+
 const listDiscounts = asyncHandler(async (req, res) => {
     const { Discount } = getModels(req.gymDBConnection);
     const includeInactive = req.query.all === 'true';
     const filter = includeInactive ? {} : { isActive: true };
-    const discounts = await Discount.find(filter).sort({ createdAt: -1 });
+    const discounts = await Discount.find(filter)
+        .populate('assignedUsers', 'nombre apellido email')
+        .sort({ createdAt: -1 });
     res.json(discounts);
 });
 
 const createDiscount = asyncHandler(async (req, res) => {
-    const { Discount } = getModels(req.gymDBConnection);
-    const { name, type, value, validFrom, validTo, isActive } = req.body;
+    const { Discount, User } = getModels(req.gymDBConnection);
+    const { name, type, value, validFrom, validTo, isActive, assignedUsers } = req.body;
 
     if (!name || !type || value == null) {
         res.status(400);
@@ -715,26 +757,34 @@ const createDiscount = asyncHandler(async (req, res) => {
         throw new Error('El porcentaje no puede superar 100.');
     }
 
-    const discount = await Discount.create({
+    let discount = await Discount.create({
         name: String(name).trim(),
         type,
         value: numericValue,
         isActive: isActive !== false,
         validFrom: validFrom || null,
         validTo: validTo || null,
+        assignedUsers: [],
     });
-    res.status(201).json(discount);
+
+    if (assignedUsers !== undefined) {
+        discount = await syncDiscountAssignedUsers(User, Discount, discount._id, assignedUsers);
+    }
+
+    const populated = await Discount.findById(discount._id)
+        .populate('assignedUsers', 'nombre apellido email');
+    res.status(201).json(populated);
 });
 
 const updateDiscount = asyncHandler(async (req, res) => {
-    const { Discount } = getModels(req.gymDBConnection);
+    const { Discount, User } = getModels(req.gymDBConnection);
     const discount = await Discount.findById(req.params.id);
     if (!discount) {
         res.status(404);
         throw new Error('Descuento no encontrado.');
     }
 
-    const { name, type, value, validFrom, validTo, isActive } = req.body;
+    const { name, type, value, validFrom, validTo, isActive, assignedUsers } = req.body;
     if (name != null) discount.name = String(name).trim();
     if (type != null) {
         if (!['percent', 'fixed'].includes(type)) {
@@ -756,15 +806,29 @@ const updateDiscount = asyncHandler(async (req, res) => {
     if (isActive !== undefined) discount.isActive = !!isActive;
 
     await discount.save();
-    res.json(discount);
+
+    if (assignedUsers !== undefined) {
+        await syncDiscountAssignedUsers(User, Discount, discount._id, assignedUsers);
+    }
+
+    const populated = await Discount.findById(discount._id)
+        .populate('assignedUsers', 'nombre apellido email');
+    res.json(populated);
 });
 
 const deleteDiscount = asyncHandler(async (req, res) => {
-    const { Discount } = getModels(req.gymDBConnection);
+    const { Discount, User } = getModels(req.gymDBConnection);
     const discount = await Discount.findById(req.params.id);
     if (!discount) {
         res.status(404);
         throw new Error('Descuento no encontrado.');
+    }
+    const linked = (discount.assignedUsers || []).map((id) => id.toString());
+    if (linked.length) {
+        await User.updateMany(
+            { _id: { $in: linked }, assignedDiscountId: discount._id },
+            { $set: { assignedDiscountId: null } }
+        );
     }
     await discount.deleteOne();
     res.json({ message: 'Descuento eliminado.' });

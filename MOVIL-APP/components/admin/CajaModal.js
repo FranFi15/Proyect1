@@ -117,8 +117,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [activeFilter, setActiveFilter] = useState(null); // which FilterModal is open
 
     // Discount form
-    const [newDiscount, setNewDiscount] = useState({ name: '', type: 'percent', value: '' });
+    const [newDiscount, setNewDiscount] = useState({ name: '', type: 'percent', value: '', assignedUserIds: [] });
     const [editingDiscountId, setEditingDiscountId] = useState(null);
+    const [discountClientQuery, setDiscountClientQuery] = useState('');
 
     useEffect(() => {
         if (!visible) setActiveFilter(null);
@@ -191,6 +192,36 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             })
             .slice(0, 12);
     }, [clients, clientQuery]);
+
+    const filteredDiscountClients = useMemo(() => {
+        const q = discountClientQuery.trim().toLowerCase();
+        const list = clients || [];
+        if (!q) return list.slice(0, CLIENT_PREVIEW_COUNT);
+        return list
+            .filter((c) => {
+                const name = `${c.nombre || ''} ${c.apellido || ''}`.toLowerCase();
+                const dni = String(c.dni || '').toLowerCase();
+                const email = String(c.email || '').toLowerCase();
+                return name.includes(q) || dni.includes(q) || email.includes(q);
+            })
+            .slice(0, 12);
+    }, [clients, discountClientQuery]);
+
+    const selectedDiscountClients = useMemo(() => {
+        const ids = new Set((newDiscount.assignedUserIds || []).map(String));
+        return (clients || []).filter((c) => ids.has(String(c._id)));
+    }, [clients, newDiscount.assignedUserIds]);
+
+    const toggleDiscountClient = (clientId) => {
+        const id = String(clientId);
+        setNewDiscount((p) => {
+            const current = (p.assignedUserIds || []).map(String);
+            const next = current.includes(id)
+                ? current.filter((x) => x !== id)
+                : [...current, id];
+            return { ...p, assignedUserIds: next };
+        });
+    };
 
     const creditTypeOptions = useMemo(() => {
         const map = new Map();
@@ -588,8 +619,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     };
 
     const resetDiscountForm = () => {
-        setNewDiscount({ name: '', type: 'percent', value: '' });
+        setNewDiscount({ name: '', type: 'percent', value: '', assignedUserIds: [] });
         setEditingDiscountId(null);
+        setDiscountClientQuery('');
     };
 
     const handleSaveDiscount = async () => {
@@ -604,6 +636,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 type: newDiscount.type,
                 value: Number(newDiscount.value),
                 isActive: true,
+                assignedUsers: newDiscount.assignedUserIds || [],
             };
             if (editingDiscountId) {
                 await apiClient.put(`/caja/discounts/${editingDiscountId}`, payload);
@@ -623,11 +656,16 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const handleEditDiscount = (d) => {
         setEditingDiscountId(d._id);
+        const assigned = Array.isArray(d.assignedUsers)
+            ? d.assignedUsers.map((u) => String(u?._id || u))
+            : [];
         setNewDiscount({
             name: d.name || '',
             type: d.type || 'percent',
             value: String(d.value ?? ''),
+            assignedUserIds: assigned,
         });
+        setDiscountClientQuery('');
     };
 
     const handleDeleteDiscount = (d) => {
@@ -1347,6 +1385,59 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 value={newDiscount.value}
                 onChangeText={(t) => setNewDiscount((p) => ({ ...p, value: t }))}
             />
+
+            <Text style={styles.sectionTitle}>Clientes vinculados</Text>
+            <Text style={styles.kpiHint}>
+                Estos clientes reciben el descuento al pagar por transferencia o Mercado Pago.
+            </Text>
+            {selectedDiscountClients.length > 0 && (
+                <View style={styles.rowWrap}>
+                    {selectedDiscountClients.map((c) => (
+                        <TouchableOpacity
+                            key={c._id}
+                            style={[styles.filterPill, { backgroundColor: accent, borderColor: accent }]}
+                            onPress={() => toggleDiscountClient(c._id)}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }} numberOfLines={1}>
+                                {c.nombre} {c.apellido} ×
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+            <TextInput
+                style={styles.input}
+                placeholder="Buscar cliente para vincular..."
+                placeholderTextColor={colors.icon}
+                value={discountClientQuery}
+                onChangeText={setDiscountClientQuery}
+            />
+            {filteredDiscountClients.map((c) => {
+                const selected = (newDiscount.assignedUserIds || []).map(String).includes(String(c._id));
+                return (
+                    <TouchableOpacity
+                        key={c._id}
+                        style={[styles.listItem, selected && { borderColor: accent, borderWidth: 1.5 }]}
+                        onPress={() => toggleDiscountClient(c._id)}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.listItemTitle}>
+                                {c.nombre} {c.apellido}
+                            </Text>
+                            <Text style={styles.kpiHint}>{c.dni || c.email}</Text>
+                        </View>
+                        <Ionicons
+                            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={22}
+                            color={selected ? accent : colors.icon}
+                        />
+                    </TouchableOpacity>
+                );
+            })}
+            {discountClientQuery.trim() && filteredDiscountClients.length === 0 && (
+                <Text style={styles.empty}>Ningún cliente coincide con la búsqueda.</Text>
+            )}
+
             <TouchableOpacity
                 style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
                 onPress={handleSaveDiscount}
@@ -1369,24 +1460,31 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             {discounts.length === 0 ? (
                 <Text style={styles.empty}>Todavía no hay descuentos.</Text>
             ) : (
-                discounts.map((d) => (
-                    <View key={d._id} style={styles.listItem}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.listItemTitle}>{d.name}</Text>
-                            <Text style={styles.kpiHint}>
-                                {d.type === 'percent' ? `${d.value}%` : money(d.value)}
-                            </Text>
+                discounts.map((d) => {
+                    const linkedCount = Array.isArray(d.assignedUsers) ? d.assignedUsers.length : 0;
+                    return (
+                        <View key={d._id} style={styles.listItem}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.listItemTitle}>{d.name}</Text>
+                                <Text style={styles.kpiHint}>
+                                    {d.type === 'percent' ? `${d.value}%` : money(d.value)}
+                                    {' · '}
+                                    {linkedCount === 0
+                                        ? 'Sin clientes'
+                                        : `${linkedCount} cliente${linkedCount === 1 ? '' : 's'}`}
+                                </Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                                <TouchableOpacity onPress={() => handleEditDiscount(d)}>
+                                    <Text style={{ color: accent, fontWeight: '700' }}>Editar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteDiscount(d)} disabled={submitting}>
+                                    <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Eliminar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                            <TouchableOpacity onPress={() => handleEditDiscount(d)}>
-                                <Text style={{ color: accent, fontWeight: '700' }}>Editar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleDeleteDiscount(d)} disabled={submitting}>
-                                <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Eliminar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))
+                    );
+                })
             )}
         </ScrollView>
     );

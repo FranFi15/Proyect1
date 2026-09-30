@@ -161,8 +161,16 @@ const updateUserAssignedDiscount = asyncHandler(async (req, res) => {
     }
 
     const { discountId } = req.body;
+    const prevDiscountId = user.assignedDiscountId || null;
+
     if (discountId === null || discountId === '' || discountId === undefined) {
         user.assignedDiscountId = null;
+        if (prevDiscountId) {
+            await Discount.updateOne(
+                { _id: prevDiscountId },
+                { $pull: { assignedUsers: user._id } }
+            );
+        }
     } else {
         const discount = await Discount.findById(discountId);
         if (!discount || !discount.isActive) {
@@ -170,6 +178,20 @@ const updateUserAssignedDiscount = asyncHandler(async (req, res) => {
             throw new Error('El descuento seleccionado no está disponible.');
         }
         user.assignedDiscountId = discount._id;
+        if (prevDiscountId && String(prevDiscountId) !== String(discount._id)) {
+            await Discount.updateOne(
+                { _id: prevDiscountId },
+                { $pull: { assignedUsers: user._id } }
+            );
+        }
+        await Discount.updateOne(
+            { _id: discount._id },
+            { $addToSet: { assignedUsers: user._id } }
+        );
+        await Discount.updateMany(
+            { _id: { $ne: discount._id }, assignedUsers: user._id },
+            { $pull: { assignedUsers: user._id } }
+        );
     }
 
     await user.save();

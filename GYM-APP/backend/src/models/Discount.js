@@ -15,6 +15,11 @@ const discountSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     validFrom: { type: Date, default: null },
     validTo: { type: Date, default: null },
+    /** Clients eligible for this discount (synced with User.assignedDiscountId). */
+    assignedUsers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+    }],
 }, {
     timestamps: true,
 });
