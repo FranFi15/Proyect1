@@ -16,6 +16,9 @@ const paymentPackageSchema = new mongoose.Schema({
     isMembresia: { type: Boolean, default: false },
     durationDays: { type: Number, default: 30 }, // Ej: 30 días de pase libre o membresía
 
+    /** Clients can enroll in Mercado Pago Suscripciones for this package. */
+    allowAutoDebit: { type: Boolean, default: false },
+
     isActive: { type: Boolean, default: true } // Para que el admin pueda ocultar paquetes viejos
 }, {
     timestamps: true

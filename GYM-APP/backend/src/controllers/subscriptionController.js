@@ -83,6 +83,10 @@ const createMpSubscription = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Paquete no encontrado o inactivo.');
     }
+    if (!pkg.allowAutoDebit) {
+        res.status(400);
+        throw new Error('Este paquete no tiene débito automático habilitado. Pedile al gimnasio que lo active.');
+    }
 
     const kind = packageKind(pkg);
     if (kind === 'creditos' && (!pkg.tipoClase || !(pkg.creditsAmount > 0))) {

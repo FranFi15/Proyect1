@@ -55,7 +55,7 @@ const loadCartPackages = async (PaymentPackage, cartEntries) => {
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
-    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays } = req.body;
+    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays, allowAutoDebit } = req.body;
 
     if (!name || !price) {
         res.status(400);
@@ -70,7 +70,8 @@ const createPackage = asyncHandler(async (req, res) => {
         isMembresia: !isPaseLibre && !!isMembresia,
         durationDays,
         creditsAmount: isPaseLibre || isMembresia ? 0 : creditsAmount,
-        tipoClase: isPaseLibre || isMembresia ? null : tipoClase
+        tipoClase: isPaseLibre || isMembresia ? null : tipoClase,
+        allowAutoDebit: !!allowAutoDebit,
     });
 
     res.status(201).json(newPackage);
@@ -81,10 +82,21 @@ const updatePackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
     const packageId = req.params.id;
 
+    const updates = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(updates, 'allowAutoDebit')) {
+        updates.allowAutoDebit = !!updates.allowAutoDebit;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'isPaseLibre')) {
+        updates.isPaseLibre = !!updates.isPaseLibre;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'isMembresia')) {
+        updates.isMembresia = !updates.isPaseLibre && !!updates.isMembresia;
+    }
+
     const updatedPackage = await PaymentPackage.findByIdAndUpdate(
-        packageId, 
-        req.body, 
-        { new: true } // Devuelve el documento actualizado
+        packageId,
+        updates,
+        { new: true }
     );
 
     if (!updatedPackage) {

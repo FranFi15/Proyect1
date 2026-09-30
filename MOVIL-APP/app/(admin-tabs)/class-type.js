@@ -283,6 +283,7 @@ const ClassTypeManagementScreen = () => {
                             </ThemedText>
                             <ThemedText style={styles.cardDescription}>
                                 {item.isPaseLibre ? `Acceso libre · ${item.durationDays} días` : item.isMembresia ? `Solo QR · ${item.durationDays} días` : `${item.creditsAmount} créditos de ${item.tipoClase?.nombre || 'clase'}`}
+                                {item.allowAutoDebit ? ' · Débito automático' : ''}
                             </ThemedText>
                             {item.description ? <ThemedText style={styles.cardDescription}>{item.description}</ThemedText> : null}
                         </View>

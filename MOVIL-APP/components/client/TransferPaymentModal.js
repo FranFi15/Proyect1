@@ -273,7 +273,8 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         && mpLinked
         && cartItems.length === 1
         && cartItems[0].quantity === 1
-        && !payDebt;
+        && !payDebt
+        && !!cartItems[0].pkg?.allowAutoDebit;
 
     const canCheckout = isStoreMode
         ? storeCartItems.length > 0
