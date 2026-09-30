@@ -270,7 +270,7 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
 // POST /api/caja/sale
 const createCajaSale = asyncHandler(async (req, res) => {
     const {
-        User, PaymentPackage, Transaction, CreditLog, Notification, Discount,
+        User, PaymentPackage, Transaction, CreditLog, Notification, Discount, TipoClase,
     } = getModels(req.gymDBConnection);
 
     const {
@@ -283,6 +283,8 @@ const createCajaSale = asyncHandler(async (req, res) => {
         method = 'efectivo',
         description,
         payLater = false,
+        customItem = null,
+        customPrice = null,
     } = req.body;
 
     if (!userId) {
@@ -304,6 +306,8 @@ const createCajaSale = asyncHandler(async (req, res) => {
     }
 
     const cart = [];
+    let dateOverrides = null;
+
     for (const item of items) {
         if (!item?.packageId) continue;
         const pkg = await PaymentPackage.findById(item.packageId);
@@ -317,21 +321,110 @@ const createCajaSale = asyncHandler(async (req, res) => {
         });
     }
 
+    if (customItem && cart.length === 0) {
+        const kind = customItem.kind;
+        const listPrice = Math.max(0, Number(customItem.price) || 0);
+        if (listPrice <= 0) {
+            res.status(400);
+            throw new Error('Indicá el precio de la venta personalizada.');
+        }
+
+        if (kind === 'credits') {
+            const creditsAmount = Number(customItem.creditsAmount);
+            if (!customItem.tipoClaseId || !Number.isFinite(creditsAmount) || creditsAmount <= 0) {
+                res.status(400);
+                throw new Error('Créditos personalizados requieren tipo de turno y cantidad positiva.');
+            }
+            const tipo = await TipoClase.findById(customItem.tipoClaseId).select('nombre');
+            if (!tipo) {
+                res.status(400);
+                throw new Error('Tipo de turno no encontrado.');
+            }
+            cart.push({
+                pkg: {
+                    name: customItem.name?.trim()
+                        || `Créditos ${tipo.nombre} x${Math.abs(creditsAmount)}`,
+                    price: listPrice,
+                    tipoClase: customItem.tipoClaseId,
+                    creditsAmount: creditsAmount,
+                    isPaseLibre: false,
+                    isMembresia: false,
+                },
+                quantity: 1,
+            });
+        } else if (kind === 'pase' || kind === 'membresia') {
+            const isPase = kind === 'pase';
+            let durationDays = Math.max(0, Number(customItem.durationDays) || 0);
+            const desde = customItem.desde ? new Date(`${customItem.desde}T12:00:00.000Z`) : null;
+            const hasta = customItem.hasta ? new Date(`${customItem.hasta}T12:00:00.000Z`) : null;
+            if (desde && hasta && !Number.isNaN(desde.getTime()) && !Number.isNaN(hasta.getTime())) {
+                if (hasta < desde) {
+                    res.status(400);
+                    throw new Error('La fecha hasta debe ser posterior a desde.');
+                }
+                durationDays = Math.max(1, Math.round((hasta - desde) / (1000 * 60 * 60 * 24)));
+                dateOverrides = {
+                    kind,
+                    desde: new Date(`${customItem.desde}T00:00:00.000Z`),
+                    hasta: new Date(`${customItem.hasta}T23:59:59.999Z`),
+                };
+            }
+            if (durationDays <= 0) {
+                res.status(400);
+                throw new Error(isPase
+                    ? 'Indicá fechas o duración del acceso libre.'
+                    : 'Indicá fechas o duración de la membresía.');
+            }
+            cart.push({
+                pkg: {
+                    name: customItem.name?.trim()
+                        || (isPase ? `Acceso libre ${durationDays}d` : `Membresía ${durationDays}d`),
+                    price: listPrice,
+                    isPaseLibre: isPase,
+                    isMembresia: !isPase,
+                    durationDays,
+                    creditsAmount: 0,
+                },
+                quantity: 1,
+            });
+        } else {
+            res.status(400);
+            throw new Error('Tipo de venta personalizada inválido.');
+        }
+    }
+
     const free = isPayLater ? 0 : Math.max(0, Number(freeAmount) || 0);
     if (cart.length === 0 && free <= 0) {
         res.status(400);
-        throw new Error('Agregá un paquete o un monto libre.');
+        throw new Error('Agregá un paquete, una venta personalizada o un monto libre.');
     }
 
     if (isPayLater && cart.length === 0) {
         res.status(400);
-        throw new Error('Paga luego solo aplica a ventas con paquetes.');
+        throw new Error('Paga luego solo aplica a ventas con paquetes o ítems personalizados.');
     }
 
-    const catalogSubtotal = cart.reduce(
+    let catalogSubtotal = cart.reduce(
         (sum, e) => sum + Number(e.pkg.price) * e.quantity,
         0
     );
+
+    // Optional override of charged list price for a single catalog package
+    if (customPrice != null && customPrice !== '' && cart.length === 1 && !customItem) {
+        const override = Math.max(0, Number(customPrice));
+        if (Number.isFinite(override) && override > 0) {
+            catalogSubtotal = override;
+                    cart[0] = {
+                        ...cart[0],
+                        pkg: {
+                            ...(typeof cart[0].pkg.toObject === 'function'
+                                ? cart[0].pkg.toObject()
+                                : cart[0].pkg),
+                            price: override,
+                        },
+                    };
+        }
+    }
 
     if (cart.length === 0 && free > 0 && !String(description || '').trim()) {
         res.status(400);
@@ -392,6 +485,18 @@ const createCajaSale = asyncHandler(async (req, res) => {
             discountId: discountDoc?._id || null,
         },
     });
+
+    // Exact date overrides for custom pase/membresía (admin-chosen range)
+    if (dateOverrides) {
+        if (dateOverrides.kind === 'pase') {
+            user.paseLibreDesde = dateOverrides.desde;
+            user.paseLibreHasta = dateOverrides.hasta;
+        } else {
+            user.membresiaDesde = dateOverrides.desde;
+            user.membresiaHasta = dateOverrides.hasta;
+        }
+        await user.save();
+    }
 
     res.status(201).json({
         message: isPayLater

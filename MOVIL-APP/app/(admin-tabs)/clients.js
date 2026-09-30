@@ -30,6 +30,7 @@ import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@ex
 import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
 import CajaModal from '@/components/admin/CajaModal';
+import CreditsPlanSaleBlock from '@/components/admin/CreditsPlanSaleBlock';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import ClientStatsModal from '@/components/admin/ClientStatsModal';
@@ -359,6 +360,8 @@ const ManageClientsScreen = () => {
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
     const [membresiaData, setMembresiaData] = useState({ desde: null, hasta: null });
     const [creditsModalTab, setCreditsModalTab] = useState('credits');
+    const [paymentPackages, setPaymentPackages] = useState([]);
+    const [cajaDiscounts, setCajaDiscounts] = useState([]);
     
     const [isDebtVisible, setIsDebtVisible] = useState(false); 
     const [showStats, setShowStats] = useState(false);
@@ -455,8 +458,62 @@ const ManageClientsScreen = () => {
             setMembresiaData({ desde: null, hasta: null });
         }
         setCreditsModalTab('credits'); 
-        setCreditsModalVisible(true); 
+        setCreditsModalVisible(true);
+        Promise.all([
+            apiClient.get('/payments/packages').catch(() => ({ data: [] })),
+            apiClient.get('/caja/discounts').catch(() => ({ data: [] })),
+        ]).then(([pkgRes, discRes]) => {
+            setPaymentPackages(Array.isArray(pkgRes.data) ? pkgRes.data : (pkgRes.data?.packages || []));
+            setCajaDiscounts(Array.isArray(discRes.data) ? discRes.data : []);
+        });
     };
+
+    const showCreditsAlert = (title, message, extraButtons) => {
+        const buttons = (extraButtons && extraButtons.length
+            ? extraButtons
+            : [{ text: 'OK', style: 'primary' }]
+        ).map((b) => ({
+            ...b,
+            onPress: () => {
+                setAlertInfo((p) => ({ ...p, visible: false }));
+                b.onPress?.();
+            },
+        }));
+        setAlertInfo({ visible: true, title, message, buttons });
+    };
+
+    const packagesForCreditsTab = useMemo(() => {
+        const list = (paymentPackages || []).filter((p) => p.isActive !== false);
+        if (creditsModalTab === 'credits') {
+            return list.filter((p) => !p.isPaseLibre && !p.isMembresia);
+        }
+        if (creditsModalTab === 'freeAccess') {
+            return list.filter((p) => p.isPaseLibre);
+        }
+        if (creditsModalTab === 'membership') {
+            return list.filter((p) => p.isMembresia);
+        }
+        return [];
+    }, [paymentPackages, creditsModalTab]);
+
+    const customSaleItemCredits = useMemo(() => {
+        if (!planData.tipoClaseId || !(Number(planData.creditsToAdd) > 0)) return null;
+        return {
+            tipoClaseId: planData.tipoClaseId,
+            creditsAmount: Number(planData.creditsToAdd),
+        };
+    }, [planData.tipoClaseId, planData.creditsToAdd]);
+
+    const customSaleItemPase = useMemo(() => {
+        if (!paseLibreData.desde || !paseLibreData.hasta) return null;
+        return { desde: paseLibreData.desde, hasta: paseLibreData.hasta };
+    }, [paseLibreData.desde, paseLibreData.hasta]);
+
+    const customSaleItemMembresia = useMemo(() => {
+        if (!membresiaData.desde || !membresiaData.hasta) return null;
+        return { desde: membresiaData.desde, hasta: membresiaData.hasta };
+    }, [membresiaData.desde, membresiaData.hasta]);
+
     const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false, todasLasSucursales: client.todasLasSucursales !== undefined ? client.todasLasSucursales : true, sucursales: (client.sucursales || []).map(s => typeof s === 'object' ? s._id : s) }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
@@ -1499,8 +1556,23 @@ const ManageClientsScreen = () => {
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar créditos</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar sin cobro</Text>
                                     </TouchableOpacity>
+
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-credits-${selectedClient?._id}`}
+                                        kind="credits"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        customItem={customSaleItemCredits}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
                                 </View>
                             )}
 
@@ -1542,8 +1614,23 @@ const ManageClientsScreen = () => {
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="infinite-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar acceso libre</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
                                     </TouchableOpacity>
+
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-pase-${selectedClient?._id}`}
+                                        kind="pase"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        customItem={customSaleItemPase}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
                                 </View>
                             )}
 
@@ -1585,8 +1672,23 @@ const ManageClientsScreen = () => {
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="id-card-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar membresía</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
                                     </TouchableOpacity>
+
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-membresia-${selectedClient?._id}`}
+                                        kind="membresia"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        customItem={customSaleItemMembresia}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
                                 </View>
                             )}
 
