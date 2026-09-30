@@ -1550,15 +1550,6 @@ const ManageClientsScreen = () => {
                                         autoCorrect={false}
                                     />
 
-                                    <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
-                                        onPress={handlePlanSubmit}
-                                        activeOpacity={0.85}
-                                    >
-                                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar sin cobro</Text>
-                                    </TouchableOpacity>
-
                                     <CreditsPlanSaleBlock
                                         key={`sale-credits-${selectedClient?._id}`}
                                         kind="credits"
@@ -1573,6 +1564,15 @@ const ManageClientsScreen = () => {
                                             fetchAllData();
                                         }}
                                     />
+
+                                    <TouchableOpacity
+                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
+                                        onPress={handlePlanSubmit}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar sin cobro</Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 
@@ -1608,15 +1608,6 @@ const ManageClientsScreen = () => {
                                         </View>
                                     </View>
 
-                                    <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
-                                        onPress={handleSavePaseLibre}
-                                        activeOpacity={0.85}
-                                    >
-                                        <Ionicons name="infinite-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
-                                    </TouchableOpacity>
-
                                     <CreditsPlanSaleBlock
                                         key={`sale-pase-${selectedClient?._id}`}
                                         kind="pase"
@@ -1631,6 +1622,15 @@ const ManageClientsScreen = () => {
                                             fetchAllData();
                                         }}
                                     />
+
+                                    <TouchableOpacity
+                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
+                                        onPress={handleSavePaseLibre}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Ionicons name="infinite-outline" size={18} color="#fff" />
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 
@@ -1666,15 +1666,6 @@ const ManageClientsScreen = () => {
                                         </View>
                                     </View>
 
-                                    <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
-                                        onPress={handleSaveMembresia}
-                                        activeOpacity={0.85}
-                                    >
-                                        <Ionicons name="id-card-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
-                                    </TouchableOpacity>
-
                                     <CreditsPlanSaleBlock
                                         key={`sale-membresia-${selectedClient?._id}`}
                                         kind="membresia"
@@ -1689,6 +1680,15 @@ const ManageClientsScreen = () => {
                                             fetchAllData();
                                         }}
                                     />
+
+                                    <TouchableOpacity
+                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
+                                        onPress={handleSaveMembresia}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Ionicons name="id-card-outline" size={18} color="#fff" />
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
+                                    </TouchableOpacity>
                                 </View>
                             )}
 

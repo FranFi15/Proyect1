@@ -208,6 +208,23 @@ const CreditsPlanSaleBlock = ({
 
     return (
         <View style={styles.wrap}>
+            <Text style={styles.sectionTitle}>
+                {selectedPkg ? 'Precio (editable)' : 'Precio personalizado'}
+            </Text>
+            <TextInput
+                style={styles.input}
+                value={salePrice}
+                onChangeText={setSalePrice}
+                placeholder={selectedPkg ? String(selectedPkg.price ?? '') : 'Ej: 15000'}
+                placeholderTextColor={colors.icon}
+                keyboardType="decimal-pad"
+            />
+            {!selectedPkg && (
+                <Text style={styles.hint}>
+                    Completá arriba el beneficio y poné el precio a cobrar.
+                </Text>
+            )}
+
             <Text style={styles.sectionTitle}>Paquetes</Text>
             {packages.length === 0 ? (
                 <Text style={styles.empty}>No hay paquetes activos de este tipo.</Text>
@@ -235,28 +252,6 @@ const CreditsPlanSaleBlock = ({
                         </TouchableOpacity>
                     );
                 })
-            )}
-
-            <Text style={styles.sectionTitle}>
-                {selectedPkg ? 'Precio (editable)' : 'Precio personalizado'}
-            </Text>
-            <TextInput
-                style={styles.input}
-                value={salePrice}
-                onChangeText={(t) => {
-                    setSalePrice(t);
-                    if (t !== '' && selectedPkgId) {
-                        // keep package selected; price override allowed
-                    }
-                }}
-                placeholder={selectedPkg ? String(selectedPkg.price ?? '') : 'Ej: 15000'}
-                placeholderTextColor={colors.icon}
-                keyboardType="decimal-pad"
-            />
-            {!selectedPkg && (
-                <Text style={styles.hint}>
-                    Completá arriba el beneficio y poné el precio a cobrar.
-                </Text>
             )}
 
             <Text style={styles.sectionTitle}>Descuento</Text>
@@ -344,7 +339,7 @@ const CreditsPlanSaleBlock = ({
 };
 
 const makeStyles = (colors, accent) => StyleSheet.create({
-    wrap: { marginTop: 16, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border || '#ddd' },
+    wrap: { marginTop: 4 },
     sectionTitle: {
         fontSize: 13,
         fontWeight: '800',
