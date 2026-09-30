@@ -98,13 +98,20 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     ]);
 
     const methodAgg = await Transaction.aggregate([
-        { $match: { type: 'payment', createdAt: { $gte: from, $lte: to } } },
+        {
+            $match: {
+                type: 'payment',
+                createdAt: { $gte: from, $lte: to },
+                method: { $in: ['efectivo', 'transfer', 'mercadopago'] },
+            },
+        },
         { $group: { _id: '$method', total: { $sum: '$amount' } } },
     ]);
-    const byMethod = { efectivo: 0, transfer: 0, mercadopago: 0, manual: 0 };
+    const byMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
     for (const row of methodAgg) {
-        const key = byMethod[row._id] != null ? row._id : 'manual';
-        byMethod[key] += row.total || 0;
+        if (byMethod[row._id] != null) {
+            byMethod[row._id] += row.total || 0;
+        }
     }
 
     const sourceAgg = await Transaction.aggregate([
@@ -544,7 +551,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
         createdBy: req.user._id,
         payLater: isPayLater,
         transactionMeta: {
-            method: isPayLater ? 'manual' : method,
+            method: isPayLater ? 'deuda' : method,
             source: cart.length > 0 ? 'caja' : 'account',
             originalAmount: catalogSubtotal + free,
             discountAmount: discountValue,
@@ -702,7 +709,7 @@ const createGasto = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('Categoría de gasto inválida.');
     }
-    const allowedMethods = ['efectivo', 'transfer', 'mercadopago', 'manual'];
+    const allowedMethods = ['efectivo', 'transfer', 'mercadopago'];
     if (!allowedMethods.includes(method)) {
         res.status(400);
         throw new Error('Método de pago inválido.');

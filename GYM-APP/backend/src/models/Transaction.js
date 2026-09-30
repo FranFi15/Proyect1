@@ -31,8 +31,8 @@ const transactionSchema = new mongoose.Schema({
     receiptUrl: { type: String },
     method: {
         type: String,
-        enum: ['efectivo', 'transfer', 'mercadopago', 'manual'],
-        default: 'manual',
+        enum: ['efectivo', 'transfer', 'mercadopago', 'manual', 'deuda'],
+        default: 'efectivo',
     },
     source: {
         type: String,

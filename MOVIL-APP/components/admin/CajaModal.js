@@ -34,6 +34,13 @@ const METHODS = [
     { id: 'mercadopago', label: 'Mercado Pago' },
 ];
 
+const METHOD_LABELS = {
+    efectivo: 'Efectivo',
+    transfer: 'Transferencia',
+    mercadopago: 'Mercado Pago',
+    deuda: 'Deuda',
+};
+
 const PACKAGE_TYPE_FILTERS = [
     { id: 'credits', label: 'Créditos' },
     { id: 'pase', label: 'Acceso libre' },
@@ -748,10 +755,12 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
             <Text style={styles.sectionTitle}>Por método (ingresos)</Text>
             <View style={styles.rowWrap}>
-                {Object.entries(dashboard?.byMethod || {}).map(([k, v]) => (
-                    <View key={k} style={styles.chip}>
-                        <Text style={styles.chipLabel}>{k}</Text>
-                        <Text style={styles.chipValue}>{money(v, currency)}</Text>
+                {METHODS.map((m) => (
+                    <View key={m.id} style={styles.chip}>
+                        <Text style={styles.chipLabel}>{m.label}</Text>
+                        <Text style={styles.chipValue}>
+                            {money(dashboard?.byMethod?.[m.id] || 0, currency)}
+                        </Text>
                     </View>
                 ))}
             </View>
@@ -819,7 +828,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             <Text style={styles.movementMeta}>
                                 {format(new Date(m.date), "d MMM · HH:mm", { locale: es })}
                                 {' · '}
-                                {m.method || 'manual'}
+                                {METHOD_LABELS[m.method] || m.method || '—'}
                                 {m.discountAmount > 0 ? ` · dto $${m.discountAmount}` : ''}
                             </Text>
                         </View>

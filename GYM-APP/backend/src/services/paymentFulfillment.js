@@ -131,7 +131,7 @@ export const fulfillApprovedPayment = async ({
             description,
             createdBy: actorId,
             receiptUrl: receiptUrl || undefined,
-            method: transactionMeta.method || 'manual',
+            method: transactionMeta.method || 'efectivo',
             source: transactionMeta.source || 'pack',
             originalAmount: transactionMeta.originalAmount != null
                 ? transactionMeta.originalAmount
@@ -166,7 +166,7 @@ export const fulfillApprovedPayment = async ({
                     ? `Deuda por compra de paquete: ${itemPkg.name}`
                     : `Cargo por compra de paquete: ${itemPkg.name}`),
             createdBy: actorId,
-            method: transactionMeta.method || 'manual',
+            method: payLater ? (transactionMeta.method || 'deuda') : (transactionMeta.method || 'efectivo'),
             source: transactionMeta.source || 'pack',
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
         });
