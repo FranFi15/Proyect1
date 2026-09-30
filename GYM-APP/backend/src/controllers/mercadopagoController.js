@@ -39,6 +39,8 @@ const CURRENCY_BY_COUNTRY = {
     Brazil: 'BRL'
 };
 
+export { CURRENCY_BY_COUNTRY };
+
 export const getPublicBaseUrl = (req) => {
     if (process.env.API_PUBLIC_URL) {
         return process.env.API_PUBLIC_URL.replace(/\/$/, '');
@@ -107,6 +109,8 @@ const withMpClient = async (settings, fn) => {
         throw error;
     }
 };
+
+export { withMpClient };
 
 const encodeOAuthState = (payload) => Buffer.from(JSON.stringify(payload)).toString('base64url');
 
@@ -261,6 +265,12 @@ const fulfillMercadoPagoPayment = async (gymId, paymentId) => {
     const ticketId = payment.external_reference;
     if (!ticketId) return { skipped: true, reason: 'no_external_reference' };
 
+    // Automatic debit (Suscripciones)
+    if (String(ticketId).startsWith('mpsub:')) {
+        const { fulfillMpSubscriptionPayment } = await import('./subscriptionController.js');
+        return fulfillMpSubscriptionPayment(gymId, payment);
+    }
+
     // Store orders use external_reference "store:<orderId>"
     if (String(ticketId).startsWith('store:')) {
         const orderId = String(ticketId).slice('store:'.length);
@@ -399,6 +409,62 @@ const mercadoPagoWebhook = asyncHandler(async (req, res) => {
     const gymId = req.query.gymId;
 
     const normalizedType = String(type || action || '').toLowerCase();
+
+    // Sync subscription status (authorized / paused / cancelled)
+    if (
+        (normalizedType.includes('subscription_preapproval') || normalizedType.includes('preapproval'))
+        && !normalizedType.includes('authorized_payment')
+    ) {
+        if (!gymId) return res.sendStatus(200);
+        try {
+            const preapprovalId = req.body?.data?.id || req.query['data.id'] || req.query.id;
+            if (preapprovalId) {
+                const { connection } = await connectToGymDB(gymId);
+                const { Settings, MpSubscription } = getModels(connection);
+                const settings = await getMpSettings(Settings);
+                if (settings) {
+                    const { syncMpSubscriptionFromPreapproval } = await import('./subscriptionController.js');
+                    await syncMpSubscriptionFromPreapproval(MpSubscription, settings, preapprovalId);
+                }
+            }
+        } catch (error) {
+            console.error('Error sync suscripción MP:', error?.message || error);
+        }
+        return res.sendStatus(200);
+    }
+
+    // Authorized invoice for a subscription → resolve underlying payment id
+    if (normalizedType.includes('authorized_payment') || normalizedType.includes('subscription_authorized')) {
+        if (!gymId) return res.sendStatus(200);
+        try {
+            const invoiceId = req.body?.data?.id || req.query['data.id'] || req.query.id;
+            if (invoiceId) {
+                const { connection } = await connectToGymDB(gymId);
+                const { Settings } = getModels(connection);
+                const settings = await getMpSettings(Settings);
+                if (settings) {
+                    const invoice = await withMpClient(settings, async (mpConfig) => {
+                        const { data } = await axios.get(
+                            `https://api.mercadopago.com/authorized_payments/${invoiceId}`,
+                            { headers: { Authorization: `Bearer ${mpConfig.accessToken}` } }
+                        );
+                        return data;
+                    });
+                    const paymentId = invoice?.payment?.id || invoice?.payment_id;
+                    if (paymentId) {
+                        await fulfillMercadoPagoPayment(gymId, paymentId);
+                    } else {
+                        console.warn('authorized_payment sin payment_id', { invoiceId, gymId });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error authorized_payment MP:', error?.response?.data || error?.message || error);
+            return res.status(500).json({ message: 'Error procesando factura de suscripción' });
+        }
+        return res.sendStatus(200);
+    }
+
     if (normalizedType && !normalizedType.includes('payment')) {
         return res.sendStatus(200);
     }

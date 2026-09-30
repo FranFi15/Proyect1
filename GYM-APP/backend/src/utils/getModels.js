@@ -20,6 +20,7 @@ import getStoreOrderModel from '../models/StoreOrder.js';
 import getBenefitModel from '../models/Benefit.js';
 import getDiscountModel from '../models/Discount.js';
 import getGastoModel from '../models/Gasto.js';
+import getMpSubscriptionModel from '../models/MpSubscription.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -52,6 +53,7 @@ const getModels = (dbConnection) => {
         Benefit: getBenefitModel(dbConnection),
         Discount: getDiscountModel(dbConnection),
         Gasto: getGastoModel(dbConnection),
+        MpSubscription: getMpSubscriptionModel(dbConnection),
     };
 
     return models;

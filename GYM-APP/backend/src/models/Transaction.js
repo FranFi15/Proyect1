@@ -36,7 +36,7 @@ const transactionSchema = new mongoose.Schema({
     },
     source: {
         type: String,
-        enum: ['caja', 'pack', 'store', 'account', 'billing'],
+        enum: ['caja', 'pack', 'store', 'account', 'billing', 'subscription'],
         default: 'billing',
     },
     originalAmount: { type: Number, default: null },

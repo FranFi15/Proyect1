@@ -12,6 +12,12 @@ import {
     getMyTicket,
     getMyPricing,
 } from '../controllers/paymentController.js';
+import {
+    createMpSubscription,
+    listMyMpSubscriptions,
+    listMpSubscriptionsAdmin,
+    updateMpSubscription,
+} from '../controllers/subscriptionController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 import gymTenantMiddleware from '../middlewares/gymTenantMiddleware.js';
 import { upload } from '../utils/cloudinary.js';
@@ -34,5 +40,9 @@ router.get('/my-pricing', getMyPricing);
 router.post('/quote', getMyPricing);
 
 router.post('/mercadopago/preference', createMercadoPagoPreference);
+router.post('/mercadopago/subscription', createMpSubscription);
+router.get('/mercadopago/subscriptions/mine', listMyMpSubscriptions);
+router.get('/mercadopago/subscriptions', authorizeRoles('admin'), listMpSubscriptionsAdmin);
+router.put('/mercadopago/subscriptions/:id', updateMpSubscription);
 
 export default router;

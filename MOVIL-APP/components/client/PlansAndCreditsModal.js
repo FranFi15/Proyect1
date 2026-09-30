@@ -23,7 +23,9 @@ const PlansAndCreditsModal = ({ onClose }) => {
     const { gymColor } = useAuth();
     const [profile, setProfile] = useState(null);
     const [classTypes, setClassTypes] = useState([]);
+    const [subscriptions, setSubscriptions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [submittingSubId, setSubmittingSubId] = useState(null);
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
 
@@ -34,31 +36,93 @@ const PlansAndCreditsModal = ({ onClose }) => {
         buttons: [] 
     });
 
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [profileResponse, typesResponse, subsResponse] = await Promise.all([
+                apiClient.get('/users/me'),
+                apiClient.get('/tipos-clase'),
+                apiClient.get('/payments/mercadopago/subscriptions/mine').catch(() => ({ data: [] })),
+            ]);
+            setProfile(profileResponse.data);
+            setClassTypes(typesResponse.data.tiposClase || []);
+            setSubscriptions(Array.isArray(subsResponse.data) ? subsResponse.data : []);
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo cargar tu información.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     useFocusEffect(
         useCallback(() => {
-            const fetchData = async () => {
-                setLoading(true);
-                try {
-                    const [profileResponse, typesResponse] = await Promise.all([
-                        apiClient.get('/users/me'),
-                        apiClient.get('/tipos-clase')
-                    ]);
-                    setProfile(profileResponse.data);
-                    setClassTypes(typesResponse.data.tiposClase || []);
-                } catch (error) {
-                    setAlertInfo({
-                        visible: true,
-                        title: 'Error',
-                        message: 'No se pudo cargar tu información.',
-                        buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
-                    });
-                } finally {
-                    setLoading(false);
-                }
-            };
             fetchData();
-        }, [])
+        }, [fetchData])
     );
+
+    const activeSubscriptions = useMemo(
+        () => (subscriptions || []).filter((s) => ['pending', 'authorized', 'paused'].includes(s.status)),
+        [subscriptions]
+    );
+
+    const cancelSubscription = (sub) => {
+        setAlertInfo({
+            visible: true,
+            title: 'Cancelar débito automático',
+            message: `¿Cancelar la suscripción de "${sub.package?.name || 'plan'}"? No se harán más cobros.`,
+            buttons: [
+                { text: 'No', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                {
+                    text: 'Cancelar suscripción',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setAlertInfo({ visible: false });
+                        setSubmittingSubId(sub._id);
+                        try {
+                            await apiClient.put(`/payments/mercadopago/subscriptions/${sub._id}`, {
+                                status: 'cancelled',
+                            });
+                            await fetchData();
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Listo',
+                                message: 'Suscripción cancelada.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
+                        } catch (error) {
+                            setAlertInfo({
+                                visible: true,
+                                title: 'Error',
+                                message: error.response?.data?.message || 'No se pudo cancelar.',
+                                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+                            });
+                        } finally {
+                            setSubmittingSubId(null);
+                        }
+                    },
+                },
+            ],
+        });
+    };
+
+    const statusLabel = (status) => {
+        if (status === 'authorized') return 'Activa';
+        if (status === 'pending') return 'Pendiente de tarjeta';
+        if (status === 'paused') return 'Pausada';
+        if (status === 'cancelled') return 'Cancelada';
+        return status;
+    };
+
+    const kindLabel = (kind) => {
+        if (kind === 'pase') return 'Pase libre';
+        if (kind === 'membresia') return 'Membresía';
+        return 'Créditos';
+    };
 
     // --- LÓGICA CORREGIDA PARA VENCIMIENTOS ---
     const detailedCredits = useMemo(() => {
@@ -170,6 +234,52 @@ const PlansAndCreditsModal = ({ onClose }) => {
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{padding: 20}}>
+
+                    {/* --- DÉBITO AUTOMÁTICO --- */}
+                    {activeSubscriptions.length > 0 && (
+                        <>
+                            <ThemedText style={[styles.cardTitle, { marginBottom: 10 }]}>Débito automático</ThemedText>
+                            {activeSubscriptions.map((sub) => (
+                                <ThemedView key={sub._id} style={styles.card}>
+                                    <View style={styles.cardHeaderRow}>
+                                        <ThemedText style={styles.cardTitle}>
+                                            {sub.package?.name || 'Plan'}
+                                        </ThemedText>
+                                        <View style={[styles.badge, { backgroundColor: gymColor || '#28a745' }]}>
+                                            <Text style={[styles.badgeText, { color: '#fff' }]}>
+                                                {statusLabel(sub.status)}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.infoRow}>
+                                        <ThemedText style={styles.infoLabel}>Tipo</ThemedText>
+                                        <ThemedText style={styles.infoValueBold}>{kindLabel(sub.kind)}</ThemedText>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <ThemedText style={styles.infoLabel}>Monto</ThemedText>
+                                        <ThemedText style={styles.infoValueBold}>
+                                            ${Number(sub.amount || 0).toLocaleString('es-AR')}
+                                            {sub.frequencyType === 'months' ? ' / mes' : ` / ${sub.frequency} días`}
+                                        </ThemedText>
+                                    </View>
+                                    {sub.status !== 'cancelled' && (
+                                        <TouchableOpacity
+                                            style={{ marginTop: 12, paddingVertical: 10, alignItems: 'center' }}
+                                            onPress={() => cancelSubscription(sub)}
+                                            disabled={submittingSubId === sub._id}
+                                        >
+                                            {submittingSubId === sub._id ? (
+                                                <ActivityIndicator color="#dc3545" />
+                                            ) : (
+                                                <Text style={{ color: '#dc3545', fontWeight: '700' }}>Cancelar suscripción</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+                                </ThemedView>
+                            ))}
+                        </>
+                    )}
 
                     {/* --- SECCIÓN PASE LIBRE --- */}
                     {hasPaseLibre && (
