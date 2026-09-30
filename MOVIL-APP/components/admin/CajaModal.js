@@ -10,6 +10,7 @@ import {
     useColorScheme,
     ActivityIndicator,
     Platform,
+    RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -83,6 +84,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const [tab, setTab] = useState('resumen');
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [dashboard, setDashboard] = useState(null);
     const [packages, setPackages] = useState([]);
@@ -109,6 +111,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     // Discount form
     const [newDiscount, setNewDiscount] = useState({ name: '', type: 'percent', value: '' });
+    const [editingDiscountId, setEditingDiscountId] = useState(null);
 
     useEffect(() => {
         if (!visible) setActiveFilter(null);
@@ -123,9 +126,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         });
     };
 
-    const loadAll = useCallback(async () => {
+    const loadAll = useCallback(async ({ silent = false } = {}) => {
         if (!visible) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         try {
             const [dashRes, pkgRes, discRes] = await Promise.all([
                 apiClient.get('/caja/dashboard'),
@@ -138,9 +141,19 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         } catch (error) {
             showAlert('Error', error.response?.data?.message || 'No se pudo cargar la caja.');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [visible]);
+
+    const handlePullRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await loadAll({ silent: true });
+            onRefresh?.();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [loadAll, onRefresh]);
 
     useEffect(() => {
         if (visible) {
@@ -148,6 +161,15 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             loadAll();
         }
     }, [visible, loadAll]);
+
+    const refreshControl = (
+        <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handlePullRefresh}
+            tintColor={accent}
+            colors={[accent]}
+        />
+    );
 
     const filteredClients = useMemo(() => {
         const q = clientQuery.trim().toLowerCase();
@@ -204,10 +226,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         [discounts]
     );
 
-    const saleModeLabel = SALE_MODE_FILTERS.find((m) => m.id === saleMode)?.label || 'Tipo';
-    const packageTypeLabel = PACKAGE_TYPE_FILTERS.find((f) => f.id === packageTypeFilter)?.label || 'Paquete';
     const creditTypeLabel = creditTypeOptions.find((o) => o._id === creditTypeFilter)?.nombre || 'Créditos';
-    const methodLabel = METHODS.find((m) => m.id === method)?.label || 'Método';
     const gastoCategoryLabel = GASTO_CATEGORIES.find((c) => c.id === gastoCategory)?.label || 'Categoría';
     const gastoFilterLabel = gastoCategoryFilter === 'all'
         ? 'Todos los gastos'
@@ -262,25 +281,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     selectedValue: tab,
                     onSelect: (id) => { setTab(id); setActiveFilter(null); },
                 };
-            case 'saleMode':
-                return {
-                    title: 'Tipo de movimiento',
-                    options: toFilterOptions(SALE_MODE_FILTERS),
-                    selectedValue: saleMode,
-                    onSelect: (id) => { applySaleMode(id); setActiveFilter(null); },
-                };
-            case 'packageType':
-                return {
-                    title: 'Tipo de paquete',
-                    options: toFilterOptions(PACKAGE_TYPE_FILTERS),
-                    selectedValue: packageTypeFilter,
-                    onSelect: (id) => {
-                        setPackageTypeFilter(id);
-                        setCreditTypeFilter('all');
-                        setSelectedPkgIds({});
-                        setActiveFilter(null);
-                    },
-                };
             case 'creditType':
                 return {
                     title: 'Tipo de crédito',
@@ -312,13 +312,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         }
                         setActiveFilter(null);
                     },
-                };
-            case 'method':
-                return {
-                    title: 'Método de pago',
-                    options: toFilterOptions(METHODS),
-                    selectedValue: method,
-                    onSelect: (id) => { setMethod(id); setActiveFilter(null); },
                 };
             case 'gastoCategory':
                 return {
@@ -357,13 +350,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         activeFilter,
         tab,
         dashboard?.pending,
-        saleMode,
-        packageTypeFilter,
         creditTypeFilter,
         creditTypeOptions,
         activeDiscounts,
         selectedDiscountId,
-        method,
         gastoCategory,
         gastoCategoryFilter,
         newDiscount.type,
@@ -418,7 +408,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         setAdhocPercent('');
     };
 
-    const handleSale = async () => {
+    const handleSale = async ({ payLater = false } = {}) => {
         if (saleMode === 'gasto') {
             if (!gastoName.trim()) {
                 showAlert('Falta nombre', 'Poné un nombre para el gasto.');
@@ -455,6 +445,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         }
 
         if (saleMode === 'abono') {
+            if (payLater) {
+                showAlert('No disponible', 'Paga luego solo aplica a ventas de paquetes.');
+                return;
+            }
             if (!(Number(freeAmount) > 0)) {
                 showAlert('Falta monto', 'Ingresá el monto del abono libre.');
                 return;
@@ -475,15 +469,18 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 items: saleMode === 'paquete'
                     ? cartItems.map((e) => ({ packageId: e.pkg._id, quantity: e.quantity }))
                     : [],
-                freeAmount: (saleMode === 'abono' || saleMode === 'paquete')
-                    ? (Number(freeAmount) || 0)
-                    : 0,
+                freeAmount: payLater
+                    ? 0
+                    : ((saleMode === 'abono' || saleMode === 'paquete')
+                        ? (Number(freeAmount) || 0)
+                        : 0),
                 method,
+                payLater: Boolean(payLater),
             };
             if (saleMode === 'abono') {
                 payload.description = freePaymentName.trim();
-            } else if (saleMode === 'paquete' && Number(freeAmount) > 0) {
-                payload.description = undefined; // auto desc; freeAmount is extra a favor
+            } else if (saleMode === 'paquete' && Number(freeAmount) > 0 && !payLater) {
+                payload.description = undefined;
             }
             if (saleMode === 'paquete') {
                 if (selectedDiscountId) payload.discountId = selectedDiscountId;
@@ -499,8 +496,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 else balMsg = '\nSaldo: al día';
             }
             showAlert(
-                'Venta OK',
-                (res.data.message || 'Venta registrada.')
+                payLater ? 'Deuda cargada' : 'Venta OK',
+                (res.data.message || (payLater ? 'Deuda cargada al cliente.' : 'Venta registrada.'))
                     + (res.data.benefitMessage ? `\n${res.data.benefitMessage}` : '')
                     + balMsg
             );
@@ -513,6 +510,33 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const confirmPayLater = () => {
+        if (!selectedClient?._id) {
+            showAlert('Falta cliente', 'Seleccioná un cliente para la venta.');
+            return;
+        }
+        if (cartItems.length === 0) {
+            showAlert('Falta paquete', 'Elegí al menos un paquete.');
+            return;
+        }
+        setAlertInfo({
+            visible: true,
+            title: 'Paga luego',
+            message: 'No se va a registrar un pago. Se va a cargar la deuda al cliente.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo((p) => ({ ...p, visible: false })) },
+                {
+                    text: 'Cargar deuda',
+                    style: 'primary',
+                    onPress: () => {
+                        setAlertInfo((p) => ({ ...p, visible: false }));
+                        handleSale({ payLater: true });
+                    },
+                },
+            ],
+        });
     };
 
     const handleDeleteGasto = async (gastoId) => {
@@ -556,36 +580,77 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         }
     };
 
-    const handleCreateDiscount = async () => {
+    const resetDiscountForm = () => {
+        setNewDiscount({ name: '', type: 'percent', value: '' });
+        setEditingDiscountId(null);
+    };
+
+    const handleSaveDiscount = async () => {
         if (!newDiscount.name || !newDiscount.value) {
             showAlert('Datos incompletos', 'Completá nombre y valor del descuento.');
             return;
         }
         setSubmitting(true);
         try {
-            await apiClient.post('/caja/discounts', {
+            const payload = {
                 name: newDiscount.name,
                 type: newDiscount.type,
                 value: Number(newDiscount.value),
-            });
-            setNewDiscount({ name: '', type: 'percent', value: '' });
+                isActive: true,
+            };
+            if (editingDiscountId) {
+                await apiClient.put(`/caja/discounts/${editingDiscountId}`, payload);
+                showAlert('Éxito', 'Descuento actualizado.');
+            } else {
+                await apiClient.post('/caja/discounts', payload);
+                showAlert('Éxito', 'Descuento creado.');
+            }
+            resetDiscountForm();
             await loadAll();
-            showAlert('Éxito', 'Descuento creado.');
         } catch (error) {
-            showAlert('Error', error.response?.data?.message || 'No se pudo crear el descuento.');
+            showAlert('Error', error.response?.data?.message || 'No se pudo guardar el descuento.');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const toggleDiscountActive = async (d) => {
-        try {
-            if (d.isActive) await apiClient.delete(`/caja/discounts/${d._id}`);
-            else await apiClient.put(`/caja/discounts/${d._id}`, { isActive: true });
-            await loadAll();
-        } catch (error) {
-            showAlert('Error', error.response?.data?.message || 'No se pudo actualizar.');
-        }
+    const handleEditDiscount = (d) => {
+        setEditingDiscountId(d._id);
+        setNewDiscount({
+            name: d.name || '',
+            type: d.type || 'percent',
+            value: String(d.value ?? ''),
+        });
+    };
+
+    const handleDeleteDiscount = (d) => {
+        setAlertInfo({
+            visible: true,
+            title: 'Eliminar descuento',
+            message: `¿Eliminar "${d.name}"? Esta acción no se puede deshacer.`,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo((p) => ({ ...p, visible: false })) },
+                {
+                    text: 'Eliminar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setAlertInfo((p) => ({ ...p, visible: false }));
+                        setSubmitting(true);
+                        try {
+                            await apiClient.delete(`/caja/discounts/${d._id}`);
+                            if (editingDiscountId === d._id) resetDiscountForm();
+                            if (selectedDiscountId === d._id) setSelectedDiscountId(null);
+                            await loadAll();
+                            showAlert('Listo', 'Descuento eliminado.');
+                        } catch (error) {
+                            showAlert('Error', error.response?.data?.message || 'No se pudo eliminar.');
+                        } finally {
+                            setSubmitting(false);
+                        }
+                    },
+                },
+            ],
+        });
     };
 
     const currency = dashboard?.currency || 'ARS';
@@ -608,7 +673,11 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         );
 
         return (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
+        >
             <View style={styles.kpiGrid}>
                 <View style={[styles.kpiCard, { borderColor: accent }]}>
                     <Text style={styles.kpiLabel}>Ingresos período</Text>
@@ -782,15 +851,26 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     };
 
     const renderVenta = () => (
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={refreshControl}
+        >
             <Text style={styles.sectionTitle}>Tipo de movimiento</Text>
-            <FilterButton
-                label={saleModeLabel}
-                onPress={() => setActiveFilter('saleMode')}
-                styles={styles}
-                accent={accent}
-                colors={colors}
-            />
+            <View style={styles.rowWrap}>
+                {SALE_MODE_FILTERS.map((m) => (
+                    <TouchableOpacity
+                        key={m.id}
+                        style={[styles.filterPill, saleMode === m.id && { backgroundColor: accent, borderColor: accent }]}
+                        onPress={() => applySaleMode(m.id)}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[styles.filterPillText, saleMode === m.id && { color: '#fff' }]}>
+                            {m.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
 
             {saleMode !== 'gasto' && (
                 <>
@@ -848,13 +928,30 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             {saleMode === 'paquete' ? (
                 <>
                     <Text style={styles.sectionTitle}>Tipo de paquete</Text>
-                    <FilterButton
-                        label={packageTypeLabel}
-                        onPress={() => setActiveFilter('packageType')}
-                        styles={styles}
-                        accent={accent}
-                        colors={colors}
-                    />
+                    <View style={styles.rowWrap}>
+                        {PACKAGE_TYPE_FILTERS.map((f) => (
+                            <TouchableOpacity
+                                key={f.id}
+                                style={[
+                                    styles.filterPill,
+                                    packageTypeFilter === f.id && { backgroundColor: accent, borderColor: accent },
+                                ]}
+                                onPress={() => {
+                                    setPackageTypeFilter(f.id);
+                                    setCreditTypeFilter('all');
+                                    setSelectedPkgIds({});
+                                }}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[
+                                    styles.filterPillText,
+                                    packageTypeFilter === f.id && { color: '#fff' },
+                                ]}>
+                                    {f.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
 
                     {packageTypeFilter === 'credits' && (
                         <>
@@ -1018,13 +1115,20 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             )}
 
             <Text style={styles.sectionTitle}>Método de pago</Text>
-            <FilterButton
-                label={methodLabel}
-                onPress={() => setActiveFilter('method')}
-                styles={styles}
-                accent={accent}
-                colors={colors}
-            />
+            <View style={styles.rowWrap}>
+                {METHODS.map((m) => (
+                    <TouchableOpacity
+                        key={m.id}
+                        style={[styles.filterPill, method === m.id && { backgroundColor: accent, borderColor: accent }]}
+                        onPress={() => setMethod(m.id)}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[styles.filterPillText, method === m.id && { color: '#fff' }]}>
+                            {m.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
 
             <View style={styles.totalBox}>
                 {saleMode === 'paquete' ? (
@@ -1050,23 +1154,56 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 </Text>
             </View>
 
-            <TouchableOpacity
-                style={[
-                    styles.primaryBtn,
-                    saleMode === 'gasto' && { backgroundColor: '#c0392b' },
-                    submitting && { opacity: 0.6 },
-                ]}
-                onPress={handleSale}
-                disabled={submitting}
-            >
-                {submitting ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.primaryBtnText}>
-                        {saleMode === 'gasto' ? 'Registrar gasto' : 'Confirmar venta'}
-                    </Text>
-                )}
-            </TouchableOpacity>
+            {saleMode === 'paquete' ? (
+                <View style={[styles.actionRow, { marginTop: 14 }]}>
+                    <TouchableOpacity
+                        style={[
+                            styles.secondaryBtn,
+                            { borderColor: accent },
+                            submitting && { opacity: 0.6 },
+                        ]}
+                        onPress={confirmPayLater}
+                        disabled={submitting}
+                    >
+                        <Text style={{ color: accent, fontWeight: '800', fontSize: 15 }}>
+                            Paga luego
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.primaryBtn,
+                            { flex: 1, marginTop: 0 },
+                            submitting && { opacity: 0.6 },
+                        ]}
+                        onPress={() => handleSale()}
+                        disabled={submitting}
+                    >
+                        {submitting ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.primaryBtnText}>Confirmar venta</Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <TouchableOpacity
+                    style={[
+                        styles.primaryBtn,
+                        saleMode === 'gasto' && { backgroundColor: '#c0392b' },
+                        submitting && { opacity: 0.6 },
+                    ]}
+                    onPress={() => handleSale()}
+                    disabled={submitting}
+                >
+                    {submitting ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.primaryBtnText}>
+                            {saleMode === 'gasto' ? 'Registrar gasto' : 'Confirmar venta'}
+                        </Text>
+                    )}
+                </TouchableOpacity>
+            )}
         </ScrollView>
     );
 
@@ -1132,7 +1269,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     };
 
     const renderPendientes = () => (
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView
+            contentContainerStyle={styles.scroll}
+            refreshControl={refreshControl}
+        >
             <Text style={styles.sectionTitle}>
                 Transferencias ({dashboard?.pending?.transfers?.count || 0})
             </Text>
@@ -1167,8 +1307,14 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     );
 
     const renderDescuentos = () => (
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <Text style={styles.sectionTitle}>Crear descuento</Text>
+        <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={refreshControl}
+        >
+            <Text style={styles.sectionTitle}>
+                {editingDiscountId ? 'Editar descuento' : 'Crear descuento'}
+            </Text>
             <TextInput
                 style={styles.input}
                 placeholder="Nombre (ej: Promo 20%)"
@@ -1194,11 +1340,21 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             />
             <TouchableOpacity
                 style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
-                onPress={handleCreateDiscount}
+                onPress={handleSaveDiscount}
                 disabled={submitting}
             >
-                <Text style={styles.primaryBtnText}>Guardar descuento</Text>
+                <Text style={styles.primaryBtnText}>
+                    {editingDiscountId ? 'Guardar cambios' : 'Crear descuento'}
+                </Text>
             </TouchableOpacity>
+            {editingDiscountId && (
+                <TouchableOpacity
+                    style={[styles.secondaryBtn, { marginTop: 8, borderColor: colors.border || '#ddd' }]}
+                    onPress={resetDiscountForm}
+                >
+                    <Text style={{ color: colors.text, fontWeight: '700' }}>Cancelar edición</Text>
+                </TouchableOpacity>
+            )}
 
             <Text style={styles.sectionTitle}>Descuentos guardados</Text>
             {discounts.length === 0 ? (
@@ -1210,15 +1366,16 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             <Text style={styles.listItemTitle}>{d.name}</Text>
                             <Text style={styles.kpiHint}>
                                 {d.type === 'percent' ? `${d.value}%` : money(d.value)}
-                                {' · '}
-                                {d.isActive ? 'Activo' : 'Inactivo'}
                             </Text>
                         </View>
-                        <TouchableOpacity onPress={() => toggleDiscountActive(d)}>
-                            <Text style={{ color: accent, fontWeight: '700' }}>
-                                {d.isActive ? 'Desactivar' : 'Activar'}
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                            <TouchableOpacity onPress={() => handleEditDiscount(d)}>
+                                <Text style={{ color: accent, fontWeight: '700' }}>Editar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleDeleteDiscount(d)} disabled={submitting}>
+                                <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Eliminar</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 ))
             )}
@@ -1400,6 +1557,21 @@ const getStyles = (colorScheme, accent) => {
             flex: 1,
             fontSize: 13,
             fontWeight: '700',
+            color: colors.text,
+        },
+        filterPill: {
+            paddingHorizontal: 14,
+            paddingVertical: 9,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: colors.border || '#ddd',
+            backgroundColor: colors.cardBackground || colors.background,
+            marginRight: 6,
+            marginBottom: 6,
+        },
+        filterPillText: {
+            fontWeight: '700',
+            fontSize: 12,
             color: colors.text,
         },
         totalBox: {

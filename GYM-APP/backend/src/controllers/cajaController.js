@@ -283,6 +283,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
         discountAmount,
         method = 'efectivo',
         description,
+        payLater = false,
     } = req.body;
 
     if (!userId) {
@@ -290,8 +291,9 @@ const createCajaSale = asyncHandler(async (req, res) => {
         throw new Error('Debes seleccionar un cliente.');
     }
 
+    const isPayLater = Boolean(payLater);
     const allowedMethods = ['efectivo', 'transfer', 'mercadopago'];
-    if (!allowedMethods.includes(method)) {
+    if (!isPayLater && !allowedMethods.includes(method)) {
         res.status(400);
         throw new Error('Método de pago inválido.');
     }
@@ -316,10 +318,15 @@ const createCajaSale = asyncHandler(async (req, res) => {
         });
     }
 
-    const free = Math.max(0, Number(freeAmount) || 0);
+    const free = isPayLater ? 0 : Math.max(0, Number(freeAmount) || 0);
     if (cart.length === 0 && free <= 0) {
         res.status(400);
         throw new Error('Agregá un paquete o un monto libre.');
+    }
+
+    if (isPayLater && cart.length === 0) {
+        res.status(400);
+        throw new Error('Paga luego solo aplica a ventas con paquetes.');
     }
 
     const catalogSubtotal = cart.reduce(
@@ -356,7 +363,9 @@ const createCajaSale = asyncHandler(async (req, res) => {
     const names = cart.map((e) => (e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name));
     let desc = description?.trim();
     if (!desc) {
-        if (names.length > 0 && free > 0) {
+        if (isPayLater) {
+            desc = `Caja (paga luego): ${names.join(', ')}`;
+        } else if (names.length > 0 && free > 0) {
             desc = `Caja: ${names.join(', ')} + extra a favor $${free}`;
         } else if (names.length > 0) {
             desc = `Caja: ${names.join(', ')}`;
@@ -375,8 +384,9 @@ const createCajaSale = asyncHandler(async (req, res) => {
         amount: amountPaid,
         description: desc,
         createdBy: req.user._id,
+        payLater: isPayLater,
         transactionMeta: {
-            method,
+            method: isPayLater ? 'manual' : method,
             source: cart.length > 0 ? 'caja' : 'account',
             originalAmount: catalogSubtotal + free,
             discountAmount: discountValue,
@@ -384,13 +394,13 @@ const createCajaSale = asyncHandler(async (req, res) => {
         },
     });
 
-    // freeAmount alone is included in payment; no package charges — balance already +amountPaid
-    // When only freeAmount, fulfill adds payment and no charges — correct for debt paydown.
-    // When packages + free: payment = discounted packs + free, charges = discounted packs only → free reduces debt. Good.
-
     res.status(201).json({
-        message: 'Venta registrada en caja.',
-        amountPaid,
+        message: isPayLater
+            ? 'Venta cargada como deuda al cliente.'
+            : 'Venta registrada en caja.',
+        amountPaid: isPayLater ? 0 : amountPaid,
+        amountCharged: amountPaid,
+        payLater: isPayLater,
         discountAmount: discountValue,
         newBalance: user.balance,
         benefitMessage: result.benefitMessage || '',
@@ -480,9 +490,8 @@ const deleteDiscount = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Descuento no encontrado.');
     }
-    discount.isActive = false;
-    await discount.save();
-    res.json({ message: 'Descuento desactivado.', discount });
+    await discount.deleteOne();
+    res.json({ message: 'Descuento eliminado.' });
 });
 
 const GASTO_CATEGORIES = ['alquiler', 'servicios', 'sueldos', 'insumos', 'mantenimiento', 'impuestos', 'otros'];

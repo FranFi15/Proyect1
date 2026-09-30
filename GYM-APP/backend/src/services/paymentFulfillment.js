@@ -103,6 +103,7 @@ export const fulfillApprovedPayment = async ({
     receiptUrl,
     ticketId,
     transactionMeta = {},
+    payLater = false,
 }) => {
     const { Transaction, CreditLog, Notification, User } = models;
     const actorId = createdBy || user._id;
@@ -120,24 +121,26 @@ export const fulfillApprovedPayment = async ({
     const discountAmount = Math.max(0, Number(transactionMeta.discountAmount) || 0);
     const discountedPackageTotal = Math.max(0, catalogSubtotal - discountAmount);
 
-    user.balance += amount;
+    if (!payLater) {
+        user.balance += amount;
 
-    await Transaction.create({
-        user: user._id,
-        type: 'payment',
-        amount,
-        description,
-        createdBy: actorId,
-        receiptUrl: receiptUrl || undefined,
-        method: transactionMeta.method || 'manual',
-        source: transactionMeta.source || 'pack',
-        originalAmount: transactionMeta.originalAmount != null
-            ? transactionMeta.originalAmount
-            : (discountAmount > 0 ? amount + discountAmount : null),
-        discountAmount: discountAmount || 0,
-        discountId: transactionMeta.discountId || null,
-        paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
-    });
+        await Transaction.create({
+            user: user._id,
+            type: 'payment',
+            amount,
+            description,
+            createdBy: actorId,
+            receiptUrl: receiptUrl || undefined,
+            method: transactionMeta.method || 'manual',
+            source: transactionMeta.source || 'pack',
+            originalAmount: transactionMeta.originalAmount != null
+                ? transactionMeta.originalAmount
+                : (discountAmount > 0 ? amount + discountAmount : null),
+            discountAmount: discountAmount || 0,
+            discountId: transactionMeta.discountId || null,
+            paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
+        });
+    }
 
     const benefitMessages = [];
     for (const entry of cart) {
@@ -156,8 +159,12 @@ export const fulfillApprovedPayment = async ({
             type: 'charge',
             amount: lineTotal,
             description: quantity > 1
-                ? `Cargo por compra: ${itemPkg.name} x${quantity}`
-                : `Cargo por compra de paquete: ${itemPkg.name}`,
+                ? (payLater
+                    ? `Deuda por compra: ${itemPkg.name} x${quantity}`
+                    : `Cargo por compra: ${itemPkg.name} x${quantity}`)
+                : (payLater
+                    ? `Deuda por compra de paquete: ${itemPkg.name}`
+                    : `Cargo por compra de paquete: ${itemPkg.name}`),
             createdBy: actorId,
             method: transactionMeta.method || 'manual',
             source: transactionMeta.source || 'pack',
@@ -173,15 +180,20 @@ export const fulfillApprovedPayment = async ({
     await user.save();
 
     const names = cart.map(e => e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg?.name).filter(Boolean);
-    const notifyTitle = names.length === 1
-        ? `Compra confirmada: ${names[0]}`
-        : names.length > 1
-            ? 'Compra confirmada'
-            : 'Pago acreditado';
     const benefitMessage = benefitMessages.join(' ');
-    const notifyMessage = names.length > 0
-        ? `Registramos tu pago de $${amount}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
-        : `Registramos tu pago de $${amount}. Tu saldo fue actualizado.`;
+    const chargedTotal = payLater ? discountedPackageTotal : amount;
+    const notifyTitle = payLater
+        ? (names.length === 1 ? `Compra a cuenta: ${names[0]}` : 'Compra a cuenta')
+        : (names.length === 1
+            ? `Compra confirmada: ${names[0]}`
+            : names.length > 1
+                ? 'Compra confirmada'
+                : 'Pago acreditado');
+    const notifyMessage = payLater
+        ? `Se cargó una deuda de $${chargedTotal}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
+        : names.length > 0
+            ? `Registramos tu pago de $${amount}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
+            : `Registramos tu pago de $${amount}. Tu saldo fue actualizado.`;
 
     if (Notification && User) {
         try {
@@ -191,7 +203,7 @@ export const fulfillApprovedPayment = async ({
                 user._id,
                 notifyTitle,
                 notifyMessage,
-                'transaction_payment',
+                payLater ? 'transaction_charge' : 'transaction_payment',
                 false
             );
         } catch (error) {
