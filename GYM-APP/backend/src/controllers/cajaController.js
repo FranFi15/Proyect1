@@ -97,20 +97,100 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         sumField(Gasto, { spentAt: { $gte: monthBounds.start, $lte: monthBounds.end } }),
     ]);
 
+    const prCollection = PaymentRequest.collection.name;
+
     const methodAgg = await Transaction.aggregate([
         {
             $match: {
                 type: 'payment',
                 createdAt: { $gte: from, $lte: to },
-                method: { $in: ['efectivo', 'transfer', 'mercadopago'] },
             },
         },
-        { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        {
+            $lookup: {
+                from: prCollection,
+                localField: 'paymentRequestId',
+                foreignField: '_id',
+                as: '_pr',
+            },
+        },
+        {
+            $addFields: {
+                _prMethod: { $arrayElemAt: ['$_pr.method', 0] },
+                _desc: { $toLower: { $ifNull: ['$description', ''] } },
+            },
+        },
+        {
+            $addFields: {
+                resolvedMethod: {
+                    $switch: {
+                        branches: [
+                            {
+                                case: { $in: ['$method', ['efectivo', 'transfer', 'mercadopago']] },
+                                then: '$method',
+                            },
+                            {
+                                case: { $eq: ['$_prMethod', 'mercadopago'] },
+                                then: 'mercadopago',
+                            },
+                            {
+                                case: { $eq: ['$_prMethod', 'transfer'] },
+                                then: 'transfer',
+                            },
+                            {
+                                case: {
+                                    $regexMatch: {
+                                        input: '$_desc',
+                                        regex: 'mercado\\s*pago',
+                                    },
+                                },
+                                then: 'mercadopago',
+                            },
+                            {
+                                case: {
+                                    $regexMatch: {
+                                        input: '$_desc',
+                                        regex: 'transferencia',
+                                    },
+                                },
+                                then: 'transfer',
+                            },
+                        ],
+                        default: null,
+                    },
+                },
+            },
+        },
+        { $match: { resolvedMethod: { $in: ['efectivo', 'transfer', 'mercadopago'] } } },
+        { $group: { _id: '$resolvedMethod', total: { $sum: '$amount' } } },
     ]);
     const byMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
     for (const row of methodAgg) {
         if (byMethod[row._id] != null) {
             byMethod[row._id] += row.total || 0;
+        }
+    }
+
+    // Fallback: approved MP tickets in range (covers older payments without method set)
+    if (byMethod.mercadopago === 0) {
+        const mpTicketAgg = await PaymentRequest.aggregate([
+            {
+                $match: {
+                    method: 'mercadopago',
+                    status: 'approved',
+                    $or: [
+                        { reviewedAt: { $gte: from, $lte: to } },
+                        {
+                            reviewedAt: null,
+                            updatedAt: { $gte: from, $lte: to },
+                        },
+                    ],
+                },
+            },
+            { $group: { _id: null, total: { $sum: '$amountTransferred' } } },
+        ]);
+        if (mpTicketAgg[0]?.total) {
+            byMethod.mercadopago = mpTicketAgg[0].total;
         }
     }
 
