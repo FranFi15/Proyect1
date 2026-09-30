@@ -18,10 +18,11 @@ import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
+import FilterModal from '@/components/FilterModal';
 
 const TABS = [
     { id: 'resumen', label: 'Resumen', icon: 'stats-chart-outline' },
-    { id: 'venta', label: 'Nueva venta', icon: 'cart-outline' },
+    { id: 'venta', label: 'Venta', icon: 'cart-outline' },
     { id: 'pendientes', label: 'Pendientes', icon: 'time-outline' },
     { id: 'descuentos', label: 'Descuentos', icon: 'pricetag-outline' },
 ];
@@ -32,8 +33,46 @@ const METHODS = [
     { id: 'mercadopago', label: 'Mercado Pago' },
 ];
 
+const PACKAGE_TYPE_FILTERS = [
+    { id: 'credits', label: 'Créditos' },
+    { id: 'pase', label: 'Acceso libre' },
+    { id: 'membresia', label: 'Membresía' },
+];
+
+const SALE_MODE_FILTERS = [
+    { id: 'paquete', label: 'Paquete' },
+    { id: 'abono', label: 'Abono / a favor' },
+    { id: 'gasto', label: 'Gasto' },
+];
+
+const GASTO_CATEGORIES = [
+    { id: 'alquiler', label: 'Alquiler' },
+    { id: 'servicios', label: 'Servicios' },
+    { id: 'sueldos', label: 'Sueldos' },
+    { id: 'insumos', label: 'Insumos' },
+    { id: 'mantenimiento', label: 'Mantenimiento' },
+    { id: 'impuestos', label: 'Impuestos' },
+    { id: 'otros', label: 'Otros' },
+];
+
+const CLIENT_PREVIEW_COUNT = 5;
+
+const toFilterOptions = (items) =>
+    (items || []).map((i) => ({
+        _id: i.id || i._id,
+        nombre: i.label || i.nombre || String(i.id || i._id),
+    }));
+
 const money = (n, currency = 'ARS') =>
     `$${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+const FilterButton = ({ label, onPress, styles, accent, colors }) => (
+    <TouchableOpacity style={styles.filterButton} onPress={onPress} activeOpacity={0.85}>
+        <Ionicons name="pricetag-outline" size={14} color={accent} />
+        <Text style={styles.filterButtonText} numberOfLines={1}>{label}</Text>
+        <Ionicons name="chevron-down" size={14} color={colors.icon} />
+    </TouchableOpacity>
+);
 
 const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const { gymColor } = useAuth();
@@ -54,13 +93,26 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [clientQuery, setClientQuery] = useState('');
     const [selectedClient, setSelectedClient] = useState(null);
     const [selectedPkgIds, setSelectedPkgIds] = useState({}); // id -> qty
+    const [saleMode, setSaleMode] = useState('paquete'); // paquete | abono
+    const [packageTypeFilter, setPackageTypeFilter] = useState('credits'); // credits | pase | membresia
+    const [creditTypeFilter, setCreditTypeFilter] = useState('all');
     const [freeAmount, setFreeAmount] = useState('');
+    const [freePaymentName, setFreePaymentName] = useState('');
+    const [gastoName, setGastoName] = useState('');
+    const [gastoAmount, setGastoAmount] = useState('');
+    const [gastoCategory, setGastoCategory] = useState('otros');
+    const [gastoCategoryFilter, setGastoCategoryFilter] = useState('all');
     const [method, setMethod] = useState('efectivo');
     const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     const [adhocPercent, setAdhocPercent] = useState('');
+    const [activeFilter, setActiveFilter] = useState(null); // which FilterModal is open
 
     // Discount form
     const [newDiscount, setNewDiscount] = useState({ name: '', type: 'percent', value: '' });
+
+    useEffect(() => {
+        if (!visible) setActiveFilter(null);
+    }, [visible]);
 
     const showAlert = (title, message) => {
         setAlertInfo({
@@ -99,23 +151,47 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const filteredClients = useMemo(() => {
         const q = clientQuery.trim().toLowerCase();
-        if (!q) return (clients || []).slice(0, 12);
-        return (clients || [])
+        const list = clients || [];
+        if (!q) return list.slice(0, CLIENT_PREVIEW_COUNT);
+        return list
             .filter((c) => {
                 const name = `${c.nombre || ''} ${c.apellido || ''}`.toLowerCase();
                 const dni = String(c.dni || '').toLowerCase();
                 const email = String(c.email || '').toLowerCase();
                 return name.includes(q) || dni.includes(q) || email.includes(q);
             })
-            .slice(0, 20);
+            .slice(0, 12);
     }, [clients, clientQuery]);
+
+    const creditTypeOptions = useMemo(() => {
+        const map = new Map();
+        (packages || []).forEach((p) => {
+            if (p.isPaseLibre || p.isMembresia) return;
+            const id = p.tipoClase?._id || p.tipoClase || 'sin_tipo';
+            const nombre = p.tipoClase?.nombre || 'Sin tipo';
+            if (!map.has(String(id))) map.set(String(id), { _id: String(id), nombre });
+        });
+        return [{ _id: 'all', nombre: 'Todos los créditos' }, ...Array.from(map.values())];
+    }, [packages]);
+
+    const filteredPackages = useMemo(() => {
+        return (packages || []).filter((p) => {
+            if (packageTypeFilter === 'pase') return !!p.isPaseLibre;
+            if (packageTypeFilter === 'membresia') return !!p.isMembresia;
+            // credits
+            if (p.isPaseLibre || p.isMembresia) return false;
+            if (creditTypeFilter === 'all') return true;
+            const tipoId = String(p.tipoClase?._id || p.tipoClase || 'sin_tipo');
+            return tipoId === creditTypeFilter;
+        });
+    }, [packages, packageTypeFilter, creditTypeFilter]);
 
     const cartItems = useMemo(
         () =>
-            packages
+            filteredPackages
                 .filter((p) => selectedPkgIds[p._id])
                 .map((p) => ({ pkg: p, quantity: selectedPkgIds[p._id] })),
-        [packages, selectedPkgIds]
+        [filteredPackages, selectedPkgIds]
     );
 
     const catalogSubtotal = useMemo(
@@ -127,6 +203,171 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         () => discounts.filter((d) => d.isActive),
         [discounts]
     );
+
+    const saleModeLabel = SALE_MODE_FILTERS.find((m) => m.id === saleMode)?.label || 'Tipo';
+    const packageTypeLabel = PACKAGE_TYPE_FILTERS.find((f) => f.id === packageTypeFilter)?.label || 'Paquete';
+    const creditTypeLabel = creditTypeOptions.find((o) => o._id === creditTypeFilter)?.nombre || 'Créditos';
+    const methodLabel = METHODS.find((m) => m.id === method)?.label || 'Método';
+    const gastoCategoryLabel = GASTO_CATEGORIES.find((c) => c.id === gastoCategory)?.label || 'Categoría';
+    const gastoFilterLabel = gastoCategoryFilter === 'all'
+        ? 'Todos los gastos'
+        : (GASTO_CATEGORIES.find((c) => c.id === gastoCategoryFilter)?.label || 'Gastos');
+    const discountLabel = selectedDiscountId
+        ? (activeDiscounts.find((d) => d._id === selectedDiscountId)?.name || 'Descuento')
+        : 'Sin descuento';
+    const discountTypeLabel = newDiscount.type === 'percent' ? 'Porcentaje' : 'Monto fijo';
+
+    const applySaleMode = (id) => {
+        setSaleMode(id);
+        if (id === 'abono') {
+            setSelectedPkgIds({});
+            setSelectedDiscountId(null);
+            setAdhocPercent('');
+            setGastoName('');
+            setGastoAmount('');
+        } else if (id === 'gasto') {
+            setSelectedClient(null);
+            setSelectedPkgIds({});
+            setFreeAmount('');
+            setFreePaymentName('');
+            setSelectedDiscountId(null);
+            setAdhocPercent('');
+        } else {
+            setFreeAmount('');
+            setFreePaymentName('');
+            setGastoName('');
+            setGastoAmount('');
+        }
+    };
+
+    const activeFilterConfig = useMemo(() => {
+        const pending =
+            (dashboard?.pending?.transfers?.count || 0) +
+            (dashboard?.pending?.mercadopago?.count || 0) +
+            (dashboard?.pending?.store?.count || 0);
+
+        switch (activeFilter) {
+            case 'section':
+                return {
+                    title: 'Sección de caja',
+                    options: [
+                        { _id: 'resumen', nombre: 'Resumen' },
+                        { _id: 'venta', nombre: 'Venta / Gasto' },
+                        {
+                            _id: 'pendientes',
+                            nombre: pending > 0 ? `Pendientes (${pending})` : 'Pendientes',
+                        },
+                        { _id: 'descuentos', nombre: 'Descuentos' },
+                    ],
+                    selectedValue: tab,
+                    onSelect: (id) => { setTab(id); setActiveFilter(null); },
+                };
+            case 'saleMode':
+                return {
+                    title: 'Tipo de movimiento',
+                    options: toFilterOptions(SALE_MODE_FILTERS),
+                    selectedValue: saleMode,
+                    onSelect: (id) => { applySaleMode(id); setActiveFilter(null); },
+                };
+            case 'packageType':
+                return {
+                    title: 'Tipo de paquete',
+                    options: toFilterOptions(PACKAGE_TYPE_FILTERS),
+                    selectedValue: packageTypeFilter,
+                    onSelect: (id) => {
+                        setPackageTypeFilter(id);
+                        setCreditTypeFilter('all');
+                        setSelectedPkgIds({});
+                        setActiveFilter(null);
+                    },
+                };
+            case 'creditType':
+                return {
+                    title: 'Tipo de crédito',
+                    options: creditTypeOptions,
+                    selectedValue: creditTypeFilter,
+                    onSelect: (id) => {
+                        setCreditTypeFilter(id);
+                        setSelectedPkgIds({});
+                        setActiveFilter(null);
+                    },
+                };
+            case 'discount':
+                return {
+                    title: 'Descuento',
+                    options: [
+                        { _id: 'none', nombre: 'Sin descuento' },
+                        ...activeDiscounts.map((d) => ({
+                            _id: d._id,
+                            nombre: `${d.name} (${d.type === 'percent' ? `${d.value}%` : money(d.value)})`,
+                        })),
+                    ],
+                    selectedValue: selectedDiscountId || 'none',
+                    onSelect: (id) => {
+                        if (id === 'none') {
+                            setSelectedDiscountId(null);
+                        } else {
+                            setSelectedDiscountId(id);
+                            setAdhocPercent('');
+                        }
+                        setActiveFilter(null);
+                    },
+                };
+            case 'method':
+                return {
+                    title: 'Método de pago',
+                    options: toFilterOptions(METHODS),
+                    selectedValue: method,
+                    onSelect: (id) => { setMethod(id); setActiveFilter(null); },
+                };
+            case 'gastoCategory':
+                return {
+                    title: 'Categoría de gasto',
+                    options: toFilterOptions(GASTO_CATEGORIES),
+                    selectedValue: gastoCategory,
+                    onSelect: (id) => { setGastoCategory(id); setActiveFilter(null); },
+                };
+            case 'gastoCategoryFilter':
+                return {
+                    title: 'Filtrar gastos',
+                    options: [
+                        { _id: 'all', nombre: 'Todos los gastos' },
+                        ...toFilterOptions(GASTO_CATEGORIES),
+                    ],
+                    selectedValue: gastoCategoryFilter,
+                    onSelect: (id) => { setGastoCategoryFilter(id); setActiveFilter(null); },
+                };
+            case 'discountType':
+                return {
+                    title: 'Tipo de descuento',
+                    options: [
+                        { _id: 'percent', nombre: 'Porcentaje' },
+                        { _id: 'fixed', nombre: 'Monto fijo' },
+                    ],
+                    selectedValue: newDiscount.type,
+                    onSelect: (id) => {
+                        setNewDiscount((p) => ({ ...p, type: id }));
+                        setActiveFilter(null);
+                    },
+                };
+            default:
+                return null;
+        }
+    }, [
+        activeFilter,
+        tab,
+        dashboard?.pending,
+        saleMode,
+        packageTypeFilter,
+        creditTypeFilter,
+        creditTypeOptions,
+        activeDiscounts,
+        selectedDiscountId,
+        method,
+        gastoCategory,
+        gastoCategoryFilter,
+        newDiscount.type,
+    ]);
 
     const previewDiscount = useMemo(() => {
         if (selectedDiscountId) {
@@ -144,7 +385,11 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const totalToCharge = Math.max(
         0,
-        catalogSubtotal - previewDiscount + (Number(freeAmount) || 0)
+        saleMode === 'abono'
+            ? (Number(freeAmount) || 0)
+            : saleMode === 'gasto'
+                ? (Number(gastoAmount) || 0)
+                : catalogSubtotal - previewDiscount + (Number(freeAmount) || 0)
     );
 
     const togglePackage = (pkgId) => {
@@ -160,40 +405,124 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         setSelectedClient(null);
         setClientQuery('');
         setSelectedPkgIds({});
+        setSaleMode('paquete');
+        setPackageTypeFilter('credits');
+        setCreditTypeFilter('all');
         setFreeAmount('');
+        setFreePaymentName('');
+        setGastoName('');
+        setGastoAmount('');
+        setGastoCategory('otros');
         setMethod('efectivo');
         setSelectedDiscountId(null);
         setAdhocPercent('');
     };
 
     const handleSale = async () => {
+        if (saleMode === 'gasto') {
+            if (!gastoName.trim()) {
+                showAlert('Falta nombre', 'Poné un nombre para el gasto.');
+                return;
+            }
+            if (!(Number(gastoAmount) > 0)) {
+                showAlert('Falta monto', 'Ingresá el monto del gasto.');
+                return;
+            }
+            setSubmitting(true);
+            try {
+                await apiClient.post('/caja/gastos', {
+                    name: gastoName.trim(),
+                    amount: Number(gastoAmount),
+                    category: gastoCategory,
+                    method,
+                });
+                showAlert('Gasto OK', 'Gasto registrado en caja.');
+                resetSaleForm();
+                await loadAll();
+                onRefresh?.();
+                setTab('resumen');
+            } catch (error) {
+                showAlert('Error', error.response?.data?.message || 'No se pudo registrar el gasto.');
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
+
         if (!selectedClient?._id) {
             showAlert('Falta cliente', 'Seleccioná un cliente para la venta.');
             return;
         }
-        if (cartItems.length === 0 && !(Number(freeAmount) > 0)) {
-            showAlert('Falta producto', 'Elegí un paquete o un monto libre.');
+
+        if (saleMode === 'abono') {
+            if (!(Number(freeAmount) > 0)) {
+                showAlert('Falta monto', 'Ingresá el monto del abono libre.');
+                return;
+            }
+            if (!freePaymentName.trim()) {
+                showAlert('Falta nombre', 'Poné un nombre para este abono (ej: Pago deuda marzo).');
+                return;
+            }
+        } else if (cartItems.length === 0) {
+            showAlert('Falta paquete', 'Elegí al menos un paquete.');
             return;
         }
+
         setSubmitting(true);
         try {
             const payload = {
                 userId: selectedClient._id,
-                items: cartItems.map((e) => ({ packageId: e.pkg._id, quantity: e.quantity })),
-                freeAmount: Number(freeAmount) || 0,
+                items: saleMode === 'paquete'
+                    ? cartItems.map((e) => ({ packageId: e.pkg._id, quantity: e.quantity }))
+                    : [],
+                freeAmount: (saleMode === 'abono' || saleMode === 'paquete')
+                    ? (Number(freeAmount) || 0)
+                    : 0,
                 method,
             };
-            if (selectedDiscountId) payload.discountId = selectedDiscountId;
-            else if (adhocPercent) payload.discountPercent = Number(adhocPercent);
+            if (saleMode === 'abono') {
+                payload.description = freePaymentName.trim();
+            } else if (saleMode === 'paquete' && Number(freeAmount) > 0) {
+                payload.description = undefined; // auto desc; freeAmount is extra a favor
+            }
+            if (saleMode === 'paquete') {
+                if (selectedDiscountId) payload.discountId = selectedDiscountId;
+                else if (adhocPercent) payload.discountPercent = Number(adhocPercent);
+            }
 
             const res = await apiClient.post('/caja/sale', payload);
-            showAlert('Venta OK', res.data.message + (res.data.benefitMessage ? `\n${res.data.benefitMessage}` : ''));
+            const bal = Number(res.data.newBalance);
+            let balMsg = '';
+            if (Number.isFinite(bal)) {
+                if (bal > 0) balMsg = `\nSaldo a favor: $${bal.toFixed(2)}`;
+                else if (bal < 0) balMsg = `\nDeuda restante: $${Math.abs(bal).toFixed(2)}`;
+                else balMsg = '\nSaldo: al día';
+            }
+            showAlert(
+                'Venta OK',
+                (res.data.message || 'Venta registrada.')
+                    + (res.data.benefitMessage ? `\n${res.data.benefitMessage}` : '')
+                    + balMsg
+            );
             resetSaleForm();
             await loadAll();
             onRefresh?.();
             setTab('resumen');
         } catch (error) {
             showAlert('Error', error.response?.data?.message || 'No se pudo registrar la venta.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteGasto = async (gastoId) => {
+        setSubmitting(true);
+        try {
+            await apiClient.delete(`/caja/gastos/${gastoId}`);
+            await loadAll();
+            showAlert('Listo', 'Gasto eliminado.');
+        } catch (error) {
+            showAlert('Error', error.response?.data?.message || 'No se pudo eliminar el gasto.');
         } finally {
             setSubmitting(false);
         }
@@ -259,28 +588,66 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         }
     };
 
-    if (!visible) return null;
-
     const currency = dashboard?.currency || 'ARS';
     const pendingCount =
         (dashboard?.pending?.transfers?.count || 0) +
         (dashboard?.pending?.mercadopago?.count || 0) +
         (dashboard?.pending?.store?.count || 0);
 
-    const renderResumen = () => (
+    const sectionLabel = (() => {
+        if (tab === 'venta') return 'Venta / Gasto';
+        if (tab === 'pendientes' && pendingCount > 0) return `Pendientes (${pendingCount})`;
+        return TABS.find((t) => t.id === tab)?.label || 'Sección';
+    })();
+
+    if (!visible) return null;
+
+    const renderResumen = () => {
+        const filteredGastos = (dashboard?.gastos || []).filter((g) =>
+            gastoCategoryFilter === 'all' ? true : g.category === gastoCategoryFilter
+        );
+
+        return (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             <View style={styles.kpiGrid}>
                 <View style={[styles.kpiCard, { borderColor: accent }]}>
-                    <Text style={styles.kpiLabel}>Período</Text>
+                    <Text style={styles.kpiLabel}>Ingresos período</Text>
                     <Text style={styles.kpiValue}>{money(dashboard?.totals?.range, currency)}</Text>
                 </View>
                 <View style={styles.kpiCard}>
-                    <Text style={styles.kpiLabel}>Hoy</Text>
+                    <Text style={styles.kpiLabel}>Gastos período</Text>
+                    <Text style={[styles.kpiValue, { color: '#e74c3c' }]}>
+                        {money(dashboard?.totals?.gastosRange, currency)}
+                    </Text>
+                </View>
+                <View style={[styles.kpiCard, styles.kpiWide]}>
+                    <Text style={styles.kpiLabel}>Neto período</Text>
+                    <Text style={[
+                        styles.kpiValue,
+                        { color: (dashboard?.totals?.netRange || 0) >= 0 ? '#1e7e34' : '#e74c3c' },
+                    ]}>
+                        {money(dashboard?.totals?.netRange, currency)}
+                    </Text>
+                </View>
+                <View style={styles.kpiCard}>
+                    <Text style={styles.kpiLabel}>Hoy ingresos</Text>
                     <Text style={styles.kpiValue}>{money(dashboard?.totals?.today, currency)}</Text>
                 </View>
                 <View style={styles.kpiCard}>
-                    <Text style={styles.kpiLabel}>Mes</Text>
+                    <Text style={styles.kpiLabel}>Hoy gastos</Text>
+                    <Text style={[styles.kpiValue, { color: '#e74c3c' }]}>
+                        {money(dashboard?.totals?.gastosToday, currency)}
+                    </Text>
+                </View>
+                <View style={styles.kpiCard}>
+                    <Text style={styles.kpiLabel}>Mes ingresos</Text>
                     <Text style={styles.kpiValue}>{money(dashboard?.totals?.month, currency)}</Text>
+                </View>
+                <View style={styles.kpiCard}>
+                    <Text style={styles.kpiLabel}>Mes gastos</Text>
+                    <Text style={[styles.kpiValue, { color: '#e74c3c' }]}>
+                        {money(dashboard?.totals?.gastosMonth, currency)}
+                    </Text>
                 </View>
                 <View style={styles.kpiCard}>
                     <Text style={styles.kpiLabel}>Pendiente</Text>
@@ -294,16 +661,23 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     </Text>
                     <Text style={styles.kpiHint}>{pendingCount} pendientes</Text>
                 </View>
-                <View style={[styles.kpiCard, styles.kpiWide]}>
+                <View style={styles.kpiCard}>
                     <Text style={styles.kpiLabel}>Deuda clientes</Text>
                     <Text style={[styles.kpiValue, { color: '#e74c3c' }]}>
                         {money(dashboard?.debt?.totalDebt, currency)}
                     </Text>
                     <Text style={styles.kpiHint}>{dashboard?.debt?.debtorCount || 0} deudores</Text>
                 </View>
+                <View style={styles.kpiCard}>
+                    <Text style={styles.kpiLabel}>Saldo a favor</Text>
+                    <Text style={[styles.kpiValue, { color: '#1a6fb5' }]}>
+                        {money(dashboard?.credit?.totalCredit, currency)}
+                    </Text>
+                    <Text style={styles.kpiHint}>{dashboard?.credit?.creditCount || 0} clientes</Text>
+                </View>
             </View>
 
-            <Text style={styles.sectionTitle}>Por método</Text>
+            <Text style={styles.sectionTitle}>Por método (ingresos)</Text>
             <View style={styles.rowWrap}>
                 {Object.entries(dashboard?.byMethod || {}).map(([k, v]) => (
                     <View key={k} style={styles.chip}>
@@ -313,7 +687,58 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Últimos movimientos</Text>
+            <Text style={styles.sectionTitle}>Gastos por categoría</Text>
+            <View style={styles.rowWrap}>
+                {Object.keys(dashboard?.gastosByCategory || {}).length === 0 ? (
+                    <Text style={styles.empty}>Sin gastos en el período.</Text>
+                ) : (
+                    Object.entries(dashboard.gastosByCategory).map(([k, v]) => (
+                        <View key={k} style={styles.chip}>
+                            <Text style={styles.chipLabel}>{k}</Text>
+                            <Text style={[styles.chipValue, { color: '#e74c3c' }]}>{money(v, currency)}</Text>
+                        </View>
+                    ))
+                )}
+            </View>
+
+            <Text style={styles.sectionTitle}>Filtro gastos</Text>
+            <FilterButton
+                label={gastoFilterLabel}
+                onPress={() => setActiveFilter('gastoCategoryFilter')}
+                styles={styles}
+                accent={accent}
+                colors={colors}
+            />
+
+            <Text style={styles.sectionTitle}>Gastos del período</Text>
+            {filteredGastos.length === 0 ? (
+                <Text style={styles.empty}>Sin gastos para este filtro.</Text>
+            ) : (
+                filteredGastos.slice(0, 40).map((g) => (
+                    <View key={g._id} style={styles.movementRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.movementClient}>{g.name}</Text>
+                            <Text style={styles.movementMeta}>
+                                {format(new Date(g.date), "d MMM · HH:mm", { locale: es })}
+                                {' · '}
+                                {g.category}
+                                {' · '}
+                                {g.method}
+                            </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Text style={[styles.movementAmount, { color: '#e74c3c' }]}>
+                                −{money(g.amount, currency)}
+                            </Text>
+                            <TouchableOpacity onPress={() => handleDeleteGasto(g._id)} disabled={submitting}>
+                                <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Eliminar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ))
+            )}
+
+            <Text style={styles.sectionTitle}>Últimos ingresos</Text>
             {(dashboard?.movements || []).length === 0 ? (
                 <Text style={styles.empty}>Sin movimientos en el período.</Text>
             ) : (
@@ -353,144 +778,293 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 </>
             )}
         </ScrollView>
-    );
+        );
+    };
 
     const renderVenta = () => (
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <Text style={styles.sectionTitle}>Cliente</Text>
-            {selectedClient ? (
-                <View style={styles.selectedClient}>
-                    <Text style={styles.selectedClientName}>
-                        {selectedClient.nombre} {selectedClient.apellido}
-                    </Text>
-                    <Text style={styles.kpiHint}>Saldo: {money(selectedClient.balance)}</Text>
-                    <TouchableOpacity onPress={() => setSelectedClient(null)}>
-                        <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
-                    </TouchableOpacity>
-                </View>
-            ) : (
+            <Text style={styles.sectionTitle}>Tipo de movimiento</Text>
+            <FilterButton
+                label={saleModeLabel}
+                onPress={() => setActiveFilter('saleMode')}
+                styles={styles}
+                accent={accent}
+                colors={colors}
+            />
+
+            {saleMode !== 'gasto' && (
                 <>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Buscar por nombre, DNI o email..."
-                        placeholderTextColor={colors.icon}
-                        value={clientQuery}
-                        onChangeText={setClientQuery}
-                    />
-                    {filteredClients.map((c) => (
-                        <TouchableOpacity
-                            key={c._id}
-                            style={styles.listItem}
-                            onPress={() => setSelectedClient(c)}
-                        >
-                            <Text style={styles.listItemTitle}>
-                                {c.nombre} {c.apellido}
+                    <Text style={styles.sectionTitle}>Cliente</Text>
+                    {selectedClient ? (
+                        <View style={styles.selectedClient}>
+                            <Text style={styles.selectedClientName}>
+                                {selectedClient.nombre} {selectedClient.apellido}
                             </Text>
-                            <Text style={styles.kpiHint}>{c.dni || c.email}</Text>
-                        </TouchableOpacity>
-                    ))}
+                            <Text style={styles.kpiHint}>
+                                {Number(selectedClient.balance) < 0
+                                    ? `Debe: ${money(Math.abs(selectedClient.balance))}`
+                                    : Number(selectedClient.balance) > 0
+                                        ? `A favor: ${money(selectedClient.balance)}`
+                                        : 'Saldo: al día'}
+                            </Text>
+                            <TouchableOpacity onPress={() => setSelectedClient(null)}>
+                                <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Escribí para buscar cliente..."
+                                placeholderTextColor={colors.icon}
+                                value={clientQuery}
+                                onChangeText={setClientQuery}
+                            />
+                            <Text style={styles.kpiHint}>
+                                {clientQuery.trim()
+                                    ? `${filteredClients.length} resultado(s)`
+                                    : `Mostrando ${filteredClients.length} de ${(clients || []).length} — seguí escribiendo`}
+                            </Text>
+                            {filteredClients.map((c) => (
+                                <TouchableOpacity
+                                    key={c._id}
+                                    style={styles.listItem}
+                                    onPress={() => setSelectedClient(c)}
+                                >
+                                    <Text style={styles.listItemTitle}>
+                                        {c.nombre} {c.apellido}
+                                    </Text>
+                                    <Text style={styles.kpiHint}>{c.dni || c.email}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            {clientQuery.trim() && filteredClients.length === 0 && (
+                                <Text style={styles.empty}>Ningún cliente coincide con la búsqueda.</Text>
+                            )}
+                        </>
+                    )}
                 </>
             )}
 
-            <Text style={styles.sectionTitle}>Paquetes</Text>
-            {packages.map((p) => {
-                const selected = !!selectedPkgIds[p._id];
-                return (
-                    <TouchableOpacity
-                        key={p._id}
-                        style={[styles.listItem, selected && { borderColor: accent, borderWidth: 2 }]}
-                        onPress={() => togglePackage(p._id)}
-                    >
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.listItemTitle}>{p.name}</Text>
-                            <Text style={styles.kpiHint}>
-                                {money(p.price)}
-                                {p.creditsAmount ? ` · ${p.creditsAmount} créditos` : ''}
-                                {p.isPaseLibre ? ' · Pase libre' : ''}
-                                {p.isMembresia ? ' · Membresía' : ''}
-                            </Text>
-                        </View>
-                        <Ionicons
-                            name={selected ? 'checkbox' : 'square-outline'}
-                            size={22}
-                            color={selected ? accent : colors.icon}
+            {saleMode === 'paquete' ? (
+                <>
+                    <Text style={styles.sectionTitle}>Tipo de paquete</Text>
+                    <FilterButton
+                        label={packageTypeLabel}
+                        onPress={() => setActiveFilter('packageType')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+
+                    {packageTypeFilter === 'credits' && (
+                        <>
+                            <Text style={styles.sectionTitle}>Tipo de crédito</Text>
+                            <FilterButton
+                                label={creditTypeLabel}
+                                onPress={() => setActiveFilter('creditType')}
+                                styles={styles}
+                                accent={accent}
+                                colors={colors}
+                            />
+                        </>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Paquetes</Text>
+                    {filteredPackages.length === 0 ? (
+                        <Text style={styles.empty}>No hay paquetes para este filtro.</Text>
+                    ) : (
+                        filteredPackages.map((p) => {
+                            const selected = !!selectedPkgIds[p._id];
+                            return (
+                                <TouchableOpacity
+                                    key={p._id}
+                                    style={[styles.listItem, selected && { borderColor: accent, borderWidth: 2 }]}
+                                    onPress={() => togglePackage(p._id)}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.listItemTitle}>{p.name}</Text>
+                                        <Text style={styles.kpiHint}>
+                                            {money(p.price)}
+                                            {p.creditsAmount ? ` · ${p.creditsAmount} créditos` : ''}
+                                            {p.tipoClase?.nombre ? ` · ${p.tipoClase.nombre}` : ''}
+                                            {p.isPaseLibre ? ' · Acceso libre' : ''}
+                                            {p.isMembresia ? ' · Membresía' : ''}
+                                        </Text>
+                                    </View>
+                                    <Ionicons
+                                        name={selected ? 'checkbox' : 'square-outline'}
+                                        size={22}
+                                        color={selected ? accent : colors.icon}
+                                    />
+                                </TouchableOpacity>
+                            );
+                        })
+                    )}
+
+                    <Text style={styles.sectionTitle}>Descuento</Text>
+                    <FilterButton
+                        label={discountLabel}
+                        onPress={() => setActiveFilter('discount')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                    {!selectedDiscountId && (
+                        <TextInput
+                            style={styles.input}
+                            keyboardType="decimal-pad"
+                            placeholder="% descuento ad-hoc (opcional)"
+                            placeholderTextColor={colors.icon}
+                            value={adhocPercent}
+                            onChangeText={setAdhocPercent}
                         />
-                    </TouchableOpacity>
-                );
-            })}
+                    )}
 
-            <Text style={styles.sectionTitle}>Abono libre (deuda / extra)</Text>
-            <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.icon}
-                value={freeAmount}
-                onChangeText={setFreeAmount}
-            />
-
-            <Text style={styles.sectionTitle}>Descuento</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                <TouchableOpacity
-                    style={[styles.filterChip, !selectedDiscountId && { backgroundColor: accent }]}
-                    onPress={() => { setSelectedDiscountId(null); }}
-                >
-                    <Text style={[styles.filterChipText, !selectedDiscountId && { color: '#fff' }]}>Ninguno</Text>
-                </TouchableOpacity>
-                {activeDiscounts.map((d) => (
-                    <TouchableOpacity
-                        key={d._id}
-                        style={[styles.filterChip, selectedDiscountId === d._id && { backgroundColor: accent }]}
-                        onPress={() => { setSelectedDiscountId(d._id); setAdhocPercent(''); }}
-                    >
-                        <Text style={[styles.filterChipText, selectedDiscountId === d._id && { color: '#fff' }]}>
-                            {d.name} ({d.type === 'percent' ? `${d.value}%` : money(d.value)})
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-            {!selectedDiscountId && (
-                <TextInput
-                    style={styles.input}
-                    keyboardType="decimal-pad"
-                    placeholder="% descuento ad-hoc (opcional)"
-                    placeholderTextColor={colors.icon}
-                    value={adhocPercent}
-                    onChangeText={setAdhocPercent}
-                />
+                    <Text style={styles.sectionTitle}>Monto extra (queda a favor)</Text>
+                    <Text style={styles.kpiHint}>
+                        Si el cliente paga de más, ese monto queda como saldo a favor.
+                    </Text>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.icon}
+                        value={freeAmount}
+                        onChangeText={setFreeAmount}
+                    />
+                </>
+            ) : saleMode === 'abono' ? (
+                <>
+                    <Text style={styles.sectionTitle}>Nombre del pago</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Ej: Abono deuda, Pago adelantado, Saldo a favor..."
+                        placeholderTextColor={colors.icon}
+                        value={freePaymentName}
+                        onChangeText={setFreePaymentName}
+                    />
+                    <Text style={styles.sectionTitle}>Monto</Text>
+                    <Text style={styles.kpiHint}>
+                        Podés cobrar más de la deuda: el excedente queda a favor del cliente.
+                    </Text>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.icon}
+                        value={freeAmount}
+                        onChangeText={setFreeAmount}
+                    />
+                    {selectedClient && (
+                        <View style={styles.totalBox}>
+                            <Text style={styles.kpiHint}>Saldo actual</Text>
+                            <Text style={styles.listItemTitle}>
+                                {Number(selectedClient.balance) < 0
+                                    ? `Debe ${money(Math.abs(selectedClient.balance))}`
+                                    : Number(selectedClient.balance) > 0
+                                        ? `A favor ${money(selectedClient.balance)}`
+                                        : 'Al día ($0)'}
+                            </Text>
+                            {Number(freeAmount) > 0 && (
+                                <>
+                                    <Text style={[styles.kpiHint, { marginTop: 8 }]}>Saldo después del pago</Text>
+                                    <Text style={[styles.listItemTitle, {
+                                        color: (Number(selectedClient.balance || 0) + Number(freeAmount || 0)) > 0
+                                            ? '#1a6fb5'
+                                            : (Number(selectedClient.balance || 0) + Number(freeAmount || 0)) < 0
+                                                ? '#e74c3c'
+                                                : '#1e7e34',
+                                    }]}>
+                                        {(() => {
+                                            const next = Number(selectedClient.balance || 0) + Number(freeAmount || 0);
+                                            if (next < 0) return `Debe ${money(Math.abs(next))}`;
+                                            if (next > 0) return `A favor ${money(next)}`;
+                                            return 'Al día ($0)';
+                                        })()}
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+                    )}
+                </>
+            ) : (
+                <>
+                    <Text style={styles.sectionTitle}>Nombre del gasto</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Ej: Luz marzo, Alquiler local..."
+                        placeholderTextColor={colors.icon}
+                        value={gastoName}
+                        onChangeText={setGastoName}
+                    />
+                    <Text style={styles.sectionTitle}>Categoría</Text>
+                    <FilterButton
+                        label={gastoCategoryLabel}
+                        onPress={() => setActiveFilter('gastoCategory')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                    <Text style={styles.sectionTitle}>Monto</Text>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.icon}
+                        value={gastoAmount}
+                        onChangeText={setGastoAmount}
+                    />
+                </>
             )}
 
             <Text style={styles.sectionTitle}>Método de pago</Text>
-            <View style={styles.rowWrap}>
-                {METHODS.map((m) => (
-                    <TouchableOpacity
-                        key={m.id}
-                        style={[styles.filterChip, method === m.id && { backgroundColor: accent }]}
-                        onPress={() => setMethod(m.id)}
-                    >
-                        <Text style={[styles.filterChipText, method === m.id && { color: '#fff' }]}>{m.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            <FilterButton
+                label={methodLabel}
+                onPress={() => setActiveFilter('method')}
+                styles={styles}
+                accent={accent}
+                colors={colors}
+            />
 
             <View style={styles.totalBox}>
-                <Text style={styles.kpiHint}>
-                    Subtotal paquetes {money(catalogSubtotal)}
-                    {previewDiscount > 0 ? ` − dto ${money(previewDiscount)}` : ''}
-                    {Number(freeAmount) > 0 ? ` + abono ${money(freeAmount)}` : ''}
+                {saleMode === 'paquete' ? (
+                    <Text style={styles.kpiHint}>
+                        Subtotal {money(catalogSubtotal)}
+                        {previewDiscount > 0 ? ` − dto ${money(previewDiscount)}` : ''}
+                        {Number(freeAmount) > 0 ? ` + extra a favor ${money(freeAmount)}` : ''}
+                    </Text>
+                ) : saleMode === 'abono' ? (
+                    <Text style={styles.kpiHint}>
+                        {freePaymentName.trim() || 'Abono / a favor'} · {money(freeAmount)}
+                    </Text>
+                ) : (
+                    <Text style={styles.kpiHint}>
+                        {gastoName.trim() || 'Gasto'} · {gastoCategory} · {money(gastoAmount)}
+                    </Text>
+                )}
+                <Text style={[
+                    styles.totalValue,
+                    saleMode === 'gasto' && { color: '#e74c3c' },
+                ]}>
+                    {saleMode === 'gasto' ? 'Gasto: ' : 'Total: '}{money(totalToCharge)}
                 </Text>
-                <Text style={styles.totalValue}>Total: {money(totalToCharge)}</Text>
             </View>
 
             <TouchableOpacity
-                style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
+                style={[
+                    styles.primaryBtn,
+                    saleMode === 'gasto' && { backgroundColor: '#c0392b' },
+                    submitting && { opacity: 0.6 },
+                ]}
                 onPress={handleSale}
                 disabled={submitting}
             >
                 {submitting ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
-                    <Text style={styles.primaryBtnText}>Confirmar venta</Text>
+                    <Text style={styles.primaryBtnText}>
+                        {saleMode === 'gasto' ? 'Registrar gasto' : 'Confirmar venta'}
+                    </Text>
                 )}
             </TouchableOpacity>
         </ScrollView>
@@ -602,19 +1176,14 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 value={newDiscount.name}
                 onChangeText={(t) => setNewDiscount((p) => ({ ...p, name: t }))}
             />
-            <View style={styles.rowWrap}>
-                {['percent', 'fixed'].map((t) => (
-                    <TouchableOpacity
-                        key={t}
-                        style={[styles.filterChip, newDiscount.type === t && { backgroundColor: accent }]}
-                        onPress={() => setNewDiscount((p) => ({ ...p, type: t }))}
-                    >
-                        <Text style={[styles.filterChipText, newDiscount.type === t && { color: '#fff' }]}>
-                            {t === 'percent' ? 'Porcentaje' : 'Monto fijo'}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            <Text style={styles.sectionTitle}>Tipo</Text>
+            <FilterButton
+                label={discountTypeLabel}
+                onPress={() => setActiveFilter('discountType')}
+                styles={styles}
+                accent={accent}
+                colors={colors}
+            />
             <TextInput
                 style={styles.input}
                 keyboardType="decimal-pad"
@@ -669,24 +1238,14 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.tabBar}>
-                    {TABS.map((t) => {
-                        const selected = tab === t.id;
-                        const badge = t.id === 'pendientes' && pendingCount > 0 ? pendingCount : null;
-                        return (
-                            <TouchableOpacity
-                                key={t.id}
-                                style={[styles.tabBtn, selected && { backgroundColor: accent }]}
-                                onPress={() => setTab(t.id)}
-                            >
-                                <Ionicons name={t.icon} size={14} color={selected ? '#fff' : colors.text} />
-                                <Text style={[styles.tabText, selected && { color: '#fff' }]} numberOfLines={1}>
-                                    {t.label}
-                                    {badge != null ? ` (${badge})` : ''}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                <View style={styles.sectionFilterWrap}>
+                    <FilterButton
+                        label={sectionLabel}
+                        onPress={() => setActiveFilter('section')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
                 </View>
 
                 {loading && !dashboard ? (
@@ -710,6 +1269,20 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     onClose={() => setAlertInfo((p) => ({ ...p, visible: false }))}
                     gymColor={accent}
                 />
+
+                {activeFilterConfig && (
+                    <FilterModal
+                        embedded
+                        visible
+                        onClose={() => setActiveFilter(null)}
+                        onSelect={activeFilterConfig.onSelect}
+                        title={activeFilterConfig.title}
+                        options={activeFilterConfig.options}
+                        selectedValue={activeFilterConfig.selectedValue}
+                        theme={{ colors: Colors[colorScheme], gymColor: accent }}
+                        gymColor={accent}
+                    />
+                )}
             </View>
         </Modal>
     );
@@ -729,25 +1302,11 @@ const getStyles = (colorScheme, accent) => {
         },
         headerKicker: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' },
         headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
-        tabBar: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
+        sectionFilterWrap: {
+            paddingHorizontal: 14,
+            paddingTop: 12,
+            paddingBottom: 4,
         },
-        tabBtn: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 10,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: colors.cardBackground || colors.background,
-            borderWidth: 1,
-            borderColor: colors.border || '#ddd',
-        },
-        tabText: { fontSize: 12, fontWeight: '700', color: colors.text, maxWidth: 100 },
         scroll: { padding: 14, paddingBottom: 40 },
         loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
@@ -825,16 +1384,24 @@ const getStyles = (colorScheme, accent) => {
             gap: 4,
         },
         selectedClientName: { fontWeight: '800', fontSize: 16, color: colors.text },
-        filterChip: {
+        filterButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
             paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 20,
+            paddingVertical: 12,
+            borderRadius: 12,
             borderWidth: 1,
             borderColor: colors.border || '#ddd',
-            marginRight: 6,
-            marginBottom: 6,
+            backgroundColor: colors.cardBackground || colors.background,
+            marginBottom: 10,
         },
-        filterChipText: { fontWeight: '700', fontSize: 12, color: colors.text },
+        filterButtonText: {
+            flex: 1,
+            fontSize: 13,
+            fontWeight: '700',
+            color: colors.text,
+        },
         totalBox: {
             marginTop: 12,
             padding: 14,

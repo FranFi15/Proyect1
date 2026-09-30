@@ -118,7 +118,8 @@ const UserCardItem = React.memo(({
     const isMembresiaActive = membresiaDate && isValid(membresiaDate) && !isBefore(membresiaDate, today);
     const isMembresiaExpired = membresiaDate && isValid(membresiaDate) && isBefore(membresiaDate, today);
     const balance = item.balance || 0;
-    const isDebtor = balance < 0; 
+    const isDebtor = balance < 0;
+    const hasCredit = balance > 0;
 
     return (
         <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
@@ -153,10 +154,25 @@ const UserCardItem = React.memo(({
                     
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap:'wrap', marginBottom: 10}}>
                         {item.roles.includes('cliente') && (
-                            <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
-                                <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
-                                <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
-                                    {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
+                            <View style={[
+                                dynamicStyles.balanceBadge,
+                                isDebtor ? dynamicStyles.debtBadge : (hasCredit ? dynamicStyles.creditBadge : dynamicStyles.paidBadge),
+                            ]}>
+                                <Ionicons
+                                    name={isDebtor ? 'alert-circle' : (hasCredit ? 'wallet' : 'checkmark-circle')}
+                                    size={12}
+                                    color={isDebtor ? '#c0392b' : (hasCredit ? '#1a6fb5' : '#27ae60')}
+                                    style={{ marginRight: 4 }}
+                                />
+                                <Text style={[
+                                    dynamicStyles.balanceText,
+                                    { color: isDebtor ? '#c0392b' : (hasCredit ? '#1a6fb5' : '#27ae60') },
+                                ]}>
+                                    {isDebtor
+                                        ? `Debe: $${Math.abs(balance).toFixed(2)}`
+                                        : hasCredit
+                                            ? `A favor: $${balance.toFixed(2)}`
+                                            : 'Al día'}
                                 </Text>
                             </View>
                         )}
@@ -1806,6 +1822,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     balanceBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center', },
     debtBadge: { backgroundColor: '#fdf2f2', borderColor: '#e74c3c', borderWidth: 1 },
     paidBadge: { backgroundColor: '#f0fdf4', borderColor: '#27ae60', borderWidth: 1 },
+    creditBadge: { backgroundColor: '#eef6fc', borderColor: '#1a6fb5', borderWidth: 1 },
     balanceText: { fontSize: 10, fontWeight: 'bold' },
     creditsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 8, },
     creditChip: {

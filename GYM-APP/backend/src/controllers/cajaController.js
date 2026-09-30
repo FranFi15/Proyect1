@@ -70,7 +70,7 @@ const computeDiscountAmount = (subtotal, { discount, discountPercent, discountAm
 // GET /api/caja/dashboard
 const getCajaDashboard = asyncHandler(async (req, res) => {
     const {
-        Transaction, PaymentRequest, StoreOrder, User, Settings,
+        Transaction, PaymentRequest, StoreOrder, User, Settings, Gasto,
     } = getModels(req.gymDBConnection);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
@@ -121,6 +121,32 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     const todaySum = todayPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const monthSum = monthPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
+    const gastosRange = await Gasto.find({
+        spentAt: { $gte: from, $lte: to },
+    })
+        .populate('createdBy', 'nombre apellido')
+        .sort({ spentAt: -1 })
+        .limit(200)
+        .lean();
+
+    const gastosToday = await Gasto.find({
+        spentAt: { $gte: todayBounds.start, $lte: todayBounds.end },
+    }).select('amount').lean();
+
+    const gastosMonth = await Gasto.find({
+        spentAt: { $gte: monthBounds.start, $lte: monthBounds.end },
+    }).select('amount category').lean();
+
+    const gastosRangeSum = gastosRange.reduce((s, g) => s + (Number(g.amount) || 0), 0);
+    const gastosTodaySum = gastosToday.reduce((s, g) => s + (Number(g.amount) || 0), 0);
+    const gastosMonthSum = gastosMonth.reduce((s, g) => s + (Number(g.amount) || 0), 0);
+
+    const gastosByCategory = {};
+    for (const g of gastosRange) {
+        const cat = g.category || 'otros';
+        gastosByCategory[cat] = (gastosByCategory[cat] || 0) + (Number(g.amount) || 0);
+    }
+
     const pendingTickets = await PaymentRequest.find({ status: 'pending' })
         .populate('user', 'nombre apellido email dni')
         .populate({ path: 'package', populate: { path: 'tipoClase', select: 'nombre' } })
@@ -146,6 +172,13 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     const totalDebt = debtStats.length > 0 ? Math.abs(debtStats[0].totalDebt) : 0;
     const debtorCount = debtStats.length > 0 ? debtStats[0].debtorCount : 0;
 
+    const creditStats = await User.aggregate([
+        { $match: { roles: 'cliente', balance: { $gt: 0 } } },
+        { $group: { _id: null, totalCredit: { $sum: '$balance' }, creditCount: { $sum: 1 } } },
+    ]);
+    const totalCredit = creditStats.length > 0 ? creditStats[0].totalCredit : 0;
+    const creditCount = creditStats.length > 0 ? creditStats[0].creditCount : 0;
+
     const recentMp = await PaymentRequest.find({
         method: 'mercadopago',
         status: 'approved',
@@ -165,9 +198,16 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             range: rangeTotal,
             today: todaySum,
             month: monthSum,
+            gastosRange: gastosRangeSum,
+            gastosToday: gastosTodaySum,
+            gastosMonth: gastosMonthSum,
+            netRange: rangeTotal - gastosRangeSum,
+            netToday: todaySum - gastosTodaySum,
+            netMonth: monthSum - gastosMonthSum,
         },
         byMethod,
         bySource,
+        gastosByCategory,
         pending: {
             transfers: {
                 count: pendingTransfers.length,
@@ -186,6 +226,7 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             },
         },
         debt: { totalDebt, debtorCount },
+        credit: { totalCredit, creditCount },
         movements: payments.map((p) => ({
             _id: p._id,
             date: p.createdAt,
@@ -199,6 +240,20 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             clientName: p.user ? `${p.user.nombre || ''} ${p.user.apellido || ''}`.trim() : '—',
             userId: p.user?._id,
             receiptUrl: p.receiptUrl,
+            kind: 'ingreso',
+        })),
+        gastos: gastosRange.map((g) => ({
+            _id: g._id,
+            date: g.spentAt || g.createdAt,
+            amount: g.amount,
+            name: g.name,
+            category: g.category,
+            method: g.method,
+            notes: g.notes,
+            createdByName: g.createdBy
+                ? `${g.createdBy.nombre || ''} ${g.createdBy.apellido || ''}`.trim()
+                : '—',
+            kind: 'gasto',
         })),
         recentMercadoPago: recentMp.map((t) => ({
             _id: t._id,
@@ -272,6 +327,11 @@ const createCajaSale = asyncHandler(async (req, res) => {
         0
     );
 
+    if (cart.length === 0 && free > 0 && !String(description || '').trim()) {
+        res.status(400);
+        throw new Error('El abono libre necesita un nombre / descripción.');
+    }
+
     let discountDoc = null;
     if (discountId) {
         discountDoc = await Discount.findById(discountId);
@@ -297,11 +357,11 @@ const createCajaSale = asyncHandler(async (req, res) => {
     let desc = description?.trim();
     if (!desc) {
         if (names.length > 0 && free > 0) {
-            desc = `Caja: ${names.join(', ')} + abono $${free}`;
+            desc = `Caja: ${names.join(', ')} + extra a favor $${free}`;
         } else if (names.length > 0) {
             desc = `Caja: ${names.join(', ')}`;
         } else {
-            desc = 'Caja: abono de cuenta';
+            desc = 'Caja: abono / saldo a favor';
         }
         if (discountValue > 0) {
             desc += ` (dto. $${discountValue.toFixed(2)})`;
@@ -425,6 +485,55 @@ const deleteDiscount = asyncHandler(async (req, res) => {
     res.json({ message: 'Descuento desactivado.', discount });
 });
 
+const GASTO_CATEGORIES = ['alquiler', 'servicios', 'sueldos', 'insumos', 'mantenimiento', 'impuestos', 'otros'];
+
+const createGasto = asyncHandler(async (req, res) => {
+    const { Gasto } = getModels(req.gymDBConnection);
+    const { name, amount, category = 'otros', method = 'efectivo', notes, spentAt } = req.body;
+
+    if (!name || !String(name).trim()) {
+        res.status(400);
+        throw new Error('El gasto necesita un nombre.');
+    }
+    const numericAmount = Number(amount);
+    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+        res.status(400);
+        throw new Error('El monto del gasto debe ser mayor a 0.');
+    }
+    if (!GASTO_CATEGORIES.includes(category)) {
+        res.status(400);
+        throw new Error('Categoría de gasto inválida.');
+    }
+    const allowedMethods = ['efectivo', 'transfer', 'mercadopago', 'manual'];
+    if (!allowedMethods.includes(method)) {
+        res.status(400);
+        throw new Error('Método de pago inválido.');
+    }
+
+    const gasto = await Gasto.create({
+        name: String(name).trim(),
+        amount: numericAmount,
+        category,
+        method,
+        notes: notes ? String(notes).trim() : '',
+        createdBy: req.user._id,
+        spentAt: spentAt ? new Date(spentAt) : new Date(),
+    });
+
+    res.status(201).json({ message: 'Gasto registrado.', gasto });
+});
+
+const deleteGasto = asyncHandler(async (req, res) => {
+    const { Gasto } = getModels(req.gymDBConnection);
+    const gasto = await Gasto.findById(req.params.id);
+    if (!gasto) {
+        res.status(404);
+        throw new Error('Gasto no encontrado.');
+    }
+    await gasto.deleteOne();
+    res.json({ message: 'Gasto eliminado.' });
+});
+
 export {
     getCajaDashboard,
     createCajaSale,
@@ -432,4 +541,6 @@ export {
     createDiscount,
     updateDiscount,
     deleteDiscount,
+    createGasto,
+    deleteGasto,
 };

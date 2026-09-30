@@ -45,6 +45,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
     const balance = currentClient?.balance ?? 0;
     const isDebtor = balance < 0;
+    const hasCredit = balance > 0;
     const fullName = `${currentClient?.nombre || ''} ${currentClient?.apellido || ''}`.trim();
 
     const fetchData = async () => {
@@ -128,21 +129,33 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                 </TouchableOpacity>
             </View>
 
-            <View style={[styles.balanceStrip, isDebtor ? styles.balanceStripDebt : styles.balanceStripOk]}>
+            <View style={[
+                styles.balanceStrip,
+                isDebtor ? styles.balanceStripDebt : (hasCredit ? styles.balanceStripCredit : styles.balanceStripOk),
+            ]}>
                 <View>
                     <Text style={styles.balanceLabel}>Saldo actual</Text>
-                    <Text style={[styles.balanceValue, isDebtor ? styles.charge : styles.payment]}>
-                        {isDebtor ? '-' : ''}${Math.abs(balance).toFixed(2)}
+                    <Text style={[
+                        styles.balanceValue,
+                        isDebtor ? styles.charge : styles.payment,
+                    ]}>
+                        {isDebtor ? '-' : (hasCredit ? '+' : '')}${Math.abs(balance).toFixed(2)}
                     </Text>
                 </View>
-                <View style={[styles.statusChip, isDebtor ? styles.statusDebtBg : styles.statusOkBg]}>
+                <View style={[
+                    styles.statusChip,
+                    isDebtor ? styles.statusDebtBg : (hasCredit ? styles.statusCreditBg : styles.statusOkBg),
+                ]}>
                     <Ionicons
-                        name={isDebtor ? 'alert-circle' : 'checkmark-circle'}
+                        name={isDebtor ? 'alert-circle' : (hasCredit ? 'wallet' : 'checkmark-circle')}
                         size={14}
-                        color={isDebtor ? '#a72828' : '#1e7e34'}
+                        color={isDebtor ? '#a72828' : (hasCredit ? '#1a6fb5' : '#1e7e34')}
                     />
-                    <Text style={[styles.statusChipText, { color: isDebtor ? '#a72828' : '#1e7e34' }]}>
-                        {isDebtor ? 'Con deuda' : 'Al día'}
+                    <Text style={[
+                        styles.statusChipText,
+                        { color: isDebtor ? '#a72828' : (hasCredit ? '#1a6fb5' : '#1e7e34') },
+                    ]}>
+                        {isDebtor ? 'Con deuda' : (hasCredit ? 'Saldo a favor' : 'Al día')}
                     </Text>
                 </View>
             </View>
@@ -184,7 +197,9 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     {activeTab === 'register' ? (
                         <View style={styles.sectionCard}>
                             <Text style={styles.sectionTitle}>Nuevo movimiento</Text>
-                            <Text style={styles.sectionSub}>Cargá un pago o un cargo para este socio.</Text>
+                            <Text style={styles.sectionSub}>
+                                Cargá un pago (puede dejar saldo a favor) o un cargo para este socio.
+                            </Text>
 
                             <Text style={styles.inputLabel}>Monto</Text>
                             <View style={styles.amountRow}>
@@ -362,6 +377,10 @@ const getStyles = (colorScheme, accent) => {
             backgroundColor: colorScheme === 'dark' ? '#13251a' : '#eefaf1',
             borderColor: colorScheme === 'dark' ? '#1e7e3466' : '#b7e4c7',
         },
+        balanceStripCredit: {
+            backgroundColor: colorScheme === 'dark' ? '#102033' : '#e8f3fb',
+            borderColor: colorScheme === 'dark' ? '#1a6fb566' : '#a8cce8',
+        },
         balanceStripDebt: {
             backgroundColor: colorScheme === 'dark' ? '#2a1515' : '#fdeeee',
             borderColor: colorScheme === 'dark' ? '#a7282866' : '#f1c0c0',
@@ -377,6 +396,7 @@ const getStyles = (colorScheme, accent) => {
             borderRadius: 999,
         },
         statusOkBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)' },
+        statusCreditBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.85)' },
         statusDebtBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)' },
         statusChipText: { fontSize: 12, fontWeight: '700' },
         tabBar: {

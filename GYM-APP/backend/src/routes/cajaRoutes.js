@@ -6,6 +6,8 @@ import {
     createDiscount,
     updateDiscount,
     deleteDiscount,
+    createGasto,
+    deleteGasto,
 } from '../controllers/cajaController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -15,6 +17,9 @@ router.use(protect, authorizeRoles('admin'));
 
 router.get('/dashboard', getCajaDashboard);
 router.post('/sale', createCajaSale);
+
+router.post('/gastos', createGasto);
+router.delete('/gastos/:id', deleteGasto);
 
 router.get('/discounts', listDiscounts);
 router.post('/discounts', createDiscount);
