@@ -24,11 +24,12 @@ const money = (n) =>
  * for the client credits modal (créditos / libre / membresía).
  */
 const CreditsPlanSaleBlock = ({
-    kind, // 'credits' | 'pase' | 'membresia'
+    kind, // 'credits' | 'pase' | 'membresia' | 'horario_fijo'
     clientId,
     packages = [],
     discounts = [],
     customItem = null, // built by parent from form fields (without price)
+    showPackages = true,
     accent = '#1a5276',
     colors = {},
     onAlert,
@@ -133,7 +134,9 @@ const CreditsPlanSaleBlock = ({
                 'Falta selección',
                 kind === 'credits'
                     ? 'Elegí un paquete o completá tipo de turno y créditos.'
-                    : 'Elegí un paquete o completá las fechas / duración.'
+                    : kind === 'horario_fijo'
+                        ? 'Buscá y seleccioná un horario fijo primero.'
+                        : 'Elegí un paquete o completá las fechas / duración.'
             );
             return false;
         }
@@ -144,6 +147,17 @@ const CreditsPlanSaleBlock = ({
         if (kind === 'credits') {
             if (!customItem.tipoClaseId || !(Number(customItem.creditsAmount) > 0)) {
                 onAlert?.('Datos incompletos', 'Seleccioná tipo de turno y una cantidad de créditos positiva.');
+                return false;
+            }
+        } else if (kind === 'horario_fijo') {
+            if (
+                !customItem.tipoClaseId
+                || !Array.isArray(customItem.diasDeSemana)
+                || customItem.diasDeSemana.length === 0
+                || !customItem.fechaInicio
+                || !customItem.horaInicio
+            ) {
+                onAlert?.('Datos incompletos', 'Seleccioná un horario fijo completo antes de cobrar.');
                 return false;
             }
         } else if (!customItem.desde || !customItem.hasta) {
@@ -221,37 +235,43 @@ const CreditsPlanSaleBlock = ({
             />
             {!selectedPkg && (
                 <Text style={styles.hint}>
-                    Completá arriba el beneficio y poné el precio a cobrar.
+                    {kind === 'horario_fijo'
+                        ? 'Seleccioná un horario arriba y poné el precio a cobrar.'
+                        : 'Completá arriba el beneficio y poné el precio a cobrar.'}
                 </Text>
             )}
 
-            <Text style={styles.sectionTitle}>Paquetes</Text>
-            {packages.length === 0 ? (
-                <Text style={styles.empty}>No hay paquetes activos de este tipo.</Text>
-            ) : (
-                packages.map((p) => {
-                    const selected = selectedPkgId === p._id;
-                    return (
-                        <TouchableOpacity
-                            key={p._id}
-                            style={[styles.pkgRow, selected && { borderColor: accent, backgroundColor: accent + '14' }]}
-                            onPress={() => selectPackage(p)}
-                            activeOpacity={0.85}
-                        >
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.pkgName}>{p.name}</Text>
-                                <Text style={styles.hint}>
-                                    {p.isPaseLibre || p.isMembresia
-                                        ? `${p.durationDays || 30} días`
-                                        : `${p.creditsAmount || 0} créditos`}
-                                    {' · '}
-                                    {money(p.price)}
-                                </Text>
-                            </View>
-                            {selected && <Ionicons name="checkmark-circle" size={20} color={accent} />}
-                        </TouchableOpacity>
-                    );
-                })
+            {showPackages && (
+                <>
+                    <Text style={styles.sectionTitle}>Paquetes</Text>
+                    {packages.length === 0 ? (
+                        <Text style={styles.empty}>No hay paquetes activos de este tipo.</Text>
+                    ) : (
+                        packages.map((p) => {
+                            const selected = selectedPkgId === p._id;
+                            return (
+                                <TouchableOpacity
+                                    key={p._id}
+                                    style={[styles.pkgRow, selected && { borderColor: accent, backgroundColor: accent + '14' }]}
+                                    onPress={() => selectPackage(p)}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.pkgName}>{p.name}</Text>
+                                        <Text style={styles.hint}>
+                                            {p.isPaseLibre || p.isMembresia
+                                                ? `${p.durationDays || 30} días`
+                                                : `${p.creditsAmount || 0} créditos`}
+                                            {' · '}
+                                            {money(p.price)}
+                                        </Text>
+                                    </View>
+                                    {selected && <Ionicons name="checkmark-circle" size={20} color={accent} />}
+                                </TouchableOpacity>
+                            );
+                        })
+                    )}
+                </>
             )}
 
             <Text style={styles.sectionTitle}>Descuento</Text>

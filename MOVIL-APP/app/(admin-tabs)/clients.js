@@ -514,6 +514,22 @@ const ManageClientsScreen = () => {
         return { desde: membresiaData.desde, hasta: membresiaData.hasta };
     }, [membresiaData.desde, membresiaData.hasta]);
 
+    const customSaleItemHorario = useMemo(() => {
+        if (!selectedSlot || !massEnrollFilters.tipoClaseId || !massEnrollFilters.fechaInicio) return null;
+        if (!massEnrollFilters.diasDeSemana?.length) return null;
+        return {
+            tipoClaseId: massEnrollFilters.tipoClaseId,
+            diasDeSemana: massEnrollFilters.diasDeSemana,
+            fechaInicio: massEnrollFilters.fechaInicio,
+            fechaFin: massEnrollFilters.fechaFin || massEnrollFilters.fechaInicio,
+            horaInicio: selectedSlot.horaInicio,
+            horaFin: selectedSlot.horaFin,
+            name: selectedSlot.nombre
+                ? `Horario fijo ${selectedSlot.nombre} ${selectedSlot.horaInicio}`
+                : undefined,
+        };
+    }, [selectedSlot, massEnrollFilters]);
+
     const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false, todasLasSucursales: client.todasLasSucursales !== undefined ? client.todasLasSucursales : true, sucursales: (client.sucursales || []).map(s => typeof s === 'object' ? s._id : s) }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
@@ -1772,14 +1788,34 @@ const ManageClientsScreen = () => {
                                         );
                                     })}
 
+                                    {selectedSlot && (
+                                        <CreditsPlanSaleBlock
+                                            key={`sale-horario-${selectedClient?._id}-${selectedSlot.horaInicio}`}
+                                            kind="horario_fijo"
+                                            clientId={selectedClient?._id}
+                                            packages={[]}
+                                            discounts={cajaDiscounts}
+                                            customItem={customSaleItemHorario}
+                                            showPackages={false}
+                                            accent={gymColor || '#1a5276'}
+                                            colors={Colors[colorScheme]}
+                                            onAlert={showCreditsAlert}
+                                            onSuccess={() => {
+                                                fetchAllData();
+                                                setSelectedSlot(null);
+                                                setAvailableSlots([]);
+                                            }}
+                                        />
+                                    )}
+
                                     {availableSlots.length > 0 && (
                                         <TouchableOpacity
-                                            style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 8 }]}
+                                            style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
                                             onPress={handleMassEnrollSubmit}
                                             activeOpacity={0.85}
                                         >
                                             <Ionicons name="person-add-outline" size={18} color="#fff" />
-                                            <Text style={dynamicStyles.creditsPrimaryBtnText}>Inscribir a plan</Text>
+                                            <Text style={dynamicStyles.creditsPrimaryBtnText}>Inscribir sin cobro</Text>
                                         </TouchableOpacity>
                                     )}
                                 </View>

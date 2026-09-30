@@ -8,6 +8,7 @@ import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
 import { updateClientCount, getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit } from '../utils/superAdminApiClient.js';
+import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
 
 
 const getAllUsers = asyncHandler(async (req, res) => {
@@ -524,77 +525,28 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
-    
-    const tipoClase = await TipoClase.findById(tipoClaseId);
-    if (!tipoClase) {
-        res.status(404);
-        throw new Error('Tipo de turno no encontrado.');
+
+    try {
+        const result = await enrollUserInFixedPlan({
+            models: { Clase, TipoClase, Notification, User },
+            user,
+            tipoClaseId,
+            diasDeSemana,
+            fechaInicio,
+            fechaFin,
+            horaInicio,
+            horaFin,
+            gymTimezone: req.gymTimezone || 'America/Argentina/Buenos_Aires',
+            notify: true,
+        });
+
+        res.status(200).json({
+            message: `Inscripción masiva completada. El usuario fue añadido a ${result.enrolledCount} turnos.`,
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500);
+        throw error;
     }
-
-    const classesToEnroll = await Clase.find({
-        tipoClase: tipoClaseId,
-        diaDeSemana: { $in: diasDeSemana },
-        horaInicio: horaInicio,
-        fecha: { $gte: new Date(`${fechaInicio}T00:00:00Z`), $lte: new Date(`${fechaFin}T23:59:59Z`) },
-        estado: 'activa'
-    });
-
-    if (classesToEnroll.length === 0) {
-        res.status(404);
-        throw new Error('No se encontraron turnos activos que coincidan con los criterios del plan.');
-    }
-
-    // --- LÓGICA CORREGIDA: VERIFICACIÓN DE CUPO SIN CRÉDITOS ---
-
-    // 1. Verificar que haya cupo en TODAS las clases del plan ANTES de inscribir.
-    for (const classInstance of classesToEnroll) {
-        if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
-            res.status(400);
-            throw new Error(`No se puede inscribir al plan. Los turnos del día ${classDate} a las ${classInstance.horaInicio} está lleno.`);
-        }
-        if (classInstance.usuariosInscritos.includes(userId)) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
-            res.status(400);
-            throw new Error(`El usuario ya está inscrito en el turno del ${classDate}.`);
-        }
-    }
-
-    // 2. Si hay cupo en todas, proceder a la inscripción.
-    let enrolledCount = 0;
-    for (const classInstance of classesToEnroll) {
-        classInstance.usuariosInscritos.push(userId);
-        if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
-            classInstance.estado = 'llena';
-        }
-        await classInstance.save();
-        
-        if (!user.clasesInscritas.includes(classInstance._id)) {
-            user.clasesInscritas.push(classInstance._id);
-        }
-        enrolledCount++;
-    }
-
-    // 3. Guardar la definición del plan en el perfil del usuario para referencia.
-    const planDefinition = {
-        tipoClase: tipoClaseId,
-        diasDeSemana,
-        horaInicio,
-        horaFin,
-        fechaInicio: new Date(`${fechaInicio}T00:00:00Z`),
-        fechaFin: new Date(`${fechaFin}T23:59:59Z`),
-    };
-    user.planesFijos.push(planDefinition);
-    await user.save();
-
-    // 4. Notificar al usuario sobre su nuevo plan.
-    const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Se te inscribió en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${format(new Date(fechaFin), 'dd/MM/yyyy')}.`;
-    await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
-
-    res.status(200).json({
-        message: `Inscripción masiva completada. El usuario fue añadido a ${enrolledCount} turnos.`
-    });
 });
 
 

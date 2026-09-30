@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import moment from 'moment-timezone';
 import getModels from '../utils/getModels.js';
 import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
+import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
 
 const CURRENCY_BY_COUNTRY = {
     Argentina: 'ARS',
@@ -270,7 +271,7 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
 // POST /api/caja/sale
 const createCajaSale = asyncHandler(async (req, res) => {
     const {
-        User, PaymentPackage, Transaction, CreditLog, Notification, Discount, TipoClase,
+        User, PaymentPackage, Transaction, CreditLog, Notification, Discount, TipoClase, Clase,
     } = getModels(req.gymDBConnection);
 
     const {
@@ -307,6 +308,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
 
     const cart = [];
     let dateOverrides = null;
+    let horarioFijoPayload = null;
 
     for (const item of items) {
         if (!item?.packageId) continue;
@@ -343,10 +345,10 @@ const createCajaSale = asyncHandler(async (req, res) => {
             cart.push({
                 pkg: {
                     name: customItem.name?.trim()
-                        || `Créditos ${tipo.nombre} x${Math.abs(creditsAmount)}`,
+                        || `Créditos ${tipo.nombre} x${creditsAmount}`,
                     price: listPrice,
                     tipoClase: customItem.tipoClaseId,
-                    creditsAmount: creditsAmount,
+                    creditsAmount,
                     isPaseLibre: false,
                     isMembresia: false,
                 },
@@ -387,6 +389,43 @@ const createCajaSale = asyncHandler(async (req, res) => {
                 },
                 quantity: 1,
             });
+        } else if (kind === 'horario_fijo') {
+            const {
+                tipoClaseId,
+                diasDeSemana,
+                fechaInicio,
+                fechaFin,
+                horaInicio,
+                horaFin,
+                name,
+            } = customItem;
+            if (!tipoClaseId || !Array.isArray(diasDeSemana) || diasDeSemana.length === 0 || !fechaInicio || !horaInicio) {
+                res.status(400);
+                throw new Error('Completá tipo, días, fechas y horario del plan fijo.');
+            }
+            const tipo = await TipoClase.findById(tipoClaseId).select('nombre');
+            if (!tipo) {
+                res.status(400);
+                throw new Error('Tipo de turno no encontrado.');
+            }
+            horarioFijoPayload = {
+                tipoClaseId,
+                diasDeSemana,
+                fechaInicio,
+                fechaFin: fechaFin || fechaInicio,
+                horaInicio,
+                horaFin: horaFin || horaInicio,
+            };
+            cart.push({
+                pkg: {
+                    name: name?.trim() || `Horario fijo ${tipo.nombre} ${horaInicio}`,
+                    price: listPrice,
+                    isPaseLibre: false,
+                    isMembresia: false,
+                    creditsAmount: 0,
+                },
+                quantity: 1,
+            });
         } else {
             res.status(400);
             throw new Error('Tipo de venta personalizada inválido.');
@@ -409,20 +448,19 @@ const createCajaSale = asyncHandler(async (req, res) => {
         0
     );
 
-    // Optional override of charged list price for a single catalog package
     if (customPrice != null && customPrice !== '' && cart.length === 1 && !customItem) {
         const override = Math.max(0, Number(customPrice));
         if (Number.isFinite(override) && override > 0) {
             catalogSubtotal = override;
-                    cart[0] = {
-                        ...cart[0],
-                        pkg: {
-                            ...(typeof cart[0].pkg.toObject === 'function'
-                                ? cart[0].pkg.toObject()
-                                : cart[0].pkg),
-                            price: override,
-                        },
-                    };
+            cart[0] = {
+                ...cart[0],
+                pkg: {
+                    ...(typeof cart[0].pkg.toObject === 'function'
+                        ? cart[0].pkg.toObject()
+                        : cart[0].pkg),
+                    price: override,
+                },
+            };
         }
     }
 
@@ -469,6 +507,34 @@ const createCajaSale = asyncHandler(async (req, res) => {
         }
     }
 
+    if (horarioFijoPayload) {
+        const probe = await Clase.find({
+            tipoClase: horarioFijoPayload.tipoClaseId,
+            diaDeSemana: { $in: horarioFijoPayload.diasDeSemana },
+            horaInicio: horarioFijoPayload.horaInicio,
+            fecha: {
+                $gte: new Date(`${horarioFijoPayload.fechaInicio}T00:00:00Z`),
+                $lte: new Date(`${horarioFijoPayload.fechaFin}T23:59:59Z`),
+            },
+            estado: 'activa',
+        }).select('usuariosInscritos capacidad');
+        if (probe.length === 0) {
+            res.status(404);
+            throw new Error('No se encontraron turnos activos que coincidan con los criterios del plan.');
+        }
+        const uid = user._id.toString();
+        for (const classInstance of probe) {
+            if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
+                res.status(400);
+                throw new Error('No se puede cobrar: algún turno del plan está lleno.');
+            }
+            if (classInstance.usuariosInscritos.some((id) => id.toString() === uid)) {
+                res.status(400);
+                throw new Error('El usuario ya está inscrito en alguno de esos turnos.');
+            }
+        }
+    }
+
     const result = await fulfillApprovedPayment({
         models: { Transaction, CreditLog, Notification, User },
         user,
@@ -486,7 +552,8 @@ const createCajaSale = asyncHandler(async (req, res) => {
         },
     });
 
-    // Exact date overrides for custom pase/membresía (admin-chosen range)
+    let benefitMessage = result.benefitMessage || '';
+
     if (dateOverrides) {
         if (dateOverrides.kind === 'pase') {
             user.paseLibreDesde = dateOverrides.desde;
@@ -498,6 +565,24 @@ const createCajaSale = asyncHandler(async (req, res) => {
         await user.save();
     }
 
+    if (horarioFijoPayload) {
+        try {
+            const enrollResult = await enrollUserInFixedPlan({
+                models: { Clase, TipoClase, Notification, User },
+                user,
+                ...horarioFijoPayload,
+                gymTimezone: req.gymTimezone || 'America/Argentina/Buenos_Aires',
+                notify: true,
+            });
+            benefitMessage = [benefitMessage, enrollResult.benefitMessage].filter(Boolean).join(' ');
+        } catch (error) {
+            res.status(error.statusCode || 500);
+            throw new Error(
+                `El cobro se registró, pero falló la inscripción al horario fijo: ${error.message}`
+            );
+        }
+    }
+
     res.status(201).json({
         message: isPayLater
             ? 'Venta cargada como deuda al cliente.'
@@ -507,7 +592,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
         payLater: isPayLater,
         discountAmount: discountValue,
         newBalance: user.balance,
-        benefitMessage: result.benefitMessage || '',
+        benefitMessage,
     });
 });
 
