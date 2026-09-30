@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import moment from 'moment-timezone';
 import getModels from '../utils/getModels.js';
 import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
 
@@ -14,32 +15,23 @@ const CURRENCY_BY_COUNTRY = {
 
 const getGymDayBounds = (tz, dateInput) => {
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
-    const base = dateInput ? new Date(dateInput) : new Date();
-    const dayStr = new Intl.DateTimeFormat('en-CA', { timeZone }).format(base);
+    const m = dateInput
+        ? moment.tz(dateInput, timeZone)
+        : moment.tz(timeZone);
     return {
-        dayStr,
-        start: new Date(`${dayStr}T00:00:00.000Z`),
-        end: new Date(`${dayStr}T23:59:59.999Z`),
+        dayStr: m.format('YYYY-MM-DD'),
+        start: m.clone().startOf('day').toDate(),
+        end: m.clone().endOf('day').toDate(),
     };
 };
 
 const getMonthBounds = (tz) => {
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
-    const nowParts = new Intl.DateTimeFormat('en-CA', {
-        timeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).formatToParts(new Date());
-    const year = nowParts.find((p) => p.type === 'year')?.value;
-    const month = nowParts.find((p) => p.type === 'month')?.value;
-    const start = new Date(`${year}-${month}-01T00:00:00.000Z`);
-    const nextMonth = Number(month) === 12
-        ? `${Number(year) + 1}-01`
-        : `${year}-${String(Number(month) + 1).padStart(2, '0')}`;
-    const end = new Date(`${nextMonth}-01T00:00:00.000Z`);
-    end.setMilliseconds(end.getMilliseconds() - 1);
-    return { start, end };
+    const m = moment.tz(timeZone);
+    return {
+        start: m.clone().startOf('month').toDate(),
+        end: m.clone().endOf('month').toDate(),
+    };
 };
 
 const isDiscountValidNow = (discount, now = new Date()) => {
@@ -78,10 +70,63 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     const todayBounds = getGymDayBounds(tz);
     const monthBounds = getMonthBounds(tz);
 
-    let from = req.query.from ? new Date(`${req.query.from}T00:00:00.000Z`) : monthBounds.start;
-    let to = req.query.to ? new Date(`${req.query.to}T23:59:59.999Z`) : todayBounds.end;
+    let from = req.query.from
+        ? moment.tz(req.query.from, tz).startOf('day').toDate()
+        : monthBounds.start;
+    let to = req.query.to
+        ? moment.tz(req.query.to, tz).endOf('day').toDate()
+        : todayBounds.end;
     if (Number.isNaN(from.getTime())) from = monthBounds.start;
     if (Number.isNaN(to.getTime())) to = todayBounds.end;
+
+    const sumField = async (Model, match) => {
+        const rows = await Model.aggregate([
+            { $match: match },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]);
+        return rows[0]?.total || 0;
+    };
+
+    const [rangeTotal, todaySum, monthSum, gastosRangeSum, gastosTodaySum, gastosMonthSum] = await Promise.all([
+        sumField(Transaction, { type: 'payment', createdAt: { $gte: from, $lte: to } }),
+        sumField(Transaction, { type: 'payment', createdAt: { $gte: todayBounds.start, $lte: todayBounds.end } }),
+        sumField(Transaction, { type: 'payment', createdAt: { $gte: monthBounds.start, $lte: monthBounds.end } }),
+        sumField(Gasto, { spentAt: { $gte: from, $lte: to } }),
+        sumField(Gasto, { spentAt: { $gte: todayBounds.start, $lte: todayBounds.end } }),
+        sumField(Gasto, { spentAt: { $gte: monthBounds.start, $lte: monthBounds.end } }),
+    ]);
+
+    const methodAgg = await Transaction.aggregate([
+        { $match: { type: 'payment', createdAt: { $gte: from, $lte: to } } },
+        { $group: { _id: '$method', total: { $sum: '$amount' } } },
+    ]);
+    const byMethod = { efectivo: 0, transfer: 0, mercadopago: 0, manual: 0 };
+    for (const row of methodAgg) {
+        const key = byMethod[row._id] != null ? row._id : 'manual';
+        byMethod[key] += row.total || 0;
+    }
+
+    const sourceAgg = await Transaction.aggregate([
+        { $match: { type: 'payment', createdAt: { $gte: from, $lte: to } } },
+        { $group: { _id: '$source', total: { $sum: '$amount' } } },
+    ]);
+    const bySource = { packs: 0, store: 0, account: 0, caja: 0, billing: 0 };
+    for (const row of sourceAgg) {
+        const sourceKey = row._id === 'pack' ? 'packs'
+            : (row._id === 'caja' ? 'caja'
+                : (row._id === 'store' ? 'store'
+                    : (row._id === 'account' ? 'account' : 'billing')));
+        bySource[sourceKey] = (bySource[sourceKey] || 0) + (row.total || 0);
+    }
+
+    const gastosCatAgg = await Gasto.aggregate([
+        { $match: { spentAt: { $gte: from, $lte: to } } },
+        { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    ]);
+    const gastosByCategory = {};
+    for (const row of gastosCatAgg) {
+        gastosByCategory[row._id || 'otros'] = row.total || 0;
+    }
 
     const payments = await Transaction.find({
         type: 'payment',
@@ -93,34 +138,6 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         .limit(200)
         .lean();
 
-    const monthPayments = await Transaction.find({
-        type: 'payment',
-        createdAt: { $gte: monthBounds.start, $lte: monthBounds.end },
-    }).select('amount createdAt method source').lean();
-
-    const byMethod = { efectivo: 0, transfer: 0, mercadopago: 0, manual: 0 };
-    const bySource = { packs: 0, store: 0, account: 0, caja: 0, billing: 0 };
-
-    let rangeTotal = 0;
-    for (const p of payments) {
-        const amt = Number(p.amount) || 0;
-        rangeTotal += amt;
-        const method = byMethod[p.method] != null ? p.method : 'manual';
-        byMethod[method] += amt;
-        const sourceKey = p.source === 'pack' ? 'packs'
-            : (p.source === 'caja' ? 'caja'
-                : (p.source === 'store' ? 'store'
-                    : (p.source === 'account' ? 'account' : 'billing')));
-        bySource[sourceKey] = (bySource[sourceKey] || 0) + amt;
-    }
-
-    const todayPayments = await Transaction.find({
-        type: 'payment',
-        createdAt: { $gte: todayBounds.start, $lte: todayBounds.end },
-    }).select('amount').lean();
-    const todaySum = todayPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const monthSum = monthPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-
     const gastosRange = await Gasto.find({
         spentAt: { $gte: from, $lte: to },
     })
@@ -128,24 +145,6 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         .sort({ spentAt: -1 })
         .limit(200)
         .lean();
-
-    const gastosToday = await Gasto.find({
-        spentAt: { $gte: todayBounds.start, $lte: todayBounds.end },
-    }).select('amount').lean();
-
-    const gastosMonth = await Gasto.find({
-        spentAt: { $gte: monthBounds.start, $lte: monthBounds.end },
-    }).select('amount category').lean();
-
-    const gastosRangeSum = gastosRange.reduce((s, g) => s + (Number(g.amount) || 0), 0);
-    const gastosTodaySum = gastosToday.reduce((s, g) => s + (Number(g.amount) || 0), 0);
-    const gastosMonthSum = gastosMonth.reduce((s, g) => s + (Number(g.amount) || 0), 0);
-
-    const gastosByCategory = {};
-    for (const g of gastosRange) {
-        const cat = g.category || 'otros';
-        gastosByCategory[cat] = (gastosByCategory[cat] || 0) + (Number(g.amount) || 0);
-    }
 
     const pendingTickets = await PaymentRequest.find({ status: 'pending' })
         .populate('user', 'nombre apellido email dni')
