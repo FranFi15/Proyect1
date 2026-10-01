@@ -106,7 +106,7 @@ const updatePackage = asyncHandler(async (req, res) => {
     res.json(updatedPackage);
 });
 
-// @desc    "Eliminar" un paquete (Ocultarlo para no romper historiales)
+// @desc    Eliminar un paquete de forma permanente
 const deletePackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
     const packageId = req.params.id;
@@ -117,8 +117,7 @@ const deletePackage = asyncHandler(async (req, res) => {
         throw new Error('Paquete no encontrado.');
     }
 
-    pkg.isActive = false; // Lo ocultamos
-    await pkg.save();
+    await pkg.deleteOne();
 
     res.json({ message: 'Paquete eliminado correctamente.' });
 });
