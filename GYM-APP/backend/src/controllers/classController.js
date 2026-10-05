@@ -50,6 +50,12 @@ const enrichClassListWithUTC = (classes, tz) => {
     return classes.map(cls => enrichClassWithUTC(cls, timeZone));
 };
 
+const resolveSucursalId = (value) => {
+    if (value == null || value === '') return null;
+    if (typeof value === 'object') return value._id || value.id || null;
+    return value;
+};
+
 const createClass = asyncHandler(async (req, res) => {
     await ensureDefaultSucursal(req.gymDBConnection);
     const { Clase, TipoClase, Sucursal } = getModels(req.gymDBConnection);
@@ -100,7 +106,7 @@ const createClass = asyncHandler(async (req, res) => {
         profesoresIds = [profesor];
     }
 
-    let sucursalId = sucursal;
+    let sucursalId = resolveSucursalId(sucursal);
     if (!sucursalId) {
         const defaultSuc = await Sucursal.findOne({ activa: true }).sort({ createdAt: 1 });
         if (defaultSuc) sucursalId = defaultSuc._id;
@@ -303,8 +309,12 @@ const updateClass = asyncHandler(async (req, res) => {
     const newCapacity = capacidad !== undefined ? Number(capacidad) : oldCapacity;
     const capacityDifference = newCapacity - oldCapacity;
 
-    Object.assign(classItem, otherUpdates); 
+    Object.assign(classItem, otherUpdates);
     classItem.capacidad = newCapacity;
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'sucursal')) {
+        classItem.sucursal = resolveSucursalId(req.body.sucursal);
+    }
 
     if (profesores) {
          classItem.profesores = Array.isArray(profesores) ? profesores : [profesores];
@@ -878,6 +888,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         horaInicio: filters.horaInicio,
         fecha: { $gte: fechaDesdeFiltro }
     };
+    const filterSucursalId = resolveSucursalId(filters.sucursal);
+    if (filterSucursalId) {
+        query.sucursal = filterSucursalId;
+    } else if (filters.sucursal === null || filters.sucursal === 'none') {
+        query.$or = [{ sucursal: null }, { sucursal: { $exists: false } }];
+    }
 
     const futureInstances = await Clase.find(query).sort({ fecha: 1 });
     if (futureInstances.length === 0) {
@@ -997,8 +1013,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.profesores) template.profesores = updates.profesores;
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
-        if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad); 
-        if (updates.sucursal) template.sucursal = updates.sucursal;
+        if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad);
+        if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
+            template.sucursal = resolveSucursalId(updates.sucursal);
+        } else {
+            template.sucursal = resolveSucursalId(template.sucursal);
+        }
 
         if (updates.horaInicio || updates.horaFin) {
             template.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
@@ -1039,8 +1059,10 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.profesores) updateData.$set.profesores = updates.profesores;
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
-    if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad); 
-    if (updates.sucursal) updateData.$set.sucursal = updates.sucursal; 
+    if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad);
+    if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
+        updateData.$set.sucursal = resolveSucursalId(updates.sucursal);
+    } 
     
     if (updates.horaInicio || updates.horaFin) {
         updateData.$set.horarioFijo = `${newHoraInicio} - ${newHoraFin}`;
@@ -1092,6 +1114,12 @@ const bulkDeleteClasses = asyncHandler(async (req, res) => {
     if (filters.nombre) query.nombre = { $regex: filters.nombre, $options: 'i' };
     if (filters.tipoClase) query.tipoClase = filters.tipoClase;
     if (filters.horaInicio) query.horaInicio = filters.horaInicio;
+    const deleteSucursalId = resolveSucursalId(filters.sucursal);
+    if (deleteSucursalId) {
+        query.sucursal = deleteSucursalId;
+    } else if (filters.sucursal === null || filters.sucursal === 'none') {
+        query.$or = [{ sucursal: null }, { sucursal: { $exists: false } }];
+    }
 
     const startDate = filters.fechaDesde ? new Date(filters.fechaDesde) : new Date();
     startDate.setHours(0, 0, 0, 0);
@@ -1160,18 +1188,26 @@ const getGroupedClasses = asyncHandler(async (req, res) => {
 const bulkExtendClasses = asyncHandler(async (req, res) => {
     const { Clase, User } = getModels(req.gymDBConnection);
     const { filters, extension } = req.body;
-    const { nombre, tipoClase, horaInicio, diasDeSemana } = filters; 
+    const { nombre, tipoClase, horaInicio, diasDeSemana, sucursal } = filters; 
 
     if (!filters || !extension || !extension.fechaFin || !diasDeSemana || diasDeSemana.length === 0) {
         res.status(400);
         throw new Error('Se requieren filtros, una fecha final de extensión y los días de la semana para la extensión.');
     }
 
-    const lastInstance = await Clase.findOne({
+    const lastQuery = {
         nombre: nombre,
         tipoClase: tipoClase,
         horaInicio: horaInicio
-    }).sort({ fecha: -1 });
+    };
+    const extendSucursalId = resolveSucursalId(sucursal);
+    if (extendSucursalId) {
+        lastQuery.sucursal = extendSucursalId;
+    } else if (sucursal === null || sucursal === 'none') {
+        lastQuery.$or = [{ sucursal: null }, { sucursal: { $exists: false } }];
+    }
+
+    const lastInstance = await Clase.findOne(lastQuery).sort({ fecha: -1 });
 
     if (!lastInstance) {
         res.status(404);
@@ -1215,7 +1251,8 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             estado: 'activa',
             usuariosInscritos: [],
             inscripcionesDetalle: [],
-            rrule: lastInstance.rrule 
+            rrule: lastInstance.rrule,
+            sucursal: lastInstance.sucursal || null,
         });
 
         const usersWithPlan = await User.find({
