@@ -211,7 +211,7 @@ const CalendarScreen = () => {
         async ({ isInitial }) => {
             if (isInitial) setIsLoading(true);
             try {
-                await fetchData();
+                await Promise.all([fetchData(), refreshUser()]);
             } finally {
                 if (isInitial) setIsLoading(false);
             }

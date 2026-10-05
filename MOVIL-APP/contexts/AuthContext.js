@@ -71,18 +71,20 @@ export const AuthProvider = ({ children }) => {
                 
                 if (storedUser) {
                     setUser(storedUser);
-                    // --- LLAMADA AL REFRESCO SILENCIOSO ---
-                    // Como encontramos un usuario guardado, intentamos extender su sesión
+                    // Extend session, then refresh profile so fields like qrIngresoUrl are current.
                     await refreshSessionToken(storedUser);
-                    if (storedUser) {
-                    setUser(storedUser);
-                    await refreshSessionToken(storedUser);
-                    
-                    // 🔥 NUEVO: Refrescar el token de notificaciones cada vez que abre la app
+                    try {
+                        const updatedUserData = await authService.getMe();
+                        if (updatedUserData) {
+                            setUser(updatedUserData);
+                        }
+                    } catch (e) {
+                        console.log('No se pudo refrescar el perfil al iniciar:', e?.message || e);
+                    }
+
                     try { 
                         await notificationService.registerForPushNotificationsAsync(); 
                     } catch(e) { console.log("No se pudo registrar notificaciones", e) }
-                }
                 }
             } catch (e) {
                 console.error("No se pudo verificar el estado inicial", e);
@@ -175,9 +177,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const updatedUserData = await authService.getMe();
             if (updatedUserData) {
-                if (JSON.stringify(userRef.current) !== JSON.stringify(updatedUserData)) {
-                    setUser(updatedUserData);
-                }
+                setUser(updatedUserData);
             } else if (userRef.current) {
                 await logout();
             }
