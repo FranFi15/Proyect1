@@ -271,7 +271,7 @@ const ManageClassesScreen = () => {
             diaDeSemana: classItem.diaDeSemana || [],
             fechaInicio: '',
             fechaFin: '',
-            sucursal: classItem.sucursal?._id || classItem.sucursal || (sucursales.length > 0 ? sucursales[0]._id : ''),
+            sucursal: String(classItem.sucursal?._id || classItem.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '') || ''),
         });
         setShowAddModal(true);
     };
@@ -500,16 +500,16 @@ const ManageClassesScreen = () => {
             case 'formSucursal':
                 return {
                     title: 'Seleccionar Sucursal',
-                    options: sucursales.map(s => ({ _id: s._id, nombre: s.nombre })),
-                    onSelect: (id) => handleFormChange('sucursal', id),
-                    selectedValue: formData.sucursal,
+                    options: sucursales.map(s => ({ _id: String(s._id), nombre: s.nombre })),
+                    onSelect: (id) => handleFormChange('sucursal', String(id)),
+                    selectedValue: formData.sucursal ? String(formData.sucursal) : '',
                 };
             case 'bulkSucursal':
                 return {
                     title: 'Seleccionar Sucursal para Grupo',
-                    options: sucursales.map(s => ({ _id: s._id, nombre: s.nombre })),
-                    onSelect: (id) => setBulkUpdates(p => ({ ...p, sucursal: id })),
-                    selectedValue: bulkUpdates.sucursal,
+                    options: sucursales.map(s => ({ _id: String(s._id), nombre: s.nombre })),
+                    onSelect: (id) => setBulkUpdates(p => ({ ...p, sucursal: String(id) })),
+                    selectedValue: bulkUpdates.sucursal ? String(bulkUpdates.sucursal) : '',
                 };
             case 'formInscriptionType':
                 return {
@@ -587,7 +587,8 @@ const ManageClassesScreen = () => {
         const recurrentClasses = futureClasses.filter(cls => cls.tipoInscripcion === 'fijo');
 
         const groups = recurrentClasses.reduce((acc, cls) => {
-            const groupKey = `${cls.nombre}-${cls.tipoClase?._id}-${cls.horaInicio}-${cls.horaFin}`;
+            const sucursalId = cls.sucursal?._id || cls.sucursal || 'none';
+            const groupKey = `${cls.nombre}-${cls.tipoClase?._id}-${cls.horaInicio}-${cls.horaFin}-${sucursalId}`;
 
             if (!acc[groupKey]) {
                 acc[groupKey] = {
@@ -598,6 +599,7 @@ const ManageClassesScreen = () => {
                     capacidad: cls.capacidad,
                     profesor: cls.profesor,
                     profesores: cls.profesores,
+                    sucursal: cls.sucursal || null,
                     diasDeSemana: new Set(),
                     cantidadDeInstancias: 0,
                     _id: groupKey,
@@ -725,7 +727,7 @@ const ManageClassesScreen = () => {
             horaFin: group.horaFin,
             capacidad: group.capacidad ? group.capacidad.toString() : '',
             diasDeSemana: [...(group.diasDeSemana || [])],
-            sucursal: group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '')
+            sucursal: String(group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '') || '')
         });
         setShowBulkEditModal(true);
     };
@@ -754,6 +756,7 @@ const ManageClassesScreen = () => {
             tipoClase: editingGroup.tipoClase._id,
             horaInicio: editingGroup.horaInicio,
             fechaDesde: fechaDesdeLocal,
+            sucursal: editingGroup.sucursal?._id || editingGroup.sucursal || null,
         };
 
         try {
@@ -781,6 +784,7 @@ const ManageClassesScreen = () => {
             tipoClase: groupToExtend.tipoClase._id,
             horaInicio: groupToExtend.horaInicio,
             diasDeSemana: groupToExtend.diasDeSemana,
+            sucursal: groupToExtend.sucursal?._id || groupToExtend.sucursal || null,
         };
         const extension = { fechaFin: newEndDate };
 
@@ -809,6 +813,7 @@ const ManageClassesScreen = () => {
                                 nombre: group.nombre,
                                 tipoClase: group.tipoClase._id,
                                 horaInicio: group.horaInicio,
+                                sucursal: group.sucursal?._id || group.sucursal || null,
                             };
                             await apiClient.post('/classes/bulk-delete', { filters });
                             setAlertInfo({ visible: true, title: 'Éxito', message: 'Grupo de turnos eliminado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] });
@@ -927,6 +932,15 @@ const ManageClassesScreen = () => {
                 ) : null}
                 extraMeta={
                     <>
+                        {!!(item.sucursal?.nombre || (typeof item.sucursal === 'string' && sucursales.find(s => String(s._id) === String(item.sucursal))?.nombre)) && (
+                            <View style={styles.metaRowInline}>
+                                <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.55, marginRight: 6 }} />
+                                <Text style={styles.metaRowInlineText}>
+                                    {item.sucursal?.nombre
+                                        || sucursales.find(s => String(s._id) === String(item.sucursal?._id || item.sucursal))?.nombre}
+                                </Text>
+                            </View>
+                        )}
                         <View style={styles.metaRowInline}>
                             <Ionicons name="calendar-outline" size={14} color={Colors[colorScheme].text} style={{ opacity: 0.55, marginRight: 6 }} />
                             <Text style={styles.metaRowInlineText}>Días: {(item.diasDeSemana || []).slice().sort().join(', ')}</Text>
@@ -1109,7 +1123,7 @@ const ManageClassesScreen = () => {
                     diaDeSemana: [],
                     fechaInicio: format(new Date(), 'yyyy-MM-dd'),
                     fechaFin: '',
-                    sucursal: sucursales.length > 0 ? sucursales[0]._id : '',
+                    sucursal: sucursales.length > 0 ? String(sucursales[0]._id) : '',
                 });
                 setShowAddModal(true);
             }}>
@@ -1166,7 +1180,7 @@ const ManageClassesScreen = () => {
                                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                     <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
                                                     <ThemedText style={styles.filterButtonText}>
-                                                        {sucursales.find(s => s._id === formData.sucursal)?.nombre || 'Todas / Sucursal 1'}
+                                                        {sucursales.find(s => String(s._id) === String(formData.sucursal))?.nombre || 'Seleccionar sucursal'}
                                                     </ThemedText>
                                                 </View>
                                                 <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
@@ -1496,7 +1510,7 @@ const ManageClassesScreen = () => {
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                 <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
                                                 <ThemedText style={styles.filterButtonText}>
-                                                    {sucursales.find(s => s._id === bulkUpdates.sucursal)?.nombre || 'Seleccionar Sucursal'}
+                                                    {sucursales.find(s => String(s._id) === String(bulkUpdates.sucursal))?.nombre || 'Seleccionar Sucursal'}
                                                 </ThemedText>
                                             </View>
                                             <FontAwesome6 name="chevron-down" size={12} color={Colors[colorScheme].text} />
