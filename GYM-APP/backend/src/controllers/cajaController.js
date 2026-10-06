@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import moment from 'moment-timezone';
+import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
 import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
@@ -60,13 +61,31 @@ const computeDiscountAmount = (subtotal, { discount, discountPercent, discountAm
     return 0;
 };
 
+const notVoided = { $or: [{ voidedAt: null }, { voidedAt: { $exists: false } }] };
+
+const parseObjectId = (raw) => {
+    if (!raw || raw === 'all') return null;
+    try {
+        return new mongoose.Types.ObjectId(String(raw));
+    } catch (_e) {
+        return null;
+    }
+};
+
+const withSucursal = (match, sucursalId) => {
+    if (!sucursalId) return match;
+    return { ...match, sucursal: sucursalId };
+};
+
+
 // GET /api/caja/dashboard
 const getCajaDashboard = asyncHandler(async (req, res) => {
     const {
-        Transaction, PaymentRequest, StoreOrder, User, Settings, Gasto,
+        Transaction, PaymentRequest, StoreOrder, User, Settings, Gasto, Sucursal, CajaCierre,
     } = getModels(req.gymDBConnection);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
+    const sucursalId = parseObjectId(req.query.sucursal);
 
     const todayBounds = getGymDayBounds(tz);
     const monthBounds = getMonthBounds(tz);
@@ -88,23 +107,27 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         return rows[0]?.total || 0;
     };
 
+    const paymentRange = withSucursal({ type: 'payment', createdAt: { $gte: from, $lte: to }, ...notVoided }, sucursalId);
+    const paymentToday = withSucursal({ type: 'payment', createdAt: { $gte: todayBounds.start, $lte: todayBounds.end }, ...notVoided }, sucursalId);
+    const paymentMonth = withSucursal({ type: 'payment', createdAt: { $gte: monthBounds.start, $lte: monthBounds.end }, ...notVoided }, sucursalId);
+    const gastoRange = withSucursal({ spentAt: { $gte: from, $lte: to } }, sucursalId);
+    const gastoToday = withSucursal({ spentAt: { $gte: todayBounds.start, $lte: todayBounds.end } }, sucursalId);
+    const gastoMonth = withSucursal({ spentAt: { $gte: monthBounds.start, $lte: monthBounds.end } }, sucursalId);
+
     const [rangeTotal, todaySum, monthSum, gastosRangeSum, gastosTodaySum, gastosMonthSum] = await Promise.all([
-        sumField(Transaction, { type: 'payment', createdAt: { $gte: from, $lte: to } }),
-        sumField(Transaction, { type: 'payment', createdAt: { $gte: todayBounds.start, $lte: todayBounds.end } }),
-        sumField(Transaction, { type: 'payment', createdAt: { $gte: monthBounds.start, $lte: monthBounds.end } }),
-        sumField(Gasto, { spentAt: { $gte: from, $lte: to } }),
-        sumField(Gasto, { spentAt: { $gte: todayBounds.start, $lte: todayBounds.end } }),
-        sumField(Gasto, { spentAt: { $gte: monthBounds.start, $lte: monthBounds.end } }),
+        sumField(Transaction, paymentRange),
+        sumField(Transaction, paymentToday),
+        sumField(Transaction, paymentMonth),
+        sumField(Gasto, gastoRange),
+        sumField(Gasto, gastoToday),
+        sumField(Gasto, gastoMonth),
     ]);
 
     const prCollection = PaymentRequest.collection.name;
 
     const methodAgg = await Transaction.aggregate([
         {
-            $match: {
-                type: 'payment',
-                createdAt: { $gte: from, $lte: to },
-            },
+            $match: paymentRange,
         },
         {
             $lookup: {
@@ -195,7 +218,7 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     }
 
     const sourceAgg = await Transaction.aggregate([
-        { $match: { type: 'payment', createdAt: { $gte: from, $lte: to } } },
+        { $match: paymentRange },
         { $group: { _id: '$source', total: { $sum: '$amount' } } },
     ]);
     const bySource = { packs: 0, store: 0, account: 0, caja: 0, billing: 0 };
@@ -208,7 +231,7 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
     }
 
     const gastosCatAgg = await Gasto.aggregate([
-        { $match: { spentAt: { $gte: from, $lte: to } } },
+        { $match: gastoRange },
         { $group: { _id: '$category', total: { $sum: '$amount' } } },
     ]);
     const gastosByCategory = {};
@@ -216,20 +239,17 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         gastosByCategory[row._id || 'otros'] = row.total || 0;
     }
 
-    const payments = await Transaction.find({
-        type: 'payment',
-        createdAt: { $gte: from, $lte: to },
-    })
+    const payments = await Transaction.find(paymentRange)
         .populate('user', 'nombre apellido')
         .populate('discountId', 'name type value')
+        .populate('sucursal', 'nombre')
         .sort({ createdAt: -1 })
         .limit(200)
         .lean();
 
-    const gastosRange = await Gasto.find({
-        spentAt: { $gte: from, $lte: to },
-    })
+    const gastosList = await Gasto.find(gastoRange)
         .populate('createdBy', 'nombre apellido')
+        .populate('sucursal', 'nombre')
         .sort({ spentAt: -1 })
         .limit(200)
         .lean();
@@ -277,10 +297,22 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
         .lean();
 
     const settings = await Settings.findById('main_settings').select('mercadoPago.isLinked').lean();
+    const sucursales = await Sucursal.find({}).select('nombre').sort({ nombre: 1 }).lean();
+    const cierreDayStr = todayBounds.dayStr;
+    const cierreQuery = { dayStr: cierreDayStr };
+    if (sucursalId) cierreQuery.sucursal = sucursalId;
+    else cierreQuery.$or = [{ sucursal: null }, { sucursal: { $exists: false } }];
+    const cierreHoy = await CajaCierre.findOne(cierreQuery)
+        .populate('closedBy', 'nombre apellido')
+        .lean();
 
     res.json({
         currency,
         range: { from, to },
+        filters: {
+            sucursal: sucursalId ? String(sucursalId) : 'all',
+        },
+        sucursales: sucursales.map((s) => ({ _id: s._id, nombre: s.nombre })),
         totals: {
             range: rangeTotal,
             today: todaySum,
@@ -327,9 +359,11 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             clientName: p.user ? `${p.user.nombre || ''} ${p.user.apellido || ''}`.trim() : '—',
             userId: p.user?._id,
             receiptUrl: p.receiptUrl,
+            sucursalId: p.sucursal?._id || p.sucursal || null,
+            sucursalName: p.sucursal?.nombre || null,
             kind: 'ingreso',
         })),
-        gastos: gastosRange.map((g) => ({
+        gastos: gastosList.map((g) => ({
             _id: g._id,
             date: g.spentAt || g.createdAt,
             amount: g.amount,
@@ -337,6 +371,9 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             category: g.category,
             method: g.method,
             notes: g.notes,
+            spentAt: g.spentAt,
+            sucursalId: g.sucursal?._id || g.sucursal || null,
+            sucursalName: g.sucursal?.nombre || null,
             createdByName: g.createdBy
                 ? `${g.createdBy.nombre || ''} ${g.createdBy.apellido || ''}`.trim()
                 : '—',
@@ -352,6 +389,22 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             mpStatus: t.mpStatus,
         })),
         mercadoPagoLinked: !!settings?.mercadoPago?.isLinked,
+        cierre: cierreHoy ? {
+            _id: cierreHoy._id,
+            dayStr: cierreHoy.dayStr,
+            expectedEfectivo: cierreHoy.expectedEfectivo,
+            countedEfectivo: cierreHoy.countedEfectivo,
+            difference: cierreHoy.difference,
+            ingresosByMethod: cierreHoy.ingresosByMethod,
+            ingresosTotal: cierreHoy.ingresosTotal,
+            gastosEfectivo: cierreHoy.gastosEfectivo,
+            gastosTotal: cierreHoy.gastosTotal,
+            notes: cierreHoy.notes,
+            closedAt: cierreHoy.closedAt,
+            closedByName: cierreHoy.closedBy
+                ? `${cierreHoy.closedBy.nombre || ''} ${cierreHoy.closedBy.apellido || ''}`.trim()
+                : '—',
+        } : null,
     });
 });
 
@@ -373,6 +426,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
         payLater = false,
         customItem = null,
         customPrice = null,
+        sucursalId = null,
     } = req.body;
 
     if (!userId) {
@@ -636,6 +690,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
             originalAmount: catalogSubtotal + free,
             discountAmount: discountValue,
             discountId: discountDoc?._id || null,
+            sucursal: parseObjectId(sucursalId),
         },
     });
 
@@ -838,7 +893,7 @@ const GASTO_CATEGORIES = ['alquiler', 'servicios', 'sueldos', 'insumos', 'manten
 
 const createGasto = asyncHandler(async (req, res) => {
     const { Gasto } = getModels(req.gymDBConnection);
-    const { name, amount, category = 'otros', method = 'efectivo', notes, spentAt } = req.body;
+    const { name, amount, category = 'otros', method = 'efectivo', notes, spentAt, sucursalId } = req.body;
 
     if (!name || !String(name).trim()) {
         res.status(400);
@@ -867,6 +922,7 @@ const createGasto = asyncHandler(async (req, res) => {
         notes: notes ? String(notes).trim() : '',
         createdBy: req.user._id,
         spentAt: spentAt ? new Date(spentAt) : new Date(),
+        sucursal: parseObjectId(sucursalId),
     });
 
     res.status(201).json({ message: 'Gasto registrado.', gasto });
@@ -883,6 +939,286 @@ const deleteGasto = asyncHandler(async (req, res) => {
     res.json({ message: 'Gasto eliminado.' });
 });
 
+const updateGasto = asyncHandler(async (req, res) => {
+    const { Gasto } = getModels(req.gymDBConnection);
+    const gasto = await Gasto.findById(req.params.id);
+    if (!gasto) {
+        res.status(404);
+        throw new Error('Gasto no encontrado.');
+    }
+
+    const { name, amount, category, method, notes, spentAt, sucursalId } = req.body;
+    if (name != null) {
+        if (!String(name).trim()) {
+            res.status(400);
+            throw new Error('El gasto necesita un nombre.');
+        }
+        gasto.name = String(name).trim();
+    }
+    if (amount != null) {
+        const numericAmount = Number(amount);
+        if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+            res.status(400);
+            throw new Error('El monto del gasto debe ser mayor a 0.');
+        }
+        gasto.amount = numericAmount;
+    }
+    if (category != null) {
+        if (!GASTO_CATEGORIES.includes(category)) {
+            res.status(400);
+            throw new Error('Categoría de gasto inválida.');
+        }
+        gasto.category = category;
+    }
+    if (method != null) {
+        if (!['efectivo', 'transfer', 'mercadopago'].includes(method)) {
+            res.status(400);
+            throw new Error('Método de pago inválido.');
+        }
+        gasto.method = method;
+    }
+    if (notes !== undefined) gasto.notes = notes ? String(notes).trim() : '';
+    if (spentAt !== undefined) gasto.spentAt = spentAt ? new Date(spentAt) : gasto.spentAt;
+    if (sucursalId !== undefined) gasto.sucursal = parseObjectId(sucursalId);
+
+    await gasto.save();
+    res.json({ message: 'Gasto actualizado.', gasto });
+});
+
+// POST /api/caja/refunds — anula un ingreso (no revierte beneficios del paquete)
+const refundCajaPayment = asyncHandler(async (req, res) => {
+    const { Transaction, User } = getModels(req.gymDBConnection);
+    const { transactionId, reason } = req.body;
+    if (!transactionId) {
+        res.status(400);
+        throw new Error('Indicá la transacción a anular.');
+    }
+
+    const tx = await Transaction.findById(transactionId);
+    if (!tx || tx.type !== 'payment') {
+        res.status(404);
+        throw new Error('Ingreso no encontrado.');
+    }
+    if (tx.voidedAt) {
+        res.status(400);
+        throw new Error('Este ingreso ya fue anulado.');
+    }
+
+    const user = await User.findById(tx.user);
+    if (!user) {
+        res.status(404);
+        throw new Error('Cliente no encontrado.');
+    }
+
+    user.balance = (Number(user.balance) || 0) - (Number(tx.amount) || 0);
+    await user.save();
+
+    tx.voidedAt = new Date();
+    tx.voidedBy = req.user._id;
+    tx.voidReason = reason ? String(reason).trim() : 'Anulado desde caja';
+    await tx.save();
+
+    res.json({
+        message: 'Ingreso anulado. El saldo del cliente fue ajustado. Los beneficios del paquete no se revierten automáticamente.',
+        transactionId: tx._id,
+        newBalance: user.balance,
+    });
+});
+
+const getDiscountUsage = asyncHandler(async (req, res) => {
+    const { Discount, Transaction } = getModels(req.gymDBConnection);
+    const discount = await Discount.findById(req.params.id).select('name type value');
+    if (!discount) {
+        res.status(404);
+        throw new Error('Descuento no encontrado.');
+    }
+
+    const rows = await Transaction.find({
+        type: 'payment',
+        discountId: discount._id,
+        ...notVoided,
+    })
+        .populate('user', 'nombre apellido')
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+
+    const totalDiscount = rows.reduce((s, r) => s + (Number(r.discountAmount) || 0), 0);
+    const totalSales = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+    res.json({
+        discount,
+        totals: {
+            uses: rows.length,
+            totalDiscount,
+            totalSales,
+        },
+        usages: rows.map((r) => ({
+            _id: r._id,
+            date: r.createdAt,
+            amount: r.amount,
+            discountAmount: r.discountAmount,
+            description: r.description,
+            clientName: r.user ? `${r.user.nombre || ''} ${r.user.apellido || ''}`.trim() : '—',
+        })),
+    });
+});
+
+const previewCajaCierre = asyncHandler(async (req, res) => {
+    const { Transaction, Gasto } = getModels(req.gymDBConnection);
+    const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
+    const dayStr = req.query.date
+        ? moment.tz(req.query.date, tz).format('YYYY-MM-DD')
+        : moment.tz(tz).format('YYYY-MM-DD');
+    const bounds = getGymDayBounds(tz, dayStr);
+    const sucursalId = parseObjectId(req.query.sucursal);
+
+    const paymentMatch = withSucursal({
+        type: 'payment',
+        createdAt: { $gte: bounds.start, $lte: bounds.end },
+        ...notVoided,
+    }, sucursalId);
+    const gastoMatch = withSucursal({ spentAt: { $gte: bounds.start, $lte: bounds.end } }, sucursalId);
+
+    const [methodAgg, gastosAgg] = await Promise.all([
+        Transaction.aggregate([
+            { $match: paymentMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+        Gasto.aggregate([
+            { $match: gastoMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+    ]);
+
+    const ingresosByMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
+    let ingresosTotal = 0;
+    for (const row of methodAgg) {
+        ingresosTotal += row.total || 0;
+        if (ingresosByMethod[row._id] != null) ingresosByMethod[row._id] += row.total || 0;
+    }
+
+    let gastosTotal = 0;
+    let gastosEfectivo = 0;
+    for (const row of gastosAgg) {
+        gastosTotal += row.total || 0;
+        if (row._id === 'efectivo') gastosEfectivo += row.total || 0;
+    }
+
+    const expectedEfectivo = ingresosByMethod.efectivo - gastosEfectivo;
+
+    res.json({
+        dayStr,
+        ingresosByMethod,
+        ingresosTotal,
+        gastosTotal,
+        gastosEfectivo,
+        expectedEfectivo,
+    });
+});
+
+const createCajaCierre = asyncHandler(async (req, res) => {
+    const { CajaCierre } = getModels(req.gymDBConnection);
+    const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
+    const dayStr = req.body.date
+        ? moment.tz(req.body.date, tz).format('YYYY-MM-DD')
+        : moment.tz(tz).format('YYYY-MM-DD');
+    const sucursalId = parseObjectId(req.body.sucursalId);
+    const countedEfectivo = Number(req.body.countedEfectivo);
+    if (Number.isNaN(countedEfectivo) || countedEfectivo < 0) {
+        res.status(400);
+        throw new Error('Indicá el efectivo contado.');
+    }
+
+    const { Transaction, Gasto } = getModels(req.gymDBConnection);
+    const bounds = getGymDayBounds(tz, dayStr);
+    const paymentMatch = withSucursal({
+        type: 'payment',
+        createdAt: { $gte: bounds.start, $lte: bounds.end },
+        ...notVoided,
+    }, sucursalId);
+    const gastoMatch = withSucursal({ spentAt: { $gte: bounds.start, $lte: bounds.end } }, sucursalId);
+    const [methodAgg, gastosAgg] = await Promise.all([
+        Transaction.aggregate([
+            { $match: paymentMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+        Gasto.aggregate([
+            { $match: gastoMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+    ]);
+    const ingresosByMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
+    let ingresosTotal = 0;
+    for (const row of methodAgg) {
+        ingresosTotal += row.total || 0;
+        if (ingresosByMethod[row._id] != null) ingresosByMethod[row._id] += row.total || 0;
+    }
+    let gastosTotal = 0;
+    let gastosEfectivo = 0;
+    for (const row of gastosAgg) {
+        gastosTotal += row.total || 0;
+        if (row._id === 'efectivo') gastosEfectivo += row.total || 0;
+    }
+    const expectedEfectivo = ingresosByMethod.efectivo - gastosEfectivo;
+    const difference = Math.round((countedEfectivo - expectedEfectivo) * 100) / 100;
+
+    const query = { dayStr };
+    if (sucursalId) query.sucursal = sucursalId;
+    else query.$or = [{ sucursal: null }, { sucursal: { $exists: false } }];
+
+    const existing = await CajaCierre.findOne(query);
+    if (existing) {
+        res.status(400);
+        throw new Error('Ya hay un cierre para este día' + (sucursalId ? ' y sucursal' : '') + '.');
+    }
+
+    const cierre = await CajaCierre.create({
+        dayStr,
+        sucursal: sucursalId,
+        expectedEfectivo,
+        countedEfectivo,
+        difference,
+        ingresosByMethod,
+        ingresosTotal,
+        gastosEfectivo,
+        gastosTotal,
+        notes: req.body.notes ? String(req.body.notes).trim() : '',
+        closedBy: req.user._id,
+        closedAt: new Date(),
+    });
+
+    res.status(201).json({ message: 'Cierre de caja registrado.', cierre });
+});
+
+const listCajaCierres = asyncHandler(async (req, res) => {
+    const { CajaCierre } = getModels(req.gymDBConnection);
+    const sucursalId = parseObjectId(req.query.sucursal);
+    const filter = {};
+    if (sucursalId) filter.sucursal = sucursalId;
+    const rows = await CajaCierre.find(filter)
+        .populate('closedBy', 'nombre apellido')
+        .populate('sucursal', 'nombre')
+        .sort({ dayStr: -1 })
+        .limit(60)
+        .lean();
+    res.json(rows.map((c) => ({
+        _id: c._id,
+        dayStr: c.dayStr,
+        expectedEfectivo: c.expectedEfectivo,
+        countedEfectivo: c.countedEfectivo,
+        difference: c.difference,
+        ingresosTotal: c.ingresosTotal,
+        gastosTotal: c.gastosTotal,
+        notes: c.notes,
+        closedAt: c.closedAt,
+        sucursalName: c.sucursal?.nombre || null,
+        closedByName: c.closedBy
+            ? `${c.closedBy.nombre || ''} ${c.closedBy.apellido || ''}`.trim()
+            : '—',
+    })));
+});
+
 export {
     getCajaDashboard,
     createCajaSale,
@@ -891,5 +1227,11 @@ export {
     updateDiscount,
     deleteDiscount,
     createGasto,
+    updateGasto,
     deleteGasto,
+    refundCajaPayment,
+    getDiscountUsage,
+    previewCajaCierre,
+    createCajaCierre,
+    listCajaCierres,
 };

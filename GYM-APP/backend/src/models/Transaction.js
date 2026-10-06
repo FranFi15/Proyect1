@@ -51,6 +51,18 @@ const transactionSchema = new mongoose.Schema({
         ref: 'PaymentRequest',
         default: null,
     },
+    sucursal: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sucursal',
+        default: null,
+    },
+    voidedAt: { type: Date, default: null },
+    voidedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+    },
+    voidReason: { type: String, default: '' },
 }, { timestamps: true });
 
 export default (gymDBConnection) => {

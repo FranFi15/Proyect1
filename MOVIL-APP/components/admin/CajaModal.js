@@ -11,9 +11,12 @@ import {
     ActivityIndicator,
     Platform,
     RefreshControl,
+    Share,
+    Linking,
+    Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { format, subDays, startOfMonth } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,8 +29,26 @@ const TABS = [
     { id: 'venta', label: 'Venta', icon: 'cart-outline' },
     { id: 'pendientes', label: 'Pendientes', icon: 'time-outline' },
     { id: 'descuentos', label: 'Descuentos', icon: 'pricetag-outline' },
+    { id: 'cierre', label: 'Cierre', icon: 'lock-closed-outline' },
     { id: 'suscripciones', label: 'Suscripciones', icon: 'repeat-outline' },
 ];
+
+const SOURCE_LABELS = {
+    packs: 'Paquetes',
+    store: 'Tienda',
+    account: 'Abonos / cuenta',
+    caja: 'Caja',
+    billing: 'Facturación',
+};
+
+const RANGE_PRESETS = [
+    { id: 'today', label: 'Hoy' },
+    { id: 'week', label: '7 días' },
+    { id: 'month', label: 'Mes' },
+    { id: 'custom', label: 'Personalizado' },
+];
+
+const toYmd = (d) => format(d, 'yyyy-MM-dd');
 
 const METHODS = [
     { id: 'efectivo', label: 'Efectivo' },
@@ -121,14 +142,46 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [activeFilter, setActiveFilter] = useState(null); // which FilterModal is open
 
     // Discount form
-    const [newDiscount, setNewDiscount] = useState({ name: '', type: 'percent', value: '', assignedUserIds: [] });
+    const [newDiscount, setNewDiscount] = useState({
+        name: '', type: 'percent', value: '', assignedUserIds: [],
+        isActive: true, validFrom: '', validTo: '',
+    });
     const [editingDiscountId, setEditingDiscountId] = useState(null);
     const [discountClientQuery, setDiscountClientQuery] = useState('');
     const [discountFormVisible, setDiscountFormVisible] = useState(false);
+    const [discountUsage, setDiscountUsage] = useState(null);
+    const [discountUsageLoading, setDiscountUsageLoading] = useState(false);
+
+    // Filters / cierre / gasto edit
+    const [rangePreset, setRangePreset] = useState('month');
+    const [fromDate, setFromDate] = useState(() => toYmd(startOfMonth(new Date())));
+    const [toDate, setToDate] = useState(() => toYmd(new Date()));
+    const [sucursalFilter, setSucursalFilter] = useState('all');
+    const [editingGastoId, setEditingGastoId] = useState(null);
+    const [cierreCounted, setCierreCounted] = useState('');
+    const [cierreNotes, setCierreNotes] = useState('');
+    const [cierrePreview, setCierrePreview] = useState(null);
+    const [cierreHistory, setCierreHistory] = useState([]);
+    const [saleSucursalId, setSaleSucursalId] = useState(null);
 
     useEffect(() => {
         if (!visible) setActiveFilter(null);
     }, [visible]);
+
+    const applyRangePreset = (presetId) => {
+        setRangePreset(presetId);
+        const today = new Date();
+        if (presetId === 'today') {
+            setFromDate(toYmd(today));
+            setToDate(toYmd(today));
+        } else if (presetId === 'week') {
+            setFromDate(toYmd(subDays(today, 6)));
+            setToDate(toYmd(today));
+        } else if (presetId === 'month') {
+            setFromDate(toYmd(startOfMonth(today)));
+            setToDate(toYmd(today));
+        }
+    };
 
     const showAlert = (title, message) => {
         setAlertInfo({
@@ -143,22 +196,28 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         if (!visible) return;
         if (!silent) setLoading(true);
         try {
-            const [dashRes, pkgRes, discRes, subRes] = await Promise.all([
-                apiClient.get('/caja/dashboard'),
+            const params = { from: fromDate, to: toDate };
+            if (sucursalFilter && sucursalFilter !== 'all') params.sucursal = sucursalFilter;
+            const [dashRes, pkgRes, discRes, subRes, cierreRes] = await Promise.all([
+                apiClient.get('/caja/dashboard', { params }),
                 apiClient.get('/payments/packages'),
                 apiClient.get('/caja/discounts?all=true'),
                 apiClient.get('/payments/mercadopago/subscriptions').catch(() => ({ data: [] })),
+                apiClient.get('/caja/cierres', {
+                    params: sucursalFilter !== 'all' ? { sucursal: sucursalFilter } : {},
+                }).catch(() => ({ data: [] })),
             ]);
             setDashboard(dashRes.data);
             setPackages(pkgRes.data || []);
             setDiscounts(discRes.data || []);
             setMpSubscriptions(Array.isArray(subRes.data) ? subRes.data : []);
+            setCierreHistory(Array.isArray(cierreRes.data) ? cierreRes.data : []);
         } catch (error) {
             showAlert('Error', error.response?.data?.message || 'No se pudo cargar la caja.');
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [visible]);
+    }, [visible, fromDate, toDate, sucursalFilter]);
 
     const handlePullRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -171,10 +230,11 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     }, [loadAll, onRefresh]);
 
     useEffect(() => {
-        if (visible) {
-            setTab('resumen');
-            loadAll();
-        }
+        if (visible) setTab('resumen');
+    }, [visible]);
+
+    useEffect(() => {
+        if (visible) loadAll();
     }, [visible, loadAll]);
 
     const refreshControl = (
@@ -317,10 +377,40 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             nombre: pending > 0 ? `Pendientes (${pending})` : 'Pendientes',
                         },
                         { _id: 'descuentos', nombre: 'Descuentos' },
+                        { _id: 'cierre', nombre: 'Cierre de caja' },
                         { _id: 'suscripciones', nombre: 'Suscripciones' },
                     ],
                     selectedValue: tab,
                     onSelect: (id) => { setTab(id); setActiveFilter(null); },
+                };
+            case 'sucursal':
+                return {
+                    title: 'Sucursal',
+                    options: [
+                        { _id: 'all', nombre: 'Todas las sucursales' },
+                        ...((dashboard?.sucursales || []).map((s) => ({
+                            _id: String(s._id),
+                            nombre: s.nombre,
+                        }))),
+                    ],
+                    selectedValue: sucursalFilter,
+                    onSelect: (id) => { setSucursalFilter(id); setActiveFilter(null); },
+                };
+            case 'saleSucursal':
+                return {
+                    title: 'Sucursal de la venta',
+                    options: [
+                        { _id: 'none', nombre: 'Sin sucursal' },
+                        ...((dashboard?.sucursales || []).map((s) => ({
+                            _id: String(s._id),
+                            nombre: s.nombre,
+                        }))),
+                    ],
+                    selectedValue: saleSucursalId || 'none',
+                    onSelect: (id) => {
+                        setSaleSucursalId(id === 'none' ? null : id);
+                        setActiveFilter(null);
+                    },
                 };
             case 'creditType':
                 return {
@@ -398,6 +488,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         gastoCategory,
         gastoCategoryFilter,
         newDiscount.type,
+        sucursalFilter,
+        saleSucursalId,
+        dashboard?.sucursales,
     ]);
 
     const previewDiscount = useMemo(() => {
@@ -444,9 +537,11 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         setGastoName('');
         setGastoAmount('');
         setGastoCategory('otros');
+        setEditingGastoId(null);
         setMethod('efectivo');
         setSelectedDiscountId(null);
         setAdhocPercent('');
+        setSaleSucursalId(sucursalFilter !== 'all' ? sucursalFilter : null);
     };
 
     const handleSale = async ({ payLater = false } = {}) => {
@@ -461,19 +556,26 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             }
             setSubmitting(true);
             try {
-                await apiClient.post('/caja/gastos', {
+                const gastoPayload = {
                     name: gastoName.trim(),
                     amount: Number(gastoAmount),
                     category: gastoCategory,
                     method,
-                });
-                showAlert('Gasto OK', 'Gasto registrado en caja.');
+                    sucursalId: saleSucursalId || undefined,
+                };
+                if (editingGastoId) {
+                    await apiClient.put(`/caja/gastos/${editingGastoId}`, gastoPayload);
+                    showAlert('Gasto OK', 'Gasto actualizado.');
+                } else {
+                    await apiClient.post('/caja/gastos', gastoPayload);
+                    showAlert('Gasto OK', 'Gasto registrado en caja.');
+                }
                 resetSaleForm();
                 await loadAll();
                 onRefresh?.();
                 setTab('resumen');
             } catch (error) {
-                showAlert('Error', error.response?.data?.message || 'No se pudo registrar el gasto.');
+                showAlert('Error', error.response?.data?.message || 'No se pudo guardar el gasto.');
             } finally {
                 setSubmitting(false);
             }
@@ -517,6 +619,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         : 0),
                 method,
                 payLater: Boolean(payLater),
+                sucursalId: saleSucursalId || undefined,
             };
             if (saleMode === 'abono') {
                 payload.description = freePaymentName.trim();
@@ -593,6 +696,142 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         }
     };
 
+    const handleEditGasto = (g) => {
+        setSaleMode('gasto');
+        setEditingGastoId(g._id);
+        setGastoName(g.name || '');
+        setGastoAmount(String(g.amount ?? ''));
+        setGastoCategory(g.category || 'otros');
+        setMethod(g.method || 'efectivo');
+        setSaleSucursalId(g.sucursalId ? String(g.sucursalId) : null);
+        setTab('venta');
+    };
+
+    const handleRefund = (m) => {
+        setAlertInfo({
+            visible: true,
+            title: 'Anular ingreso',
+            message: `¿Anular ${money(m.amount, dashboard?.currency || 'ARS')} de ${m.clientName}? Se ajusta el saldo del cliente. Los beneficios del paquete NO se revierten solos.`,
+            buttons: [
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo((p) => ({ ...p, visible: false })) },
+                {
+                    text: 'Anular',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setAlertInfo((p) => ({ ...p, visible: false }));
+                        setSubmitting(true);
+                        try {
+                            await apiClient.post('/caja/refunds', {
+                                transactionId: m._id,
+                                reason: 'Anulado desde caja',
+                            });
+                            await loadAll();
+                            onRefresh?.();
+                            showAlert('Listo', 'Ingreso anulado.');
+                        } catch (error) {
+                            showAlert('Error', error.response?.data?.message || 'No se pudo anular.');
+                        } finally {
+                            setSubmitting(false);
+                        }
+                    },
+                },
+            ],
+        });
+    };
+
+    const shareText = async (title, message) => {
+        try {
+            await Share.share({ title, message });
+        } catch (_e) {
+            showAlert('Error', 'No se pudo compartir.');
+        }
+    };
+
+    const exportMovement = (m) => {
+        const lines = [
+            'Comprobante Caja',
+            `Cliente: ${m.clientName}`,
+            `Monto: ${money(m.amount, currency)}`,
+            `Método: ${METHOD_LABELS[m.method] || m.method || '—'}`,
+            `Fecha: ${m.date ? format(new Date(m.date), "d/MM/yyyy HH:mm", { locale: es }) : '—'}`,
+            `Detalle: ${m.description || '—'}`,
+            m.discountAmount > 0 ? `Descuento: ${money(m.discountAmount, currency)}` : null,
+            m.sucursalName ? `Sucursal: ${m.sucursalName}` : null,
+            m.receiptUrl ? `Comprobante: ${m.receiptUrl}` : null,
+        ].filter(Boolean);
+        shareText('Comprobante', lines.join('\n'));
+    };
+
+    const exportPeriodReport = () => {
+        const lines = [
+            `Reporte Caja ${fromDate} → ${toDate}`,
+            `Ingresos: ${money(dashboard?.totals?.range, currency)}`,
+            `Gastos: ${money(dashboard?.totals?.gastosRange, currency)}`,
+            `Neto: ${money(dashboard?.totals?.netRange, currency)}`,
+            '',
+            'Por método:',
+            ...METHODS.map((m) => `  ${m.label}: ${money(dashboard?.byMethod?.[m.id], currency)}`),
+            '',
+            'Por origen:',
+            ...Object.entries(SOURCE_LABELS).map(([k, label]) =>
+                `  ${label}: ${money(dashboard?.bySource?.[k], currency)}`
+            ),
+        ];
+        shareText('Reporte Caja', lines.join('\n'));
+    };
+
+    const loadCierrePreview = useCallback(async () => {
+        try {
+            const params = { date: toYmd(new Date()) };
+            if (sucursalFilter !== 'all') params.sucursal = sucursalFilter;
+            const res = await apiClient.get('/caja/cierres/preview', { params });
+            setCierrePreview(res.data);
+        } catch (_e) {
+            setCierrePreview(null);
+        }
+    }, [sucursalFilter]);
+
+    useEffect(() => {
+        if (visible && tab === 'cierre') loadCierrePreview();
+    }, [visible, tab, loadCierrePreview]);
+
+    const handleCreateCierre = async () => {
+        if (!(Number(cierreCounted) >= 0) || cierreCounted === '') {
+            showAlert('Falta monto', 'Indicá el efectivo contado.');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await apiClient.post('/caja/cierres', {
+                date: toYmd(new Date()),
+                countedEfectivo: Number(cierreCounted),
+                notes: cierreNotes,
+                sucursalId: sucursalFilter !== 'all' ? sucursalFilter : undefined,
+            });
+            setCierreCounted('');
+            setCierreNotes('');
+            await loadAll();
+            await loadCierrePreview();
+            showAlert('Cierre OK', 'Cierre de caja registrado.');
+        } catch (error) {
+            showAlert('Error', error.response?.data?.message || 'No se pudo cerrar la caja.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const loadDiscountUsage = async (discountId) => {
+        setDiscountUsageLoading(true);
+        try {
+            const res = await apiClient.get(`/caja/discounts/${discountId}/usage`);
+            setDiscountUsage(res.data);
+        } catch (error) {
+            showAlert('Error', error.response?.data?.message || 'No se pudo cargar el historial.');
+        } finally {
+            setDiscountUsageLoading(false);
+        }
+    };
+
     const handleProcessTicket = async (ticketId, action) => {
         setSubmitting(true);
         try {
@@ -622,15 +861,22 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     };
 
     const resetDiscountForm = () => {
-        setNewDiscount({ name: '', type: 'percent', value: '', assignedUserIds: [] });
+        setNewDiscount({
+            name: '', type: 'percent', value: '', assignedUserIds: [],
+            isActive: true, validFrom: '', validTo: '',
+        });
         setEditingDiscountId(null);
         setDiscountClientQuery('');
         setDiscountFormVisible(false);
+        setDiscountUsage(null);
     };
 
     const openNewDiscountModal = () => {
         setEditingDiscountId(null);
-        setNewDiscount({ name: '', type: 'percent', value: '', assignedUserIds: [] });
+        setNewDiscount({
+            name: '', type: 'percent', value: '', assignedUserIds: [],
+            isActive: true, validFrom: '', validTo: '',
+        });
         setDiscountClientQuery('');
         setDiscountFormVisible(true);
     };
@@ -646,7 +892,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 name: newDiscount.name,
                 type: newDiscount.type,
                 value: Number(newDiscount.value),
-                isActive: true,
+                isActive: newDiscount.isActive !== false,
+                validFrom: newDiscount.validFrom || null,
+                validTo: newDiscount.validTo || null,
                 assignedUsers: newDiscount.assignedUserIds || [],
             };
             if (editingDiscountId) {
@@ -675,8 +923,12 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             type: d.type || 'percent',
             value: String(d.value ?? ''),
             assignedUserIds: assigned,
+            isActive: d.isActive !== false,
+            validFrom: d.validFrom ? toYmd(new Date(d.validFrom)) : '',
+            validTo: d.validTo ? toYmd(new Date(d.validTo)) : '',
         });
         setDiscountClientQuery('');
+        setDiscountUsage(null);
         setDiscountFormVisible(true);
     };
 
@@ -744,12 +996,65 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             gastoCategoryFilter === 'all' ? true : g.category === gastoCategoryFilter
         );
 
+        const sucursalLabel = sucursalFilter === 'all'
+            ? 'Todas las sucursales'
+            : (dashboard?.sucursales || []).find((s) => String(s._id) === String(sucursalFilter))?.nombre || 'Sucursal';
+
         return (
         <ScrollView
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             refreshControl={refreshControl}
         >
+            <Text style={styles.sectionTitle}>Período</Text>
+            <View style={styles.rowWrap}>
+                {RANGE_PRESETS.map((p) => (
+                    <TouchableOpacity
+                        key={p.id}
+                        style={[styles.filterPill, rangePreset === p.id && { backgroundColor: accent, borderColor: accent }]}
+                        onPress={() => applyRangePreset(p.id)}
+                    >
+                        <Text style={[styles.filterPillText, rangePreset === p.id && { color: '#fff' }]}>{p.label}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+            {rangePreset === 'custom' && (
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                    <TextInput
+                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                        placeholder="Desde YYYY-MM-DD"
+                        placeholderTextColor={colors.icon}
+                        value={fromDate}
+                        onChangeText={(t) => { setFromDate(t); setRangePreset('custom'); }}
+                    />
+                    <TextInput
+                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                        placeholder="Hasta YYYY-MM-DD"
+                        placeholderTextColor={colors.icon}
+                        value={toDate}
+                        onChangeText={(t) => { setToDate(t); setRangePreset('custom'); }}
+                    />
+                </View>
+            )}
+            <Text style={styles.kpiHint}>{fromDate} → {toDate}</Text>
+
+            {(dashboard?.sucursales || []).length > 0 && (
+                <>
+                    <Text style={styles.sectionTitle}>Sucursal</Text>
+                    <FilterButton
+                        label={sucursalLabel}
+                        onPress={() => setActiveFilter('sucursal')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                </>
+            )}
+
+            <TouchableOpacity style={[styles.secondaryBtn, { marginBottom: 12, borderColor: accent }]} onPress={exportPeriodReport}>
+                <Text style={{ color: accent, fontWeight: '700' }}>Exportar reporte del período</Text>
+            </TouchableOpacity>
+
             <View style={styles.kpiGrid}>
                 <View style={[styles.kpiCard, { borderColor: accent }]}>
                     <Text style={styles.kpiLabel}>Ingresos período</Text>
@@ -830,6 +1135,18 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 ))}
             </View>
 
+            <Text style={styles.sectionTitle}>Por origen</Text>
+            <View style={styles.rowWrap}>
+                {Object.entries(SOURCE_LABELS).map(([key, label]) => (
+                    <View key={key} style={styles.chip}>
+                        <Text style={styles.chipLabel}>{label}</Text>
+                        <Text style={styles.chipValue}>
+                            {money(dashboard?.bySource?.[key] || 0, currency)}
+                        </Text>
+                    </View>
+                ))}
+            </View>
+
             <Text style={styles.sectionTitle}>Gastos por categoría</Text>
             <View style={styles.rowWrap}>
                 {Object.keys(dashboard?.gastosByCategory || {}).length === 0 ? (
@@ -873,6 +1190,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             <Text style={[styles.movementAmount, { color: '#e74c3c' }]}>
                                 −{money(g.amount, currency)}
                             </Text>
+                            <TouchableOpacity onPress={() => handleEditGasto(g)} disabled={submitting}>
+                                <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Editar</Text>
+                            </TouchableOpacity>
                             <TouchableOpacity onPress={() => handleDeleteGasto(g._id)} disabled={submitting}>
                                 <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Eliminar</Text>
                             </TouchableOpacity>
@@ -895,7 +1215,21 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                 {' · '}
                                 {METHOD_LABELS[m.method] || m.method || '—'}
                                 {m.discountAmount > 0 ? ` · dto $${m.discountAmount}` : ''}
+                                {m.sucursalName ? ` · ${m.sucursalName}` : ''}
                             </Text>
+                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
+                                <TouchableOpacity onPress={() => exportMovement(m)}>
+                                    <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Exportar</Text>
+                                </TouchableOpacity>
+                                {m.receiptUrl ? (
+                                    <TouchableOpacity onPress={() => Linking.openURL(m.receiptUrl)}>
+                                        <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Comprobante</Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                                <TouchableOpacity onPress={() => handleRefund(m)} disabled={submitting}>
+                                    <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Anular</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                         <Text style={styles.movementAmount}>{money(m.amount, currency)}</Text>
                     </View>
@@ -930,6 +1264,27 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             keyboardShouldPersistTaps="handled"
             refreshControl={refreshControl}
         >
+            {(dashboard?.sucursales || []).length > 0 && (
+                <>
+                    <Text style={styles.sectionTitle}>Sucursal</Text>
+                    <FilterButton
+                        label={
+                            saleSucursalId
+                                ? ((dashboard?.sucursales || []).find((s) => String(s._id) === String(saleSucursalId))?.nombre || 'Sucursal')
+                                : 'Sin sucursal'
+                        }
+                        onPress={() => setActiveFilter('saleSucursal')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                </>
+            )}
+            {editingGastoId && saleMode === 'gasto' && (
+                <Text style={[styles.kpiHint, { marginBottom: 8, color: accent }]}>
+                    Editando gasto · tocá Guardar para actualizar
+                </Text>
+            )}
             <Text style={styles.sectionTitle}>Tipo de movimiento</Text>
             <View style={styles.rowWrap}>
                 {SALE_MODE_FILTERS.map((m) => (
@@ -1273,7 +1628,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         <ActivityIndicator color="#fff" />
                     ) : (
                         <Text style={styles.primaryBtnText}>
-                            {saleMode === 'gasto' ? 'Registrar gasto' : 'Confirmar venta'}
+                            {saleMode === 'gasto'
+                                ? (editingGastoId ? 'Guardar gasto' : 'Registrar gasto')
+                                : 'Confirmar venta'}
                         </Text>
                     )}
                 </TouchableOpacity>
@@ -1423,17 +1780,174 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                     </Text>
                                 )}
                             </View>
-                            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                                <TouchableOpacity onPress={() => handleEditDiscount(d)}>
-                                    <Text style={{ color: accent, fontWeight: '700' }}>Editar</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDeleteDiscount(d)} disabled={submitting}>
-                                    <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Eliminar</Text>
-                                </TouchableOpacity>
+                            <View style={{ gap: 8, alignItems: 'flex-end' }}>
+                                <Text style={styles.kpiHint}>
+                                    {d.isActive === false ? 'Inactivo' : 'Activo'}
+                                    {d.validFrom || d.validTo
+                                        ? ` · ${d.validFrom ? toYmd(new Date(d.validFrom)) : '…'} → ${d.validTo ? toYmd(new Date(d.validTo)) : '…'}`
+                                        : ''}
+                                </Text>
+                                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                                    <TouchableOpacity onPress={() => loadDiscountUsage(d._id)}>
+                                        <Text style={{ color: accent, fontWeight: '700' }}>Uso</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => handleEditDiscount(d)}>
+                                        <Text style={{ color: accent, fontWeight: '700' }}>Editar</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => handleDeleteDiscount(d)} disabled={submitting}>
+                                        <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Eliminar</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
                     );
                 })
+            )}
+
+            {discountUsageLoading && (
+                <ActivityIndicator style={{ marginTop: 16 }} color={accent} />
+            )}
+            {discountUsage && !discountUsageLoading && (
+                <>
+                    <Text style={styles.sectionTitle}>
+                        Uso: {discountUsage.discount?.name}
+                    </Text>
+                    <Text style={styles.kpiHint}>
+                        {discountUsage.totals?.uses || 0} usos · dto total {money(discountUsage.totals?.totalDiscount, currency)}
+                        {' · '}ventas {money(discountUsage.totals?.totalSales, currency)}
+                    </Text>
+                    {(discountUsage.usages || []).length === 0 ? (
+                        <Text style={styles.empty}>Sin usos registrados.</Text>
+                    ) : (
+                        discountUsage.usages.slice(0, 30).map((u) => (
+                            <View key={u._id} style={styles.movementRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.movementClient}>{u.clientName}</Text>
+                                    <Text style={styles.movementMeta}>
+                                        {u.date ? format(new Date(u.date), "d MMM · HH:mm", { locale: es }) : '—'}
+                                        {u.discountAmount > 0 ? ` · −${money(u.discountAmount, currency)}` : ''}
+                                    </Text>
+                                </View>
+                                <Text style={styles.movementAmount}>{money(u.amount, currency)}</Text>
+                            </View>
+                        ))
+                    )}
+                    <TouchableOpacity onPress={() => setDiscountUsage(null)} style={{ marginTop: 8 }}>
+                        <Text style={{ color: colors.icon, fontWeight: '700' }}>Cerrar historial</Text>
+                    </TouchableOpacity>
+                </>
+            )}
+        </ScrollView>
+    );
+
+    const renderCierre = () => (
+        <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={refreshControl}
+        >
+            <Text style={styles.sectionTitle}>Cierre de caja (hoy)</Text>
+            <Text style={styles.kpiHint}>
+                Contá el efectivo físico y registrá el cierre. Se compara con efectivo de ingresos menos gastos en efectivo.
+            </Text>
+            {(dashboard?.sucursales || []).length > 0 && (
+                <FilterButton
+                    label={
+                        sucursalFilter === 'all'
+                            ? 'Todas las sucursales'
+                            : ((dashboard?.sucursales || []).find((s) => String(s._id) === String(sucursalFilter))?.nombre || 'Sucursal')
+                    }
+                    onPress={() => setActiveFilter('sucursal')}
+                    styles={styles}
+                    accent={accent}
+                    colors={colors}
+                />
+            )}
+
+            {dashboard?.cierre ? (
+                <View style={styles.listItem}>
+                    <Text style={styles.listItemTitle}>Cierre ya registrado</Text>
+                    <Text style={styles.kpiHint}>
+                        Esperado {money(dashboard.cierre.expectedEfectivo, currency)}
+                        {' · '}contado {money(dashboard.cierre.countedEfectivo, currency)}
+                        {' · '}diff {money(dashboard.cierre.difference, currency)}
+                    </Text>
+                    <Text style={styles.kpiHint}>
+                        Por {dashboard.cierre.closedByName}
+                        {dashboard.cierre.closedAt
+                            ? ` · ${format(new Date(dashboard.cierre.closedAt), "d MMM HH:mm", { locale: es })}`
+                            : ''}
+                    </Text>
+                    {!!dashboard.cierre.notes && (
+                        <Text style={styles.kpiHint}>{dashboard.cierre.notes}</Text>
+                    )}
+                </View>
+            ) : (
+                <>
+                    {cierrePreview && (
+                        <View style={styles.rowWrap}>
+                            <View style={styles.chip}>
+                                <Text style={styles.chipLabel}>Efectivo esperado</Text>
+                                <Text style={styles.chipValue}>{money(cierrePreview.expectedEfectivo, currency)}</Text>
+                            </View>
+                            <View style={styles.chip}>
+                                <Text style={styles.chipLabel}>Ingresos hoy</Text>
+                                <Text style={styles.chipValue}>{money(cierrePreview.ingresosTotal, currency)}</Text>
+                            </View>
+                            <View style={styles.chip}>
+                                <Text style={styles.chipLabel}>Gastos hoy</Text>
+                                <Text style={[styles.chipValue, { color: '#e74c3c' }]}>
+                                    {money(cierrePreview.gastosTotal, currency)}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+                    <Text style={styles.sectionTitle}>Efectivo contado</Text>
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="decimal-pad"
+                        placeholder="Monto contado en caja"
+                        placeholderTextColor={colors.icon}
+                        value={cierreCounted}
+                        onChangeText={setCierreCounted}
+                    />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Notas (opcional)"
+                        placeholderTextColor={colors.icon}
+                        value={cierreNotes}
+                        onChangeText={setCierreNotes}
+                    />
+                    <TouchableOpacity
+                        style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
+                        onPress={handleCreateCierre}
+                        disabled={submitting}
+                    >
+                        <Text style={styles.primaryBtnText}>Registrar cierre</Text>
+                    </TouchableOpacity>
+                </>
+            )}
+
+            <Text style={styles.sectionTitle}>Historial de cierres</Text>
+            {cierreHistory.length === 0 ? (
+                <Text style={styles.empty}>Todavía no hay cierres.</Text>
+            ) : (
+                cierreHistory.map((c) => (
+                    <View key={c._id} style={styles.listItem}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.listItemTitle}>{c.dayStr}</Text>
+                            <Text style={styles.kpiHint}>
+                                Contado {money(c.countedEfectivo, currency)}
+                                {' · '}esperado {money(c.expectedEfectivo, currency)}
+                                {' · '}diff {money(c.difference, currency)}
+                            </Text>
+                            <Text style={styles.kpiHint}>
+                                {c.closedByName}
+                                {c.sucursalName ? ` · ${c.sucursalName}` : ''}
+                            </Text>
+                        </View>
+                    </View>
+                ))
             )}
         </ScrollView>
     );
@@ -1597,6 +2111,33 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         onChangeText={(t) => setNewDiscount((p) => ({ ...p, value: t }))}
                     />
 
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <Text style={styles.sectionTitle}>Activo</Text>
+                        <Switch
+                            value={newDiscount.isActive !== false}
+                            onValueChange={(v) => setNewDiscount((p) => ({ ...p, isActive: v }))}
+                            trackColor={{ true: accent }}
+                        />
+                    </View>
+                    <Text style={styles.sectionTitle}>Vigencia (opcional)</Text>
+                    <Text style={styles.kpiHint}>Formato YYYY-MM-DD. Dejá vacío si no aplica.</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TextInput
+                            style={[styles.input, { flex: 1 }]}
+                            placeholder="Desde"
+                            placeholderTextColor={colors.icon}
+                            value={newDiscount.validFrom}
+                            onChangeText={(t) => setNewDiscount((p) => ({ ...p, validFrom: t }))}
+                        />
+                        <TextInput
+                            style={[styles.input, { flex: 1 }]}
+                            placeholder="Hasta"
+                            placeholderTextColor={colors.icon}
+                            value={newDiscount.validTo}
+                            onChangeText={(t) => setNewDiscount((p) => ({ ...p, validTo: t }))}
+                        />
+                    </View>
+
                     <Text style={styles.sectionTitle}>Clientes vinculados</Text>
                     <Text style={styles.kpiHint}>
                         Estos clientes reciben el descuento al pagar por transferencia o Mercado Pago.
@@ -1710,6 +2251,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         {tab === 'venta' && renderVenta()}
                         {tab === 'pendientes' && renderPendientes()}
                         {tab === 'descuentos' && renderDescuentos()}
+                        {tab === 'cierre' && renderCierre()}
                         {tab === 'suscripciones' && renderSuscripciones()}
                     </>
                 )}

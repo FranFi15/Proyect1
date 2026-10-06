@@ -20,6 +20,11 @@ const gastoSchema = new mongoose.Schema({
         required: true,
     },
     spentAt: { type: Date, default: Date.now },
+    sucursal: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sucursal',
+        default: null,
+    },
 }, { timestamps: true });
 
 export default (gymDBConnection) => {

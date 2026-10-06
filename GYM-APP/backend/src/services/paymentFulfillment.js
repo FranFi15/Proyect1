@@ -139,6 +139,7 @@ export const fulfillApprovedPayment = async ({
             discountAmount: discountAmount || 0,
             discountId: transactionMeta.discountId || null,
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
+            sucursal: transactionMeta.sucursal || null,
         });
     }
 
@@ -169,6 +170,7 @@ export const fulfillApprovedPayment = async ({
             method: payLater ? (transactionMeta.method || 'deuda') : (transactionMeta.method || 'efectivo'),
             source: transactionMeta.source || 'pack',
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
+            sucursal: transactionMeta.sucursal || null,
         });
 
         const msg = await grantPackageBenefits(user, itemPkg, ticketId, CreditLog, quantity);
