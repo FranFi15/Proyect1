@@ -125,6 +125,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     // Sale form
     const [clientQuery, setClientQuery] = useState('');
     const [selectedClient, setSelectedClient] = useState(null);
+    const [lastPurchase, setLastPurchase] = useState(null);
+    const [lastPurchaseLoading, setLastPurchaseLoading] = useState(false);
     const [selectedPkgIds, setSelectedPkgIds] = useState({}); // id -> qty
     const [saleMode, setSaleMode] = useState('paquete'); // paquete | abono
     const [packageTypeFilter, setPackageTypeFilter] = useState('credits'); // credits | pase | membresia
@@ -157,6 +159,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [fromDate, setFromDate] = useState(() => toYmd(startOfMonth(new Date())));
     const [toDate, setToDate] = useState(() => toYmd(new Date()));
     const [sucursalFilter, setSucursalFilter] = useState('all');
+    const [resumenListFilter, setResumenListFilter] = useState('ingresos'); // ingresos | gastos
     const [editingGastoId, setEditingGastoId] = useState(null);
     const [cierreCounted, setCierreCounted] = useState('');
     const [cierreNotes, setCierreNotes] = useState('');
@@ -327,9 +330,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const filteredClients = useMemo(() => {
         const q = clientQuery.trim().toLowerCase();
-        const list = clients || [];
-        if (!q) return list.slice(0, CLIENT_PREVIEW_COUNT);
-        return list
+        if (!q) return [];
+        return (clients || [])
             .filter((c) => {
                 const name = `${c.nombre || ''} ${c.apellido || ''}`.toLowerCase();
                 const dni = String(c.dni || '').toLowerCase();
@@ -338,6 +340,60 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             })
             .slice(0, 12);
     }, [clients, clientQuery]);
+
+    const loadLastPurchase = useCallback(async (userId) => {
+        if (!userId) {
+            setLastPurchase(null);
+            return;
+        }
+        setLastPurchaseLoading(true);
+        setLastPurchase(null);
+        try {
+            const res = await apiClient.get(`/caja/clients/${userId}/last-purchase`);
+            setLastPurchase(res.data || null);
+        } catch (_e) {
+            setLastPurchase(null);
+        } finally {
+            setLastPurchaseLoading(false);
+        }
+    }, []);
+
+    const repeatLastPurchase = useCallback(() => {
+        if (!lastPurchase?.canRepeat || !Array.isArray(lastPurchase.items) || lastPurchase.items.length === 0) {
+            showAlert('No se puede repetir', 'No encontramos el paquete de esa compra (puede estar inactivo o borrado).');
+            return;
+        }
+        const nextIds = {};
+        let firstPkg = null;
+        for (const item of lastPurchase.items) {
+            const pkg = (packages || []).find((p) => String(p._id) === String(item.packageId));
+            if (!pkg || pkg.isActive === false) {
+                showAlert('Paquete no disponible', `"${item.name}" ya no está disponible para vender.`);
+                return;
+            }
+            nextIds[pkg._id] = Math.max(1, Number(item.quantity) || 1);
+            if (!firstPkg) firstPkg = pkg;
+        }
+        setSaleMode('paquete');
+        if (firstPkg?.isPaseLibre) setPackageTypeFilter('pase');
+        else if (firstPkg?.isMembresia) setPackageTypeFilter('membresia');
+        else {
+            setPackageTypeFilter('credits');
+            if (firstPkg?.tipoClase?._id || firstPkg?.tipoClase) {
+                setCreditTypeFilter(String(firstPkg.tipoClase._id || firstPkg.tipoClase));
+            } else {
+                setCreditTypeFilter('all');
+            }
+        }
+        setSelectedPkgIds(nextIds);
+        if (lastPurchase.method && ['efectivo', 'transfer', 'mercadopago'].includes(lastPurchase.method)) {
+            setMethod(lastPurchase.method);
+        }
+        setSelectedDiscountId(null);
+        setAdhocPercent('');
+        setFreeAmount('');
+        showAlert('Listo', 'Se cargó la última compra. Revisá y confirmá la venta.');
+    }, [lastPurchase, packages]);
 
     const filteredDiscountClients = useMemo(() => {
         const q = discountClientQuery.trim().toLowerCase();
@@ -389,10 +445,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
     const cartItems = useMemo(
         () =>
-            filteredPackages
+            (packages || [])
                 .filter((p) => selectedPkgIds[p._id])
                 .map((p) => ({ pkg: p, quantity: selectedPkgIds[p._id] })),
-        [filteredPackages, selectedPkgIds]
+        [packages, selectedPkgIds]
     );
 
     const catalogSubtotal = useMemo(
@@ -426,6 +482,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             setUseCreditBalance(false);
         } else if (id === 'gasto') {
             setSelectedClient(null);
+            setLastPurchase(null);
             setSelectedPkgIds({});
             setFreeAmount('');
             setFreePaymentName('');
@@ -616,6 +673,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const resetSaleForm = () => {
         setSelectedClient(null);
         setClientQuery('');
+        setLastPurchase(null);
+        setLastPurchaseLoading(false);
         setSelectedPkgIds({});
         setSaleMode('paquete');
         setPackageTypeFilter('credits');
@@ -1233,111 +1292,145 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Gastos por categoría</Text>
+            <Text style={styles.sectionTitle}>Movimientos del período</Text>
             <View style={styles.rowWrap}>
-                {Object.keys(dashboard?.gastosByCategory || {}).length === 0 ? (
-                    <Text style={styles.empty}>Sin gastos en el período.</Text>
-                ) : (
-                    Object.entries(dashboard.gastosByCategory).map(([k, v]) => (
-                        <View key={k} style={styles.chip}>
-                            <Text style={styles.chipLabel}>{k}</Text>
-                            <Text style={[styles.chipValue, { color: '#e74c3c' }]}>{money(v, currency)}</Text>
-                        </View>
-                    ))
-                )}
+                {[
+                    { id: 'ingresos', label: 'Ingresos' },
+                    { id: 'gastos', label: 'Gastos' },
+                ].map((opt) => (
+                    <TouchableOpacity
+                        key={opt.id}
+                        style={[
+                            styles.filterPill,
+                            resumenListFilter === opt.id && { backgroundColor: accent, borderColor: accent },
+                        ]}
+                        onPress={() => setResumenListFilter(opt.id)}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={[
+                            styles.filterPillText,
+                            resumenListFilter === opt.id && { color: '#fff' },
+                        ]}>
+                            {opt.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Filtro gastos</Text>
-            <FilterButton
-                label={gastoFilterLabel}
-                onPress={() => setActiveFilter('gastoCategoryFilter')}
-                styles={styles}
-                accent={accent}
-                colors={colors}
-            />
-
-            <Text style={styles.sectionTitle}>Gastos del período</Text>
-            {filteredGastos.length === 0 ? (
-                <Text style={styles.empty}>Sin gastos para este filtro.</Text>
-            ) : (
-                filteredGastos.slice(0, 40).map((g) => (
-                    <View key={g._id} style={styles.movementRow}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.movementClient}>{g.name}</Text>
-                            <Text style={styles.movementMeta}>
-                                {format(new Date(g.date), "d MMM · HH:mm", { locale: es })}
-                                {' · '}
-                                {g.category}
-                                {' · '}
-                                {g.method}
-                            </Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                            <Text style={[styles.movementAmount, { color: '#e74c3c' }]}>
-                                −{money(g.amount, currency)}
-                            </Text>
-                            <TouchableOpacity onPress={() => handleEditGasto(g)} disabled={submitting}>
-                                <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Editar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleDeleteGasto(g._id)} disabled={submitting}>
-                                <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Eliminar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))
-            )}
-
-            <Text style={styles.sectionTitle}>Últimos ingresos</Text>
-            {(dashboard?.movements || []).length === 0 ? (
-                <Text style={styles.empty}>Sin movimientos en el período.</Text>
-            ) : (
-                (dashboard?.movements || []).slice(0, 40).map((m) => (
-                    <View key={m._id} style={styles.movementRow}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.movementClient}>{m.clientName}</Text>
-                            <Text style={styles.movementDesc} numberOfLines={2}>{m.description}</Text>
-                            <Text style={styles.movementMeta}>
-                                {format(new Date(m.date), "d MMM · HH:mm", { locale: es })}
-                                {' · '}
-                                {METHOD_LABELS[m.method] || m.method || '—'}
-                                {m.discountAmount > 0 ? ` · dto $${m.discountAmount}` : ''}
-                                {m.sucursalName ? ` · ${m.sucursalName}` : ''}
-                            </Text>
-                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
-                                <TouchableOpacity onPress={() => exportMovement(m)}>
-                                    <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Exportar</Text>
-                                </TouchableOpacity>
-                                {m.receiptUrl ? (
-                                    <TouchableOpacity onPress={() => Linking.openURL(m.receiptUrl)}>
-                                        <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Comprobante</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                                <TouchableOpacity onPress={() => handleRefund(m)} disabled={submitting}>
-                                    <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Anular</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                        <Text style={styles.movementAmount}>{money(m.amount, currency)}</Text>
-                    </View>
-                ))
-            )}
-
-            {(dashboard?.recentMercadoPago || []).length > 0 && (
+            {resumenListFilter === 'gastos' ? (
                 <>
-                    <Text style={styles.sectionTitle}>Mercado Pago recientes</Text>
-                    {dashboard.recentMercadoPago.map((m) => (
-                        <View key={m._id} style={styles.movementRow}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.movementClient}>{m.clientName}</Text>
-                                <Text style={styles.movementMeta}>
-                                    {m.date ? format(new Date(m.date), "d MMM · HH:mm", { locale: es }) : '—'}
-                                    {' · '}
-                                    {m.status}
-                                </Text>
+                    <Text style={styles.sectionTitle}>Gastos por categoría</Text>
+                    <View style={styles.rowWrap}>
+                        {Object.keys(dashboard?.gastosByCategory || {}).length === 0 ? (
+                            <Text style={styles.empty}>Sin gastos en el período.</Text>
+                        ) : (
+                            Object.entries(dashboard.gastosByCategory).map(([k, v]) => (
+                                <View key={k} style={styles.chip}>
+                                    <Text style={styles.chipLabel}>{k}</Text>
+                                    <Text style={[styles.chipValue, { color: '#e74c3c' }]}>{money(v, currency)}</Text>
+                                </View>
+                            ))
+                        )}
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Filtro categoría</Text>
+                    <FilterButton
+                        label={gastoFilterLabel}
+                        onPress={() => setActiveFilter('gastoCategoryFilter')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+
+                    <Text style={styles.sectionTitle}>Gastos del período</Text>
+                    {filteredGastos.length === 0 ? (
+                        <Text style={styles.empty}>Sin gastos para este filtro.</Text>
+                    ) : (
+                        filteredGastos.slice(0, 40).map((g) => (
+                            <View key={g._id} style={styles.movementRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.movementClient}>{g.name}</Text>
+                                    <Text style={styles.movementMeta}>
+                                        {format(new Date(g.date), "d MMM · HH:mm", { locale: es })}
+                                        {' · '}
+                                        {g.category}
+                                        {' · '}
+                                        {METHOD_LABELS[g.method] || g.method || '—'}
+                                        {' · '}
+                                        {g.sucursalName || 'Sin sucursal'}
+                                    </Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                                    <Text style={[styles.movementAmount, { color: '#e74c3c' }]}>
+                                        −{money(g.amount, currency)}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => handleEditGasto(g)} disabled={submitting}>
+                                        <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Editar</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => handleDeleteGasto(g._id)} disabled={submitting}>
+                                        <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Eliminar</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <Text style={styles.movementAmount}>{money(m.amount, currency)}</Text>
-                        </View>
-                    ))}
+                        ))
+                    )}
+                </>
+            ) : (
+                <>
+                    <Text style={styles.sectionTitle}>Ingresos del período</Text>
+                    {(dashboard?.movements || []).length === 0 ? (
+                        <Text style={styles.empty}>Sin movimientos en el período.</Text>
+                    ) : (
+                        (dashboard?.movements || []).slice(0, 40).map((m) => (
+                            <View key={m._id} style={styles.movementRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.movementClient}>{m.clientName}</Text>
+                                    <Text style={styles.movementDesc} numberOfLines={2}>{m.description}</Text>
+                                    <Text style={styles.movementMeta}>
+                                        {format(new Date(m.date), "d MMM · HH:mm", { locale: es })}
+                                        {' · '}
+                                        {METHOD_LABELS[m.method] || m.method || '—'}
+                                        {m.discountAmount > 0 ? ` · dto $${m.discountAmount}` : ''}
+                                        {' · '}
+                                        {m.sucursalName || 'Sin sucursal'}
+                                    </Text>
+                                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
+                                        <TouchableOpacity onPress={() => exportMovement(m)}>
+                                            <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Exportar</Text>
+                                        </TouchableOpacity>
+                                        {m.receiptUrl ? (
+                                            <TouchableOpacity onPress={() => Linking.openURL(m.receiptUrl)}>
+                                                <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Comprobante</Text>
+                                            </TouchableOpacity>
+                                        ) : null}
+                                        <TouchableOpacity onPress={() => handleRefund(m)} disabled={submitting}>
+                                            <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>Anular</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <Text style={styles.movementAmount}>{money(m.amount, currency)}</Text>
+                            </View>
+                        ))
+                    )}
+
+                    {(dashboard?.recentMercadoPago || []).length > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>Mercado Pago recientes</Text>
+                            {dashboard.recentMercadoPago.map((m) => (
+                                <View key={m._id} style={styles.movementRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.movementClient}>{m.clientName}</Text>
+                                        <Text style={styles.movementMeta}>
+                                            {m.date ? format(new Date(m.date), "d MMM · HH:mm", { locale: es }) : '—'}
+                                            {' · '}
+                                            {m.status}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.movementAmount}>{money(m.amount, currency)}</Text>
+                                </View>
+                            ))}
+                        </>
+                    )}
                 </>
             )}
         </ScrollView>
@@ -1403,8 +1496,51 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                         ? `A favor: ${money(selectedClient.balance)}`
                                         : 'Saldo: al día'}
                             </Text>
+                            {lastPurchaseLoading ? (
+                                <Text style={styles.kpiHint}>Cargando última compra...</Text>
+                            ) : lastPurchase?.description || (lastPurchase?.items || []).length > 0 ? (
+                                <View style={{ marginTop: 6 }}>
+                                    <Text style={[styles.kpiHint, { fontWeight: '700', color: colors.text }]}>
+                                        Última compra
+                                    </Text>
+                                    <Text style={styles.kpiHint} numberOfLines={2}>
+                                        {(lastPurchase.items || []).length > 0
+                                            ? lastPurchase.items
+                                                .map((i) => (i.quantity > 1 ? `${i.name} x${i.quantity}` : i.name))
+                                                .join(', ')
+                                            : (lastPurchase.description || 'Sin descripción')}
+                                    </Text>
+                                    <Text style={styles.kpiHint}>
+                                        {lastPurchase.date
+                                            ? format(new Date(lastPurchase.date), "d MMM yyyy · HH:mm", { locale: es })
+                                            : '—'}
+                                        {lastPurchase.amount != null ? ` · ${money(lastPurchase.amount)}` : ''}
+                                        {lastPurchase.method
+                                            ? ` · ${METHOD_LABELS[lastPurchase.method] || lastPurchase.method}`
+                                            : ''}
+                                    </Text>
+                                    {lastPurchase.canRepeat ? (
+                                        <TouchableOpacity
+                                            style={[styles.secondaryBtn, { marginTop: 8, borderColor: accent }]}
+                                            onPress={repeatLastPurchase}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Text style={{ color: accent, fontWeight: '800', fontSize: 14 }}>
+                                                Repetir compra
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <Text style={[styles.kpiHint, { marginTop: 6, color: '#e67e22' }]}>
+                                            No se puede repetir: el paquete ya no existe o está inactivo.
+                                        </Text>
+                                    )}
+                                </View>
+                            ) : (
+                                <Text style={styles.kpiHint}>Sin compras anteriores</Text>
+                            )}
                             <TouchableOpacity onPress={() => {
                                 setSelectedClient(null);
+                                setLastPurchase(null);
                                 setUseCreditBalance(false);
                             }}>
                                 <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
@@ -1414,7 +1550,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         <>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Escribí para buscar cliente..."
+                                placeholder="Escribí nombre, DNI o email..."
                                 placeholderTextColor={colors.icon}
                                 value={clientQuery}
                                 onChangeText={setClientQuery}
@@ -1422,7 +1558,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             <Text style={styles.kpiHint}>
                                 {clientQuery.trim()
                                     ? `${filteredClients.length} resultado(s)`
-                                    : `Mostrando ${filteredClients.length} de ${(clients || []).length} — seguí escribiendo`}
+                                    : 'Empezá a escribir para buscar un cliente'}
                             </Text>
                             {filteredClients.map((c) => (
                                 <TouchableOpacity
@@ -1431,6 +1567,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                     onPress={() => {
                                         setSelectedClient(c);
                                         setUseCreditBalance(false);
+                                        setClientQuery('');
+                                        loadLastPurchase(c._id);
                                     }}
                                 >
                                     <Text style={styles.listItemTitle}>

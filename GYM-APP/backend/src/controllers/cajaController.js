@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import moment from 'moment-timezone';
 import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
-import { fulfillApprovedPayment } from '../services/paymentFulfillment.js';
+import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
 
 const CURRENCY_BY_COUNTRY = {
@@ -1247,6 +1247,131 @@ const listCajaCierres = asyncHandler(async (req, res) => {
     })));
 });
 
+const parseChargeDescription = (desc = '') => {
+    const text = String(desc || '').trim();
+    let match = text.match(/^(?:Cargo|Deuda) por compra: (.+) x(\d+)$/i);
+    if (match) {
+        return { name: match[1].trim(), quantity: Math.max(1, Number(match[2]) || 1) };
+    }
+    match = text.match(/^(?:Cargo|Deuda) por compra de paquete: (.+)$/i);
+    if (match) {
+        return { name: match[1].trim(), quantity: 1 };
+    }
+    match = text.match(/^(?:Cargo|Deuda) por compra: (.+)$/i);
+    if (match) {
+        return { name: match[1].trim(), quantity: 1 };
+    }
+    return null;
+};
+
+// GET /api/caja/clients/:userId/last-purchase
+const getClientLastPurchase = asyncHandler(async (req, res) => {
+    const { Transaction, PaymentPackage, PaymentRequest } = getModels(req.gymDBConnection);
+    const userId = parseObjectId(req.params.userId);
+    if (!userId) {
+        res.status(400);
+        throw new Error('Cliente inválido.');
+    }
+
+    const charges = await Transaction.find({
+        user: userId,
+        type: 'charge',
+        ...notVoided,
+    })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean();
+
+    if (charges.length === 0) {
+        return res.json({ canRepeat: false, items: [], description: null, date: null, method: null });
+    }
+
+    const latest = charges[0];
+    const latestMs = new Date(latest.createdAt).getTime();
+    const sameCheckout = charges.filter((c) => {
+        if (latest.paymentRequestId && c.paymentRequestId
+            && String(c.paymentRequestId) === String(latest.paymentRequestId)) {
+            return true;
+        }
+        return Math.abs(new Date(c.createdAt).getTime() - latestMs) <= 5000;
+    });
+
+    let ticketItems = [];
+    if (latest.paymentRequestId) {
+        const ticket = await PaymentRequest.findById(latest.paymentRequestId)
+            .populate('package')
+            .populate('items.package')
+            .lean();
+        if (ticket) {
+            ticketItems = resolveTicketCart(ticket);
+        }
+    }
+
+    const items = [];
+    for (const charge of sameCheckout) {
+        const parsed = parseChargeDescription(charge.description);
+        let pkg = null;
+        let quantity = parsed?.quantity || 1;
+
+        if (charge.relatedItem?.itemId) {
+            pkg = await PaymentPackage.findById(charge.relatedItem.itemId).lean();
+        }
+
+        if (!pkg && ticketItems.length > 0) {
+            const byName = ticketItems.find((entry) =>
+                parsed?.name && entry.pkg?.name?.toLowerCase() === parsed.name.toLowerCase()
+            );
+            if (byName?.pkg) {
+                pkg = byName.pkg;
+                quantity = byName.quantity || quantity;
+            } else if (ticketItems.length === 1 && sameCheckout.length === 1) {
+                pkg = ticketItems[0].pkg;
+                quantity = ticketItems[0].quantity || quantity;
+            }
+        }
+
+        if (!pkg && parsed?.name) {
+            pkg = await PaymentPackage.findOne({
+                name: parsed.name,
+                isActive: true,
+            }).lean();
+            if (!pkg) {
+                pkg = await PaymentPackage.findOne({ name: parsed.name }).lean();
+            }
+        }
+
+        if (!pkg) continue;
+
+        const existing = items.find((i) => String(i.packageId) === String(pkg._id));
+        if (existing) {
+            existing.quantity += quantity;
+        } else {
+            items.push({
+                packageId: pkg._id,
+                name: pkg.name,
+                quantity,
+                price: Number(pkg.price) || Number(charge.amount) || 0,
+                isPaseLibre: !!pkg.isPaseLibre,
+                isMembresia: !!pkg.isMembresia,
+                isActive: pkg.isActive !== false,
+            });
+        }
+    }
+
+    const method = ['efectivo', 'transfer', 'mercadopago'].includes(latest.method)
+        ? latest.method
+        : null;
+
+    res.json({
+        canRepeat: items.length > 0 && items.every((i) => i.isActive),
+        items,
+        description: latest.description || null,
+        date: latest.createdAt,
+        method,
+        amount: sameCheckout.reduce((sum, c) => sum + (Number(c.amount) || 0), 0),
+    });
+});
+
 export {
     getCajaDashboard,
     createCajaSale,
@@ -1262,4 +1387,5 @@ export {
     previewCajaCierre,
     createCajaCierre,
     listCajaCierres,
+    getClientLastPurchase,
 };

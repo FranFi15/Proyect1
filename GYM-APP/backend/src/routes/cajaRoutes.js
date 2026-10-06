@@ -14,6 +14,7 @@ import {
     previewCajaCierre,
     createCajaCierre,
     listCajaCierres,
+    getClientLastPurchase,
 } from '../controllers/cajaController.js';
 import { protect, authorizeRoles } from '../middlewares/authMiddleware.js';
 
@@ -24,6 +25,7 @@ router.use(protect, authorizeRoles('admin'));
 router.get('/dashboard', getCajaDashboard);
 router.post('/sale', createCajaSale);
 router.post('/refunds', refundCajaPayment);
+router.get('/clients/:userId/last-purchase', getClientLastPurchase);
 
 router.post('/gastos', createGasto);
 router.put('/gastos/:id', updateGasto);

@@ -172,6 +172,7 @@ export const fulfillApprovedPayment = async ({
             : rawLine;
         user.balance -= lineTotal;
 
+        const packageId = itemPkg._id || itemPkg.id || null;
         await Transaction.create({
             user: user._id,
             type: 'charge',
@@ -190,6 +191,12 @@ export const fulfillApprovedPayment = async ({
             source: transactionMeta.source || 'pack',
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
             sucursal: transactionMeta.sucursal || null,
+            ...(packageId ? {
+                relatedItem: {
+                    itemType: 'class_pack',
+                    itemId: packageId,
+                },
+            } : {}),
         });
 
         const msg = await grantPackageBenefits(user, itemPkg, ticketId, CreditLog, quantity);
