@@ -77,6 +77,58 @@ const withSucursal = (match, sucursalId) => {
     return { ...match, sucursal: sucursalId };
 };
 
+const emptyMethodTotals = () => ({ efectivo: 0, transfer: 0, mercadopago: 0 });
+
+const buildCierreSnapshot = async ({ Transaction, Gasto, bounds, sucursalId }) => {
+    const paymentMatch = withSucursal({
+        type: 'payment',
+        createdAt: { $gte: bounds.start, $lte: bounds.end },
+        ...notVoided,
+    }, sucursalId);
+    const gastoMatch = withSucursal({ spentAt: { $gte: bounds.start, $lte: bounds.end } }, sucursalId);
+
+    const [methodAgg, gastosAgg] = await Promise.all([
+        Transaction.aggregate([
+            { $match: paymentMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+        Gasto.aggregate([
+            { $match: gastoMatch },
+            { $group: { _id: '$method', total: { $sum: '$amount' } } },
+        ]),
+    ]);
+
+    const ingresosByMethod = emptyMethodTotals();
+    let ingresosTotal = 0;
+    for (const row of methodAgg) {
+        const amount = Number(row.total) || 0;
+        ingresosTotal += amount;
+        if (ingresosByMethod[row._id] != null) ingresosByMethod[row._id] += amount;
+    }
+
+    const gastosByMethod = emptyMethodTotals();
+    let gastosTotal = 0;
+    for (const row of gastosAgg) {
+        const amount = Number(row.total) || 0;
+        gastosTotal += amount;
+        if (gastosByMethod[row._id] != null) gastosByMethod[row._id] += amount;
+    }
+
+    const gastosEfectivo = gastosByMethod.efectivo;
+    const expectedEfectivo = Math.round((ingresosByMethod.efectivo - gastosEfectivo) * 100) / 100;
+    const neto = Math.round((ingresosTotal - gastosTotal) * 100) / 100;
+
+    return {
+        ingresosByMethod,
+        ingresosTotal: Math.round(ingresosTotal * 100) / 100,
+        gastosByMethod,
+        gastosEfectivo,
+        gastosTotal: Math.round(gastosTotal * 100) / 100,
+        expectedEfectivo,
+        neto,
+    };
+};
+
 
 // GET /api/caja/dashboard
 const getCajaDashboard = asyncHandler(async (req, res) => {
@@ -395,10 +447,15 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             expectedEfectivo: cierreHoy.expectedEfectivo,
             countedEfectivo: cierreHoy.countedEfectivo,
             difference: cierreHoy.difference,
-            ingresosByMethod: cierreHoy.ingresosByMethod,
+            ingresosByMethod: cierreHoy.ingresosByMethod || emptyMethodTotals(),
             ingresosTotal: cierreHoy.ingresosTotal,
+            gastosByMethod: cierreHoy.gastosByMethod || {
+                ...emptyMethodTotals(),
+                efectivo: cierreHoy.gastosEfectivo || 0,
+            },
             gastosEfectivo: cierreHoy.gastosEfectivo,
             gastosTotal: cierreHoy.gastosTotal,
+            neto: Math.round(((cierreHoy.ingresosTotal || 0) - (cierreHoy.gastosTotal || 0)) * 100) / 100,
             notes: cierreHoy.notes,
             closedAt: cierreHoy.closedAt,
             closedByName: cierreHoy.closedBy
@@ -427,6 +484,7 @@ const createCajaSale = asyncHandler(async (req, res) => {
         customItem = null,
         customPrice = null,
         sucursalId = null,
+        useCreditBalance = false,
     } = req.body;
 
     if (!userId) {
@@ -436,10 +494,6 @@ const createCajaSale = asyncHandler(async (req, res) => {
 
     const isPayLater = Boolean(payLater);
     const allowedMethods = ['efectivo', 'transfer', 'mercadopago'];
-    if (!isPayLater && !allowedMethods.includes(method)) {
-        res.status(400);
-        throw new Error('Método de pago inválido.');
-    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -625,10 +679,28 @@ const createCajaSale = asyncHandler(async (req, res) => {
         discountAmount,
     });
 
-    const amountPaid = Math.round((catalogSubtotal - discountValue + free) * 100) / 100;
-    if (amountPaid <= 0) {
+    const totalDue = Math.round((catalogSubtotal - discountValue) * 100) / 100;
+    const availableCredit = Math.max(0, Number(user.balance) || 0);
+    const wantsCredit = useCreditBalance === true
+        || useCreditBalance === 'true'
+        || useCreditBalance === 1
+        || useCreditBalance === '1';
+    const creditApplied = (!isPayLater && wantsCredit && cart.length > 0)
+        ? Math.min(availableCredit, totalDue)
+        : 0;
+    const cashPaid = Math.round((totalDue - creditApplied + free) * 100) / 100;
+
+    if (cashPaid < 0) {
+        res.status(400);
+        throw new Error('El monto a cobrar no es válido.');
+    }
+    if (cashPaid <= 0 && creditApplied <= 0) {
         res.status(400);
         throw new Error('El monto a cobrar debe ser mayor a 0.');
+    }
+    if (!isPayLater && cashPaid > 0 && !allowedMethods.includes(method)) {
+        res.status(400);
+        throw new Error('Método de pago inválido.');
     }
 
     const names = cart.map((e) => (e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name));
@@ -645,6 +717,9 @@ const createCajaSale = asyncHandler(async (req, res) => {
         }
         if (discountValue > 0) {
             desc += ` (dto. $${discountValue.toFixed(2)})`;
+        }
+        if (creditApplied > 0) {
+            desc += ` (saldo a favor $${creditApplied.toFixed(2)})`;
         }
     }
 
@@ -680,17 +755,21 @@ const createCajaSale = asyncHandler(async (req, res) => {
         models: { Transaction, CreditLog, Notification, User },
         user,
         packages: cart,
-        amount: amountPaid,
+        amount: isPayLater ? totalDue : cashPaid,
         description: desc,
         createdBy: req.user._id,
         payLater: isPayLater,
         transactionMeta: {
-            method: isPayLater ? 'deuda' : method,
+            method: isPayLater
+                ? 'deuda'
+                : (cashPaid > 0 ? method : 'manual'),
             source: cart.length > 0 ? 'caja' : 'account',
             originalAmount: catalogSubtotal + free,
             discountAmount: discountValue,
             discountId: discountDoc?._id || null,
             sucursal: parseObjectId(sucursalId),
+            creditApplied,
+            freeAmount: free,
         },
     });
 
@@ -725,12 +804,20 @@ const createCajaSale = asyncHandler(async (req, res) => {
         }
     }
 
+    const appliedCredit = Number(result.creditApplied) || creditApplied;
+    const paidCash = isPayLater ? 0 : (Number(result.cashPaid) >= 0 ? Number(result.cashPaid) : cashPaid);
+
     res.status(201).json({
         message: isPayLater
             ? 'Venta cargada como deuda al cliente.'
-            : 'Venta registrada en caja.',
-        amountPaid: isPayLater ? 0 : amountPaid,
-        amountCharged: amountPaid,
+            : appliedCredit > 0 && paidCash <= 0
+                ? 'Venta cubierta con saldo a favor.'
+                : appliedCredit > 0
+                    ? `Venta registrada. Cobrado $${paidCash.toFixed(2)} + $${appliedCredit.toFixed(2)} de saldo a favor.`
+                    : 'Venta registrada en caja.',
+        amountPaid: paidCash,
+        amountCharged: totalDue,
+        creditApplied: appliedCredit,
         payLater: isPayLater,
         discountAmount: discountValue,
         newBalance: user.balance,
@@ -1072,53 +1159,16 @@ const previewCajaCierre = asyncHandler(async (req, res) => {
         : moment.tz(tz).format('YYYY-MM-DD');
     const bounds = getGymDayBounds(tz, dayStr);
     const sucursalId = parseObjectId(req.query.sucursal);
-
-    const paymentMatch = withSucursal({
-        type: 'payment',
-        createdAt: { $gte: bounds.start, $lte: bounds.end },
-        ...notVoided,
-    }, sucursalId);
-    const gastoMatch = withSucursal({ spentAt: { $gte: bounds.start, $lte: bounds.end } }, sucursalId);
-
-    const [methodAgg, gastosAgg] = await Promise.all([
-        Transaction.aggregate([
-            { $match: paymentMatch },
-            { $group: { _id: '$method', total: { $sum: '$amount' } } },
-        ]),
-        Gasto.aggregate([
-            { $match: gastoMatch },
-            { $group: { _id: '$method', total: { $sum: '$amount' } } },
-        ]),
-    ]);
-
-    const ingresosByMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
-    let ingresosTotal = 0;
-    for (const row of methodAgg) {
-        ingresosTotal += row.total || 0;
-        if (ingresosByMethod[row._id] != null) ingresosByMethod[row._id] += row.total || 0;
-    }
-
-    let gastosTotal = 0;
-    let gastosEfectivo = 0;
-    for (const row of gastosAgg) {
-        gastosTotal += row.total || 0;
-        if (row._id === 'efectivo') gastosEfectivo += row.total || 0;
-    }
-
-    const expectedEfectivo = ingresosByMethod.efectivo - gastosEfectivo;
+    const snapshot = await buildCierreSnapshot({ Transaction, Gasto, bounds, sucursalId });
 
     res.json({
         dayStr,
-        ingresosByMethod,
-        ingresosTotal,
-        gastosTotal,
-        gastosEfectivo,
-        expectedEfectivo,
+        ...snapshot,
     });
 });
 
 const createCajaCierre = asyncHandler(async (req, res) => {
-    const { CajaCierre } = getModels(req.gymDBConnection);
+    const { CajaCierre, Transaction, Gasto } = getModels(req.gymDBConnection);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     const dayStr = req.body.date
         ? moment.tz(req.body.date, tz).format('YYYY-MM-DD')
@@ -1130,38 +1180,9 @@ const createCajaCierre = asyncHandler(async (req, res) => {
         throw new Error('Indicá el efectivo contado.');
     }
 
-    const { Transaction, Gasto } = getModels(req.gymDBConnection);
     const bounds = getGymDayBounds(tz, dayStr);
-    const paymentMatch = withSucursal({
-        type: 'payment',
-        createdAt: { $gte: bounds.start, $lte: bounds.end },
-        ...notVoided,
-    }, sucursalId);
-    const gastoMatch = withSucursal({ spentAt: { $gte: bounds.start, $lte: bounds.end } }, sucursalId);
-    const [methodAgg, gastosAgg] = await Promise.all([
-        Transaction.aggregate([
-            { $match: paymentMatch },
-            { $group: { _id: '$method', total: { $sum: '$amount' } } },
-        ]),
-        Gasto.aggregate([
-            { $match: gastoMatch },
-            { $group: { _id: '$method', total: { $sum: '$amount' } } },
-        ]),
-    ]);
-    const ingresosByMethod = { efectivo: 0, transfer: 0, mercadopago: 0 };
-    let ingresosTotal = 0;
-    for (const row of methodAgg) {
-        ingresosTotal += row.total || 0;
-        if (ingresosByMethod[row._id] != null) ingresosByMethod[row._id] += row.total || 0;
-    }
-    let gastosTotal = 0;
-    let gastosEfectivo = 0;
-    for (const row of gastosAgg) {
-        gastosTotal += row.total || 0;
-        if (row._id === 'efectivo') gastosEfectivo += row.total || 0;
-    }
-    const expectedEfectivo = ingresosByMethod.efectivo - gastosEfectivo;
-    const difference = Math.round((countedEfectivo - expectedEfectivo) * 100) / 100;
+    const snapshot = await buildCierreSnapshot({ Transaction, Gasto, bounds, sucursalId });
+    const difference = Math.round((countedEfectivo - snapshot.expectedEfectivo) * 100) / 100;
 
     const query = { dayStr };
     if (sucursalId) query.sucursal = sucursalId;
@@ -1176,13 +1197,14 @@ const createCajaCierre = asyncHandler(async (req, res) => {
     const cierre = await CajaCierre.create({
         dayStr,
         sucursal: sucursalId,
-        expectedEfectivo,
+        expectedEfectivo: snapshot.expectedEfectivo,
         countedEfectivo,
         difference,
-        ingresosByMethod,
-        ingresosTotal,
-        gastosEfectivo,
-        gastosTotal,
+        ingresosByMethod: snapshot.ingresosByMethod,
+        ingresosTotal: snapshot.ingresosTotal,
+        gastosByMethod: snapshot.gastosByMethod,
+        gastosEfectivo: snapshot.gastosEfectivo,
+        gastosTotal: snapshot.gastosTotal,
         notes: req.body.notes ? String(req.body.notes).trim() : '',
         closedBy: req.user._id,
         closedAt: new Date(),
@@ -1208,8 +1230,14 @@ const listCajaCierres = asyncHandler(async (req, res) => {
         expectedEfectivo: c.expectedEfectivo,
         countedEfectivo: c.countedEfectivo,
         difference: c.difference,
+        ingresosByMethod: c.ingresosByMethod || emptyMethodTotals(),
         ingresosTotal: c.ingresosTotal,
+        gastosByMethod: c.gastosByMethod || {
+            ...emptyMethodTotals(),
+            efectivo: c.gastosEfectivo || 0,
+        },
         gastosTotal: c.gastosTotal,
+        neto: Math.round(((c.ingresosTotal || 0) - (c.gastosTotal || 0)) * 100) / 100,
         notes: c.notes,
         closedAt: c.closedAt,
         sucursalName: c.sucursal?.nombre || null,

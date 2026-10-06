@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Modal,
     View,
@@ -14,15 +14,18 @@ import {
     Share,
     Linking,
     Switch,
+    Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, subDays, startOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, parseISO, isValid } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/services/apiClient';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
+import SheetDatePicker from '@/components/SheetDatePicker';
+import WebDatePicker from '@/components/WebDatePicker';
 
 const TABS = [
     { id: 'resumen', label: 'Resumen', icon: 'stats-chart-outline' },
@@ -135,6 +138,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [method, setMethod] = useState('efectivo');
     const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     const [adhocPercent, setAdhocPercent] = useState('');
+    const [useCreditBalance, setUseCreditBalance] = useState(false);
     const [activeFilter, setActiveFilter] = useState(null); // which FilterModal is open
 
     // Discount form
@@ -159,10 +163,91 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [cierrePreview, setCierrePreview] = useState(null);
     const [cierreHistory, setCierreHistory] = useState([]);
     const [saleSucursalId, setSaleSucursalId] = useState(null);
+    const [datePickerConfig, setDatePickerConfig] = useState({
+        visible: false,
+        field: null,
+        currentValue: new Date(),
+    });
+    const datePickerCallbackRef = useRef(null);
+
+    const closeDatePicker = useCallback(() => {
+        setDatePickerConfig((prev) => ({ ...prev, visible: false }));
+        datePickerCallbackRef.current = null;
+    }, []);
+
+    const showDatePickerFor = useCallback((field, initialDateString, onChangeCallback) => {
+        Keyboard.dismiss();
+        let initialDate = new Date();
+        if (initialDateString) {
+            const parsed = parseISO(initialDateString);
+            if (isValid(parsed)) initialDate = parsed;
+        }
+        datePickerCallbackRef.current = onChangeCallback;
+        setDatePickerConfig({
+            visible: true,
+            field,
+            currentValue: initialDate,
+        });
+    }, []);
+
+    const confirmSheetDate = useCallback((date) => {
+        const cb = datePickerCallbackRef.current;
+        closeDatePicker();
+        if (date instanceof Date && isValid(date)) {
+            cb?.(format(date, 'yyyy-MM-dd'));
+        }
+    }, [closeDatePicker]);
+
+    const renderDateField = (label, value, onChange) => {
+        let displayValue = label;
+        if (value) {
+            const parsed = parseISO(value);
+            displayValue = isValid(parsed) ? format(parsed, 'dd/MM/yyyy') : value;
+        }
+        if (Platform.OS === 'web') {
+            return (
+                <View style={[styles.dateFieldContainer, { flex: 1 }]}>
+                    <Text style={styles.dateFieldLabel}>{label}</Text>
+                    <WebDatePicker
+                        selected={value && isValid(parseISO(value)) ? parseISO(value) : null}
+                        onChange={(date) => {
+                            if (date instanceof Date && isValid(date)) {
+                                onChange(format(date, 'yyyy-MM-dd'));
+                            }
+                        }}
+                        dateFormat="dd/MM/yyyy"
+                        popperPlacement="top-start"
+                        customInput={
+                            <TouchableOpacity style={styles.dateInputTouchable}>
+                                <Text style={styles.dateInputText}>{displayValue}</Text>
+                            </TouchableOpacity>
+                        }
+                    />
+                </View>
+            );
+        }
+        return (
+            <View style={[styles.dateFieldContainer, { flex: 1 }]}>
+                <Text style={styles.dateFieldLabel}>{label}</Text>
+                <TouchableOpacity
+                    onPress={() => showDatePickerFor(label, value, onChange)}
+                    style={styles.dateInputTouchable}
+                >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <Text style={styles.dateInputText}>{displayValue}</Text>
+                        <Ionicons name="calendar-outline" size={18} color={colors.icon} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     useEffect(() => {
-        if (!visible) setActiveFilter(null);
-    }, [visible]);
+        if (!visible) {
+            setActiveFilter(null);
+            closeDatePicker();
+        }
+    }, [visible, closeDatePicker]);
 
     const applyRangePreset = (presetId) => {
         setRangePreset(presetId);
@@ -338,6 +423,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             setAdhocPercent('');
             setGastoName('');
             setGastoAmount('');
+            setUseCreditBalance(false);
         } else if (id === 'gasto') {
             setSelectedClient(null);
             setSelectedPkgIds({});
@@ -345,7 +431,9 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             setFreePaymentName('');
             setSelectedDiscountId(null);
             setAdhocPercent('');
+            setUseCreditBalance(false);
         } else {
+            setUseCreditBalance(false);
             setFreeAmount('');
             setFreePaymentName('');
             setGastoName('');
@@ -391,7 +479,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 };
             case 'saleSucursal':
                 return {
-                    title: 'Sucursal de la venta',
+                    title: saleMode === 'gasto' ? 'Sucursal del gasto' : 'Sucursal de la venta',
                     options: [
                         { _id: 'none', nombre: 'Sin sucursal' },
                         ...((dashboard?.sucursales || []).map((s) => ({
@@ -483,6 +571,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         newDiscount.type,
         sucursalFilter,
         saleSucursalId,
+        saleMode,
         dashboard?.sucursales,
     ]);
 
@@ -500,13 +589,19 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         return 0;
     }, [selectedDiscountId, adhocPercent, discounts, catalogSubtotal]);
 
+    const creditAvailable = Math.max(0, Number(selectedClient?.balance) || 0);
+    const packageDue = Math.max(0, catalogSubtotal - previewDiscount);
+    const creditAppliedPreview = (saleMode === 'paquete' && useCreditBalance && creditAvailable > 0)
+        ? Math.min(creditAvailable, packageDue)
+        : 0;
+
     const totalToCharge = Math.max(
         0,
         saleMode === 'abono'
             ? (Number(freeAmount) || 0)
             : saleMode === 'gasto'
                 ? (Number(gastoAmount) || 0)
-                : catalogSubtotal - previewDiscount + (Number(freeAmount) || 0)
+                : packageDue - creditAppliedPreview + (Number(freeAmount) || 0)
     );
 
     const togglePackage = (pkgId) => {
@@ -534,6 +629,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         setMethod('efectivo');
         setSelectedDiscountId(null);
         setAdhocPercent('');
+        setUseCreditBalance(false);
         setSaleSucursalId(sucursalFilter !== 'all' ? sucursalFilter : null);
     };
 
@@ -613,6 +709,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 method,
                 payLater: Boolean(payLater),
                 sucursalId: saleSucursalId || undefined,
+                useCreditBalance: Boolean(useCreditBalance) && !payLater,
             };
             if (saleMode === 'abono') {
                 payload.description = freePaymentName.trim();
@@ -626,11 +723,19 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 
             const res = await apiClient.post('/caja/sale', payload);
             const bal = Number(res.data.newBalance);
+            const creditUsed = Number(res.data.creditApplied) || 0;
+            const cashCollected = Number(res.data.amountPaid);
             let balMsg = '';
+            if (!payLater && creditUsed > 0) {
+                balMsg += `\nSaldo a favor usado: $${creditUsed.toFixed(2)}`;
+            }
+            if (!payLater && Number.isFinite(cashCollected)) {
+                balMsg += `\nCobrado en caja: $${cashCollected.toFixed(2)}`;
+            }
             if (Number.isFinite(bal)) {
-                if (bal > 0) balMsg = `\nSaldo a favor: $${bal.toFixed(2)}`;
-                else if (bal < 0) balMsg = `\nDeuda restante: $${Math.abs(bal).toFixed(2)}`;
-                else balMsg = '\nSaldo: al día';
+                if (bal > 0) balMsg += `\nSaldo a favor restante: $${bal.toFixed(2)}`;
+                else if (bal < 0) balMsg += `\nDeuda restante: $${Math.abs(bal).toFixed(2)}`;
+                else balMsg += '\nSaldo: al día ($0)';
             }
             showAlert(
                 payLater ? 'Deuda cargada' : 'Venta OK',
@@ -999,23 +1104,25 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             </View>
             {rangePreset === 'custom' && (
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                    <TextInput
-                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                        placeholder="Desde YYYY-MM-DD"
-                        placeholderTextColor={colors.icon}
-                        value={fromDate}
-                        onChangeText={(t) => { setFromDate(t); setRangePreset('custom'); }}
-                    />
-                    <TextInput
-                        style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                        placeholder="Hasta YYYY-MM-DD"
-                        placeholderTextColor={colors.icon}
-                        value={toDate}
-                        onChangeText={(t) => { setToDate(t); setRangePreset('custom'); }}
-                    />
+                    {renderDateField('Desde', fromDate, (d) => {
+                        setFromDate(d);
+                        setRangePreset('custom');
+                    })}
+                    {renderDateField('Hasta', toDate, (d) => {
+                        setToDate(d);
+                        setRangePreset('custom');
+                    })}
                 </View>
             )}
-            <Text style={styles.kpiHint}>{fromDate} → {toDate}</Text>
+            <Text style={styles.kpiHint}>
+                {(() => {
+                    const fromParsed = parseISO(fromDate);
+                    const toParsed = parseISO(toDate);
+                    const fromLabel = isValid(fromParsed) ? format(fromParsed, 'dd/MM/yyyy') : fromDate;
+                    const toLabel = isValid(toParsed) ? format(toParsed, 'dd/MM/yyyy') : toDate;
+                    return `${fromLabel} → ${toLabel}`;
+                })()}
+            </Text>
 
             {(dashboard?.sucursales || []).length > 0 && (
                 <>
@@ -1243,22 +1350,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             keyboardShouldPersistTaps="handled"
             refreshControl={refreshControl}
         >
-            {(dashboard?.sucursales || []).length > 0 && (
-                <>
-                    <Text style={styles.sectionTitle}>Sucursal</Text>
-                    <FilterButton
-                        label={
-                            saleSucursalId
-                                ? ((dashboard?.sucursales || []).find((s) => String(s._id) === String(saleSucursalId))?.nombre || 'Sucursal')
-                                : 'Sin sucursal'
-                        }
-                        onPress={() => setActiveFilter('saleSucursal')}
-                        styles={styles}
-                        accent={accent}
-                        colors={colors}
-                    />
-                </>
-            )}
             {editingGastoId && saleMode === 'gasto' && (
                 <Text style={[styles.kpiHint, { marginBottom: 8, color: accent }]}>
                     Editando gasto · tocá Guardar para actualizar
@@ -1280,6 +1371,23 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 ))}
             </View>
 
+            {(dashboard?.sucursales || []).length > 0 && (
+                <>
+                    <Text style={styles.sectionTitle}>Sucursal</Text>
+                    <FilterButton
+                        label={
+                            saleSucursalId
+                                ? ((dashboard?.sucursales || []).find((s) => String(s._id) === String(saleSucursalId))?.nombre || 'Sucursal')
+                                : 'Sin sucursal'
+                        }
+                        onPress={() => setActiveFilter('saleSucursal')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                </>
+            )}
+
             {saleMode !== 'gasto' && (
                 <>
                     <Text style={styles.sectionTitle}>Cliente</Text>
@@ -1295,7 +1403,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                         ? `A favor: ${money(selectedClient.balance)}`
                                         : 'Saldo: al día'}
                             </Text>
-                            <TouchableOpacity onPress={() => setSelectedClient(null)}>
+                            <TouchableOpacity onPress={() => {
+                                setSelectedClient(null);
+                                setUseCreditBalance(false);
+                            }}>
                                 <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
                             </TouchableOpacity>
                         </View>
@@ -1317,7 +1428,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                 <TouchableOpacity
                                     key={c._id}
                                     style={styles.listItem}
-                                    onPress={() => setSelectedClient(c)}
+                                    onPress={() => {
+                                        setSelectedClient(c);
+                                        setUseCreditBalance(false);
+                                    }}
                                 >
                                     <Text style={styles.listItemTitle}>
                                         {c.nombre} {c.apellido}
@@ -1423,6 +1537,32 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             value={adhocPercent}
                             onChangeText={setAdhocPercent}
                         />
+                    )}
+
+                    {creditAvailable > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>Saldo a favor</Text>
+                            <TouchableOpacity
+                                style={[styles.listItem, useCreditBalance && { borderColor: accent, borderWidth: 2 }]}
+                                onPress={() => setUseCreditBalance((v) => !v)}
+                                activeOpacity={0.85}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.listItemTitle}>Usar saldo a favor</Text>
+                                    <Text style={styles.kpiHint}>
+                                        Disponible {money(creditAvailable)}
+                                        {useCreditBalance && creditAppliedPreview > 0
+                                            ? ` · se descuenta ${money(creditAppliedPreview)}`
+                                            : ''}
+                                    </Text>
+                                </View>
+                                <Ionicons
+                                    name={useCreditBalance ? 'checkbox' : 'square-outline'}
+                                    size={22}
+                                    color={useCreditBalance ? accent : colors.icon}
+                                />
+                            </TouchableOpacity>
+                        </>
                     )}
 
                     <Text style={styles.sectionTitle}>Monto extra (queda a favor)</Text>
@@ -1543,6 +1683,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     <Text style={styles.kpiHint}>
                         Subtotal {money(catalogSubtotal)}
                         {previewDiscount > 0 ? ` − dto ${money(previewDiscount)}` : ''}
+                        {creditAppliedPreview > 0 ? ` − saldo a favor ${money(creditAppliedPreview)}` : ''}
                         {Number(freeAmount) > 0 ? ` + extra a favor ${money(freeAmount)}` : ''}
                     </Text>
                 ) : saleMode === 'abono' ? (
@@ -1819,102 +1960,174 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         </ScrollView>
     );
 
-    const renderCierre = () => (
-        <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={refreshControl}
-        >
-            <Text style={styles.sectionTitle}>Cierre de caja (hoy)</Text>
-            <Text style={styles.kpiHint}>
-                Contá el efectivo físico y registrá el cierre. Se compara con efectivo de ingresos menos gastos en efectivo.
-            </Text>
-            {(dashboard?.sucursales || []).length > 0 && (
-                <FilterButton
-                    label={
-                        sucursalFilter === 'all'
-                            ? 'Todas las sucursales'
-                            : ((dashboard?.sucursales || []).find((s) => String(s._id) === String(sucursalFilter))?.nombre || 'Sucursal')
-                    }
-                    onPress={() => setActiveFilter('sucursal')}
-                    styles={styles}
-                    accent={accent}
-                    colors={colors}
-                />
-            )}
-
-            {dashboard?.cierre ? (
-                <View style={styles.listItem}>
-                    <Text style={styles.listItemTitle}>Cierre ya registrado</Text>
-                    <Text style={styles.kpiHint}>
-                        Esperado {money(dashboard.cierre.expectedEfectivo, currency)}
-                        {' · '}contado {money(dashboard.cierre.countedEfectivo, currency)}
-                        {' · '}diff {money(dashboard.cierre.difference, currency)}
+    const renderCierreBreakdown = (data) => {
+        if (!data) return null;
+        const ingresos = data.ingresosByMethod || {};
+        const gastos = data.gastosByMethod || {};
+        const methodRows = [
+            { id: 'efectivo', label: 'Efectivo' },
+            { id: 'transfer', label: 'Transferencia' },
+            { id: 'mercadopago', label: 'Mercado Pago' },
+        ];
+        return (
+            <View style={styles.totalBox}>
+                <Text style={styles.listItemTitle}>Ingresos</Text>
+                {methodRows.map((m) => (
+                    <View key={`ing-${m.id}`} style={styles.cierreLine}>
+                        <Text style={styles.kpiHint}>{m.label}</Text>
+                        <Text style={styles.listItemTitle}>{money(ingresos[m.id], currency)}</Text>
+                    </View>
+                ))}
+                <View style={styles.cierreLine}>
+                    <Text style={[styles.listItemTitle, { fontWeight: '800' }]}>Total ingresos</Text>
+                    <Text style={[styles.listItemTitle, { fontWeight: '800', color: '#1e7e34' }]}>
+                        {money(data.ingresosTotal, currency)}
                     </Text>
-                    <Text style={styles.kpiHint}>
-                        Por {dashboard.cierre.closedByName}
-                        {dashboard.cierre.closedAt
-                            ? ` · ${format(new Date(dashboard.cierre.closedAt), "d MMM HH:mm", { locale: es })}`
-                            : ''}
-                    </Text>
-                    {!!dashboard.cierre.notes && (
-                        <Text style={styles.kpiHint}>{dashboard.cierre.notes}</Text>
-                    )}
                 </View>
-            ) : (
-                <>
-                    {cierrePreview && (
-                        <View style={styles.rowWrap}>
-                            <View style={styles.chip}>
-                                <Text style={styles.chipLabel}>Efectivo esperado</Text>
-                                <Text style={styles.chipValue}>{money(cierrePreview.expectedEfectivo, currency)}</Text>
-                            </View>
-                            <View style={styles.chip}>
-                                <Text style={styles.chipLabel}>Ingresos hoy</Text>
-                                <Text style={styles.chipValue}>{money(cierrePreview.ingresosTotal, currency)}</Text>
-                            </View>
-                            <View style={styles.chip}>
-                                <Text style={styles.chipLabel}>Gastos hoy</Text>
-                                <Text style={[styles.chipValue, { color: '#e74c3c' }]}>
-                                    {money(cierrePreview.gastosTotal, currency)}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
-                    <Text style={styles.sectionTitle}>Efectivo contado</Text>
-                    <TextInput
-                        style={styles.input}
-                        keyboardType="decimal-pad"
-                        placeholder="Monto contado en caja"
-                        placeholderTextColor={colors.icon}
-                        value={cierreCounted}
-                        onChangeText={setCierreCounted}
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Notas (opcional)"
-                        placeholderTextColor={colors.icon}
-                        value={cierreNotes}
-                        onChangeText={setCierreNotes}
-                    />
-                    <TouchableOpacity
-                        style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
-                        onPress={handleCreateCierre}
-                        disabled={submitting}
-                    >
-                        <Text style={styles.primaryBtnText}>Registrar cierre</Text>
-                    </TouchableOpacity>
-                </>
-            )}
 
-            <Text style={styles.sectionTitle}>Historial de cierres</Text>
-            {cierreHistory.length === 0 ? (
-                <Text style={styles.empty}>Todavía no hay cierres.</Text>
-            ) : (
-                cierreHistory.map((c) => (
-                    <View key={c._id} style={styles.listItem}>
+                <Text style={[styles.listItemTitle, { marginTop: 14 }]}>Gastos</Text>
+                {methodRows.map((m) => (
+                    <View key={`gas-${m.id}`} style={styles.cierreLine}>
+                        <Text style={styles.kpiHint}>{m.label}</Text>
+                        <Text style={[styles.listItemTitle, { color: '#e74c3c' }]}>
+                            {money(gastos[m.id], currency)}
+                        </Text>
+                    </View>
+                ))}
+                <View style={styles.cierreLine}>
+                    <Text style={[styles.listItemTitle, { fontWeight: '800' }]}>Total gastos</Text>
+                    <Text style={[styles.listItemTitle, { fontWeight: '800', color: '#e74c3c' }]}>
+                        {money(data.gastosTotal, currency)}
+                    </Text>
+                </View>
+
+                <View style={[styles.cierreLine, { marginTop: 14, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border || '#ddd' }]}>
+                    <Text style={styles.listItemTitle}>Neto del día</Text>
+                    <Text style={[styles.listItemTitle, {
+                        color: (Number(data.neto) || ((Number(data.ingresosTotal) || 0) - (Number(data.gastosTotal) || 0))) >= 0
+                            ? '#1e7e34'
+                            : '#e74c3c',
+                    }]}>
+                        {money(
+                            data.neto != null
+                                ? data.neto
+                                : (Number(data.ingresosTotal) || 0) - (Number(data.gastosTotal) || 0),
+                            currency
+                        )}
+                    </Text>
+                </View>
+                <View style={styles.cierreLine}>
+                    <Text style={styles.listItemTitle}>Efectivo esperado en caja</Text>
+                    <Text style={[styles.listItemTitle, { fontWeight: '800' }]}>
+                        {money(data.expectedEfectivo, currency)}
+                    </Text>
+                </View>
+                <Text style={[styles.kpiHint, { marginTop: 6 }]}>
+                    Efectivo esperado = ingresos en efectivo − gastos en efectivo
+                </Text>
+            </View>
+        );
+    };
+
+    const renderCierre = () => {
+        const closed = dashboard?.cierre;
+        const summary = closed || cierrePreview;
+        return (
+            <ScrollView
+                contentContainerStyle={styles.scroll}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={refreshControl}
+            >
+                <Text style={styles.sectionTitle}>Cierre de caja (hoy)</Text>
+                <Text style={styles.kpiHint}>
+                    Resumen del día por método de pago y gastos. Contá el efectivo físico para cerrar la caja.
+                </Text>
+                {(dashboard?.sucursales || []).length > 0 && (
+                    <FilterButton
+                        label={
+                            sucursalFilter === 'all'
+                                ? 'Todas las sucursales'
+                                : ((dashboard?.sucursales || []).find((s) => String(s._id) === String(sucursalFilter))?.nombre || 'Sucursal')
+                        }
+                        onPress={() => setActiveFilter('sucursal')}
+                        styles={styles}
+                        accent={accent}
+                        colors={colors}
+                    />
+                )}
+
+                {renderCierreBreakdown(summary)}
+
+                {closed ? (
+                    <View style={styles.listItem}>
                         <View style={{ flex: 1 }}>
+                            <Text style={styles.listItemTitle}>Cierre ya registrado</Text>
+                            <Text style={styles.kpiHint}>
+                                Contado {money(closed.countedEfectivo, currency)}
+                                {' · '}esperado {money(closed.expectedEfectivo, currency)}
+                                {' · '}diff {money(closed.difference, currency)}
+                            </Text>
+                            <Text style={styles.kpiHint}>
+                                Por {closed.closedByName}
+                                {closed.closedAt
+                                    ? ` · ${format(new Date(closed.closedAt), "d MMM HH:mm", { locale: es })}`
+                                    : ''}
+                            </Text>
+                            {!!closed.notes && (
+                                <Text style={styles.kpiHint}>{closed.notes}</Text>
+                            )}
+                        </View>
+                    </View>
+                ) : (
+                    <>
+                        <Text style={styles.sectionTitle}>Efectivo contado</Text>
+                        <TextInput
+                            style={styles.input}
+                            keyboardType="decimal-pad"
+                            placeholder="Monto contado en caja"
+                            placeholderTextColor={colors.icon}
+                            value={cierreCounted}
+                            onChangeText={setCierreCounted}
+                        />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Notas (opcional)"
+                            placeholderTextColor={colors.icon}
+                            value={cierreNotes}
+                            onChangeText={setCierreNotes}
+                        />
+                        <TouchableOpacity
+                            style={[styles.primaryBtn, submitting && { opacity: 0.6 }]}
+                            onPress={handleCreateCierre}
+                            disabled={submitting}
+                        >
+                            <Text style={styles.primaryBtnText}>Registrar cierre</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
+
+                <Text style={styles.sectionTitle}>Historial de cierres</Text>
+                {cierreHistory.length === 0 ? (
+                    <Text style={styles.empty}>Todavía no hay cierres.</Text>
+                ) : (
+                    cierreHistory.map((c) => (
+                        <View key={c._id} style={[styles.listItem, { flexDirection: 'column', alignItems: 'stretch' }]}>
                             <Text style={styles.listItemTitle}>{c.dayStr}</Text>
+                            <Text style={styles.kpiHint}>
+                                Efectivo {money(c.ingresosByMethod?.efectivo, currency)}
+                                {' · '}Transfer {money(c.ingresosByMethod?.transfer, currency)}
+                                {' · '}MP {money(c.ingresosByMethod?.mercadopago, currency)}
+                            </Text>
+                            <Text style={styles.kpiHint}>
+                                Ingresos {money(c.ingresosTotal, currency)}
+                                {' · '}Gastos {money(c.gastosTotal, currency)}
+                                {' · '}Neto {money(
+                                    c.neto != null
+                                        ? c.neto
+                                        : (Number(c.ingresosTotal) || 0) - (Number(c.gastosTotal) || 0),
+                                    currency
+                                )}
+                            </Text>
                             <Text style={styles.kpiHint}>
                                 Contado {money(c.countedEfectivo, currency)}
                                 {' · '}esperado {money(c.expectedEfectivo, currency)}
@@ -1925,11 +2138,11 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                 {c.sucursalName ? ` · ${c.sucursalName}` : ''}
                             </Text>
                         </View>
-                    </View>
-                ))
-            )}
-        </ScrollView>
-    );
+                    ))
+                )}
+            </ScrollView>
+        );
+    };
 
     const renderDiscountFormModal = () => (
         <Modal
@@ -2087,7 +2300,12 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     );
 
     return (
-        <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <>
+        <Modal
+            visible={visible && !(datePickerConfig.visible && Platform.OS !== 'web')}
+            animationType="slide"
+            onRequestClose={onClose}
+        >
             <View style={[styles.root, { backgroundColor: colors.background }]}>
                 <View style={[styles.header, { backgroundColor: accent }]}>
                     <View>
@@ -2149,6 +2367,15 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 )}
             </View>
         </Modal>
+        <SheetDatePicker
+            visible={datePickerConfig.visible && Platform.OS !== 'web'}
+            value={datePickerConfig.currentValue}
+            title={datePickerConfig.field ? `Seleccionar ${datePickerConfig.field}` : 'Seleccionar fecha'}
+            gymColor={accent}
+            onConfirm={confirmSheetDate}
+            onClose={closeDatePicker}
+        />
+        </>
     );
 };
 
@@ -2232,6 +2459,24 @@ const getStyles = (colorScheme, accent) => {
             marginBottom: 8,
             backgroundColor: colors.cardBackground || colors.background,
         },
+        dateFieldContainer: { marginBottom: 2 },
+        dateFieldLabel: {
+            fontSize: 12,
+            fontWeight: '600',
+            color: colors.icon,
+            marginBottom: 6,
+        },
+        dateInputTouchable: {
+            borderWidth: 1,
+            borderColor: colors.border || '#ddd',
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+            backgroundColor: colors.cardBackground || colors.background,
+            minHeight: 46,
+            justifyContent: 'center',
+        },
+        dateInputText: { fontSize: 15, color: colors.text, fontWeight: '600' },
         listItem: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -2286,6 +2531,12 @@ const getStyles = (colorScheme, accent) => {
             fontWeight: '700',
             fontSize: 12,
             color: colors.text,
+        },
+        cierreLine: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 6,
         },
         totalBox: {
             marginTop: 12,

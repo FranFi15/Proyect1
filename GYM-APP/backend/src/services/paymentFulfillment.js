@@ -120,22 +120,39 @@ export const fulfillApprovedPayment = async ({
 
     const discountAmount = Math.max(0, Number(transactionMeta.discountAmount) || 0);
     const discountedPackageTotal = Math.max(0, catalogSubtotal - discountAmount);
+    const freeAmount = Math.max(0, Number(transactionMeta.freeAmount) || 0);
+    const availableCredit = Math.max(0, Number(user.balance) || 0);
+    const creditApplied = !payLater
+        ? Math.max(0, Math.min(Number(transactionMeta.creditApplied) || 0, availableCredit))
+        : 0;
 
-    if (!payLater) {
-        user.balance += amount;
+    // Cash actually collected at caja. When credit is used, never record the
+    // credit portion as an ingreso — only due - credit + optional extra.
+    let cashPaid = Math.max(0, Number(amount) || 0);
+    if (!payLater && cart.length > 0 && creditApplied > 0) {
+        cashPaid = Math.round((discountedPackageTotal - creditApplied + freeAmount) * 100) / 100;
+    }
+    if (cashPaid < 0) cashPaid = 0;
+
+    if (!payLater && cashPaid > 0) {
+        user.balance += cashPaid;
+
+        const paymentOriginal = transactionMeta.originalAmount != null
+            ? transactionMeta.originalAmount
+            : (creditApplied > 0 || discountAmount > 0
+                ? Math.round((cashPaid + creditApplied + discountAmount) * 100) / 100
+                : null);
 
         await Transaction.create({
             user: user._id,
             type: 'payment',
-            amount,
+            amount: cashPaid,
             description,
             createdBy: actorId,
             receiptUrl: receiptUrl || undefined,
             method: transactionMeta.method || 'efectivo',
             source: transactionMeta.source || 'pack',
-            originalAmount: transactionMeta.originalAmount != null
-                ? transactionMeta.originalAmount
-                : (discountAmount > 0 ? amount + discountAmount : null),
+            originalAmount: paymentOriginal,
             discountAmount: discountAmount || 0,
             discountId: transactionMeta.discountId || null,
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
@@ -167,7 +184,9 @@ export const fulfillApprovedPayment = async ({
                     ? `Deuda por compra de paquete: ${itemPkg.name}`
                     : `Cargo por compra de paquete: ${itemPkg.name}`),
             createdBy: actorId,
-            method: payLater ? (transactionMeta.method || 'deuda') : (transactionMeta.method || 'efectivo'),
+            method: payLater
+                ? (transactionMeta.method || 'deuda')
+                : (cashPaid > 0 ? (transactionMeta.method || 'efectivo') : 'manual'),
             source: transactionMeta.source || 'pack',
             paymentRequestId: transactionMeta.paymentRequestId || ticketId || null,
             sucursal: transactionMeta.sucursal || null,
@@ -183,7 +202,7 @@ export const fulfillApprovedPayment = async ({
 
     const names = cart.map(e => e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg?.name).filter(Boolean);
     const benefitMessage = benefitMessages.join(' ');
-    const chargedTotal = payLater ? discountedPackageTotal : amount;
+    const chargedTotal = payLater ? discountedPackageTotal : cashPaid;
     const notifyTitle = payLater
         ? (names.length === 1 ? `Compra a cuenta: ${names[0]}` : 'Compra a cuenta')
         : (names.length === 1
@@ -191,12 +210,12 @@ export const fulfillApprovedPayment = async ({
             : names.length > 1
                 ? 'Compra confirmada'
                 : 'Pago acreditado');
+    const creditNote = creditApplied > 0 ? ` Se usaron $${creditApplied.toFixed(2)} de saldo a favor.` : '';
     const notifyMessage = payLater
         ? `Se cargó una deuda de $${chargedTotal}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
         : names.length > 0
-            ? `Registramos tu pago de $${amount}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
-            : `Registramos tu pago de $${amount}. Tu saldo fue actualizado.`;
-
+            ? `Registramos tu pago de $${cashPaid}${names.length > 1 ? ` (${names.join(', ')})` : ''}.${creditNote} ${benefitMessage}`.trim()
+            : `Registramos tu pago de $${cashPaid}.${creditNote} Tu saldo fue actualizado.`.trim();
     if (Notification && User) {
         try {
             await sendSingleNotification(
@@ -213,5 +232,5 @@ export const fulfillApprovedPayment = async ({
         }
     }
 
-    return { benefitMessage };
+    return { benefitMessage, cashPaid, creditApplied };
 };

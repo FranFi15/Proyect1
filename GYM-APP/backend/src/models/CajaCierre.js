@@ -17,6 +17,11 @@ const cajaCierreSchema = new mongoose.Schema({
         mercadopago: { type: Number, default: 0 },
     },
     ingresosTotal: { type: Number, default: 0 },
+    gastosByMethod: {
+        efectivo: { type: Number, default: 0 },
+        transfer: { type: Number, default: 0 },
+        mercadopago: { type: Number, default: 0 },
+    },
     gastosEfectivo: { type: Number, default: 0 },
     gastosTotal: { type: Number, default: 0 },
     notes: { type: String, default: '' },
