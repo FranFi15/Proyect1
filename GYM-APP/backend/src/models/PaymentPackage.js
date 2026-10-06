@@ -18,6 +18,11 @@ const paymentPackageSchema = new mongoose.Schema({
 
     /** Clients can enroll in Mercado Pago Suscripciones for this package. */
     allowAutoDebit: { type: Boolean, default: false },
+    /**
+     * Optional recurring price for débito automático.
+     * When null/undefined, subscriptions use `price`.
+     */
+    autoDebitPrice: { type: Number, default: null },
 
     isActive: { type: Boolean, default: true } // Para que el admin pueda ocultar paquetes viejos
 }, {

@@ -268,13 +268,6 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
     const amountToPay = isStoreMode
         ? storeCartTotal
         : (cartItems.length > 0 ? cartTotalDiscounted : Number(customAmount));
-    const canSubscribe =
-        !isStoreMode
-        && mpLinked
-        && cartItems.length === 1
-        && cartItems[0].quantity === 1
-        && !payDebt
-        && !!cartItems[0].pkg?.allowAutoDebit;
 
     const canCheckout = isStoreMode
         ? storeCartItems.length > 0
@@ -543,43 +536,6 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                 setSubmitting(false);
                 setCheckingPayment(false);
             }
-        }
-    };
-
-    const handleSubscribe = async () => {
-        if (!canSubscribe) {
-            return showAlert({
-                title: 'Débito automático',
-                message: 'Elegí un solo paquete (cantidad 1) para suscribirte: membresía, pase libre o créditos.',
-            });
-        }
-        const pkg = cartItems[0].pkg;
-        setSubmitting(true);
-        try {
-            const { data } = await apiClient.post('/payments/mercadopago/subscription', {
-                packageId: pkg._id,
-            });
-            if (!data?.checkoutUrl) {
-                throw new Error('Sin URL de suscripción');
-            }
-            const redirectUrl = Linking.createURL('payment-result');
-            if (Platform.OS === 'web') {
-                await Linking.openURL(data.checkoutUrl);
-                return;
-            }
-            await WebBrowser.openAuthSessionAsync(data.checkoutUrl, redirectUrl);
-            deliverPaymentResult({
-                title: 'Suscripción iniciada',
-                message: 'Cuando Mercado Pago confirme el medio de pago, el débito automático quedará activo y se acreditará en cada cobro.',
-            });
-        } catch (error) {
-            if (!aliveRef.current) return;
-            showAlert({
-                title: 'Error',
-                message: error.response?.data?.message || 'No se pudo iniciar el débito automático.',
-            });
-        } finally {
-            if (aliveRef.current) setSubmitting(false);
         }
     };
 
@@ -1047,31 +1003,6 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                                 <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
                                             )}
                                         </TouchableOpacity>
-                                        {canSubscribe && (
-                                            <>
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.submitBtn,
-                                                        {
-                                                            backgroundColor: 'transparent',
-                                                            borderWidth: 1.5,
-                                                            borderColor: '#009EE3',
-                                                            marginTop: 10,
-                                                        },
-                                                        submitting && { opacity: 0.6 },
-                                                    ]}
-                                                    onPress={handleSubscribe}
-                                                    disabled={submitting}
-                                                >
-                                                    <Text style={[styles.submitBtnText, { color: '#009EE3' }]}>
-                                                        Débito automático {formatPrice(amountToPay)}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                                <Text style={styles.methodSub}>
-                                                    Se renueva solo (membresía, pase libre o créditos). Podés cancelarlo cuando quieras.
-                                                </Text>
-                                            </>
-                                        )}
                                     </>
                                 )}
                             </>

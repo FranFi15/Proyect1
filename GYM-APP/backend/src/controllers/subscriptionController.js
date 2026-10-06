@@ -65,135 +65,14 @@ const parseSubscriptionIdFromRef = (ref) => {
  * Client must authorize the card via init_point.
  */
 const createMpSubscription = asyncHandler(async (req, res) => {
-    const { PaymentPackage, Settings, User, Discount, MpSubscription } = getModels(req.gymDBConnection);
-    const packageId = req.body.packageId || req.body.package;
-    if (!packageId) {
-        res.status(400);
-        throw new Error('Seleccioná un paquete para el débito automático.');
-    }
-
-    const settings = await getMpSettings(Settings);
-    if (!settings) {
-        res.status(400);
-        throw new Error('Este gimnasio todavía no tiene Mercado Pago vinculado.');
-    }
-
-    const pkg = await PaymentPackage.findById(packageId).populate('tipoClase', 'nombre');
-    if (!pkg || pkg.isActive === false) {
-        res.status(404);
-        throw new Error('Paquete no encontrado o inactivo.');
-    }
-    if (!pkg.allowAutoDebit) {
-        res.status(400);
-        throw new Error('Este paquete no tiene débito automático habilitado. Pedile al gimnasio que lo active.');
-    }
-
-    const kind = packageKind(pkg);
-    if (kind === 'creditos' && (!pkg.tipoClase || !(pkg.creditsAmount > 0))) {
-        res.status(400);
-        throw new Error('El paquete de créditos no es válido para suscripción.');
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user?.email) {
-        res.status(400);
-        throw new Error('Tu cuenta necesita un email para suscribirse con Mercado Pago.');
-    }
-
-    const existing = await MpSubscription.findOne({
-        user: user._id,
-        package: pkg._id,
-        status: { $in: ['pending', 'authorized', 'paused'] },
-    });
-    if (existing) {
-        res.status(400);
-        throw new Error('Ya tenés una suscripción activa o pendiente para este plan. Cancelala antes de crear otra.');
-    }
-
-    const catalogPrice = Number(pkg.price) || 0;
-    const discount = await resolveUserDiscount(Discount, user);
-    const discountAmount = computeDiscountAmount(catalogPrice, { discount });
-    const amountToCharge = Math.max(0, Math.round((catalogPrice - discountAmount) * 100) / 100);
-    if (!(amountToCharge > 0)) {
-        res.status(400);
-        throw new Error('El monto de la suscripción no es válido.');
-    }
-
-    const currency = CURRENCY_BY_COUNTRY[req.gymPais] || 'ARS';
-    const autoRecurring = buildAutoRecurring(pkg, amountToCharge, currency);
-    const kindLabel = kind === 'pase' ? 'Pase libre' : kind === 'membresia' ? 'Membresía' : 'Créditos';
-    const reason = `Débito automático · ${kindLabel}: ${pkg.name}`;
-
-    // Placeholder doc so we can set a stable external_reference before calling MP.
-    const draft = await MpSubscription.create({
-        user: user._id,
-        package: pkg._id,
-        kind,
-        preapprovalId: `pending_${Date.now()}_${user._id}`,
-        status: 'pending',
-        amount: amountToCharge,
-        currency,
-        frequency: autoRecurring.frequency,
-        frequencyType: autoRecurring.frequency_type,
-        reason,
-        discountId: discount?._id || null,
-        discountAmount,
-        originalAmount: catalogPrice,
-    });
-
-    const publicBase = getPublicBaseUrl(req);
-    const backUrl = `${publicBase}/api/mercadopago/return?status=success&flow=subscription`;
-
-    try {
-        const body = {
-            reason,
-            external_reference: externalRefFor(draft._id),
-            payer_email: user.email,
-            back_url: backUrl,
-            auto_recurring: autoRecurring,
-            status: 'pending',
-            notification_url: `${publicBase}/api/mercadopago/webhook?gymId=${encodeURIComponent(req.gymId)}`,
-        };
-
-        const preapproval = await withMpClient(settings, (client) =>
-            new PreApproval(client).create({ body })
-        );
-
-        draft.preapprovalId = preapproval.id;
-        draft.initPoint = preapproval.init_point || null;
-        draft.status = mapMpStatus(preapproval.status);
-        draft.nextPaymentDate = preapproval.next_payment_date
-            ? new Date(preapproval.next_payment_date)
-            : null;
-        await draft.save();
-
-        res.status(201).json({
-            subscriptionId: draft._id,
-            preapprovalId: draft.preapprovalId,
-            checkoutUrl: draft.initPoint,
-            status: draft.status,
-            amount: draft.amount,
-            currency: draft.currency,
-            frequency: draft.frequency,
-            frequencyType: draft.frequencyType,
-            package: {
-                _id: pkg._id,
-                name: pkg.name,
-                kind,
-            },
-        });
-    } catch (error) {
-        await MpSubscription.deleteOne({ _id: draft._id });
-        console.error('Error creando suscripción MP:', error?.cause || error?.message || error);
-        res.status(502);
-        throw new Error('No se pudo iniciar el débito automático con Mercado Pago. Intentá de nuevo.');
-    }
+    res.status(503);
+    throw new Error('El débito automático está deshabilitado por ahora. Pagá con Mercado Pago o transferencia.');
 });
 
 const listMyMpSubscriptions = asyncHandler(async (req, res) => {
     const { MpSubscription } = getModels(req.gymDBConnection);
     const items = await MpSubscription.find({ user: req.user._id })
-        .populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays tipoClase')
+        .populate('package', 'name price autoDebitPrice isPaseLibre isMembresia creditsAmount durationDays tipoClase')
         .sort({ createdAt: -1 });
     res.json(items);
 });
@@ -205,7 +84,7 @@ const listMpSubscriptionsAdmin = asyncHandler(async (req, res) => {
     if (req.query.userId) filter.user = req.query.userId;
     const items = await MpSubscription.find(filter)
         .populate('user', 'nombre apellido email dni')
-        .populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays')
+        .populate('package', 'name price autoDebitPrice isPaseLibre isMembresia creditsAmount durationDays')
         .sort({ createdAt: -1 })
         .limit(Math.min(200, Number(req.query.limit) || 100));
     res.json(items);
@@ -249,6 +128,8 @@ const updateMpSubscription = asyncHandler(async (req, res) => {
             transaction_amount: numeric,
             currency_id: sub.currency || 'ARS',
         };
+        if (sub.frequency != null) body.auto_recurring.frequency = sub.frequency;
+        if (sub.frequencyType) body.auto_recurring.frequency_type = sub.frequencyType;
     }
 
     if (status != null) {
@@ -270,19 +151,27 @@ const updateMpSubscription = asyncHandler(async (req, res) => {
         throw new Error('Nada para actualizar.');
     }
 
+    const preapprovalId = String(sub.preapprovalId || '');
+    const isLocalPending = !preapprovalId || preapprovalId.startsWith('pending_');
+
     try {
-        const updated = await withMpClient(settings, (client) =>
-            new PreApproval(client).update({ id: sub.preapprovalId, body })
-        );
+        let updated = null;
+        if (!isLocalPending) {
+            updated = await withMpClient(settings, (client) =>
+                new PreApproval(client).update({ id: sub.preapprovalId, body })
+            );
+        }
 
         if (amount != null) {
             sub.amount = Number(amount);
             sub.originalAmount = Number(amount);
             sub.discountAmount = 0;
+            sub.discountId = null;
         }
-        if (updated.status) sub.status = mapMpStatus(updated.status);
-        if (updated.next_payment_date) sub.nextPaymentDate = new Date(updated.next_payment_date);
-        if (mapMpStatus(updated.status) === 'cancelled') {
+        if (updated?.status) sub.status = mapMpStatus(updated.status);
+        else if (body.status) sub.status = mapMpStatus(body.status);
+        if (updated?.next_payment_date) sub.nextPaymentDate = new Date(updated.next_payment_date);
+        if (mapMpStatus(updated?.status || body.status) === 'cancelled') {
             sub.cancelledAt = new Date();
             sub.cancelledBy = req.user._id;
         }
@@ -290,13 +179,17 @@ const updateMpSubscription = asyncHandler(async (req, res) => {
 
         const populated = await MpSubscription.findById(sub._id)
             .populate('user', 'nombre apellido email')
-            .populate('package', 'name price isPaseLibre isMembresia creditsAmount durationDays');
+            .populate('package', 'name price autoDebitPrice isPaseLibre isMembresia creditsAmount durationDays');
 
         res.json(populated);
     } catch (error) {
         console.error('Error actualizando suscripción MP:', error?.cause || error?.message || error);
+        const detail =
+            error?.cause?.message
+            || error?.message
+            || 'No se pudo actualizar la suscripción en Mercado Pago.';
         res.status(502);
-        throw new Error('No se pudo actualizar la suscripción en Mercado Pago.');
+        throw new Error(typeof detail === 'string' ? detail : 'No se pudo actualizar la suscripción en Mercado Pago.');
     }
 });
 

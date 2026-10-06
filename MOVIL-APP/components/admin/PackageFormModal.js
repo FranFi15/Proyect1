@@ -63,7 +63,7 @@ const PackageFormModal = ({
                 durationDays: editingPackage.durationDays?.toString() || '30',
                 creditsAmount: editingPackage.creditsAmount?.toString() || '8',
                 tipoClase: editingPackage.tipoClase?._id || editingPackage.tipoClase || classTypes[0]?._id || '',
-                allowAutoDebit: !!editingPackage.allowAutoDebit,
+                allowAutoDebit: false,
             });
         } else {
             setForm(emptyForm(classTypes[0]?._id || ''));
@@ -104,7 +104,8 @@ const PackageFormModal = ({
             durationDays: Number(form.durationDays) || 30,
             creditsAmount: form.type === 'creditos' ? Number(form.creditsAmount) || 0 : 0,
             tipoClase: form.type === 'creditos' ? form.tipoClase : null,
-            allowAutoDebit: !!form.allowAutoDebit,
+            allowAutoDebit: false,
+            autoDebitPrice: null,
         };
 
         setSubmitting(true);
@@ -311,37 +312,6 @@ const PackageFormModal = ({
                                 )}
                             </View>
 
-                            <View style={[styles.card, { marginTop: 12 }]}>
-                                <Text style={styles.cardTitle}>Débito automático</Text>
-                                <Text style={styles.cardSub}>
-                                    Si lo activás, el cliente puede suscribirse con Mercado Pago y renovar solo este paquete.
-                                </Text>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.toggleRow,
-                                        form.allowAutoDebit && { borderColor: accent, backgroundColor: accent + '14' },
-                                    ]}
-                                    onPress={() => setField('allowAutoDebit', !form.allowAutoDebit)}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={{ flex: 1, paddingRight: 10 }}>
-                                        <Text style={[styles.toggleTitle, form.allowAutoDebit && { color: accent }]}>
-                                            Habilitar débito automático
-                                        </Text>
-                                        <Text style={styles.typeSub}>
-                                            {form.allowAutoDebit
-                                                ? 'Los clientes verán la opción al comprar este paquete.'
-                                                : 'Solo se podrá comprar una vez (sin suscripción).'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons
-                                        name={form.allowAutoDebit ? 'checkmark-circle' : 'ellipse-outline'}
-                                        size={26}
-                                        color={form.allowAutoDebit ? accent : colors.icon}
-                                    />
-                                </TouchableOpacity>
-                            </View>
-
                             <View style={[styles.previewCard, { marginTop: 12 }]}>
                                 <Text style={styles.previewKicker}>Vista previa</Text>
                                 <Text style={styles.previewName}>{form.name || 'Nombre del paquete'}</Text>
@@ -349,11 +319,6 @@ const PackageFormModal = ({
                                     {form.price ? `$${Number(form.price).toLocaleString('es-AR')}` : '$0'}
                                 </Text>
                                 <Text style={styles.previewMeta}>{previewLabel}</Text>
-                                {form.allowAutoDebit ? (
-                                    <Text style={[styles.previewMeta, { color: accent, fontWeight: '700' }]}>
-                                        Incluye débito automático
-                                    </Text>
-                                ) : null}
                                 {form.description ? <Text style={styles.previewDesc}>{form.description}</Text> : null}
                             </View>
 

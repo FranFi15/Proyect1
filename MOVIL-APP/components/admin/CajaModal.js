@@ -30,7 +30,6 @@ const TABS = [
     { id: 'pendientes', label: 'Pendientes', icon: 'time-outline' },
     { id: 'descuentos', label: 'Descuentos', icon: 'pricetag-outline' },
     { id: 'cierre', label: 'Cierre', icon: 'lock-closed-outline' },
-    { id: 'suscripciones', label: 'Suscripciones', icon: 'repeat-outline' },
 ];
 
 const SOURCE_LABELS = {
@@ -118,9 +117,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [dashboard, setDashboard] = useState(null);
     const [packages, setPackages] = useState([]);
     const [discounts, setDiscounts] = useState([]);
-    const [mpSubscriptions, setMpSubscriptions] = useState([]);
-    const [editingSubAmountId, setEditingSubAmountId] = useState(null);
-    const [editingSubAmount, setEditingSubAmount] = useState('');
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
     // Sale form
@@ -198,11 +194,10 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         try {
             const params = { from: fromDate, to: toDate };
             if (sucursalFilter && sucursalFilter !== 'all') params.sucursal = sucursalFilter;
-            const [dashRes, pkgRes, discRes, subRes, cierreRes] = await Promise.all([
+            const [dashRes, pkgRes, discRes, cierreRes] = await Promise.all([
                 apiClient.get('/caja/dashboard', { params }),
                 apiClient.get('/payments/packages'),
                 apiClient.get('/caja/discounts?all=true'),
-                apiClient.get('/payments/mercadopago/subscriptions').catch(() => ({ data: [] })),
                 apiClient.get('/caja/cierres', {
                     params: sucursalFilter !== 'all' ? { sucursal: sucursalFilter } : {},
                 }).catch(() => ({ data: [] })),
@@ -210,7 +205,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             setDashboard(dashRes.data);
             setPackages(pkgRes.data || []);
             setDiscounts(discRes.data || []);
-            setMpSubscriptions(Array.isArray(subRes.data) ? subRes.data : []);
             setCierreHistory(Array.isArray(cierreRes.data) ? cierreRes.data : []);
         } catch (error) {
             showAlert('Error', error.response?.data?.message || 'No se pudo cargar la caja.');
@@ -378,7 +372,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         },
                         { _id: 'descuentos', nombre: 'Descuentos' },
                         { _id: 'cierre', nombre: 'Cierre de caja' },
-                        { _id: 'suscripciones', nombre: 'Suscripciones' },
                     ],
                     selectedValue: tab,
                     onSelect: (id) => { setTab(id); setActiveFilter(null); },
@@ -962,20 +955,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         });
     };
 
-    const updateSubscription = async (subId, payload, okMessage) => {
-        setSubmitting(true);
-        try {
-            await apiClient.put(`/payments/mercadopago/subscriptions/${subId}`, payload);
-            setEditingSubAmountId(null);
-            setEditingSubAmount('');
-            await loadAll({ silent: true });
-            showAlert('Listo', okMessage || 'Suscripción actualizada.');
-        } catch (error) {
-            showAlert('Error', error.response?.data?.message || 'No se pudo actualizar la suscripción.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     const currency = dashboard?.currency || 'ARS';
     const pendingCount =
@@ -1952,117 +1931,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         </ScrollView>
     );
 
-    const renderSuscripciones = () => (
-        <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={refreshControl}
-        >
-            <Text style={styles.sectionTitle}>Débitos automáticos (Mercado Pago)</Text>
-            <Text style={styles.kpiHint}>
-                Membresía, pase libre y créditos mensuales. Podés cambiar el monto, pausar o cancelar.
-            </Text>
-            {mpSubscriptions.length === 0 ? (
-                <Text style={styles.empty}>Todavía no hay suscripciones.</Text>
-            ) : (
-                mpSubscriptions.map((sub) => {
-                    const clientName = sub.user
-                        ? `${sub.user.nombre || ''} ${sub.user.apellido || ''}`.trim()
-                        : 'Cliente';
-                    const kind =
-                        sub.kind === 'pase' ? 'Pase libre'
-                            : sub.kind === 'membresia' ? 'Membresía'
-                                : 'Créditos';
-                    const status =
-                        sub.status === 'authorized' ? 'Activa'
-                            : sub.status === 'pending' ? 'Pendiente'
-                                : sub.status === 'paused' ? 'Pausada'
-                                    : 'Cancelada';
-                    const isEditing = editingSubAmountId === sub._id;
-                    return (
-                        <View key={sub._id} style={styles.listItem}>
-                            <View style={{ flex: 1, gap: 4 }}>
-                                <Text style={styles.listItemTitle}>{clientName}</Text>
-                                <Text style={styles.kpiHint}>
-                                    {sub.package?.name || 'Plan'} · {kind} · {status}
-                                </Text>
-                                {isEditing ? (
-                                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                                        <TextInput
-                                            style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                                            keyboardType="decimal-pad"
-                                            value={editingSubAmount}
-                                            onChangeText={setEditingSubAmount}
-                                            placeholder="Nuevo monto"
-                                            placeholderTextColor={colors.icon}
-                                        />
-                                        <TouchableOpacity
-                                            onPress={() => updateSubscription(
-                                                sub._id,
-                                                { amount: Number(editingSubAmount) },
-                                                'Monto actualizado.'
-                                            )}
-                                            disabled={submitting}
-                                        >
-                                            <Text style={{ color: accent, fontWeight: '700' }}>OK</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => {
-                                            setEditingSubAmountId(null);
-                                            setEditingSubAmount('');
-                                        }}>
-                                            <Text style={{ color: colors.icon, fontWeight: '700' }}>X</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : (
-                                    <Text style={styles.kpiHint}>
-                                        {money(sub.amount)}
-                                        {sub.frequencyType === 'months' ? ' / mes' : ` / ${sub.frequency} días`}
-                                        {sub.lastChargedAt
-                                            ? ` · Último cobro ${format(new Date(sub.lastChargedAt), 'dd/MM', { locale: es })}`
-                                            : ''}
-                                    </Text>
-                                )}
-                                {sub.status !== 'cancelled' && !isEditing && (
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                setEditingSubAmountId(sub._id);
-                                                setEditingSubAmount(String(sub.amount ?? ''));
-                                            }}
-                                        >
-                                            <Text style={{ color: accent, fontWeight: '700' }}>Monto</Text>
-                                        </TouchableOpacity>
-                                        {sub.status === 'paused' ? (
-                                            <TouchableOpacity
-                                                onPress={() => updateSubscription(sub._id, { status: 'authorized' }, 'Suscripción reactivada.')}
-                                                disabled={submitting}
-                                            >
-                                                <Text style={{ color: '#1e7e34', fontWeight: '700' }}>Reactivar</Text>
-                                            </TouchableOpacity>
-                                        ) : (
-                                            <TouchableOpacity
-                                                onPress={() => updateSubscription(sub._id, { status: 'paused' }, 'Suscripción pausada.')}
-                                                disabled={submitting}
-                                            >
-                                                <Text style={{ color: '#e67e22', fontWeight: '700' }}>Pausar</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        <TouchableOpacity
-                                            onPress={() => updateSubscription(sub._id, { status: 'cancelled' }, 'Suscripción cancelada.')}
-                                            disabled={submitting}
-                                        >
-                                            <Text style={{ color: '#e74c3c', fontWeight: '700' }}>Cancelar</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                    );
-                })
-            )}
-        </ScrollView>
-    );
-
     const renderDiscountFormModal = () => (
         <Modal
             visible={discountFormVisible}
@@ -2252,7 +2120,6 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         {tab === 'pendientes' && renderPendientes()}
                         {tab === 'descuentos' && renderDescuentos()}
                         {tab === 'cierre' && renderCierre()}
-                        {tab === 'suscripciones' && renderSuscripciones()}
                     </>
                 )}
 

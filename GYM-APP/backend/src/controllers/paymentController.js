@@ -55,11 +55,21 @@ const loadCartPackages = async (PaymentPackage, cartEntries) => {
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
-    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays, allowAutoDebit } = req.body;
+    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays, allowAutoDebit, autoDebitPrice } = req.body;
 
     if (!name || !price) {
         res.status(400);
         throw new Error('El nombre y el precio son obligatorios.');
+    }
+
+    let recurringPrice = null;
+    if (autoDebitPrice != null && autoDebitPrice !== '') {
+        const n = Number(autoDebitPrice);
+        if (Number.isNaN(n) || n < 0) {
+            res.status(400);
+            throw new Error('El precio de débito automático no es válido.');
+        }
+        recurringPrice = n > 0 ? n : null;
     }
 
     const newPackage = await PaymentPackage.create({
@@ -72,6 +82,7 @@ const createPackage = asyncHandler(async (req, res) => {
         creditsAmount: isPaseLibre || isMembresia ? 0 : creditsAmount,
         tipoClase: isPaseLibre || isMembresia ? null : tipoClase,
         allowAutoDebit: !!allowAutoDebit,
+        autoDebitPrice: !!allowAutoDebit ? recurringPrice : null,
     });
 
     res.status(201).json(newPackage);
@@ -91,6 +102,21 @@ const updatePackage = asyncHandler(async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(updates, 'isMembresia')) {
         updates.isMembresia = !updates.isPaseLibre && !!updates.isMembresia;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'autoDebitPrice')) {
+        if (updates.autoDebitPrice == null || updates.autoDebitPrice === '') {
+            updates.autoDebitPrice = null;
+        } else {
+            const n = Number(updates.autoDebitPrice);
+            if (Number.isNaN(n) || n < 0) {
+                res.status(400);
+                throw new Error('El precio de débito automático no es válido.');
+            }
+            updates.autoDebitPrice = n > 0 ? n : null;
+        }
+    }
+    if (updates.allowAutoDebit === false) {
+        updates.autoDebitPrice = null;
     }
 
     const updatedPackage = await PaymentPackage.findByIdAndUpdate(
