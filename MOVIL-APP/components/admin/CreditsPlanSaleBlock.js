@@ -28,6 +28,7 @@ const CreditsPlanSaleBlock = ({
     clientId,
     packages = [],
     discounts = [],
+    sucursales = [],
     customItem = null, // built by parent from form fields (without price)
     showPackages = true,
     accent = '#1a5276',
@@ -40,6 +41,7 @@ const CreditsPlanSaleBlock = ({
     const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     const [adhocPercent, setAdhocPercent] = useState('');
     const [method, setMethod] = useState('efectivo');
+    const [sucursalId, setSucursalId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     const selectedPkg = useMemo(
@@ -91,6 +93,9 @@ const CreditsPlanSaleBlock = ({
             userId: clientId,
             method,
             payLater: Boolean(payLater),
+            sucursalId:
+                sucursalId
+                || ((sucursales || []).length === 1 ? String(sucursales[0]._id) : undefined),
         };
 
         if (selectedDiscountId) payload.discountId = selectedDiscountId;
@@ -194,6 +199,7 @@ const CreditsPlanSaleBlock = ({
             setSalePrice('');
             setSelectedDiscountId(null);
             setAdhocPercent('');
+            setSucursalId(null);
             onSuccess?.();
         } catch (error) {
             onAlert?.('Error', error.response?.data?.message || 'No se pudo registrar la venta.');
@@ -324,6 +330,35 @@ const CreditsPlanSaleBlock = ({
                     </TouchableOpacity>
                 ))}
             </View>
+
+            {(sucursales || []).length > 1 && (
+                <>
+                    <Text style={styles.sectionTitle}>Sucursal</Text>
+                    <View style={styles.rowWrap}>
+                        <TouchableOpacity
+                            style={[styles.pill, !sucursalId && { backgroundColor: accent, borderColor: accent }]}
+                            onPress={() => setSucursalId(null)}
+                        >
+                            <Text style={[styles.pillText, !sucursalId && { color: '#fff' }]}>Sin sucursal</Text>
+                        </TouchableOpacity>
+                        {sucursales.map((s) => {
+                            const id = String(s._id);
+                            const selected = String(sucursalId || '') === id;
+                            return (
+                                <TouchableOpacity
+                                    key={id}
+                                    style={[styles.pill, selected && { backgroundColor: accent, borderColor: accent }]}
+                                    onPress={() => setSucursalId(id)}
+                                >
+                                    <Text style={[styles.pillText, selected && { color: '#fff' }]} numberOfLines={1}>
+                                        {s.nombre}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </>
+            )}
 
             <View style={styles.totalBox}>
                 <Text style={styles.hint}>

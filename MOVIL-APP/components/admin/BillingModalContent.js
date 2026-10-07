@@ -39,12 +39,17 @@ const METHOD_LABELS = {
     deuda: 'Deuda',
 };
 
-const BillingModalContent = ({ client, onClose, onRefresh }) => {
+const BillingModalContent = ({ client, onClose, onRefresh, sucursales = [] }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState('register');
-    const [newTransaction, setNewTransaction] = useState({ amount: '', description: '', method: 'efectivo' });
+    const [newTransaction, setNewTransaction] = useState({
+        amount: '',
+        description: '',
+        method: 'efectivo',
+        sucursalId: null,
+    });
     const [currentClient, setCurrentClient] = useState(client);
     const [imageViewerData, setImageViewerData] = useState(null);
 
@@ -108,11 +113,17 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
             if (type === 'payment') {
                 payload.method = newTransaction.method || 'efectivo';
             }
+            const effectiveSucursal =
+                newTransaction.sucursalId
+                || ((sucursales || []).length === 1 ? String(sucursales[0]._id) : null);
+            if (effectiveSucursal) {
+                payload.sucursalId = effectiveSucursal;
+            }
             const response = await createTransaction(payload);
 
             setCurrentClient((prevClient) => ({ ...prevClient, balance: response.data.newUserBalance }));
             setTransactions((prevTransactions) => [response.data.transaction, ...prevTransactions]);
-            setNewTransaction({ amount: '', description: '', method: 'efectivo' });
+            setNewTransaction({ amount: '', description: '', method: 'efectivo', sucursalId: null });
 
             onRefresh?.();
             setAlertInfo({
@@ -260,6 +271,49 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                     </TouchableOpacity>
                                 ))}
                             </View>
+
+                            {(sucursales || []).length > 1 && (
+                                <>
+                                    <Text style={styles.inputLabel}>Sucursal</Text>
+                                    <View style={styles.methodRow}>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.methodPill,
+                                                !newTransaction.sucursalId && { backgroundColor: accent, borderColor: accent },
+                                            ]}
+                                            onPress={() => setNewTransaction((p) => ({ ...p, sucursalId: null }))}
+                                        >
+                                            <Text style={[
+                                                styles.methodPillText,
+                                                !newTransaction.sucursalId && { color: '#fff' },
+                                            ]}>
+                                                Sin sucursal
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {sucursales.map((s) => {
+                                            const id = String(s._id);
+                                            const selected = String(newTransaction.sucursalId || '') === id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={id}
+                                                    style={[
+                                                        styles.methodPill,
+                                                        selected && { backgroundColor: accent, borderColor: accent },
+                                                    ]}
+                                                    onPress={() => setNewTransaction((p) => ({ ...p, sucursalId: id }))}
+                                                >
+                                                    <Text style={[
+                                                        styles.methodPillText,
+                                                        selected && { color: '#fff' },
+                                                    ]} numberOfLines={1}>
+                                                        {s.nombre}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                </>
+                            )}
 
                             <View style={styles.actionRow}>
                                 <TouchableOpacity

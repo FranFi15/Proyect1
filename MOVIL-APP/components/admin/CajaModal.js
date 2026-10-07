@@ -12,11 +12,13 @@ import {
     Platform,
     RefreshControl,
     Share,
-    Linking,
     Switch,
     Keyboard,
+    Image,
+    Appearance,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FullWindowOverlay } from 'react-native-screens';
 import { format, subDays, startOfMonth, parseISO, isValid } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { Colors } from '@/constants/Colors';
@@ -108,10 +110,12 @@ const FilterButton = ({ label, onPress, styles, accent, colors }) => (
 
 const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const { gymColor } = useAuth();
-    const colorScheme = useColorScheme() ?? 'light';
+    // Avoid RN Modal on iOS: it freezes Appearance until the modal closes.
+    const colorScheme = useColorScheme() ?? Appearance.getColorScheme() ?? 'light';
     const accent = gymColor || '#1a5276';
     const colors = Colors[colorScheme];
     const styles = useMemo(() => getStyles(colorScheme, accent), [colorScheme, accent]);
+    const useIosOverlay = Platform.OS === 'ios';
 
     const [tab, setTab] = useState('resumen');
     const [loading, setLoading] = useState(false);
@@ -166,6 +170,17 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const [cierrePreview, setCierrePreview] = useState(null);
     const [cierreHistory, setCierreHistory] = useState([]);
     const [saleSucursalId, setSaleSucursalId] = useState(null);
+    const resolvedSaleSucursalId = useMemo(() => {
+        if (saleSucursalId) return saleSucursalId;
+        const list = dashboard?.sucursales || [];
+        return list.length === 1 ? String(list[0]._id) : undefined;
+    }, [saleSucursalId, dashboard?.sucursales]);
+    const [approveTicketModal, setApproveTicketModal] = useState({
+        visible: false,
+        ticketId: null,
+        sucursalId: null,
+    });
+    const [receiptViewer, setReceiptViewer] = useState(null);
     const [datePickerConfig, setDatePickerConfig] = useState({
         visible: false,
         field: null,
@@ -709,7 +724,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                     amount: Number(gastoAmount),
                     category: gastoCategory,
                     method,
-                    sucursalId: saleSucursalId || undefined,
+                    sucursalId: resolvedSaleSucursalId,
                 };
                 if (editingGastoId) {
                     await apiClient.put(`/caja/gastos/${editingGastoId}`, gastoPayload);
@@ -767,7 +782,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         : 0),
                 method,
                 payLater: Boolean(payLater),
-                sucursalId: saleSucursalId || undefined,
+                sucursalId: resolvedSaleSucursalId,
                 useCreditBalance: Boolean(useCreditBalance) && !payLater,
             };
             if (saleMode === 'abono') {
@@ -989,10 +1004,15 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         }
     };
 
-    const handleProcessTicket = async (ticketId, action) => {
+    const submitProcessTicket = async (ticketId, action, sucursalId = null) => {
         setSubmitting(true);
         try {
-            await apiClient.put(`/payments/ticket/${ticketId}/process`, { action });
+            const payload = { action };
+            if (action === 'approve' && sucursalId) {
+                payload.sucursalId = sucursalId;
+            }
+            await apiClient.put(`/payments/ticket/${ticketId}/process`, payload);
+            setApproveTicketModal({ visible: false, ticketId: null, sucursalId: null });
             showAlert('Listo', action === 'approve' ? 'Pago aprobado.' : 'Pago rechazado.');
             await loadAll();
             onRefresh?.();
@@ -1001,6 +1021,22 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleProcessTicket = (ticketId, action) => {
+        const list = dashboard?.sucursales || [];
+        if (action === 'approve' && list.length > 1) {
+            setApproveTicketModal({
+                visible: true,
+                ticketId,
+                sucursalId: null,
+            });
+            return;
+        }
+        const autoSucursal = action === 'approve' && list.length === 1
+            ? String(list[0]._id)
+            : null;
+        submitProcessTicket(ticketId, action, autoSucursal);
     };
 
     const handleProcessStore = async (orderId, action) => {
@@ -1183,7 +1219,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 })()}
             </Text>
 
-            {(dashboard?.sucursales || []).length > 0 && (
+            {(dashboard?.sucursales || []).length > 1 && (
                 <>
                     <Text style={styles.sectionTitle}>Sucursal</Text>
                     <FilterButton
@@ -1399,8 +1435,8 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                                             <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Exportar</Text>
                                         </TouchableOpacity>
                                         {m.receiptUrl ? (
-                                            <TouchableOpacity onPress={() => Linking.openURL(m.receiptUrl)}>
-                                                <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Comprobante</Text>
+                                            <TouchableOpacity onPress={() => setReceiptViewer(m.receiptUrl)}>
+                                                <Text style={{ color: accent, fontSize: 11, fontWeight: '700' }}>Ver comprobante</Text>
                                             </TouchableOpacity>
                                         ) : null}
                                         <TouchableOpacity onPress={() => handleRefund(m)} disabled={submitting}>
@@ -1464,7 +1500,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 ))}
             </View>
 
-            {(dashboard?.sucursales || []).length > 0 && (
+            {(dashboard?.sucursales || []).length > 1 && (
                 <>
                     <Text style={styles.sectionTitle}>Sucursal</Text>
                     <FilterButton
@@ -1932,7 +1968,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 </Text>
                 {showReceipt && (
                     <TouchableOpacity
-                        onPress={() => Linking.openURL(item.receiptUrl)}
+                        onPress={() => setReceiptViewer(item.receiptUrl)}
                         style={{ marginTop: 6, alignSelf: 'flex-start' }}
                         activeOpacity={0.85}
                     >
@@ -2204,7 +2240,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 <Text style={styles.kpiHint}>
                     Resumen del día por método de pago y gastos. Contá el efectivo físico para cerrar la caja.
                 </Text>
-                {(dashboard?.sucursales || []).length > 0 && (
+                {(dashboard?.sucursales || []).length > 1 && (
                     <FilterButton
                         label={
                             sucursalFilter === 'all'
@@ -2461,82 +2497,217 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         </Modal>
     );
 
-    return (
-        <>
-        <Modal
-            visible={visible && !(datePickerConfig.visible && Platform.OS !== 'web')}
-            animationType="slide"
-            onRequestClose={onClose}
-        >
-            <View style={[styles.root, { backgroundColor: colors.background }]}>
-                <View style={[styles.header, { backgroundColor: accent }]}>
-                    <View>
-                        <Text style={styles.headerKicker}>Finanzas del gimnasio</Text>
-                        <Text style={styles.headerTitle}>Caja</Text>
-                    </View>
-                    <TouchableOpacity onPress={onClose} hitSlop={12}>
-                        <Ionicons name="close" size={26} color="#fff" />
-                    </TouchableOpacity>
+    const showMain = visible && !receiptViewer && !(datePickerConfig.visible && Platform.OS !== 'web');
+
+    const cajaBody = (
+        <View style={[styles.root, { backgroundColor: colors.background, flex: 1 }]}>
+            <View style={[styles.header, { backgroundColor: accent }]}>
+                <View>
+                    <Text style={styles.headerKicker}>Finanzas del gimnasio</Text>
+                    <Text style={styles.headerTitle}>Caja</Text>
                 </View>
+                <TouchableOpacity onPress={onClose} hitSlop={12}>
+                    <Ionicons name="close" size={26} color="#fff" />
+                </TouchableOpacity>
+            </View>
 
-                <View style={styles.sectionFilterWrap}>
-                    <FilterButton
-                        label={sectionLabel}
-                        onPress={() => setActiveFilter('section')}
-                        styles={styles}
-                        accent={accent}
-                        colors={colors}
-                    />
+            <View style={styles.sectionFilterWrap}>
+                <FilterButton
+                    label={sectionLabel}
+                    onPress={() => setActiveFilter('section')}
+                    styles={styles}
+                    accent={accent}
+                    colors={colors}
+                />
+            </View>
+
+            {loading && !dashboard ? (
+                <View style={styles.loading}>
+                    <ActivityIndicator size="large" color={accent} />
                 </View>
+            ) : (
+                <>
+                    {tab === 'resumen' && renderResumen()}
+                    {tab === 'venta' && renderVenta()}
+                    {tab === 'pendientes' && renderPendientes()}
+                    {tab === 'descuentos' && renderDescuentos()}
+                    {tab === 'cierre' && renderCierre()}
+                </>
+            )}
 
-                {loading && !dashboard ? (
-                    <View style={styles.loading}>
-                        <ActivityIndicator size="large" color={accent} />
+            {renderDiscountFormModal()}
+
+            <CustomAlert
+                visible={alertInfo.visible}
+                title={alertInfo.title}
+                message={alertInfo.message}
+                buttons={alertInfo.buttons}
+                onClose={() => setAlertInfo((p) => ({ ...p, visible: false }))}
+                gymColor={accent}
+            />
+
+            {approveTicketModal.visible && (
+                <View style={{
+                    ...StyleSheet.absoluteFillObject,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    justifyContent: 'center',
+                    padding: 24,
+                    zIndex: 50,
+                }}>
+                    <View style={{
+                        backgroundColor: colors.cardBackground || colors.background,
+                        borderRadius: 16,
+                        padding: 20,
+                    }}>
+                        <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
+                            Aprobar transferencia
+                        </Text>
+                        <Text style={{ fontSize: 14, color: colors.text, opacity: 0.7, marginBottom: 14 }}>
+                            Elegí la sucursal donde se registra este ingreso.
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.filterPill,
+                                    !approveTicketModal.sucursalId && { backgroundColor: accent, borderColor: accent },
+                                ]}
+                                onPress={() => setApproveTicketModal((p) => ({ ...p, sucursalId: null }))}
+                            >
+                                <Text style={[
+                                    styles.filterPillText,
+                                    !approveTicketModal.sucursalId && { color: '#fff' },
+                                ]}>
+                                    Sin sucursal
+                                </Text>
+                            </TouchableOpacity>
+                            {(dashboard?.sucursales || []).map((s) => {
+                                const id = String(s._id);
+                                const selected = String(approveTicketModal.sucursalId || '') === id;
+                                return (
+                                    <TouchableOpacity
+                                        key={id}
+                                        style={[
+                                            styles.filterPill,
+                                            selected && { backgroundColor: accent, borderColor: accent },
+                                        ]}
+                                        onPress={() => setApproveTicketModal((p) => ({ ...p, sucursalId: id }))}
+                                    >
+                                        <Text style={[
+                                            styles.filterPillText,
+                                            selected && { color: '#fff' },
+                                        ]} numberOfLines={1}>
+                                            {s.nombre}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                        <View style={styles.actionRow}>
+                            <TouchableOpacity
+                                style={[styles.secondaryBtn, { flex: 1 }]}
+                                onPress={() => setApproveTicketModal({ visible: false, ticketId: null, sucursalId: null })}
+                                disabled={submitting}
+                            >
+                                <Text style={{ color: colors.text, fontWeight: '700' }}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.primaryBtn, { flex: 1, marginTop: 0 }]}
+                                onPress={() => submitProcessTicket(
+                                    approveTicketModal.ticketId,
+                                    'approve',
+                                    approveTicketModal.sucursalId
+                                )}
+                                disabled={submitting}
+                            >
+                                <Text style={styles.primaryBtnText}>
+                                    {submitting ? '...' : 'Confirmar'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                ) : (
-                    <>
-                        {tab === 'resumen' && renderResumen()}
-                        {tab === 'venta' && renderVenta()}
-                        {tab === 'pendientes' && renderPendientes()}
-                        {tab === 'descuentos' && renderDescuentos()}
-                        {tab === 'cierre' && renderCierre()}
-                    </>
-                )}
+                </View>
+            )}
 
-                {renderDiscountFormModal()}
-
-                <CustomAlert
-                    visible={alertInfo.visible}
-                    title={alertInfo.title}
-                    message={alertInfo.message}
-                    buttons={alertInfo.buttons}
-                    onClose={() => setAlertInfo((p) => ({ ...p, visible: false }))}
+            {activeFilterConfig && activeFilter !== 'discountType' && (
+                <FilterModal
+                    embedded
+                    visible
+                    onClose={() => setActiveFilter(null)}
+                    onSelect={activeFilterConfig.onSelect}
+                    title={activeFilterConfig.title}
+                    options={activeFilterConfig.options}
+                    selectedValue={activeFilterConfig.selectedValue}
+                    theme={{ colors: Colors[colorScheme], gymColor: accent }}
                     gymColor={accent}
                 />
+            )}
+        </View>
+    );
 
-                {activeFilterConfig && activeFilter !== 'discountType' && (
-                    <FilterModal
-                        embedded
+    const receiptBody = (
+        <View style={styles.imageViewerOverlay}>
+            <TouchableOpacity
+                style={styles.imageViewerClose}
+                onPress={() => setReceiptViewer(null)}
+                hitSlop={12}
+            >
+                <Ionicons name="close" size={40} color="#fff" />
+            </TouchableOpacity>
+            <Image
+                source={{ uri: receiptViewer }}
+                style={styles.imageViewerImage}
+                resizeMode="contain"
+            />
+        </View>
+    );
+
+    return (
+        <>
+            {useIosOverlay ? (
+                showMain ? (
+                    <FullWindowOverlay>
+                        <View style={{ flex: 1, backgroundColor: colors.background }}>
+                            {cajaBody}
+                        </View>
+                    </FullWindowOverlay>
+                ) : null
+            ) : (
+                <Modal
+                    visible={showMain}
+                    animationType="slide"
+                    onRequestClose={onClose}
+                >
+                    {cajaBody}
+                </Modal>
+            )}
+
+            {!!receiptViewer && (
+                useIosOverlay ? (
+                    <FullWindowOverlay>
+                        {receiptBody}
+                    </FullWindowOverlay>
+                ) : (
+                    <Modal
                         visible
-                        onClose={() => setActiveFilter(null)}
-                        onSelect={activeFilterConfig.onSelect}
-                        title={activeFilterConfig.title}
-                        options={activeFilterConfig.options}
-                        selectedValue={activeFilterConfig.selectedValue}
-                        theme={{ colors: Colors[colorScheme], gymColor: accent }}
-                        gymColor={accent}
-                    />
-                )}
-            </View>
-        </Modal>
-        <SheetDatePicker
-            visible={datePickerConfig.visible && Platform.OS !== 'web'}
-            value={datePickerConfig.currentValue}
-            title={datePickerConfig.field ? `Seleccionar ${datePickerConfig.field}` : 'Seleccionar fecha'}
-            gymColor={accent}
-            onConfirm={confirmSheetDate}
-            onClose={closeDatePicker}
-        />
+                        transparent
+                        animationType="fade"
+                        onRequestClose={() => setReceiptViewer(null)}
+                        presentationStyle="overFullScreen"
+                        statusBarTranslucent
+                    >
+                        {receiptBody}
+                    </Modal>
+                )
+            )}
+
+            <SheetDatePicker
+                visible={datePickerConfig.visible && Platform.OS !== 'web'}
+                value={datePickerConfig.currentValue}
+                title={datePickerConfig.field ? `Seleccionar ${datePickerConfig.field}` : 'Seleccionar fecha'}
+                gymColor={accent}
+                onConfirm={confirmSheetDate}
+                onClose={closeDatePicker}
+            />
         </>
     );
 };
@@ -2699,6 +2870,22 @@ const getStyles = (colorScheme, accent) => {
             justifyContent: 'space-between',
             alignItems: 'center',
             marginTop: 6,
+        },
+        imageViewerOverlay: {
+            flex: 1,
+            backgroundColor: '#000',
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        imageViewerClose: {
+            position: 'absolute',
+            top: 40,
+            right: 20,
+            zIndex: 20,
+        },
+        imageViewerImage: {
+            width: '100%',
+            height: '80%',
         },
         totalBox: {
             marginTop: 12,

@@ -310,7 +310,12 @@ const ManageClientsScreen = () => {
 
     // --- ESTADOS TRANSFERENCIAS ---
     const [pendingTransfers, setPendingTransfers] = useState([]);
-    const [imageViewerData, setImageViewerData] = useState(null); 
+    const [imageViewerData, setImageViewerData] = useState(null);
+    const [approveTransferModal, setApproveTransferModal] = useState({
+        visible: false,
+        ticketId: null,
+        sucursalId: null,
+    });
 
     const routes = useMemo(() => [
         { key: 'clients', title: 'Usuarios' },
@@ -543,44 +548,66 @@ const ManageClientsScreen = () => {
     const handleToggleMedicalOrder = (user) => { const newStatus = !user.ordenMedicaEntregada; const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE"; setAlertInfo({ visible: true, title: `Confirmar Orden Médica`, message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${user.nombre} ${user.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Confirmar", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.put(`/users/${user._id}`, { ordenMedicaEntregada: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, ordenMedicaEntregada: newStatus } : u)); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     
     // --- HANDLER TRANSFERENCIAS ---
+    const resolveDefaultSucursalId = useCallback(() => {
+        if ((sucursales || []).length === 1) return String(sucursales[0]._id);
+        return null;
+    }, [sucursales]);
+
+    const submitProcessTransfer = useCallback(async (ticketId, action, sucursalId = null) => {
+        try {
+            const payload = { action };
+            if (action === 'approve' && sucursalId) {
+                payload.sucursalId = sucursalId;
+            }
+            await apiClient.put(`/payments/ticket/${ticketId}/process`, payload);
+            setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null });
+            setAlertInfo({
+                visible: true,
+                title: 'Éxito',
+                message: 'Transferencia procesada correctamente.',
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+            fetchAllData();
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'No se pudo procesar la transferencia.',
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+        }
+    }, []);
+
     const handleProcessTransfer = (ticketId, action) => {
-        let actionText = action === 'approve' ? 'APROBAR' : 'RECHAZAR';
-        
+        if (action === 'approve' && (sucursales || []).length > 1) {
+            setApproveTransferModal({
+                visible: true,
+                ticketId,
+                sucursalId: null,
+            });
+            return;
+        }
+
+        const actionText = action === 'approve' ? 'APROBAR' : 'RECHAZAR';
         setAlertInfo({
             visible: true,
-            title: `Confirmar Acción`,
+            title: 'Confirmar Acción',
             message: `¿Estás seguro de que deseas ${actionText} esta transferencia?`,
             buttons: [
-                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { 
-                    text: "Confirmar", 
-                    style: action === 'approve' ? "primary" : "destructive", 
+                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
+                {
+                    text: 'Confirmar',
+                    style: action === 'approve' ? 'primary' : 'destructive',
                     onPress: async () => {
                         setAlertInfo({ visible: false });
-                        try {
-                            // Llama al endpoint de tu backend que creamos en paymentRoutes.js
-                            await apiClient.put(`/payments/ticket/${ticketId}/process`, { action });
-                            
-                            setAlertInfo({ 
-                                visible: true, 
-                                title: 'Éxito', 
-                                message: `Transferencia procesada correctamente.`, 
-                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
-                            });
-                            
-                            // Recargamos los datos para que el ticket desaparezca de la lista
-                            fetchAllData(); 
-                        } catch (error) {
-                            setAlertInfo({ 
-                                visible: true, 
-                                title: 'Error', 
-                                message: error.response?.data?.message || 'No se pudo procesar la transferencia.', 
-                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
-                            });
-                        }
-                    } 
-                }
-            ]
+                        await submitProcessTransfer(
+                            ticketId,
+                            action,
+                            action === 'approve' ? resolveDefaultSucursalId() : null
+                        );
+                    },
+                },
+            ],
         });
     };
 
@@ -997,6 +1024,109 @@ const ManageClientsScreen = () => {
                     </View>
                 </Modal>
             )}
+
+            <Modal
+                visible={approveTransferModal.visible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null })}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
+                    <View style={{
+                        backgroundColor: Colors[colorScheme].cardBackground || Colors[colorScheme].background,
+                        borderRadius: 16,
+                        padding: 20,
+                    }}>
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: '700',
+                            color: Colors[colorScheme].text,
+                            marginBottom: 6,
+                        }}>
+                            Aprobar transferencia
+                        </Text>
+                        <Text style={{
+                            fontSize: 14,
+                            color: Colors[colorScheme].text,
+                            opacity: 0.7,
+                            marginBottom: 14,
+                        }}>
+                            Elegí la sucursal donde se registra este ingreso.
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+                            <TouchableOpacity
+                                style={[
+                                    dynamicStyles.quickChip,
+                                    {
+                                        backgroundColor: !approveTransferModal.sucursalId
+                                            ? (gymColor || '#1a5276')
+                                            : (Colors[colorScheme].background),
+                                        borderWidth: 1,
+                                        borderColor: !approveTransferModal.sucursalId
+                                            ? (gymColor || '#1a5276')
+                                            : (Colors[colorScheme].border || '#ddd'),
+                                    },
+                                ]}
+                                onPress={() => setApproveTransferModal((p) => ({ ...p, sucursalId: null }))}
+                            >
+                                <Text style={[
+                                    dynamicStyles.quickChipText,
+                                    approveTransferModal.sucursalId && { color: Colors[colorScheme].text },
+                                ]}>
+                                    Sin sucursal
+                                </Text>
+                            </TouchableOpacity>
+                            {(sucursales || []).map((s) => {
+                                const id = String(s._id);
+                                const selected = String(approveTransferModal.sucursalId || '') === id;
+                                return (
+                                    <TouchableOpacity
+                                        key={id}
+                                        style={[
+                                            dynamicStyles.quickChip,
+                                            {
+                                                backgroundColor: selected
+                                                    ? (gymColor || '#1a5276')
+                                                    : (Colors[colorScheme].background),
+                                                borderWidth: 1,
+                                                borderColor: selected
+                                                    ? (gymColor || '#1a5276')
+                                                    : (Colors[colorScheme].border || '#ddd'),
+                                            },
+                                        ]}
+                                        onPress={() => setApproveTransferModal((p) => ({ ...p, sucursalId: id }))}
+                                    >
+                                        <Text style={[
+                                            dynamicStyles.quickChipText,
+                                            !selected && { color: Colors[colorScheme].text },
+                                        ]} numberOfLines={1}>
+                                            {s.nombre}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                            <TouchableOpacity
+                                style={[dynamicStyles.button, dynamicStyles.cancelButton, { flex: 1 }]}
+                                onPress={() => setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null })}
+                            >
+                                <Text style={dynamicStyles.buttonText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[dynamicStyles.button, { backgroundColor: gymColor || '#1a5276', flex: 1 }]}
+                                onPress={() => submitProcessTransfer(
+                                    approveTransferModal.ticketId,
+                                    'approve',
+                                    approveTransferModal.sucursalId
+                                )}
+                            >
+                                <Text style={dynamicStyles.buttonText}>Confirmar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* --- MODALES EXISTENTES (Intactos) --- */}
             <UpgradePlanModal visible={activeModal === 'upgrade'} onClose={() => setActiveModal(null)} onConfirm={handleUpgradePlan} currentCount={subscriptionInfo.clientCount} currentLimit={subscriptionInfo.clientLimit} gymColor={gymColor} />
@@ -1456,6 +1586,7 @@ const ManageClientsScreen = () => {
                                 client={selectedClient}
                                 onClose={() => setBillingModalVisible(false)}
                                 onRefresh={fetchAllData}
+                                sucursales={sucursales}
                             />
                         )}
                     </KeyboardAwareSheet>
@@ -1572,6 +1703,7 @@ const ManageClientsScreen = () => {
                                         clientId={selectedClient?._id}
                                         packages={packagesForCreditsTab}
                                         discounts={cajaDiscounts}
+                                        sucursales={sucursales}
                                         customItem={customSaleItemCredits}
                                         accent={gymColor || '#1a5276'}
                                         colors={Colors[colorScheme]}
@@ -1630,6 +1762,7 @@ const ManageClientsScreen = () => {
                                         clientId={selectedClient?._id}
                                         packages={packagesForCreditsTab}
                                         discounts={cajaDiscounts}
+                                        sucursales={sucursales}
                                         customItem={customSaleItemPase}
                                         accent={gymColor || '#1a5276'}
                                         colors={Colors[colorScheme]}
@@ -1688,6 +1821,7 @@ const ManageClientsScreen = () => {
                                         clientId={selectedClient?._id}
                                         packages={packagesForCreditsTab}
                                         discounts={cajaDiscounts}
+                                        sucursales={sucursales}
                                         customItem={customSaleItemMembresia}
                                         accent={gymColor || '#1a5276'}
                                         colors={Colors[colorScheme]}
@@ -1795,6 +1929,7 @@ const ManageClientsScreen = () => {
                                             clientId={selectedClient?._id}
                                             packages={[]}
                                             discounts={cajaDiscounts}
+                                            sucursales={sucursales}
                                             customItem={customSaleItemHorario}
                                             showPackages={false}
                                             accent={gymColor || '#1a5276'}

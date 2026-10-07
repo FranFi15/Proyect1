@@ -1,5 +1,6 @@
 // src/controllers/paymentController.js
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 import { Expo } from 'expo-server-sdk';
@@ -269,8 +270,17 @@ const getPendingRequests = asyncHandler(async (req, res) => {
 // @desc    Aprobar o Rechazar un Ticket (Admin)
 const processTransferTicket = asyncHandler(async (req, res) => {
     const { PaymentRequest, User, Transaction, Notification, CreditLog } = getModels(req.gymDBConnection);
-    const { action, adminNotes } = req.body; // action puede ser 'approve' o 'reject'
+    const { action, adminNotes, sucursalId } = req.body; // action puede ser 'approve' o 'reject'
     const ticketId = req.params.id;
+
+    let resolvedSucursal = null;
+    if (sucursalId && sucursalId !== 'all' && sucursalId !== 'none') {
+        try {
+            resolvedSucursal = new mongoose.Types.ObjectId(String(sucursalId));
+        } catch (_e) {
+            resolvedSucursal = null;
+        }
+    }
 
     const ticket = await PaymentRequest.findById(ticketId)
         .populate('package')
@@ -327,6 +337,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
                     : ticket.amountTransferred,
                 discountAmount: ticket.discountAmount || 0,
                 discountId: ticket.discountId || null,
+                sucursal: resolvedSucursal,
             },
         });
 

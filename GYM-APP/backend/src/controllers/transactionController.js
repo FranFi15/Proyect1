@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 
@@ -7,7 +8,7 @@ import { sendSingleNotification } from './notificationController.js';
 // @access  Private/Admin
 const createTransaction = asyncHandler(async (req, res) => {
     const { Transaction, User, Notification } = getModels(req.gymDBConnection);
-    const { userId, type, amount, description, method } = req.body;
+    const { userId, type, amount, description, method, sucursalId } = req.body;
 
     if (!userId || !type || !amount || !description) {
         res.status(400);
@@ -39,6 +40,15 @@ const createTransaction = asyncHandler(async (req, res) => {
         resolvedMethod = 'efectivo';
     }
 
+    let resolvedSucursal = null;
+    if (sucursalId && sucursalId !== 'all' && sucursalId !== 'none') {
+        try {
+            resolvedSucursal = new mongoose.Types.ObjectId(String(sucursalId));
+        } catch (_e) {
+            resolvedSucursal = null;
+        }
+    }
+
     const amountToUpdate = type === 'charge' ? -numericAmount : numericAmount;
     user.balance += amountToUpdate;
 
@@ -50,6 +60,7 @@ const createTransaction = asyncHandler(async (req, res) => {
         createdBy: req.user._id,
         method: resolvedMethod,
         source: 'billing',
+        sucursal: resolvedSucursal,
     });
     
     await user.save();
