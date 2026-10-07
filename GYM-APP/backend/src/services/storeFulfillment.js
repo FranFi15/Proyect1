@@ -38,6 +38,7 @@ export const fulfillPaidStoreOrder = async ({
     user,
     adminNotes,
     reviewedBy,
+    sucursal = null,
 }) => {
     const { StoreItem, Notification, User, Transaction } = models;
 
@@ -98,6 +99,7 @@ export const fulfillPaidStoreOrder = async ({
                 method,
                 source: 'store',
                 storeOrderId: order._id,
+                sucursal: sucursal || null,
             });
         }
     }

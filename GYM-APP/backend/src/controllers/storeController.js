@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import { Expo } from 'expo-server-sdk';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
@@ -411,11 +412,20 @@ const listStoreOrders = asyncHandler(async (req, res) => {
 const processStoreOrder = asyncHandler(async (req, res) => {
     const models = getModels(req.gymDBConnection);
     const { StoreOrder, User, Notification } = models;
-    const { action, adminNotes } = req.body;
+    const { action, adminNotes, sucursalId } = req.body;
     const order = await StoreOrder.findById(req.params.id);
     if (!order) {
         res.status(404);
         throw new Error('Pedido no encontrado');
+    }
+
+    let resolvedSucursal = null;
+    if (sucursalId && sucursalId !== 'all' && sucursalId !== 'none') {
+        try {
+            resolvedSucursal = new mongoose.Types.ObjectId(String(sucursalId));
+        } catch (_e) {
+            resolvedSucursal = null;
+        }
     }
 
     const user = await User.findById(order.user);
@@ -456,6 +466,7 @@ const processStoreOrder = asyncHandler(async (req, res) => {
             user,
             adminNotes: adminNotes || 'Pago verificado. Listo para retirar.',
             reviewedBy: req.user._id,
+            sucursal: resolvedSucursal,
         });
         return res.json({ message: 'Pedido confirmado (pagado).', order });
     }

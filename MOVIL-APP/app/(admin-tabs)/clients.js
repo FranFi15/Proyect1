@@ -306,20 +306,14 @@ const ManageClientsScreen = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
-    const [debtStats, setDebtStats] = useState({ totalDebt: 0, debtorCount: 0 });
+    const [netToday, setNetToday] = useState(0);
 
-    // --- ESTADOS TRANSFERENCIAS ---
+    // Badge for Caja tab (pending payment tickets; full pendientes live inside Caja)
     const [pendingTransfers, setPendingTransfers] = useState([]);
-    const [imageViewerData, setImageViewerData] = useState(null);
-    const [approveTransferModal, setApproveTransferModal] = useState({
-        visible: false,
-        ticketId: null,
-        sucursalId: null,
-    });
 
     const routes = useMemo(() => [
         { key: 'clients', title: 'Usuarios' },
-        { key: 'transfers', title: 'Transferencias', badge: pendingTransfers.length },
+        { key: 'caja', title: 'Caja', badge: pendingTransfers.length },
     ], [pendingTransfers.length]);
 
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -331,7 +325,6 @@ const ManageClientsScreen = () => {
     const [selectedProfesorForReviews, setSelectedProfesorForReviews] = useState(null);
     const [creditsModalVisible, setCreditsModalVisible] = useState(false);
     const [billingModalVisible, setBillingModalVisible] = useState(false);
-    const [cajaModalVisible, setCajaModalVisible] = useState(false);
     const [showAddFormModal, setShowAddFormModal] = useState(false);
     const [showEditFormModal, setShowEditFormModal] = useState(false);
     const [sucursales, setSucursales] = useState([]);
@@ -368,30 +361,26 @@ const ManageClientsScreen = () => {
     const [paymentPackages, setPaymentPackages] = useState([]);
     const [cajaDiscounts, setCajaDiscounts] = useState([]);
     
-    const [isDebtVisible, setIsDebtVisible] = useState(false); 
     const [showStats, setShowStats] = useState(false);
-
-    const handleToggleDebtVisibility = () => {
-        setIsDebtVisible(!isDebtVisible);
-    };
 
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse, transfersResponse, sucursalesResponse] = await Promise.all([
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const [usersResponse, classTypesResponse, subInfoResponse, transfersResponse, sucursalesResponse, cajaResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/users/subscription-info'),
-                apiClient.get('/users/financial-stats'),
                 apiClient.get('/payments/tickets/pending'),
-                apiClient.get('/sucursales').catch(() => ({ data: [] }))
+                apiClient.get('/sucursales').catch(() => ({ data: [] })),
+                apiClient.get('/caja/dashboard', { params: { from: today, to: today } }).catch(() => ({ data: null })),
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
             setClassTypes(classTypesResponse.data.tiposClase || []);
             setSubscriptionInfo(subInfoResponse.data);
-            setDebtStats(debtResponse.data); 
             setPendingTransfers(transfersResponse.data || []);
             setSucursales(sucursalesResponse?.data || []);
+            setNetToday(Number(cajaResponse?.data?.totals?.netToday) || 0);
 
         } catch (error) {
             console.error(error);
@@ -404,7 +393,6 @@ const ManageClientsScreen = () => {
 
     const { refresh } = useCachedFocusEffect(
         async ({ isInitial }) => {
-            setIsDebtVisible(false);
             if (isInitial) setLoading(true);
             await fetchAllData();
         },
@@ -547,70 +535,6 @@ const ManageClientsScreen = () => {
     const handleUpdateClientSubmit = async () => { if (!editingClientData) return; const updatePayload = { nombre: editingClientData.nombre, apellido: editingClientData.apellido, email: editingClientData.email, dni: editingClientData.dni, sexo: editingClientData.sexo, fechaNacimiento: editingClientData.fechaNacimiento, numeroTelefono: editingClientData.numeroTelefono, telefonoEmergencia: editingClientData.telefonoEmergencia, obraSocial: editingClientData.obraSocial, roles: editingClientData.roles, direccion: editingClientData.direccion, ordenMedicaRequerida: editingClientData.ordenMedicaRequerida, ordenMedicaEntregada: editingClientData.ordenMedicaEntregada, puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios, todasLasSucursales: editingClientData.todasLasSucursales, sucursales: editingClientData.sucursales || [] }; try { await apiClient.put(`/users/${editingClientData._id}`, updatePayload); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' }); setShowEditFormModal(false); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' }); } };
     const handleToggleMedicalOrder = (user) => { const newStatus = !user.ordenMedicaEntregada; const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE"; setAlertInfo({ visible: true, title: `Confirmar Orden Médica`, message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${user.nombre} ${user.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Confirmar", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.put(`/users/${user._id}`, { ordenMedicaEntregada: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, ordenMedicaEntregada: newStatus } : u)); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     
-    // --- HANDLER TRANSFERENCIAS ---
-    const resolveDefaultSucursalId = useCallback(() => {
-        if ((sucursales || []).length === 1) return String(sucursales[0]._id);
-        return null;
-    }, [sucursales]);
-
-    const submitProcessTransfer = useCallback(async (ticketId, action, sucursalId = null) => {
-        try {
-            const payload = { action };
-            if (action === 'approve' && sucursalId) {
-                payload.sucursalId = sucursalId;
-            }
-            await apiClient.put(`/payments/ticket/${ticketId}/process`, payload);
-            setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null });
-            setAlertInfo({
-                visible: true,
-                title: 'Éxito',
-                message: 'Transferencia procesada correctamente.',
-                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }],
-            });
-            fetchAllData();
-        } catch (error) {
-            setAlertInfo({
-                visible: true,
-                title: 'Error',
-                message: error.response?.data?.message || 'No se pudo procesar la transferencia.',
-                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }],
-            });
-        }
-    }, []);
-
-    const handleProcessTransfer = (ticketId, action) => {
-        if (action === 'approve' && (sucursales || []).length > 1) {
-            setApproveTransferModal({
-                visible: true,
-                ticketId,
-                sucursalId: null,
-            });
-            return;
-        }
-
-        const actionText = action === 'approve' ? 'APROBAR' : 'RECHAZAR';
-        setAlertInfo({
-            visible: true,
-            title: 'Confirmar Acción',
-            message: `¿Estás seguro de que deseas ${actionText} esta transferencia?`,
-            buttons: [
-                { text: 'Cancelar', style: 'cancel', onPress: () => setAlertInfo({ visible: false }) },
-                {
-                    text: 'Confirmar',
-                    style: action === 'approve' ? 'primary' : 'destructive',
-                    onPress: async () => {
-                        setAlertInfo({ visible: false });
-                        await submitProcessTransfer(
-                            ticketId,
-                            action,
-                            action === 'approve' ? resolveDefaultSucursalId() : null
-                        );
-                    },
-                },
-            ],
-        });
-    };
-
     const getModalConfig = useMemo(() => { const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes]; const roleOptions = [{ _id: 'cliente', nombre: 'Cliente' }, { _id: 'profesor', nombre: 'Profesional' }, { _id: 'admin', nombre: 'Admin' }]; switch (activeModal) { case 'addRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleNewClientChange('roles', [id]), selectedValue: newClientData.roles[0] }; case 'editRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleEditingClientChange('roles', [id]), selectedValue: editingClientData?.roles[0] }; case 'creditsClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setPlanData(prev => ({ ...prev, tipoClaseId: id })), selectedValue: planData.tipoClaseId }; case 'massEnrollClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setMassEnrollFilters(prev => ({ ...prev, tipoClaseId: id, diasDeSemana: [] })), selectedValue: massEnrollFilters.tipoClaseId }; default: return null; } }, [activeModal, classTypes, newClientData.roles, editingClientData?.roles, planData.tipoClaseId, massEnrollFilters.tipoClaseId]);
     const getDisplayName = (id, type) => { if (!id) return 'Seleccionar'; if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || 'Seleccionar'; if (type === 'role') return id.charAt(0).toUpperCase() + id.slice(1); return 'Seleccionar'; };
     
@@ -825,52 +749,6 @@ const ManageClientsScreen = () => {
         />
     ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews]);
 
-    const renderTransferCard = useCallback(({ item }) => {
-        return (
-            <View style={dynamicStyles.card}>
-                <View style={[dynamicStyles.cardTopRow, {borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10, marginBottom: 10}]}>
-                    <View>
-                        <ThemedText style={dynamicStyles.cardTitle}>{item.user.nombre} {item.user.apellido}</ThemedText>
-                        <Text style={dynamicStyles.cardSubtitle}>{format(parseISO(item.createdAt), 'dd/MM/yyyy HH:mm')}hs</Text>
-                    </View>
-                    <View style={[dynamicStyles.roleBadge, {backgroundColor: '#e0f3ffff'}]}>
-                        <Text style={dynamicStyles.roleText}>$ {item.amountTransferred}</Text>
-                    </View>
-                </View>
-
-                <ThemedText style={{fontWeight: 'bold', marginBottom: 10}}>
-                    {(() => {
-                        const items = Array.isArray(item.items) ? item.items.filter(i => i.package) : [];
-                        if (items.length > 0) {
-                            return `Compra: ${items.map(i => {
-                                const name = i.package?.name || 'Paquete';
-                                return i.quantity > 1 ? `${name} x${i.quantity}` : name;
-                            }).join(', ')}`;
-                        }
-                        return item.package ? `Compra de Paquete: ${item.package.name}` : 'Abono de deuda / Monto Libre';
-                    })()}
-                </ThemedText>
-
-                <TouchableOpacity 
-                    style={dynamicStyles.viewReceiptButton}
-                    onPress={() => setImageViewerData(item.receiptUrl)}
-                >
-                    <Ionicons name="image-outline" size={20} color={Colors[colorScheme].text} />
-                    <ThemedText style={{color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 8}}>Ver Comprobante</ThemedText>
-                </TouchableOpacity>
-
-                <View style={{flexDirection: 'row', gap: 10, marginTop: 15}}>
-                    <TouchableOpacity style={[dynamicStyles.button, dynamicStyles.cancelButton]} onPress={() => handleProcessTransfer(item._id, 'reject')}>
-                        <Text style={dynamicStyles.buttonText}>Rechazar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[dynamicStyles.button, { backgroundColor: gymColor }]} onPress={() => handleProcessTransfer(item._id, 'approve')}>
-                        <Text style={dynamicStyles.buttonText}>Aprobar</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }, [dynamicStyles, gymColor]);
-
     // 🔥 FIX TECLADO 4: Extraemos las rutas fuera del SceneMap para que no se recreen al buscar
     const renderClientsRoute = () => (
         <View style={{flex: 1}}>
@@ -882,22 +760,14 @@ const ManageClientsScreen = () => {
             {showStats && (
                 <View style={dynamicStyles.statsContainer}>
                     <StatCard label="Clientes Activos" value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`} icon={<Ionicons name="people" size={18} color={gymColor} />} color={Colors[colorScheme].text} action={() => setActiveModal('upgrade')} actionLabel="Ampliar" styles={dynamicStyles} style={{ flex: 1 }} />
-                    <TouchableOpacity
-                        style={[dynamicStyles.statCard, { flex: 1.3, justifyContent: 'center' }]}
-                        onPress={() => setCajaModalVisible(true)}
-                        activeOpacity={0.85}
-                    >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                            <FontAwesome5 name="cash-register" size={16} color={gymColor || '#1a5276'} />
-                            <ThemedText style={{ fontWeight: '700', fontSize: 13 }}>Caja</ThemedText>
-                        </View>
-                        <ThemedText style={{ fontSize: 12, opacity: 0.7 }}>
-                            Deuda ${debtStats.totalDebt || 0}
-                        </ThemedText>
-                        <ThemedText style={{ fontSize: 11, color: gymColor, fontWeight: '700', marginTop: 4 }}>
-                            Abrir caja →
-                        </ThemedText>
-                    </TouchableOpacity>
+                    <StatCard
+                        label="Neto del día"
+                        value={`$${Number(netToday || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
+                        icon={<FontAwesome5 name="chart-line" size={16} color={netToday >= 0 ? '#1e7e34' : '#e74c3c'} />}
+                        color={netToday >= 0 ? '#1e7e34' : '#e74c3c'}
+                        styles={dynamicStyles}
+                        style={{ flex: 1.3 }}
+                    />
                 </View>
             )}
             
@@ -936,24 +806,20 @@ const ManageClientsScreen = () => {
         </View>
     );
 
-    const renderTransfersRoute = () => (
-        <View style={{flex: 1}}>
-            <FlatList
-                data={pendingTransfers}
-                renderItem={renderTransferCard}
-                keyExtractor={(item) => item._id}
-                contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
-                ListEmptyComponent={<ThemedText style={dynamicStyles.emptyText}>No hay transferencias pendientes.</ThemedText>}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-            />
-        </View>
+    const renderCajaRoute = () => (
+        <CajaModal
+            embedded
+            visible={routes[index]?.key === 'caja'}
+            clients={users.filter((u) => u?.roles?.includes('cliente'))}
+            onRefresh={fetchAllData}
+        />
     );
 
     // 🔥 FIX TECLADO 5: Función estable de enrutamiento
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'clients': return renderClientsRoute();
-            case 'transfers': return renderTransfersRoute();
+            case 'caja': return renderCajaRoute();
             default: return null;
         }
     };
@@ -1012,121 +878,6 @@ const ManageClientsScreen = () => {
                     />
                 )} 
             />
-
-            {/* --- VISOR DE IMÁGENES FULL SCREEN --- */}
-            {imageViewerData && (
-                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
-                    <View style={dynamicStyles.imageViewerOverlay}>
-                        <TouchableOpacity style={dynamicStyles.imageViewerClose} onPress={() => setImageViewerData(null)}>
-                            <Ionicons name="close" size={40} color="#fff" />
-                        </TouchableOpacity>
-                        <Image source={{ uri: imageViewerData }} style={dynamicStyles.imageViewerImage} resizeMode="contain" />
-                    </View>
-                </Modal>
-            )}
-
-            <Modal
-                visible={approveTransferModal.visible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null })}
-            >
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}>
-                    <View style={{
-                        backgroundColor: Colors[colorScheme].cardBackground || Colors[colorScheme].background,
-                        borderRadius: 16,
-                        padding: 20,
-                    }}>
-                        <Text style={{
-                            fontSize: 18,
-                            fontWeight: '700',
-                            color: Colors[colorScheme].text,
-                            marginBottom: 6,
-                        }}>
-                            Aprobar transferencia
-                        </Text>
-                        <Text style={{
-                            fontSize: 14,
-                            color: Colors[colorScheme].text,
-                            opacity: 0.7,
-                            marginBottom: 14,
-                        }}>
-                            Elegí la sucursal donde se registra este ingreso.
-                        </Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-                            <TouchableOpacity
-                                style={[
-                                    dynamicStyles.quickChip,
-                                    {
-                                        backgroundColor: !approveTransferModal.sucursalId
-                                            ? (gymColor || '#1a5276')
-                                            : (Colors[colorScheme].background),
-                                        borderWidth: 1,
-                                        borderColor: !approveTransferModal.sucursalId
-                                            ? (gymColor || '#1a5276')
-                                            : (Colors[colorScheme].border || '#ddd'),
-                                    },
-                                ]}
-                                onPress={() => setApproveTransferModal((p) => ({ ...p, sucursalId: null }))}
-                            >
-                                <Text style={[
-                                    dynamicStyles.quickChipText,
-                                    approveTransferModal.sucursalId && { color: Colors[colorScheme].text },
-                                ]}>
-                                    Sin sucursal
-                                </Text>
-                            </TouchableOpacity>
-                            {(sucursales || []).map((s) => {
-                                const id = String(s._id);
-                                const selected = String(approveTransferModal.sucursalId || '') === id;
-                                return (
-                                    <TouchableOpacity
-                                        key={id}
-                                        style={[
-                                            dynamicStyles.quickChip,
-                                            {
-                                                backgroundColor: selected
-                                                    ? (gymColor || '#1a5276')
-                                                    : (Colors[colorScheme].background),
-                                                borderWidth: 1,
-                                                borderColor: selected
-                                                    ? (gymColor || '#1a5276')
-                                                    : (Colors[colorScheme].border || '#ddd'),
-                                            },
-                                        ]}
-                                        onPress={() => setApproveTransferModal((p) => ({ ...p, sucursalId: id }))}
-                                    >
-                                        <Text style={[
-                                            dynamicStyles.quickChipText,
-                                            !selected && { color: Colors[colorScheme].text },
-                                        ]} numberOfLines={1}>
-                                            {s.nombre}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 10 }}>
-                            <TouchableOpacity
-                                style={[dynamicStyles.button, dynamicStyles.cancelButton, { flex: 1 }]}
-                                onPress={() => setApproveTransferModal({ visible: false, ticketId: null, sucursalId: null })}
-                            >
-                                <Text style={dynamicStyles.buttonText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[dynamicStyles.button, { backgroundColor: gymColor || '#1a5276', flex: 1 }]}
-                                onPress={() => submitProcessTransfer(
-                                    approveTransferModal.ticketId,
-                                    'approve',
-                                    approveTransferModal.sucursalId
-                                )}
-                            >
-                                <Text style={dynamicStyles.buttonText}>Confirmar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
 
             {/* --- MODALES EXISTENTES (Intactos) --- */}
             <UpgradePlanModal visible={activeModal === 'upgrade'} onClose={() => setActiveModal(null)} onConfirm={handleUpgradePlan} currentCount={subscriptionInfo.clientCount} currentLimit={subscriptionInfo.clientLimit} gymColor={gymColor} />
@@ -1558,13 +1309,6 @@ const ManageClientsScreen = () => {
                 />
                 </View>
             </Modal>
-
-            <CajaModal
-                visible={cajaModalVisible}
-                onClose={() => setCajaModalVisible(false)}
-                clients={users.filter((u) => u?.roles?.includes('cliente'))}
-                onRefresh={fetchAllData}
-            />
 
             <Modal
                 visible={billingModalVisible}

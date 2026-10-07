@@ -108,7 +108,13 @@ const FilterButton = ({ label, onPress, styles, accent, colors }) => (
     </TouchableOpacity>
 );
 
-const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
+const CajaModal = ({
+    visible,
+    onClose,
+    clients = [],
+    onRefresh,
+    embedded = false,
+}) => {
     const { gymColor } = useAuth();
     // Avoid RN Modal on iOS: it freezes Appearance until the modal closes.
     const colorScheme = useColorScheme() ?? Appearance.getColorScheme() ?? 'light';
@@ -177,6 +183,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     }, [saleSucursalId, dashboard?.sucursales]);
     const [approveTicketModal, setApproveTicketModal] = useState({
         visible: false,
+        kind: 'ticket', // ticket | store
         ticketId: null,
         sucursalId: null,
     });
@@ -531,7 +538,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                             nombre: pending > 0 ? `Pendientes (${pending})` : 'Pendientes',
                         },
                         { _id: 'descuentos', nombre: 'Descuentos' },
-                        { _id: 'cierre', nombre: 'Cierre de caja' },
+                        { _id: 'cierre', nombre: 'Cierre' },
                     ],
                     selectedValue: tab,
                     onSelect: (id) => { setTab(id); setActiveFilter(null); },
@@ -1012,7 +1019,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 payload.sucursalId = sucursalId;
             }
             await apiClient.put(`/payments/ticket/${ticketId}/process`, payload);
-            setApproveTicketModal({ visible: false, ticketId: null, sucursalId: null });
+            setApproveTicketModal({ visible: false, kind: 'ticket', ticketId: null, sucursalId: null });
             showAlert('Listo', action === 'approve' ? 'Pago aprobado.' : 'Pago rechazado.');
             await loadAll();
             onRefresh?.();
@@ -1028,6 +1035,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         if (action === 'approve' && list.length > 1) {
             setApproveTicketModal({
                 visible: true,
+                kind: 'ticket',
                 ticketId,
                 sucursalId: null,
             });
@@ -1039,10 +1047,15 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         submitProcessTicket(ticketId, action, autoSucursal);
     };
 
-    const handleProcessStore = async (orderId, action) => {
+    const submitProcessStore = async (orderId, action, sucursalId = null) => {
         setSubmitting(true);
         try {
-            await apiClient.put(`/store/orders/${orderId}/process`, { action });
+            const payload = { action };
+            if ((action === 'approve' || action === 'paid') && sucursalId) {
+                payload.sucursalId = sucursalId;
+            }
+            await apiClient.put(`/store/orders/${orderId}/process`, payload);
+            setApproveTicketModal({ visible: false, kind: 'store', ticketId: null, sucursalId: null });
             showAlert('Listo', action === 'approve' || action === 'paid' ? 'Pedido aprobado.' : 'Pedido rechazado.');
             await loadAll();
             onRefresh?.();
@@ -1051,6 +1064,23 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleProcessStore = (orderId, action) => {
+        const list = dashboard?.sucursales || [];
+        if (action === 'approve' && list.length > 1) {
+            setApproveTicketModal({
+                visible: true,
+                kind: 'store',
+                ticketId: orderId,
+                sucursalId: null,
+            });
+            return;
+        }
+        const autoSucursal = action === 'approve' && list.length === 1
+            ? String(list[0]._id)
+            : null;
+        submitProcessStore(orderId, action, autoSucursal);
     };
 
     const resetDiscountForm = () => {
@@ -1168,6 +1198,25 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         return TABS.find((t) => t.id === tab)?.label || 'Sección';
     })();
 
+    const goToAdjacentSection = (direction) => {
+        const idx = TABS.findIndex((t) => t.id === tab);
+        if (idx < 0) return;
+        const nextIdx = (idx + direction + TABS.length) % TABS.length;
+        setTab(TABS[nextIdx].id);
+    };
+
+    const goToAdjacentSucursalFilter = (direction) => {
+        const options = [
+            'all',
+            ...((dashboard?.sucursales || []).map((s) => String(s._id))),
+        ];
+        if (options.length < 2) return;
+        const current = String(sucursalFilter || 'all');
+        const idx = Math.max(0, options.indexOf(current));
+        const nextIdx = (idx + direction + options.length) % options.length;
+        setSucursalFilter(options[nextIdx]);
+    };
+
     if (!visible) return null;
 
     const renderResumen = () => {
@@ -1222,13 +1271,33 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
             {(dashboard?.sucursales || []).length > 1 && (
                 <>
                     <Text style={styles.sectionTitle}>Sucursal</Text>
-                    <FilterButton
-                        label={sucursalLabel}
-                        onPress={() => setActiveFilter('sucursal')}
-                        styles={styles}
-                        accent={accent}
-                        colors={colors}
-                    />
+                    <View style={[styles.sectionSwitcher, { paddingHorizontal: 0, paddingTop: 0 }]}>
+                        <TouchableOpacity
+                            style={styles.sectionArrowBtn}
+                            onPress={() => goToAdjacentSucursalFilter(-1)}
+                            hitSlop={10}
+                            activeOpacity={0.75}
+                        >
+                            <Ionicons name="chevron-back" size={22} color={accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.filterButton, styles.sectionFilterBtn]}
+                            onPress={() => setActiveFilter('sucursal')}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="business-outline" size={14} color={accent} />
+                            <Text style={styles.filterButtonText} numberOfLines={1}>{sucursalLabel}</Text>
+                            <Ionicons name="chevron-down" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.sectionArrowBtn}
+                            onPress={() => goToAdjacentSucursalFilter(1)}
+                            hitSlop={10}
+                            activeOpacity={0.75}
+                        >
+                            <Ionicons name="chevron-forward" size={22} color={accent} />
+                        </TouchableOpacity>
+                    </View>
                 </>
             )}
 
@@ -2500,25 +2569,51 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     const showMain = visible && !receiptViewer && !(datePickerConfig.visible && Platform.OS !== 'web');
 
     const cajaBody = (
-        <View style={[styles.root, { backgroundColor: colors.background, flex: 1 }]}>
-            <View style={[styles.header, { backgroundColor: accent }]}>
-                <View>
-                    <Text style={styles.headerKicker}>Finanzas del gimnasio</Text>
-                    <Text style={styles.headerTitle}>Caja</Text>
+        <View style={[
+            styles.root,
+            embedded && styles.rootEmbedded,
+            { backgroundColor: colors.background, flex: 1 },
+        ]}>
+            {!embedded && (
+                <View style={[styles.header, { backgroundColor: accent }]}>
+                    <View>
+                        <Text style={styles.headerKicker}>Finanzas del gimnasio</Text>
+                        <Text style={styles.headerTitle}>Caja</Text>
+                    </View>
+                    {!!onClose && (
+                        <TouchableOpacity onPress={onClose} hitSlop={12}>
+                            <Ionicons name="close" size={26} color="#fff" />
+                        </TouchableOpacity>
+                    )}
                 </View>
-                <TouchableOpacity onPress={onClose} hitSlop={12}>
-                    <Ionicons name="close" size={26} color="#fff" />
-                </TouchableOpacity>
-            </View>
+            )}
 
-            <View style={styles.sectionFilterWrap}>
-                <FilterButton
-                    label={sectionLabel}
+            <View style={styles.sectionSwitcher}>
+                <TouchableOpacity
+                    style={styles.sectionArrowBtn}
+                    onPress={() => goToAdjacentSection(-1)}
+                    hitSlop={10}
+                    activeOpacity={0.75}
+                >
+                    <Ionicons name="chevron-back" size={22} color={accent} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.filterButton, styles.sectionFilterBtn]}
                     onPress={() => setActiveFilter('section')}
-                    styles={styles}
-                    accent={accent}
-                    colors={colors}
-                />
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="grid-outline" size={14} color={accent} />
+                    <Text style={styles.filterButtonText} numberOfLines={1}>{sectionLabel}</Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.icon} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.sectionArrowBtn}
+                    onPress={() => goToAdjacentSection(1)}
+                    hitSlop={10}
+                    activeOpacity={0.75}
+                >
+                    <Ionicons name="chevron-forward" size={22} color={accent} />
+                </TouchableOpacity>
             </View>
 
             {loading && !dashboard ? (
@@ -2560,7 +2655,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         padding: 20,
                     }}>
                         <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 }}>
-                            Aprobar transferencia
+                            {approveTicketModal.kind === 'store' ? 'Aprobar pedido tienda' : 'Aprobar transferencia'}
                         </Text>
                         <Text style={{ fontSize: 14, color: colors.text, opacity: 0.7, marginBottom: 14 }}>
                             Elegí la sucursal donde se registra este ingreso.
@@ -2605,18 +2700,33 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                         <View style={styles.actionRow}>
                             <TouchableOpacity
                                 style={[styles.secondaryBtn, { flex: 1 }]}
-                                onPress={() => setApproveTicketModal({ visible: false, ticketId: null, sucursalId: null })}
+                                onPress={() => setApproveTicketModal({
+                                    visible: false,
+                                    kind: 'ticket',
+                                    ticketId: null,
+                                    sucursalId: null,
+                                })}
                                 disabled={submitting}
                             >
                                 <Text style={{ color: colors.text, fontWeight: '700' }}>Cancelar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.primaryBtn, { flex: 1, marginTop: 0 }]}
-                                onPress={() => submitProcessTicket(
-                                    approveTicketModal.ticketId,
-                                    'approve',
-                                    approveTicketModal.sucursalId
-                                )}
+                                onPress={() => {
+                                    if (approveTicketModal.kind === 'store') {
+                                        submitProcessStore(
+                                            approveTicketModal.ticketId,
+                                            'approve',
+                                            approveTicketModal.sucursalId
+                                        );
+                                    } else {
+                                        submitProcessTicket(
+                                            approveTicketModal.ticketId,
+                                            'approve',
+                                            approveTicketModal.sucursalId
+                                        );
+                                    }
+                                }}
                                 disabled={submitting}
                             >
                                 <Text style={styles.primaryBtnText}>
@@ -2661,6 +2771,43 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
         </View>
     );
 
+    const receiptOverlay = !!receiptViewer && (
+        useIosOverlay ? (
+            <FullWindowOverlay>
+                {receiptBody}
+            </FullWindowOverlay>
+        ) : (
+            <Modal
+                visible
+                transparent
+                animationType="fade"
+                onRequestClose={() => setReceiptViewer(null)}
+                presentationStyle="overFullScreen"
+                statusBarTranslucent
+            >
+                {receiptBody}
+            </Modal>
+        )
+    );
+
+    if (embedded) {
+        if (!visible) return null;
+        return (
+            <>
+                {cajaBody}
+                {receiptOverlay}
+                <SheetDatePicker
+                    visible={datePickerConfig.visible && Platform.OS !== 'web'}
+                    value={datePickerConfig.currentValue}
+                    title={datePickerConfig.field ? `Seleccionar ${datePickerConfig.field}` : 'Seleccionar fecha'}
+                    gymColor={accent}
+                    onConfirm={confirmSheetDate}
+                    onClose={closeDatePicker}
+                />
+            </>
+        );
+    }
+
     return (
         <>
             {useIosOverlay ? (
@@ -2681,24 +2828,7 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 </Modal>
             )}
 
-            {!!receiptViewer && (
-                useIosOverlay ? (
-                    <FullWindowOverlay>
-                        {receiptBody}
-                    </FullWindowOverlay>
-                ) : (
-                    <Modal
-                        visible
-                        transparent
-                        animationType="fade"
-                        onRequestClose={() => setReceiptViewer(null)}
-                        presentationStyle="overFullScreen"
-                        statusBarTranslucent
-                    >
-                        {receiptBody}
-                    </Modal>
-                )
-            )}
+            {receiptOverlay}
 
             <SheetDatePicker
                 visible={datePickerConfig.visible && Platform.OS !== 'web'}
@@ -2715,7 +2845,31 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
 const getStyles = (colorScheme, accent) => {
     const colors = Colors[colorScheme];
     return StyleSheet.create({
-        root: { flex: 1, paddingTop: Platform.OS === 'ios' ? 48 : 24 },
+        root: { flex: 1, paddingTop: Platform.OS === 'ios' ? 48 : 0 },
+        rootEmbedded: { paddingTop: 0 },
+        sectionSwitcher: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 10,
+            paddingTop: 8,
+            paddingBottom: 2,
+            gap: 6,
+        },
+        sectionArrowBtn: {
+            width: 40,
+            height: 44,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.border || '#ddd',
+            backgroundColor: colors.cardBackground || colors.background,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 10,
+        },
+        sectionFilterBtn: {
+            flex: 1,
+            marginBottom: 10,
+        },
         header: {
             marginHorizontal: 12,
             borderRadius: 16,
@@ -2726,11 +2880,6 @@ const getStyles = (colorScheme, accent) => {
         },
         headerKicker: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' },
         headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
-        sectionFilterWrap: {
-            paddingHorizontal: 14,
-            paddingTop: 12,
-            paddingBottom: 4,
-        },
         scroll: { padding: 14, paddingBottom: 40 },
         loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
         kpiGrid: {
