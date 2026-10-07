@@ -1897,16 +1897,29 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
     );
 
     const renderTicketCard = (item, kind) => {
-        const items = Array.isArray(item.items) ? item.items.filter((i) => i.package) : [];
+        const packItems = Array.isArray(item.items) ? item.items.filter((i) => i.package) : [];
+        const storeItems = Array.isArray(item.items) ? item.items.filter((i) => i.name && !i.package) : [];
         let label = 'Abono / monto libre';
-        if (items.length > 0) {
-            label = items.map((i) => {
+        if (kind === 'store' && storeItems.length > 0) {
+            label = storeItems.map((i) => {
+                const name = i.name || 'Producto';
+                return i.quantity > 1 ? `${name} x${i.quantity}` : name;
+            }).join(', ');
+        } else if (packItems.length > 0) {
+            label = packItems.map((i) => {
                 const name = i.package?.name || 'Paquete';
                 return i.quantity > 1 ? `${name} x${i.quantity}` : name;
             }).join(', ');
         } else if (item.package?.name) {
             label = item.package.name;
         }
+
+        const methodLabel = METHOD_LABELS[item.method] || item.method || kind;
+        const showReceipt = !!item.receiptUrl && (
+            kind === 'transfer'
+            || (kind === 'store' && item.method === 'transfer')
+        );
+
         return (
             <View key={item._id} style={styles.pendingCard}>
                 <Text style={styles.listItemTitle}>
@@ -1915,8 +1928,19 @@ const CajaModal = ({ visible, onClose, clients = [], onRefresh }) => {
                 <Text style={styles.kpiHint}>{label}</Text>
                 <Text style={styles.movementAmount}>{money(item.amountTransferred)}</Text>
                 <Text style={styles.kpiHint}>
-                    {item.method || kind} · {format(new Date(item.createdAt), "d MMM HH:mm", { locale: es })}
+                    {methodLabel} · {format(new Date(item.createdAt), "d MMM HH:mm", { locale: es })}
                 </Text>
+                {showReceipt && (
+                    <TouchableOpacity
+                        onPress={() => Linking.openURL(item.receiptUrl)}
+                        style={{ marginTop: 6, alignSelf: 'flex-start' }}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={{ color: accent, fontWeight: '800', fontSize: 13 }}>
+                            Ver comprobante
+                        </Text>
+                    </TouchableOpacity>
+                )}
                 {kind !== 'store' && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity

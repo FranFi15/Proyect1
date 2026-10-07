@@ -39,7 +39,7 @@ export const fulfillPaidStoreOrder = async ({
     adminNotes,
     reviewedBy,
 }) => {
-    const { StoreItem, Notification, User } = models;
+    const { StoreItem, Notification, User, Transaction } = models;
 
     for (const line of order.items || []) {
         const item = await StoreItem.findById(line.storeItem);
@@ -73,6 +73,34 @@ export const fulfillPaidStoreOrder = async ({
             return l.selectedOption ? `${base} (${l.selectedOption})` : base;
         })
         .join(', ');
+
+    // Register store sale in Caja as an ingreso (does not change client balance).
+    const amount = Math.round((Number(order.amountTransferred) || 0) * 100) / 100;
+    if (Transaction && amount > 0) {
+        const alreadyLogged = await Transaction.findOne({
+            storeOrderId: order._id,
+            type: 'payment',
+            $or: [{ voidedAt: null }, { voidedAt: { $exists: false } }],
+        }).select('_id');
+
+        if (!alreadyLogged) {
+            const method = order.method === 'mercadopago'
+                ? 'mercadopago'
+                : (order.method === 'efectivo' ? 'efectivo' : 'transfer');
+            const actorId = reviewedBy || user?._id || order.user;
+            await Transaction.create({
+                user: order.user,
+                type: 'payment',
+                amount,
+                description: `Tienda ${order.orderCode}: ${itemNames || 'pedido'}`,
+                createdBy: actorId,
+                receiptUrl: order.receiptUrl || undefined,
+                method,
+                source: 'store',
+                storeOrderId: order._id,
+            });
+        }
+    }
 
     if (Notification && User && user?._id) {
         try {

@@ -51,6 +51,11 @@ const transactionSchema = new mongoose.Schema({
         ref: 'PaymentRequest',
         default: null,
     },
+    storeOrderId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'StoreOrder',
+        default: null,
+    },
     sucursal: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Sucursal',

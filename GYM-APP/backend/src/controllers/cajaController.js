@@ -1097,8 +1097,12 @@ const refundCajaPayment = asyncHandler(async (req, res) => {
         throw new Error('Cliente no encontrado.');
     }
 
-    user.balance = (Number(user.balance) || 0) - (Number(tx.amount) || 0);
-    await user.save();
+    // Store sales are logged in caja without touching client balance.
+    const isStoreSale = tx.source === 'store' || !!tx.storeOrderId;
+    if (!isStoreSale) {
+        user.balance = (Number(user.balance) || 0) - (Number(tx.amount) || 0);
+        await user.save();
+    }
 
     tx.voidedAt = new Date();
     tx.voidedBy = req.user._id;
@@ -1106,7 +1110,9 @@ const refundCajaPayment = asyncHandler(async (req, res) => {
     await tx.save();
 
     res.json({
-        message: 'Ingreso anulado. El saldo del cliente fue ajustado. Los beneficios del paquete no se revierten automáticamente.',
+        message: isStoreSale
+            ? 'Ingreso de tienda anulado en caja. El pedido de tienda no se revierte automáticamente.'
+            : 'Ingreso anulado. El saldo del cliente fue ajustado. Los beneficios del paquete no se revierten automáticamente.',
         transactionId: tx._id,
         newBalance: user.balance,
     });
