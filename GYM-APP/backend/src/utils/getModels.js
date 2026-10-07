@@ -18,6 +18,10 @@ import getReviewModel from '../models/Review.js';
 import getStoreItemModel from '../models/StoreItem.js';
 import getStoreOrderModel from '../models/StoreOrder.js';
 import getBenefitModel from '../models/Benefit.js';
+import getDiscountModel from '../models/Discount.js';
+import getGastoModel from '../models/Gasto.js';
+import getMpSubscriptionModel from '../models/MpSubscription.js';
+import getCajaCierreModel from '../models/CajaCierre.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -48,6 +52,10 @@ const getModels = (dbConnection) => {
         StoreItem: getStoreItemModel(dbConnection),
         StoreOrder: getStoreOrderModel(dbConnection),
         Benefit: getBenefitModel(dbConnection),
+        Discount: getDiscountModel(dbConnection),
+        Gasto: getGastoModel(dbConnection),
+        MpSubscription: getMpSubscriptionModel(dbConnection),
+        CajaCierre: getCajaCierreModel(dbConnection),
     };
 
     return models;

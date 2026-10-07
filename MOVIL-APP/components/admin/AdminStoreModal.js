@@ -87,17 +87,25 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
     const [receiptViewer, setReceiptViewer] = useState(null);
     const [orderFilterVisible, setOrderFilterVisible] = useState(false);
+    const [sucursales, setSucursales] = useState([]);
+    const [approveOrderModal, setApproveOrderModal] = useState({
+        visible: false,
+        orderId: null,
+        sucursalId: null,
+    });
 
     const loadData = useCallback(async ({ silent = false } = {}) => {
         if (silent) setRefreshing(true);
         else setLoading(true);
         try {
-            const [itemsRes, ordersRes] = await Promise.all([
+            const [itemsRes, ordersRes, sucursalesRes] = await Promise.all([
                 apiClient.get('/store/items?all=1'),
                 apiClient.get(`/store/orders?status=${orderFilter === 'all' ? 'all' : orderFilter}`),
+                apiClient.get('/sucursales').catch(() => ({ data: [] })),
             ]);
             setItems(itemsRes.data || []);
             setOrders(ordersRes.data || []);
+            setSucursales(sucursalesRes?.data || []);
         } catch (error) {
             setAlertInfo({
                 visible: true,
@@ -339,7 +347,35 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
         });
     };
 
+    const submitProcessOrder = async (orderId, action, sucursalId = null) => {
+        try {
+            const payload = { action };
+            if ((action === 'approve' || action === 'paid') && sucursalId) {
+                payload.sucursalId = sucursalId;
+            }
+            await apiClient.put(`/store/orders/${orderId}/process`, payload);
+            setApproveOrderModal({ visible: false, orderId: null, sucursalId: null });
+            await loadData();
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'No se pudo actualizar el pedido.',
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo((p) => ({ ...p, visible: false })) }],
+            });
+        }
+    };
+
     const processOrder = (order, action) => {
+        if (action === 'approve' && (sucursales || []).length > 1) {
+            setApproveOrderModal({
+                visible: true,
+                orderId: order._id,
+                sucursalId: null,
+            });
+            return;
+        }
+
         const titles = {
             approve: 'Confirmar pago',
             reject: 'Rechazar pedido',
@@ -350,6 +386,9 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
             reject: `¿Rechazar el pedido ${order.orderCode}?`,
             deliver: `¿El cliente retiró el pedido ${order.orderCode}?`,
         };
+        const autoSucursal = action === 'approve' && (sucursales || []).length === 1
+            ? String(sucursales[0]._id)
+            : null;
         setAlertInfo({
             visible: true,
             title: titles[action],
@@ -361,17 +400,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
                     style: 'primary',
                     onPress: async () => {
                         setAlertInfo((p) => ({ ...p, visible: false }));
-                        try {
-                            await apiClient.put(`/store/orders/${order._id}/process`, { action });
-                            await loadData();
-                        } catch (error) {
-                            setAlertInfo({
-                                visible: true,
-                                title: 'Error',
-                                message: error.response?.data?.message || 'No se pudo actualizar el pedido.',
-                                buttons: [{ text: 'OK', onPress: () => setAlertInfo((p) => ({ ...p, visible: false })) }],
-                            });
-                        }
+                        await submitProcessOrder(order._id, action, autoSucursal);
                     },
                 },
             ],
@@ -574,6 +603,82 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
                     title="Estado del pedido"
                     theme={{ colors: Colors[colorScheme], gymColor: accent }}
                 />
+
+                {approveOrderModal.visible && (
+                    <View style={styles.approveOverlay}>
+                        <View style={styles.approveCard}>
+                            <Text style={styles.approveTitle}>Aprobar pedido tienda</Text>
+                            <Text style={styles.approveHint}>
+                                Elegí la sucursal donde se registra este ingreso.
+                            </Text>
+                            <View style={styles.approvePills}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.approvePill,
+                                        !approveOrderModal.sucursalId && {
+                                            backgroundColor: accent,
+                                            borderColor: accent,
+                                        },
+                                    ]}
+                                    onPress={() => setApproveOrderModal((p) => ({ ...p, sucursalId: null }))}
+                                >
+                                    <Text style={[
+                                        styles.approvePillText,
+                                        !approveOrderModal.sucursalId && { color: '#fff' },
+                                    ]}>
+                                        Sin sucursal
+                                    </Text>
+                                </TouchableOpacity>
+                                {(sucursales || []).map((s) => {
+                                    const id = String(s._id);
+                                    const selected = String(approveOrderModal.sucursalId || '') === id;
+                                    return (
+                                        <TouchableOpacity
+                                            key={id}
+                                            style={[
+                                                styles.approvePill,
+                                                selected && {
+                                                    backgroundColor: accent,
+                                                    borderColor: accent,
+                                                },
+                                            ]}
+                                            onPress={() => setApproveOrderModal((p) => ({ ...p, sucursalId: id }))}
+                                        >
+                                            <Text style={[
+                                                styles.approvePillText,
+                                                selected && { color: '#fff' },
+                                            ]} numberOfLines={1}>
+                                                {s.nombre}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            <View style={styles.orderActions}>
+                                <TouchableOpacity
+                                    style={[styles.smallBtn, styles.approveCancelBtn]}
+                                    onPress={() => setApproveOrderModal({
+                                        visible: false,
+                                        orderId: null,
+                                        sucursalId: null,
+                                    })}
+                                >
+                                    <Text style={[styles.smallBtnText, { color: Colors[colorScheme].text }]}>Cancelar</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.smallBtn, { backgroundColor: accent, flex: 1 }]}
+                                    onPress={() => submitProcessOrder(
+                                        approveOrderModal.orderId,
+                                        'approve',
+                                        approveOrderModal.sucursalId
+                                    )}
+                                >
+                                    <Text style={styles.smallBtnText}>Confirmar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
             </View>
         </Modal>
 
@@ -801,6 +906,35 @@ const getStyles = (colorScheme, accent) => {
         orderActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
         smallBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
         smallBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+        approveOverlay: {
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            padding: 24,
+            zIndex: 50,
+        },
+        approveCard: {
+            backgroundColor: colors.cardBackground || soft,
+            borderRadius: 16,
+            padding: 20,
+        },
+        approveTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 },
+        approveHint: { fontSize: 14, color: colors.text, opacity: 0.7, marginBottom: 14 },
+        approvePills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+        approvePill: {
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: soft,
+        },
+        approvePillText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+        approveCancelBtn: {
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: soft,
+        },
         link: { marginTop: 6, fontWeight: '700', fontSize: 13 },
         formSheet: {
             width: '100%',

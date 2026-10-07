@@ -32,6 +32,7 @@ const emptyForm = (defaultTipoClase = '') => ({
     durationDays: '30',
     creditsAmount: '8',
     tipoClase: defaultTipoClase,
+    allowAutoDebit: false,
 });
 
 const PackageFormModal = ({
@@ -62,6 +63,7 @@ const PackageFormModal = ({
                 durationDays: editingPackage.durationDays?.toString() || '30',
                 creditsAmount: editingPackage.creditsAmount?.toString() || '8',
                 tipoClase: editingPackage.tipoClase?._id || editingPackage.tipoClase || classTypes[0]?._id || '',
+                allowAutoDebit: false,
             });
         } else {
             setForm(emptyForm(classTypes[0]?._id || ''));
@@ -102,6 +104,8 @@ const PackageFormModal = ({
             durationDays: Number(form.durationDays) || 30,
             creditsAmount: form.type === 'creditos' ? Number(form.creditsAmount) || 0 : 0,
             tipoClase: form.type === 'creditos' ? form.tipoClase : null,
+            allowAutoDebit: false,
+            autoDebitPrice: null,
         };
 
         setSubmitting(true);
@@ -468,6 +472,16 @@ const getStyles = (colorScheme, accent) => {
             marginBottom: 4,
         },
         selectText: { fontSize: 15, color: colors.text, flexShrink: 1, paddingRight: 8 },
+        toggleRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.background,
+            borderRadius: 12,
+            padding: 12,
+        },
+        toggleTitle: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 4 },
         previewCard: {
             borderRadius: 16,
             padding: 16,

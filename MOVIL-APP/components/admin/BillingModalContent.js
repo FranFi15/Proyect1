@@ -26,12 +26,30 @@ const TABS = [
     { id: 'history', label: 'Historial', icon: 'time-outline' },
 ];
 
-const BillingModalContent = ({ client, onClose, onRefresh }) => {
+const METHODS = [
+    { id: 'efectivo', label: 'Efectivo' },
+    { id: 'transfer', label: 'Transferencia' },
+    { id: 'mercadopago', label: 'Mercado Pago' },
+];
+
+const METHOD_LABELS = {
+    efectivo: 'Efectivo',
+    transfer: 'Transferencia',
+    mercadopago: 'Mercado Pago',
+    deuda: 'Deuda',
+};
+
+const BillingModalContent = ({ client, onClose, onRefresh, sucursales = [] }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState('register');
-    const [newTransaction, setNewTransaction] = useState({ amount: '', description: '' });
+    const [newTransaction, setNewTransaction] = useState({
+        amount: '',
+        description: '',
+        method: 'efectivo',
+        sucursalId: null,
+    });
     const [currentClient, setCurrentClient] = useState(client);
     const [imageViewerData, setImageViewerData] = useState(null);
 
@@ -45,6 +63,7 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
 
     const balance = currentClient?.balance ?? 0;
     const isDebtor = balance < 0;
+    const hasCredit = balance > 0;
     const fullName = `${currentClient?.nombre || ''} ${currentClient?.apellido || ''}`.trim();
 
     const fetchData = async () => {
@@ -85,16 +104,26 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
         }
         setSubmitting(true);
         try {
-            const response = await createTransaction({
+            const payload = {
                 userId: client._id,
                 amount: newTransaction.amount,
                 description: newTransaction.description,
                 type,
-            });
+            };
+            if (type === 'payment') {
+                payload.method = newTransaction.method || 'efectivo';
+            }
+            const effectiveSucursal =
+                newTransaction.sucursalId
+                || ((sucursales || []).length === 1 ? String(sucursales[0]._id) : null);
+            if (effectiveSucursal) {
+                payload.sucursalId = effectiveSucursal;
+            }
+            const response = await createTransaction(payload);
 
             setCurrentClient((prevClient) => ({ ...prevClient, balance: response.data.newUserBalance }));
             setTransactions((prevTransactions) => [response.data.transaction, ...prevTransactions]);
-            setNewTransaction({ amount: '', description: '' });
+            setNewTransaction({ amount: '', description: '', method: 'efectivo', sucursalId: null });
 
             onRefresh?.();
             setAlertInfo({
@@ -128,21 +157,33 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                 </TouchableOpacity>
             </View>
 
-            <View style={[styles.balanceStrip, isDebtor ? styles.balanceStripDebt : styles.balanceStripOk]}>
+            <View style={[
+                styles.balanceStrip,
+                isDebtor ? styles.balanceStripDebt : (hasCredit ? styles.balanceStripCredit : styles.balanceStripOk),
+            ]}>
                 <View>
                     <Text style={styles.balanceLabel}>Saldo actual</Text>
-                    <Text style={[styles.balanceValue, isDebtor ? styles.charge : styles.payment]}>
-                        {isDebtor ? '-' : ''}${Math.abs(balance).toFixed(2)}
+                    <Text style={[
+                        styles.balanceValue,
+                        isDebtor ? styles.charge : styles.payment,
+                    ]}>
+                        {isDebtor ? '-' : (hasCredit ? '+' : '')}${Math.abs(balance).toFixed(2)}
                     </Text>
                 </View>
-                <View style={[styles.statusChip, isDebtor ? styles.statusDebtBg : styles.statusOkBg]}>
+                <View style={[
+                    styles.statusChip,
+                    isDebtor ? styles.statusDebtBg : (hasCredit ? styles.statusCreditBg : styles.statusOkBg),
+                ]}>
                     <Ionicons
-                        name={isDebtor ? 'alert-circle' : 'checkmark-circle'}
+                        name={isDebtor ? 'alert-circle' : (hasCredit ? 'wallet' : 'checkmark-circle')}
                         size={14}
-                        color={isDebtor ? '#a72828' : '#1e7e34'}
+                        color={isDebtor ? '#a72828' : (hasCredit ? '#1a6fb5' : '#1e7e34')}
                     />
-                    <Text style={[styles.statusChipText, { color: isDebtor ? '#a72828' : '#1e7e34' }]}>
-                        {isDebtor ? 'Con deuda' : 'Al día'}
+                    <Text style={[
+                        styles.statusChipText,
+                        { color: isDebtor ? '#a72828' : (hasCredit ? '#1a6fb5' : '#1e7e34') },
+                    ]}>
+                        {isDebtor ? 'Con deuda' : (hasCredit ? 'Saldo a favor' : 'Al día')}
                     </Text>
                 </View>
             </View>
@@ -184,7 +225,9 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                     {activeTab === 'register' ? (
                         <View style={styles.sectionCard}>
                             <Text style={styles.sectionTitle}>Nuevo movimiento</Text>
-                            <Text style={styles.sectionSub}>Cargá un pago o un cargo para este socio.</Text>
+                            <Text style={styles.sectionSub}>
+                                Cargá un pago (puede dejar saldo a favor) o un cargo para este socio.
+                            </Text>
 
                             <Text style={styles.inputLabel}>Monto</Text>
                             <View style={styles.amountRow}>
@@ -207,6 +250,70 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                 value={newTransaction.description}
                                 onChangeText={(text) => setNewTransaction((p) => ({ ...p, description: text }))}
                             />
+
+                            <Text style={styles.inputLabel}>Método de pago</Text>
+                            <View style={styles.methodRow}>
+                                {METHODS.map((m) => (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        style={[
+                                            styles.methodPill,
+                                            newTransaction.method === m.id && { backgroundColor: accent, borderColor: accent },
+                                        ]}
+                                        onPress={() => setNewTransaction((p) => ({ ...p, method: m.id }))}
+                                    >
+                                        <Text style={[
+                                            styles.methodPillText,
+                                            newTransaction.method === m.id && { color: '#fff' },
+                                        ]}>
+                                            {m.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {(sucursales || []).length > 1 && (
+                                <>
+                                    <Text style={styles.inputLabel}>Sucursal</Text>
+                                    <View style={styles.methodRow}>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.methodPill,
+                                                !newTransaction.sucursalId && { backgroundColor: accent, borderColor: accent },
+                                            ]}
+                                            onPress={() => setNewTransaction((p) => ({ ...p, sucursalId: null }))}
+                                        >
+                                            <Text style={[
+                                                styles.methodPillText,
+                                                !newTransaction.sucursalId && { color: '#fff' },
+                                            ]}>
+                                                Sin sucursal
+                                            </Text>
+                                        </TouchableOpacity>
+                                        {sucursales.map((s) => {
+                                            const id = String(s._id);
+                                            const selected = String(newTransaction.sucursalId || '') === id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={id}
+                                                    style={[
+                                                        styles.methodPill,
+                                                        selected && { backgroundColor: accent, borderColor: accent },
+                                                    ]}
+                                                    onPress={() => setNewTransaction((p) => ({ ...p, sucursalId: id }))}
+                                                >
+                                                    <Text style={[
+                                                        styles.methodPillText,
+                                                        selected && { color: '#fff' },
+                                                    ]} numberOfLines={1}>
+                                                        {s.nombre}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                </>
+                            )}
 
                             <View style={styles.actionRow}>
                                 <TouchableOpacity
@@ -252,7 +359,18 @@ const BillingModalContent = ({ client, onClose, onRefresh }) => {
                                                 <Text style={styles.txDescription} numberOfLines={2}>{item.description}</Text>
                                                 <Text style={styles.txDate}>
                                                     {format(new Date(item.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
+                                                    {METHOD_LABELS[item.method] || item.method || '—'}
+                                                    {item.source === 'caja' ? ' · caja' : ''}
+                                                    {item.source === 'billing' ? ' · billing' : ''}
                                                 </Text>
+                                                {!!item.discountAmount && item.discountAmount > 0 && (
+                                                    <Text style={[styles.txDate, { color: accent }]}>
+                                                        Descuento −${parseFloat(item.discountAmount).toFixed(2)}
+                                                        {item.originalAmount != null
+                                                            ? ` (antes $${parseFloat(item.originalAmount).toFixed(2)})`
+                                                            : ''}
+                                                    </Text>
+                                                )}
                                                 {!!item.receiptUrl && (
                                                     <TouchableOpacity
                                                         style={styles.receiptBtn}
@@ -352,6 +470,10 @@ const getStyles = (colorScheme, accent) => {
             backgroundColor: colorScheme === 'dark' ? '#13251a' : '#eefaf1',
             borderColor: colorScheme === 'dark' ? '#1e7e3466' : '#b7e4c7',
         },
+        balanceStripCredit: {
+            backgroundColor: colorScheme === 'dark' ? '#102033' : '#e8f3fb',
+            borderColor: colorScheme === 'dark' ? '#1a6fb566' : '#a8cce8',
+        },
         balanceStripDebt: {
             backgroundColor: colorScheme === 'dark' ? '#2a1515' : '#fdeeee',
             borderColor: colorScheme === 'dark' ? '#a7282866' : '#f1c0c0',
@@ -367,6 +489,7 @@ const getStyles = (colorScheme, accent) => {
             borderRadius: 999,
         },
         statusOkBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)' },
+        statusCreditBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.85)' },
         statusDebtBg: { backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)' },
         statusChipText: { fontSize: 12, fontWeight: '700' },
         tabBar: {
@@ -409,6 +532,17 @@ const getStyles = (colorScheme, accent) => {
             opacity: 0.7,
             marginBottom: 6,
         },
+        methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+        methodPill: {
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: line,
+            backgroundColor: colors.background,
+        },
+        methodPillText: { fontSize: 12, fontWeight: '700', color: colors.text },
+        hintText: { fontSize: 12, color: colors.icon, marginBottom: 12, marginTop: -2 },
         amountRow: {
             flexDirection: 'row',
             alignItems: 'center',

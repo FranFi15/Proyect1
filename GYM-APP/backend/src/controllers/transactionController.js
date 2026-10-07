@@ -1,4 +1,5 @@
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 
@@ -7,11 +8,16 @@ import { sendSingleNotification } from './notificationController.js';
 // @access  Private/Admin
 const createTransaction = asyncHandler(async (req, res) => {
     const { Transaction, User, Notification } = getModels(req.gymDBConnection);
-    const { userId, type, amount, description } = req.body;
+    const { userId, type, amount, description, method, sucursalId } = req.body;
 
     if (!userId || !type || !amount || !description) {
         res.status(400);
         throw new Error('Faltan campos obligatorios.');
+    }
+
+    if (!['payment', 'charge'].includes(type)) {
+        res.status(400);
+        throw new Error('Tipo de transacción inválido.');
     }
 
     const user = await User.findById(userId);
@@ -26,7 +32,23 @@ const createTransaction = asyncHandler(async (req, res) => {
         throw new Error('El monto debe ser un número positivo.');
     }
 
-   
+    let resolvedMethod = 'efectivo';
+    if (type === 'payment') {
+        const allowed = ['efectivo', 'transfer', 'mercadopago'];
+        resolvedMethod = allowed.includes(method) ? method : 'efectivo';
+    } else {
+        resolvedMethod = 'efectivo';
+    }
+
+    let resolvedSucursal = null;
+    if (sucursalId && sucursalId !== 'all' && sucursalId !== 'none') {
+        try {
+            resolvedSucursal = new mongoose.Types.ObjectId(String(sucursalId));
+        } catch (_e) {
+            resolvedSucursal = null;
+        }
+    }
+
     const amountToUpdate = type === 'charge' ? -numericAmount : numericAmount;
     user.balance += amountToUpdate;
 
@@ -36,6 +58,9 @@ const createTransaction = asyncHandler(async (req, res) => {
         amount: numericAmount,
         description,
         createdBy: req.user._id,
+        method: resolvedMethod,
+        source: 'billing',
+        sucursal: resolvedSucursal,
     });
     
     await user.save();
@@ -65,7 +90,7 @@ const createTransaction = asyncHandler(async (req, res) => {
     res.status(201).json({
         message: 'Transacción creada exitosamente.',
         transaction,
-        newUserBalance: user.balance, // Se envía el nuevo saldo actualizado
+        newUserBalance: user.balance,
     });
 });
 // @desc    Obtener el historial de transacciones de un usuario

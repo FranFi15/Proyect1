@@ -98,6 +98,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
     const [showBankDetails, setShowBankDetails] = useState(true);
     const [isKindFilterVisible, setIsKindFilterVisible] = useState(false);
     const [isCreditFilterVisible, setIsCreditFilterVisible] = useState(false);
+    const [assignedDiscount, setAssignedDiscount] = useState(null);
 
     useEffect(() => {
         aliveRef.current = true;
@@ -108,7 +109,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         };
     }, []);
 
-    const applyShopPayload = (typesRes, settingsRes, pkgRes, storeRes) => {
+    const applyShopPayload = (typesRes, settingsRes, pkgRes, storeRes, pricingRes) => {
         if (typesRes.status === 'fulfilled') {
             setClassTypes(typesRes.value.data.tiposClase || []);
         }
@@ -127,6 +128,9 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         if (storeRes.status === 'fulfilled') {
             setStoreItems(storeRes.value.data || []);
         }
+        if (pricingRes?.status === 'fulfilled') {
+            setAssignedDiscount(pricingRes.value.data?.discount || null);
+        }
     };
 
     const onRefreshShop = async () => {
@@ -137,6 +141,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                 apiClient.get('/settings'),
                 apiClient.get('/payments/packages'),
                 apiClient.get('/store/items'),
+                apiClient.get('/payments/my-pricing'),
             ]);
             applyShopPayload(...results);
         } finally {
@@ -153,6 +158,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                     apiClient.get('/settings'),
                     apiClient.get('/payments/packages'),
                     apiClient.get('/store/items'),
+                    apiClient.get('/payments/my-pricing'),
                 ]);
                 if (cancelled) return;
                 applyShopPayload(...results);
@@ -226,6 +232,28 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         [cartItems]
     );
 
+    const cartDiscountAmount = useMemo(() => {
+        if (!assignedDiscount || cartTotal <= 0) return 0;
+        if (assignedDiscount.type === 'percent') {
+            const pct = Math.min(100, Math.max(0, Number(assignedDiscount.value) || 0));
+            return Math.min(cartTotal, Math.round(cartTotal * (pct / 100) * 100) / 100);
+        }
+        return Math.min(cartTotal, Number(assignedDiscount.value) || 0);
+    }, [assignedDiscount, cartTotal]);
+
+    const cartTotalDiscounted = Math.max(0, cartTotal - cartDiscountAmount);
+
+    const discountedUnitPrice = (pkg) => {
+        const price = Number(pkg?.price) || 0;
+        if (!assignedDiscount || price <= 0) return price;
+        if (assignedDiscount.type === 'percent') {
+            const pct = Math.min(100, Math.max(0, Number(assignedDiscount.value) || 0));
+            return Math.round(price * (1 - pct / 100) * 100) / 100;
+        }
+        // Fixed discount applies to cart total, not per package — show list price on cards
+        return price;
+    };
+
     const storeCartItems = useMemo(() => Object.values(storeCart), [storeCart]);
     const storeCartCount = useMemo(
         () => storeCartItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -239,7 +267,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
     const isStoreMode = shopTab === 'tienda';
     const amountToPay = isStoreMode
         ? storeCartTotal
-        : (cartItems.length > 0 ? cartTotal : Number(customAmount));
+        : (cartItems.length > 0 ? cartTotalDiscounted : Number(customAmount));
 
     const canCheckout = isStoreMode
         ? storeCartItems.length > 0
@@ -604,7 +632,16 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                 {pkg.description ? <Text style={styles.packageDesc} numberOfLines={2}>{pkg.description}</Text> : null}
                 <Text style={styles.packageBenefit}>{getPackageBenefit(pkg)}</Text>
                 <View style={styles.packageFooter}>
-                    <Text style={[styles.packagePrice, { color: gymColor }]}>{formatPrice(pkg.price)}</Text>
+                    {assignedDiscount && assignedDiscount.type === 'percent' ? (
+                        <View>
+                            <Text style={[styles.packagePriceStrike]}>{formatPrice(pkg.price)}</Text>
+                            <Text style={[styles.packagePrice, { color: gymColor }]}>
+                                {formatPrice(discountedUnitPrice(pkg))}
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={[styles.packagePrice, { color: gymColor }]}>{formatPrice(pkg.price)}</Text>
+                    )}
                     {inCart ? (
                         <View style={styles.qtyRow}>
                             <TouchableOpacity style={styles.qtyBtn} onPress={() => setCartQuantity(pkg._id, inCart.quantity - 1)}>
@@ -908,6 +945,21 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                     <Text style={styles.summaryMeta}>Abono de deuda</Text>
                                 </>
                             )}
+                            {!!assignedDiscount && cartItems.length > 0 && cartDiscountAmount > 0 && (
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryName}>
+                                        Descuento ({assignedDiscount.name})
+                                    </Text>
+                                    <Text style={[styles.summaryLinePrice, { color: '#1e7e34' }]}>
+                                        −{formatPrice(cartDiscountAmount)}
+                                    </Text>
+                                </View>
+                            )}
+                            {!!assignedDiscount && cartItems.length > 0 && cartDiscountAmount > 0 && (
+                                <Text style={styles.summaryMeta}>
+                                    Antes {formatPrice(cartTotal)}
+                                </Text>
+                            )}
                             <Text style={[styles.summaryPrice, { color: gymColor }]}>{formatPrice(amountToPay)}</Text>
                         </View>
 
@@ -941,15 +993,17 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                         <Text style={styles.checkingText}>Confirmando tu pago…</Text>
                                     </View>
                                 ) : (
-                                    <TouchableOpacity
-                                        style={[styles.submitBtn, { backgroundColor: '#009EE3' }, submitting && { opacity: 0.6 }]}
-                                        onPress={handleMercadoPago}
-                                        disabled={submitting}
-                                    >
-                                        {submitting ? <ActivityIndicator color="#fff" /> : (
-                                            <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
-                                        )}
-                                    </TouchableOpacity>
+                                    <>
+                                        <TouchableOpacity
+                                            style={[styles.submitBtn, { backgroundColor: '#009EE3' }, submitting && { opacity: 0.6 }]}
+                                            onPress={handleMercadoPago}
+                                            disabled={submitting}
+                                        >
+                                            {submitting ? <ActivityIndicator color="#fff" /> : (
+                                                <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </>
                                 )}
                             </>
                         ) : (
@@ -1267,6 +1321,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     packageBenefit: { marginTop: 8, fontSize: 13, fontWeight: '600', color: Colors[colorScheme].text, opacity: 0.8 },
     packageFooter: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
     packagePrice: { fontSize: 20, fontWeight: '900' },
+    packagePriceStrike: {
+        fontSize: 13,
+        fontWeight: '600',
+        textDecorationLine: 'line-through',
+        opacity: 0.55,
+        marginBottom: 2,
+    },
     addBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
     addBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
     qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

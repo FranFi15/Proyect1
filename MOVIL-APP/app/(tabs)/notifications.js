@@ -92,6 +92,34 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             iconName = 'star';
             baseColor = colors.error;
             break;
+        case 'membresia_update':
+            iconName = 'id-card';
+            baseColor = colors.warning;
+            break;
+        case 'subscription_activated':
+            iconName = 'calendar-check';
+            baseColor = colors.success;
+            break;
+        case 'monthly_payment_reminder':
+            iconName = 'bell';
+            baseColor = colors.warning;
+            break;
+        case 'desafio_resultado':
+            iconName = 'trophy';
+            baseColor = colors.warning;
+            break;
+        case 'store_order_paid':
+            iconName = 'bag-shopping';
+            baseColor = colors.success;
+            break;
+        case 'store_order_delivered':
+            iconName = 'box';
+            baseColor = colors.success;
+            break;
+        case 'store_order_rejected':
+            iconName = 'bag-shopping';
+            baseColor = colors.error;
+            break;
         case 'welcome_gift':
             iconName = 'gift';
             baseColor = colors.success;
@@ -110,7 +138,7 @@ const NotificationIcon = ({ type, size, isRead, gymColor, colorScheme }) => {
             break;
         default:
             iconName = 'info';
-            baseColor = Colors[colorScheme].icon; // Color neutro por defecto
+            baseColor = Colors[colorScheme].icon;
             break;
 
     }

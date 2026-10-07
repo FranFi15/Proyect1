@@ -22,6 +22,13 @@ const paymentRequestSchema = new mongoose.Schema({
         enum: ['transfer', 'mercadopago'],
         default: 'transfer'
     },
+    originalAmount: { type: Number, default: null },
+    discountAmount: { type: Number, default: 0 },
+    discountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Discount',
+        default: null,
+    },
     mpPreferenceId: { type: String },
     mpPaymentId: { type: String },
     mpStatus: { type: String },

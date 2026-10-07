@@ -125,8 +125,9 @@ function AppContent() {
 
         const isResetPasswordScreen = segments.some(s => s === 'reset-password');
         const isExternalReturn = segments.some(s => s === 'payment-result' || s === 'mp-oauth');
+        const isQrScanner = segments.some(s => s === 'scan-qr');
 
-        if (isResetPasswordScreen || isExternalReturn) {
+        if (isResetPasswordScreen || isExternalReturn || isQrScanner) {
             return;
         }
 

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     StyleSheet, ActivityIndicator, TouchableOpacity, Platform, useColorScheme,
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
-    Modal, KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback, Image
+    KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
@@ -18,6 +18,7 @@ import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import QrModal from '../../components/client/QrModal';
+import QrIngresoModal from '../../components/client/QrIngresoModal';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import PresentismoOptionsModal from '../../components/client/PresentismoOptionsModal';
 import ClassCard, { ClassCardAction } from '@/components/ClassCard';
@@ -505,27 +506,13 @@ const CalendarScreen = () => {
                 }}
             />
             
-            <Modal
+            <QrIngresoModal
                 visible={isQrImageModalVisible}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setQrImageModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContainer, { height: '80%', padding: 20, justifyContent: 'center', alignItems: 'center' }]}>
-                        <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }} onPress={() => setQrImageModalVisible(false)}>
-                            <Ionicons name="close" size={30} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 20 }}>Tu QR de Ingreso</ThemedText>
-                        {user?.qrIngresoUrl && (
-                            <Image 
-                                source={{ uri: user.qrIngresoUrl }} 
-                                style={{ width: '100%', height: 400, resizeMode: 'contain' }} 
-                            />
-                        )}
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setQrImageModalVisible(false)}
+                qrUrl={user?.qrIngresoUrl}
+                userName={user ? `${user.nombre || ''} ${user.apellido || ''}`.trim() : ''}
+                gymColor={gymColor}
+            />
         </View>
     );
 };

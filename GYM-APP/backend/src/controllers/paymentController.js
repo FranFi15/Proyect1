@@ -1,10 +1,12 @@
 // src/controllers/paymentController.js
 import asyncHandler from 'express-async-handler';
+import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { sendSingleNotification } from './notificationController.js';
 import { Expo } from 'expo-server-sdk';
 import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 import { createCheckoutPreference, getMpSettings } from './mercadopagoController.js';
+import { quoteCart, resolveUserDiscount } from '../services/pricing.js';
 const expo = new Expo();
 
 const parseCartPayload = (body) => {
@@ -54,11 +56,21 @@ const loadCartPackages = async (PaymentPackage, cartEntries) => {
 // @desc    Crear un nuevo paquete de pago (Admin)
 const createPackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
-    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays } = req.body;
+    const { name, description, price, tipoClase, creditsAmount, isPaseLibre, isMembresia, durationDays, allowAutoDebit, autoDebitPrice } = req.body;
 
     if (!name || !price) {
         res.status(400);
         throw new Error('El nombre y el precio son obligatorios.');
+    }
+
+    let recurringPrice = null;
+    if (autoDebitPrice != null && autoDebitPrice !== '') {
+        const n = Number(autoDebitPrice);
+        if (Number.isNaN(n) || n < 0) {
+            res.status(400);
+            throw new Error('El precio de débito automático no es válido.');
+        }
+        recurringPrice = n > 0 ? n : null;
     }
 
     const newPackage = await PaymentPackage.create({
@@ -69,7 +81,9 @@ const createPackage = asyncHandler(async (req, res) => {
         isMembresia: !isPaseLibre && !!isMembresia,
         durationDays,
         creditsAmount: isPaseLibre || isMembresia ? 0 : creditsAmount,
-        tipoClase: isPaseLibre || isMembresia ? null : tipoClase
+        tipoClase: isPaseLibre || isMembresia ? null : tipoClase,
+        allowAutoDebit: !!allowAutoDebit,
+        autoDebitPrice: !!allowAutoDebit ? recurringPrice : null,
     });
 
     res.status(201).json(newPackage);
@@ -80,10 +94,36 @@ const updatePackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
     const packageId = req.params.id;
 
+    const updates = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(updates, 'allowAutoDebit')) {
+        updates.allowAutoDebit = !!updates.allowAutoDebit;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'isPaseLibre')) {
+        updates.isPaseLibre = !!updates.isPaseLibre;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'isMembresia')) {
+        updates.isMembresia = !updates.isPaseLibre && !!updates.isMembresia;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'autoDebitPrice')) {
+        if (updates.autoDebitPrice == null || updates.autoDebitPrice === '') {
+            updates.autoDebitPrice = null;
+        } else {
+            const n = Number(updates.autoDebitPrice);
+            if (Number.isNaN(n) || n < 0) {
+                res.status(400);
+                throw new Error('El precio de débito automático no es válido.');
+            }
+            updates.autoDebitPrice = n > 0 ? n : null;
+        }
+    }
+    if (updates.allowAutoDebit === false) {
+        updates.autoDebitPrice = null;
+    }
+
     const updatedPackage = await PaymentPackage.findByIdAndUpdate(
-        packageId, 
-        req.body, 
-        { new: true } // Devuelve el documento actualizado
+        packageId,
+        updates,
+        { new: true }
     );
 
     if (!updatedPackage) {
@@ -93,7 +133,7 @@ const updatePackage = asyncHandler(async (req, res) => {
     res.json(updatedPackage);
 });
 
-// @desc    "Eliminar" un paquete (Ocultarlo para no romper historiales)
+// @desc    Eliminar un paquete de forma permanente
 const deletePackage = asyncHandler(async (req, res) => {
     const { PaymentPackage } = getModels(req.gymDBConnection);
     const packageId = req.params.id;
@@ -104,8 +144,7 @@ const deletePackage = asyncHandler(async (req, res) => {
         throw new Error('Paquete no encontrado.');
     }
 
-    pkg.isActive = false; // Lo ocultamos
-    await pkg.save();
+    await pkg.deleteOne();
 
     res.json({ message: 'Paquete eliminado correctamente.' });
 });
@@ -121,7 +160,7 @@ const getPackages = asyncHandler(async (req, res) => {
 // @desc    El cliente envía el comprobante de transferencia
 // @desc    El cliente envía el comprobante de transferencia
 const submitTransferReceipt = asyncHandler(async (req, res) => {
-    const { PaymentRequest, PaymentPackage, User } = getModels(req.gymDBConnection);
+    const { PaymentRequest, PaymentPackage, User, Discount } = getModels(req.gymDBConnection);
     const { amountTransferred } = req.body;
     const cartEntries = parseCartPayload(req.body);
 
@@ -145,11 +184,18 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
         }
     }
 
-    const expectedTotal = cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0);
+    const user = await User.findById(req.user._id);
+    const userDiscount = cart.length > 0
+        ? await resolveUserDiscount(Discount, user)
+        : null;
+    const quote = cart.length > 0
+        ? quoteCart(cart, { discount: userDiscount })
+        : { subtotal: Number(amountTransferred), discountAmount: 0, total: Number(amountTransferred), discountId: null };
+
     const amount = Number(amountTransferred);
-    if (cart.length > 0 && Math.abs(amount - expectedTotal) > 0.01) {
+    if (cart.length > 0 && Math.abs(amount - quote.total) > 0.01) {
         res.status(400);
-        throw new Error(`El monto no coincide con el carrito ($${expectedTotal}).`);
+        throw new Error(`El monto no coincide con el carrito ($${quote.total}).`);
     }
 
     const ticket = await PaymentRequest.create({
@@ -157,6 +203,9 @@ const submitTransferReceipt = asyncHandler(async (req, res) => {
         package: cart[0]?.pkg._id || null,
         items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
         amountTransferred: amount,
+        originalAmount: quote.subtotal,
+        discountAmount: quote.discountAmount,
+        discountId: quote.discountId,
         receiptUrl,
         status: 'pending',
         method: 'transfer'
@@ -221,8 +270,17 @@ const getPendingRequests = asyncHandler(async (req, res) => {
 // @desc    Aprobar o Rechazar un Ticket (Admin)
 const processTransferTicket = asyncHandler(async (req, res) => {
     const { PaymentRequest, User, Transaction, Notification, CreditLog } = getModels(req.gymDBConnection);
-    const { action, adminNotes } = req.body; // action puede ser 'approve' o 'reject'
+    const { action, adminNotes, sucursalId } = req.body; // action puede ser 'approve' o 'reject'
     const ticketId = req.params.id;
+
+    let resolvedSucursal = null;
+    if (sucursalId && sucursalId !== 'all' && sucursalId !== 'none') {
+        try {
+            resolvedSucursal = new mongoose.Types.ObjectId(String(sucursalId));
+        } catch (_e) {
+            resolvedSucursal = null;
+        }
+    }
 
     const ticket = await PaymentRequest.findById(ticketId)
         .populate('package')
@@ -269,7 +327,18 @@ const processTransferTicket = asyncHandler(async (req, res) => {
                 : 'Abono de deuda por transferencia',
             createdBy: req.user._id,
             receiptUrl: ticket.receiptUrl,
-            ticketId: ticket._id
+            ticketId: ticket._id,
+            transactionMeta: {
+                method: ticket.method === 'mercadopago' ? 'mercadopago' : 'transfer',
+                source: cart.length > 0 ? 'pack' : 'account',
+                paymentRequestId: ticket._id,
+                originalAmount: ticket.originalAmount != null
+                    ? ticket.originalAmount
+                    : ticket.amountTransferred,
+                discountAmount: ticket.discountAmount || 0,
+                discountId: ticket.discountId || null,
+                sucursal: resolvedSucursal,
+            },
         });
 
         ticket.status = 'approved';
@@ -286,7 +355,7 @@ const processTransferTicket = asyncHandler(async (req, res) => {
 });
 
 const createMercadoPagoPreference = asyncHandler(async (req, res) => {
-    const { PaymentPackage, PaymentRequest, Settings } = getModels(req.gymDBConnection);
+    const { PaymentPackage, PaymentRequest, Settings, User, Discount } = getModels(req.gymDBConnection);
     const { amount } = req.body;
     const cartEntries = parseCartPayload(req.body);
 
@@ -306,9 +375,20 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
         }
     }
 
-    let amountToPay = cart.length > 0
-        ? cart.reduce((sum, item) => sum + (Number(item.pkg.price) * item.quantity), 0)
-        : Number(amount);
+    const user = await User.findById(req.user._id);
+    const userDiscount = cart.length > 0
+        ? await resolveUserDiscount(Discount, user)
+        : null;
+    const quote = cart.length > 0
+        ? quoteCart(cart, { discount: userDiscount })
+        : {
+            subtotal: Number(amount),
+            discountAmount: 0,
+            total: Number(amount),
+            discountId: null,
+        };
+
+    let amountToPay = cart.length > 0 ? quote.total : Number(amount);
 
     if (!amountToPay || Number.isNaN(amountToPay) || amountToPay <= 0) {
         res.status(400);
@@ -320,6 +400,9 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
         package: cart[0]?.pkg._id || null,
         items: cart.map(item => ({ package: item.pkg._id, quantity: item.quantity })),
         amountTransferred: amountToPay,
+        originalAmount: quote.subtotal,
+        discountAmount: quote.discountAmount,
+        discountId: quote.discountId,
         receiptUrl: '',
         status: 'pending',
         method: 'mercadopago'
@@ -332,7 +415,8 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
             ticket,
             cart,
             amountToPay,
-            user: req.user
+            user: req.user,
+            discountAmount: quote.discountAmount,
         });
 
         ticket.mpPreferenceId = preference.id;
@@ -341,7 +425,13 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
         res.status(201).json({
             ticketId: ticket._id,
             preferenceId: preference.id,
-            checkoutUrl: preference.init_point || preference.sandbox_init_point || preference.body?.init_point
+            checkoutUrl: preference.init_point || preference.sandbox_init_point || preference.body?.init_point,
+            quote: {
+                subtotal: quote.subtotal,
+                discountAmount: quote.discountAmount,
+                total: quote.total,
+                discountId: quote.discountId,
+            },
         });
     } catch (error) {
         ticket.status = 'rejected';
@@ -351,6 +441,31 @@ const createMercadoPagoPreference = asyncHandler(async (req, res) => {
         res.status(502);
         throw new Error('No se pudo iniciar el pago con Mercado Pago. Intentá de nuevo.');
     }
+});
+
+const getMyPricing = asyncHandler(async (req, res) => {
+    const { User, Discount, PaymentPackage } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.user._id);
+    const discount = await resolveUserDiscount(Discount, user);
+
+    const cartEntries = parseCartPayload(req.query.items ? { items: req.query.items } : req.body || {});
+    let quote = null;
+    if (cartEntries.length > 0) {
+        const cart = await loadCartPackages(PaymentPackage, cartEntries);
+        quote = quoteCart(cart, { discount });
+    }
+
+    res.json({
+        discount: discount
+            ? {
+                _id: discount._id,
+                name: discount.name,
+                type: discount.type,
+                value: discount.value,
+            }
+            : null,
+        quote,
+    });
 });
 
 const getMyTicket = asyncHandler(async (req, res) => {
@@ -385,5 +500,6 @@ export {
     getPendingRequests,
     processTransferTicket,
     createMercadoPagoPreference,
-    getMyTicket
+    getMyTicket,
+    getMyPricing,
 };

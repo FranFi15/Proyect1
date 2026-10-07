@@ -29,6 +29,8 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome, Octicons, FontAwesome5, FontAwesome6 } from '@expo/vector-icons';
 import { format, parseISO, isValid, isBefore, startOfDay, addMonths, addYears } from 'date-fns';
 import BillingModalContent from '@/components/admin/BillingModalContent';
+import CajaModal from '@/components/admin/CajaModal';
+import CreditsPlanSaleBlock from '@/components/admin/CreditsPlanSaleBlock';
 import CustomAlert from '@/components/CustomAlert';
 import FilterModal from '@/components/FilterModal';
 import ClientStatsModal from '@/components/admin/ClientStatsModal';
@@ -117,7 +119,8 @@ const UserCardItem = React.memo(({
     const isMembresiaActive = membresiaDate && isValid(membresiaDate) && !isBefore(membresiaDate, today);
     const isMembresiaExpired = membresiaDate && isValid(membresiaDate) && isBefore(membresiaDate, today);
     const balance = item.balance || 0;
-    const isDebtor = balance < 0; 
+    const isDebtor = balance < 0;
+    const hasCredit = balance > 0;
 
     return (
         <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
@@ -152,10 +155,25 @@ const UserCardItem = React.memo(({
                     
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap:'wrap', marginBottom: 10}}>
                         {item.roles.includes('cliente') && (
-                            <View style={[dynamicStyles.balanceBadge, isDebtor ? dynamicStyles.debtBadge : dynamicStyles.paidBadge]}>
-                                <Ionicons name={isDebtor ? "alert-circle" : "checkmark-circle"} size={12} color={isDebtor ? "#c0392b" : "#27ae60"} style={{marginRight: 4}} />
-                                <Text style={[dynamicStyles.balanceText, {color: isDebtor ? "#c0392b" : "#27ae60"}]}>
-                                    {isDebtor ? `Debe: $${Math.abs(balance).toFixed(2)}` : 'Al día'}
+                            <View style={[
+                                dynamicStyles.balanceBadge,
+                                isDebtor ? dynamicStyles.debtBadge : (hasCredit ? dynamicStyles.creditBadge : dynamicStyles.paidBadge),
+                            ]}>
+                                <Ionicons
+                                    name={isDebtor ? 'alert-circle' : (hasCredit ? 'wallet' : 'checkmark-circle')}
+                                    size={12}
+                                    color={isDebtor ? '#c0392b' : (hasCredit ? '#1a6fb5' : '#27ae60')}
+                                    style={{ marginRight: 4 }}
+                                />
+                                <Text style={[
+                                    dynamicStyles.balanceText,
+                                    { color: isDebtor ? '#c0392b' : (hasCredit ? '#1a6fb5' : '#27ae60') },
+                                ]}>
+                                    {isDebtor
+                                        ? `Debe: $${Math.abs(balance).toFixed(2)}`
+                                        : hasCredit
+                                            ? `A favor: $${balance.toFixed(2)}`
+                                            : 'Al día'}
                                 </Text>
                             </View>
                         )}
@@ -288,15 +306,14 @@ const ManageClientsScreen = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [subscriptionInfo, setSubscriptionInfo] = useState({ clientCount: 0, clientLimit: 100 });
-    const [debtStats, setDebtStats] = useState({ totalDebt: 0, debtorCount: 0 });
+    const [netToday, setNetToday] = useState(0);
 
-    // --- ESTADOS TRANSFERENCIAS ---
+    // Badge for Caja tab (pending payment tickets; full pendientes live inside Caja)
     const [pendingTransfers, setPendingTransfers] = useState([]);
-    const [imageViewerData, setImageViewerData] = useState(null); 
 
     const routes = useMemo(() => [
         { key: 'clients', title: 'Usuarios' },
-        { key: 'transfers', title: 'Transferencias', badge: pendingTransfers.length },
+        { key: 'caja', title: 'Caja', badge: pendingTransfers.length },
     ], [pendingTransfers.length]);
 
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -341,31 +358,29 @@ const ManageClientsScreen = () => {
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
     const [membresiaData, setMembresiaData] = useState({ desde: null, hasta: null });
     const [creditsModalTab, setCreditsModalTab] = useState('credits');
+    const [paymentPackages, setPaymentPackages] = useState([]);
+    const [cajaDiscounts, setCajaDiscounts] = useState([]);
     
-    const [isDebtVisible, setIsDebtVisible] = useState(false); 
     const [showStats, setShowStats] = useState(false);
-
-    const handleToggleDebtVisibility = () => {
-        setIsDebtVisible(!isDebtVisible);
-    };
 
     const fetchAllData = useCallback(async () => {
         try {
-            const [usersResponse, classTypesResponse, subInfoResponse, debtResponse, transfersResponse, sucursalesResponse] = await Promise.all([
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const [usersResponse, classTypesResponse, subInfoResponse, transfersResponse, sucursalesResponse, cajaResponse] = await Promise.all([
                 apiClient.get('/users'),
                 apiClient.get('/tipos-clase'),
                 apiClient.get('/users/subscription-info'),
-                apiClient.get('/users/financial-stats'),
                 apiClient.get('/payments/tickets/pending'),
-                apiClient.get('/sucursales').catch(() => ({ data: [] }))
+                apiClient.get('/sucursales').catch(() => ({ data: [] })),
+                apiClient.get('/caja/dashboard', { params: { from: today, to: today } }).catch(() => ({ data: null })),
             ]);
 
             setUsers(usersResponse.data.filter(u => u && (u.roles.includes('cliente') || u.roles.includes('profesor'))));
             setClassTypes(classTypesResponse.data.tiposClase || []);
             setSubscriptionInfo(subInfoResponse.data);
-            setDebtStats(debtResponse.data); 
             setPendingTransfers(transfersResponse.data || []);
             setSucursales(sucursalesResponse?.data || []);
+            setNetToday(Number(cajaResponse?.data?.totals?.netToday) || 0);
 
         } catch (error) {
             console.error(error);
@@ -378,7 +393,6 @@ const ManageClientsScreen = () => {
 
     const { refresh } = useCachedFocusEffect(
         async ({ isInitial }) => {
-            setIsDebtVisible(false);
             if (isInitial) setLoading(true);
             await fetchAllData();
         },
@@ -437,8 +451,78 @@ const ManageClientsScreen = () => {
             setMembresiaData({ desde: null, hasta: null });
         }
         setCreditsModalTab('credits'); 
-        setCreditsModalVisible(true); 
+        setCreditsModalVisible(true);
+        Promise.all([
+            apiClient.get('/payments/packages').catch(() => ({ data: [] })),
+            apiClient.get('/caja/discounts').catch(() => ({ data: [] })),
+        ]).then(([pkgRes, discRes]) => {
+            setPaymentPackages(Array.isArray(pkgRes.data) ? pkgRes.data : (pkgRes.data?.packages || []));
+            setCajaDiscounts(Array.isArray(discRes.data) ? discRes.data : []);
+        });
     };
+
+    const showCreditsAlert = (title, message, extraButtons) => {
+        const buttons = (extraButtons && extraButtons.length
+            ? extraButtons
+            : [{ text: 'OK', style: 'primary' }]
+        ).map((b) => ({
+            ...b,
+            onPress: () => {
+                setAlertInfo((p) => ({ ...p, visible: false }));
+                b.onPress?.();
+            },
+        }));
+        setAlertInfo({ visible: true, title, message, buttons });
+    };
+
+    const packagesForCreditsTab = useMemo(() => {
+        const list = (paymentPackages || []).filter((p) => p.isActive !== false);
+        if (creditsModalTab === 'credits') {
+            return list.filter((p) => !p.isPaseLibre && !p.isMembresia);
+        }
+        if (creditsModalTab === 'freeAccess') {
+            return list.filter((p) => p.isPaseLibre);
+        }
+        if (creditsModalTab === 'membership') {
+            return list.filter((p) => p.isMembresia);
+        }
+        return [];
+    }, [paymentPackages, creditsModalTab]);
+
+    const customSaleItemCredits = useMemo(() => {
+        if (!planData.tipoClaseId || !(Number(planData.creditsToAdd) > 0)) return null;
+        return {
+            tipoClaseId: planData.tipoClaseId,
+            creditsAmount: Number(planData.creditsToAdd),
+        };
+    }, [planData.tipoClaseId, planData.creditsToAdd]);
+
+    const customSaleItemPase = useMemo(() => {
+        if (!paseLibreData.desde || !paseLibreData.hasta) return null;
+        return { desde: paseLibreData.desde, hasta: paseLibreData.hasta };
+    }, [paseLibreData.desde, paseLibreData.hasta]);
+
+    const customSaleItemMembresia = useMemo(() => {
+        if (!membresiaData.desde || !membresiaData.hasta) return null;
+        return { desde: membresiaData.desde, hasta: membresiaData.hasta };
+    }, [membresiaData.desde, membresiaData.hasta]);
+
+    const customSaleItemHorario = useMemo(() => {
+        if (!selectedSlot || !massEnrollFilters.tipoClaseId || !massEnrollFilters.fechaInicio) return null;
+        if (!massEnrollFilters.diasDeSemana?.length) return null;
+        return {
+            tipoClaseId: massEnrollFilters.tipoClaseId,
+            diasDeSemana: massEnrollFilters.diasDeSemana,
+            fechaInicio: massEnrollFilters.fechaInicio,
+            fechaFin: massEnrollFilters.fechaFin || massEnrollFilters.fechaInicio,
+            horaInicio: selectedSlot.horaInicio,
+            horaFin: selectedSlot.horaFin,
+            name: selectedSlot.nombre
+                ? `Horario fijo ${selectedSlot.nombre} ${selectedSlot.horaInicio}`
+                : undefined,
+        };
+    }, [selectedSlot, massEnrollFilters]);
+
     const handleOpenEditModal = (client) => { const clientRoles = Array.isArray(client.roles) && client.roles.length > 0 ? client.roles : ['cliente']; setEditingClientData({ ...client, roles: clientRoles, ordenMedicaRequerida: client.ordenMedicaRequerida || false, ordenMedicaEntregada: client.ordenMedicaEntregada || false, todasLasSucursales: client.todasLasSucursales !== undefined ? client.todasLasSucursales : true, sucursales: (client.sucursales || []).map(s => typeof s === 'object' ? s._id : s) }); if (client.fechaNacimiento && isValid(parseISO(client.fechaNacimiento))) { const date = parseISO(client.fechaNacimiento); setEditingClientDay(format(date, 'dd')); setEditingClientMonth(format(date, 'MM')); setEditingClientYear(format(date, 'yyyy')); } else { setEditingClientDay(''); setEditingClientMonth(''); setEditingClientYear(''); } setShowEditFormModal(true); };
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
@@ -451,48 +535,6 @@ const ManageClientsScreen = () => {
     const handleUpdateClientSubmit = async () => { if (!editingClientData) return; const updatePayload = { nombre: editingClientData.nombre, apellido: editingClientData.apellido, email: editingClientData.email, dni: editingClientData.dni, sexo: editingClientData.sexo, fechaNacimiento: editingClientData.fechaNacimiento, numeroTelefono: editingClientData.numeroTelefono, telefonoEmergencia: editingClientData.telefonoEmergencia, obraSocial: editingClientData.obraSocial, roles: editingClientData.roles, direccion: editingClientData.direccion, ordenMedicaRequerida: editingClientData.ordenMedicaRequerida, ordenMedicaEntregada: editingClientData.ordenMedicaEntregada, puedeGestionarEjercicios: editingClientData.puedeGestionarEjercicios, todasLasSucursales: editingClientData.todasLasSucursales, sucursales: editingClientData.sucursales || [] }; try { await apiClient.put(`/users/${editingClientData._id}`, updatePayload); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio actualizado correctamente.' }); setShowEditFormModal(false); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar al socio.' }); } };
     const handleToggleMedicalOrder = (user) => { const newStatus = !user.ordenMedicaEntregada; const actionText = newStatus ? "marcar como ENTREGADA" : "marcar como PENDIENTE"; setAlertInfo({ visible: true, title: `Confirmar Orden Médica`, message: `¿Estás seguro de que quieres ${actionText} la orden médica de ${user.nombre} ${user.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Confirmar", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.put(`/users/${user._id}`, { ordenMedicaEntregada: newStatus }); setUsers(currentUsers => currentUsers.map(u => u._id === user._id ? { ...u, ordenMedicaEntregada: newStatus } : u)); setAlertInfo({ visible: true, title: 'Éxito', message: 'El estado de la orden médica ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el estado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     
-    // --- HANDLER TRANSFERENCIAS ---
-    const handleProcessTransfer = (ticketId, action) => {
-        let actionText = action === 'approve' ? 'APROBAR' : 'RECHAZAR';
-        
-        setAlertInfo({
-            visible: true,
-            title: `Confirmar Acción`,
-            message: `¿Estás seguro de que deseas ${actionText} esta transferencia?`,
-            buttons: [
-                { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) },
-                { 
-                    text: "Confirmar", 
-                    style: action === 'approve' ? "primary" : "destructive", 
-                    onPress: async () => {
-                        setAlertInfo({ visible: false });
-                        try {
-                            // Llama al endpoint de tu backend que creamos en paymentRoutes.js
-                            await apiClient.put(`/payments/ticket/${ticketId}/process`, { action });
-                            
-                            setAlertInfo({ 
-                                visible: true, 
-                                title: 'Éxito', 
-                                message: `Transferencia procesada correctamente.`, 
-                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
-                            });
-                            
-                            // Recargamos los datos para que el ticket desaparezca de la lista
-                            fetchAllData(); 
-                        } catch (error) {
-                            setAlertInfo({ 
-                                visible: true, 
-                                title: 'Error', 
-                                message: error.response?.data?.message || 'No se pudo procesar la transferencia.', 
-                                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }] 
-                            });
-                        }
-                    } 
-                }
-            ]
-        });
-    };
-
     const getModalConfig = useMemo(() => { const classTypeOptions = [{ _id: '', nombre: 'Selecciona un tipo' }, ...classTypes]; const roleOptions = [{ _id: 'cliente', nombre: 'Cliente' }, { _id: 'profesor', nombre: 'Profesional' }, { _id: 'admin', nombre: 'Admin' }]; switch (activeModal) { case 'addRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleNewClientChange('roles', [id]), selectedValue: newClientData.roles[0] }; case 'editRole': return { title: 'Seleccionar Rol', options: roleOptions, onSelect: (id) => handleEditingClientChange('roles', [id]), selectedValue: editingClientData?.roles[0] }; case 'creditsClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setPlanData(prev => ({ ...prev, tipoClaseId: id })), selectedValue: planData.tipoClaseId }; case 'massEnrollClassType': return { title: 'Seleccionar Tipo de Turno', options: classTypeOptions, onSelect: (id) => setMassEnrollFilters(prev => ({ ...prev, tipoClaseId: id, diasDeSemana: [] })), selectedValue: massEnrollFilters.tipoClaseId }; default: return null; } }, [activeModal, classTypes, newClientData.roles, editingClientData?.roles, planData.tipoClaseId, massEnrollFilters.tipoClaseId]);
     const getDisplayName = (id, type) => { if (!id) return 'Seleccionar'; if (type === 'classType') return classTypes.find(t => t._id === id)?.nombre || 'Seleccionar'; if (type === 'role') return id.charAt(0).toUpperCase() + id.slice(1); return 'Seleccionar'; };
     
@@ -716,52 +758,6 @@ const ManageClientsScreen = () => {
         />
     ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews]);
 
-    const renderTransferCard = useCallback(({ item }) => {
-        return (
-            <View style={dynamicStyles.card}>
-                <View style={[dynamicStyles.cardTopRow, {borderBottomWidth: 1, borderBottomColor: Colors[colorScheme].border, paddingBottom: 10, marginBottom: 10}]}>
-                    <View>
-                        <ThemedText style={dynamicStyles.cardTitle}>{item.user.nombre} {item.user.apellido}</ThemedText>
-                        <Text style={dynamicStyles.cardSubtitle}>{format(parseISO(item.createdAt), 'dd/MM/yyyy HH:mm')}hs</Text>
-                    </View>
-                    <View style={[dynamicStyles.roleBadge, {backgroundColor: '#e0f3ffff'}]}>
-                        <Text style={dynamicStyles.roleText}>$ {item.amountTransferred}</Text>
-                    </View>
-                </View>
-
-                <ThemedText style={{fontWeight: 'bold', marginBottom: 10}}>
-                    {(() => {
-                        const items = Array.isArray(item.items) ? item.items.filter(i => i.package) : [];
-                        if (items.length > 0) {
-                            return `Compra: ${items.map(i => {
-                                const name = i.package?.name || 'Paquete';
-                                return i.quantity > 1 ? `${name} x${i.quantity}` : name;
-                            }).join(', ')}`;
-                        }
-                        return item.package ? `Compra de Paquete: ${item.package.name}` : 'Abono de deuda / Monto Libre';
-                    })()}
-                </ThemedText>
-
-                <TouchableOpacity 
-                    style={dynamicStyles.viewReceiptButton}
-                    onPress={() => setImageViewerData(item.receiptUrl)}
-                >
-                    <Ionicons name="image-outline" size={20} color={Colors[colorScheme].text} />
-                    <ThemedText style={{color: Colors[colorScheme].text, fontWeight: 'bold', marginLeft: 8}}>Ver Comprobante</ThemedText>
-                </TouchableOpacity>
-
-                <View style={{flexDirection: 'row', gap: 10, marginTop: 15}}>
-                    <TouchableOpacity style={[dynamicStyles.button, dynamicStyles.cancelButton]} onPress={() => handleProcessTransfer(item._id, 'reject')}>
-                        <Text style={dynamicStyles.buttonText}>Rechazar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[dynamicStyles.button, { backgroundColor: gymColor }]} onPress={() => handleProcessTransfer(item._id, 'approve')}>
-                        <Text style={dynamicStyles.buttonText}>Aprobar</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }, [dynamicStyles, gymColor]);
-
     // 🔥 FIX TECLADO 4: Extraemos las rutas fuera del SceneMap para que no se recreen al buscar
     const renderClientsRoute = () => (
         <View style={{flex: 1}}>
@@ -773,7 +769,14 @@ const ManageClientsScreen = () => {
             {showStats && (
                 <View style={dynamicStyles.statsContainer}>
                     <StatCard label="Clientes Activos" value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`} icon={<Ionicons name="people" size={18} color={gymColor} />} color={Colors[colorScheme].text} action={() => setActiveModal('upgrade')} actionLabel="Ampliar" styles={dynamicStyles} style={{ flex: 1 }} />
-                    <StatCard label="Deuda Total" value={`$${debtStats.totalDebt} `} icon={<FontAwesome5 name="money-bill-wave" size={16} color="#e74c3c" />} color={Colors[colorScheme].text} isValueHidden={!isDebtVisible} onToggleHidden={handleToggleDebtVisibility} styles={dynamicStyles} style={{ flex: 1.3 }} />
+                    <StatCard
+                        label="Neto del día"
+                        value={`$${Number(netToday || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
+                        icon={<FontAwesome5 name="chart-line" size={16} color={netToday >= 0 ? '#1e7e34' : '#e74c3c'} />}
+                        color={netToday >= 0 ? '#1e7e34' : '#e74c3c'}
+                        styles={dynamicStyles}
+                        style={{ flex: 1.3 }}
+                    />
                 </View>
             )}
             
@@ -812,24 +815,20 @@ const ManageClientsScreen = () => {
         </View>
     );
 
-    const renderTransfersRoute = () => (
-        <View style={{flex: 1}}>
-            <FlatList
-                data={pendingTransfers}
-                renderItem={renderTransferCard}
-                keyExtractor={(item) => item._id}
-                contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
-                ListEmptyComponent={<ThemedText style={dynamicStyles.emptyText}>No hay transferencias pendientes.</ThemedText>}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={gymColor} />}
-            />
-        </View>
+    const renderCajaRoute = () => (
+        <CajaModal
+            embedded
+            visible={routes[index]?.key === 'caja'}
+            clients={users.filter((u) => u?.roles?.includes('cliente'))}
+            onRefresh={fetchAllData}
+        />
     );
 
     // 🔥 FIX TECLADO 5: Función estable de enrutamiento
     const renderScene = ({ route }) => {
         switch (route.key) {
             case 'clients': return renderClientsRoute();
-            case 'transfers': return renderTransfersRoute();
+            case 'caja': return renderCajaRoute();
             default: return null;
         }
     };
@@ -888,18 +887,6 @@ const ManageClientsScreen = () => {
                     />
                 )} 
             />
-
-            {/* --- VISOR DE IMÁGENES FULL SCREEN --- */}
-            {imageViewerData && (
-                <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setImageViewerData(null)}>
-                    <View style={dynamicStyles.imageViewerOverlay}>
-                        <TouchableOpacity style={dynamicStyles.imageViewerClose} onPress={() => setImageViewerData(null)}>
-                            <Ionicons name="close" size={40} color="#fff" />
-                        </TouchableOpacity>
-                        <Image source={{ uri: imageViewerData }} style={dynamicStyles.imageViewerImage} resizeMode="contain" />
-                    </View>
-                </Modal>
-            )}
 
             {/* --- MODALES EXISTENTES (Intactos) --- */}
             <UpgradePlanModal visible={activeModal === 'upgrade'} onClose={() => setActiveModal(null)} onConfirm={handleUpgradePlan} currentCount={subscriptionInfo.clientCount} currentLimit={subscriptionInfo.clientLimit} gymColor={gymColor} />
@@ -1352,6 +1339,7 @@ const ManageClientsScreen = () => {
                                 client={selectedClient}
                                 onClose={() => setBillingModalVisible(false)}
                                 onRefresh={fetchAllData}
+                                sucursales={sucursales}
                             />
                         )}
                     </KeyboardAwareSheet>
@@ -1462,13 +1450,29 @@ const ManageClientsScreen = () => {
                                         autoCorrect={false}
                                     />
 
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-credits-${selectedClient?._id}`}
+                                        kind="credits"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        sucursales={sucursales}
+                                        customItem={customSaleItemCredits}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
+
                                     <TouchableOpacity
-                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276' }]}
+                                        style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
                                         onPress={handlePlanSubmit}
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar créditos</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Aplicar sin cobro</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -1505,13 +1509,29 @@ const ManageClientsScreen = () => {
                                         </View>
                                     </View>
 
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-pase-${selectedClient?._id}`}
+                                        kind="pase"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        sucursales={sucursales}
+                                        customItem={customSaleItemPase}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
+
                                     <TouchableOpacity
                                         style={[dynamicStyles.creditsPrimaryBtn, dynamicStyles.creditsPrimaryBtnLow, { backgroundColor: gymColor || '#1a5276' }]}
                                         onPress={handleSavePaseLibre}
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="infinite-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar acceso libre</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -1548,13 +1568,29 @@ const ManageClientsScreen = () => {
                                         </View>
                                     </View>
 
+                                    <CreditsPlanSaleBlock
+                                        key={`sale-membresia-${selectedClient?._id}`}
+                                        kind="membresia"
+                                        clientId={selectedClient?._id}
+                                        packages={packagesForCreditsTab}
+                                        discounts={cajaDiscounts}
+                                        sucursales={sucursales}
+                                        customItem={customSaleItemMembresia}
+                                        accent={gymColor || '#1a5276'}
+                                        colors={Colors[colorScheme]}
+                                        onAlert={showCreditsAlert}
+                                        onSuccess={() => {
+                                            fetchAllData();
+                                        }}
+                                    />
+
                                     <TouchableOpacity
                                         style={[dynamicStyles.creditsPrimaryBtn, dynamicStyles.creditsPrimaryBtnLow, { backgroundColor: gymColor || '#1a5276' }]}
                                         onPress={handleSaveMembresia}
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons name="id-card-outline" size={18} color="#fff" />
-                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar membresía</Text>
+                                        <Text style={dynamicStyles.creditsPrimaryBtnText}>Activar sin cobro</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -1639,14 +1675,35 @@ const ManageClientsScreen = () => {
                                         );
                                     })}
 
+                                    {selectedSlot && (
+                                        <CreditsPlanSaleBlock
+                                            key={`sale-horario-${selectedClient?._id}-${selectedSlot.horaInicio}`}
+                                            kind="horario_fijo"
+                                            clientId={selectedClient?._id}
+                                            packages={[]}
+                                            discounts={cajaDiscounts}
+                                            sucursales={sucursales}
+                                            customItem={customSaleItemHorario}
+                                            showPackages={false}
+                                            accent={gymColor || '#1a5276'}
+                                            colors={Colors[colorScheme]}
+                                            onAlert={showCreditsAlert}
+                                            onSuccess={() => {
+                                                fetchAllData();
+                                                setSelectedSlot(null);
+                                                setAvailableSlots([]);
+                                            }}
+                                        />
+                                    )}
+
                                     {availableSlots.length > 0 && (
                                         <TouchableOpacity
-                                            style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 8 }]}
+                                            style={[dynamicStyles.creditsPrimaryBtn, { backgroundColor: gymColor || '#1a5276', marginTop: 16 }]}
                                             onPress={handleMassEnrollSubmit}
                                             activeOpacity={0.85}
                                         >
                                             <Ionicons name="person-add-outline" size={18} color="#fff" />
-                                            <Text style={dynamicStyles.creditsPrimaryBtnText}>Inscribir a plan</Text>
+                                            <Text style={dynamicStyles.creditsPrimaryBtnText}>Inscribir sin cobro</Text>
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -1791,6 +1848,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     balanceBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: 'row', alignItems: 'center', },
     debtBadge: { backgroundColor: '#fdf2f2', borderColor: '#e74c3c', borderWidth: 1 },
     paidBadge: { backgroundColor: '#f0fdf4', borderColor: '#27ae60', borderWidth: 1 },
+    creditBadge: { backgroundColor: '#eef6fc', borderColor: '#1a6fb5', borderWidth: 1 },
     balanceText: { fontSize: 10, fontWeight: 'bold' },
     creditsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 8, },
     creditChip: {

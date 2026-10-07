@@ -8,6 +8,7 @@ import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
 import { getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
+import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
 
 
 const getAllUsers = asyncHandler(async (req, res) => {
@@ -21,7 +22,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const users = await User.find(query)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
 
     const usersWithCalculatedAge = users.map(user => ({
         _id: user._id,
@@ -57,6 +59,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         puedeGestionarEjercicios: user.puedeGestionarEjercicios || false,
         todasLasSucursales: user.todasLasSucursales !== undefined ? user.todasLasSucursales : true,
         sucursales: user.sucursales || [],
+        assignedDiscountId: user.assignedDiscountId || null,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         rmRecords: user.rmRecords || [],
@@ -69,7 +72,8 @@ const getMe = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
         .populate({ path: 'planesFijos.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
     
     if (user) {
         const unreadNotificationsCount = await Notification.countDocuments({
@@ -86,6 +90,7 @@ const getMe = asyncHandler(async (req, res) => {
             email: user.email,
             roles: user.roles,
             balance: user.balance,
+            assignedDiscount: user.assignedDiscountId || null,
             creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
             clasesInscritas: user.clasesInscritas,
             telefonoEmergencia: user.telefonoEmergencia,
@@ -137,13 +142,69 @@ const getUserById = asyncHandler(async (req, res) => {
     const { User } = getModels(req.gymDBConnection);
     const user = await User.findById(req.params.id)
         .populate({ path: 'monthlySubscriptions.tipoClase', select: 'nombre' })
-        .populate({ path: 'sucursales', select: 'nombre' });
+        .populate({ path: 'sucursales', select: 'nombre' })
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
     if (user) {
         res.json(user);
     } else {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
+});
+
+const updateUserAssignedDiscount = asyncHandler(async (req, res) => {
+    const { User, Discount } = getModels(req.gymDBConnection);
+    const user = await User.findById(req.params.id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    const { discountId } = req.body;
+    const prevDiscountId = user.assignedDiscountId || null;
+
+    if (discountId === null || discountId === '' || discountId === undefined) {
+        user.assignedDiscountId = null;
+        if (prevDiscountId) {
+            await Discount.updateOne(
+                { _id: prevDiscountId },
+                { $pull: { assignedUsers: user._id } }
+            );
+        }
+    } else {
+        const discount = await Discount.findById(discountId);
+        if (!discount || !discount.isActive) {
+            res.status(400);
+            throw new Error('El descuento seleccionado no está disponible.');
+        }
+        user.assignedDiscountId = discount._id;
+        if (prevDiscountId && String(prevDiscountId) !== String(discount._id)) {
+            await Discount.updateOne(
+                { _id: prevDiscountId },
+                { $pull: { assignedUsers: user._id } }
+            );
+        }
+        await Discount.updateOne(
+            { _id: discount._id },
+            { $addToSet: { assignedUsers: user._id } }
+        );
+        await Discount.updateMany(
+            { _id: { $ne: discount._id }, assignedUsers: user._id },
+            { $pull: { assignedUsers: user._id } }
+        );
+    }
+
+    await user.save();
+    const updated = await User.findById(user._id)
+        .populate({ path: 'assignedDiscountId', select: 'name type value isActive validFrom validTo' });
+
+    res.json({
+        message: updated.assignedDiscountId
+            ? 'Descuento asignado al cliente.'
+            : 'Descuento quitado del cliente.',
+        user: updated,
+        assignedDiscount: updated.assignedDiscountId || null,
+    });
 });
 
 
@@ -523,77 +584,28 @@ const subscribeUserToPlan = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
-    
-    const tipoClase = await TipoClase.findById(tipoClaseId);
-    if (!tipoClase) {
-        res.status(404);
-        throw new Error('Tipo de turno no encontrado.');
+
+    try {
+        const result = await enrollUserInFixedPlan({
+            models: { Clase, TipoClase, Notification, User },
+            user,
+            tipoClaseId,
+            diasDeSemana,
+            fechaInicio,
+            fechaFin,
+            horaInicio,
+            horaFin,
+            gymTimezone: req.gymTimezone || 'America/Argentina/Buenos_Aires',
+            notify: true,
+        });
+
+        res.status(200).json({
+            message: `Inscripción masiva completada. El usuario fue añadido a ${result.enrolledCount} turnos.`,
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500);
+        throw error;
     }
-
-    const classesToEnroll = await Clase.find({
-        tipoClase: tipoClaseId,
-        diaDeSemana: { $in: diasDeSemana },
-        horaInicio: horaInicio,
-        fecha: { $gte: new Date(`${fechaInicio}T00:00:00Z`), $lte: new Date(`${fechaFin}T23:59:59Z`) },
-        estado: 'activa'
-    });
-
-    if (classesToEnroll.length === 0) {
-        res.status(404);
-        throw new Error('No se encontraron turnos activos que coincidan con los criterios del plan.');
-    }
-
-    // --- LÓGICA CORREGIDA: VERIFICACIÓN DE CUPO SIN CRÉDITOS ---
-
-    // 1. Verificar que haya cupo en TODAS las clases del plan ANTES de inscribir.
-    for (const classInstance of classesToEnroll) {
-        if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
-            res.status(400);
-            throw new Error(`No se puede inscribir al plan. Los turnos del día ${classDate} a las ${classInstance.horaInicio} está lleno.`);
-        }
-        if (classInstance.usuariosInscritos.includes(userId)) {
-            const classDate = new Date(classInstance.fecha).toLocaleDateString('es-AR', { timeZone: req.gymTimezone || 'America/Argentina/Buenos_Aires' });
-            res.status(400);
-            throw new Error(`El usuario ya está inscrito en el turno del ${classDate}.`);
-        }
-    }
-
-    // 2. Si hay cupo en todas, proceder a la inscripción.
-    let enrolledCount = 0;
-    for (const classInstance of classesToEnroll) {
-        classInstance.usuariosInscritos.push(userId);
-        if (classInstance.usuariosInscritos.length >= classInstance.capacidad) {
-            classInstance.estado = 'llena';
-        }
-        await classInstance.save();
-        
-        if (!user.clasesInscritas.includes(classInstance._id)) {
-            user.clasesInscritas.push(classInstance._id);
-        }
-        enrolledCount++;
-    }
-
-    // 3. Guardar la definición del plan en el perfil del usuario para referencia.
-    const planDefinition = {
-        tipoClase: tipoClaseId,
-        diasDeSemana,
-        horaInicio,
-        horaFin,
-        fechaInicio: new Date(`${fechaInicio}T00:00:00Z`),
-        fechaFin: new Date(`${fechaFin}T23:59:59Z`),
-    };
-    user.planesFijos.push(planDefinition);
-    await user.save();
-
-    // 4. Notificar al usuario sobre su nuevo plan.
-    const title = "¡Inscripción a Plan Exitosa!";
-    const message = `Se te inscribió en un nuevo plan para los turnos de ${tipoClase.nombre} los días ${diasDeSemana.join(', ')} a las ${horaInicio}hs. Hasta el ${format(new Date(fechaFin), 'dd/MM/yyyy')}.`;
-    await sendSingleNotification(Notification, User, userId, title, message, 'plan_enrollment', false);
-
-    res.status(200).json({
-        message: `Inscripción masiva completada. El usuario fue añadido a ${enrolledCount} turnos.`
-    });
 });
 
 
@@ -1194,4 +1206,5 @@ export {
     uploadOrdenMedica,
     uploadFotoPerfil,
     uploadQrIngresoAdmin,
+    updateUserAssignedDiscount,
 };
