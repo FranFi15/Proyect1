@@ -15,13 +15,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
+import StatsPeriodBar, { useStatsPeriod, statsModalVisible, StatsPeriodPicker } from './StatsPeriodBar';
 
 const screenWidth = Dimensions.get('window').width;
 
-const TABS = [
-    { id: 'totales', label: 'Totales', icon: 'stats-chart-outline' },
-    { id: 'last30Days', label: 'Últimos 30 días', icon: 'calendar-outline' },
-];
+const money = (n) =>
+    `$${Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+
+const bucketLabel = (id) => {
+    const parts = String(id).split('-');
+    if (parts.length >= 3) {
+        return format(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), 'dd/MM');
+    }
+    return format(new Date(Number(parts[0]), Number(parts[1]) - 1, 1), 'MMM', { locale: es });
+};
 
 const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userName }) => {
     const colorScheme = useColorScheme() ?? 'light';
@@ -31,26 +38,25 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
 
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState(null);
-    const [activeTab, setActiveTab] = useState('totales');
+    const period = useStatsPeriod();
 
     const fetchStats = useCallback(async () => {
         if (!apiClient || !visible || !userId) return;
         setLoading(true);
         try {
-            const res = await apiClient.get(`/stats/client/${userId}`);
+            const res = await apiClient.get(`/stats/client/${userId}`, {
+                params: { from: period.fromDate, to: period.toDate },
+            });
             setStats(res.data);
         } catch (error) {
             console.error('Error cargando estadísticas del cliente:', error);
         } finally {
             setLoading(false);
         }
-    }, [apiClient, visible, userId]);
+    }, [apiClient, visible, userId, period.fromDate, period.toDate]);
 
     useEffect(() => {
-        if (visible) {
-            setActiveTab('totales');
-            fetchStats();
-        }
+        if (visible) fetchStats();
     }, [visible, fetchStats]);
 
     if (!visible) return null;
@@ -72,21 +78,19 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
         },
     };
 
-    const activeData = activeTab === 'totales' ? stats?.totales : stats?.last30Days;
-
     let attendanceRate = 0;
-    if (activeData?.attendanceData?.totalInscripciones > 0) {
+    if (stats?.attendanceData?.totalInscripciones > 0) {
         attendanceRate = Math.round(
-            (activeData.attendanceData.totalAsistencias / activeData.attendanceData.totalInscripciones) * 100
+            (stats.attendanceData.totalAsistencias / stats.attendanceData.totalInscripciones) * 100
         );
     }
 
     const rateColor = attendanceRate > 70 ? '#1e7e34' : attendanceRate < 40 ? '#a72828' : '#c9a227';
 
     let favoriteData = [];
-    if (activeData?.favoriteClasses) {
+    if (stats?.favoriteClasses) {
         const pieColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-        favoriteData = activeData.favoriteClasses.map((d, idx) => ({
+        favoriteData = stats.favoriteClasses.map((d, idx) => ({
             name: d._id,
             population: d.count,
             color: pieColors[idx % pieColors.length],
@@ -98,10 +102,7 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
     let activityData = null;
     if (stats?.activityByMonth && stats.activityByMonth.length > 0) {
         activityData = {
-            labels: stats.activityByMonth.map((d) => {
-                const [year, month] = d._id.split('-');
-                return format(new Date(year, month - 1, 1), 'MMM', { locale: es });
-            }),
+            labels: stats.activityByMonth.map((d) => bucketLabel(d._id)),
             datasets: [{ data: stats.activityByMonth.map((d) => d.count) }],
         };
     }
@@ -109,8 +110,9 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
     const chartWidth = Math.min(screenWidth - 56, 420);
 
     return (
+        <>
         <Modal
-            visible={visible}
+            visible={statsModalVisible(visible, period)}
             animationType="slide"
             transparent
             onRequestClose={onClose}
@@ -129,23 +131,8 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.tabBar}>
-                        {TABS.map((tab) => {
-                            const selected = activeTab === tab.id;
-                            return (
-                                <TouchableOpacity
-                                    key={tab.id}
-                                    style={[styles.tabBtn, selected && { backgroundColor: accent }]}
-                                    onPress={() => setActiveTab(tab.id)}
-                                    activeOpacity={0.85}
-                                >
-                                    <Ionicons name={tab.icon} size={15} color={selected ? '#fff' : colors.text} />
-                                    <Text style={[styles.tabText, selected && styles.tabTextSelected]} numberOfLines={1}>
-                                        {tab.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                    <View style={{ paddingHorizontal: 14, paddingTop: 12 }}>
+                        <StatsPeriodBar period={period} gymColor={accent} />
                     </View>
 
                     {loading ? (
@@ -167,13 +154,13 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
                                 <View style={styles.kpiCard}>
                                     <Text style={styles.kpiLabel}>Inscripciones</Text>
                                     <Text style={[styles.kpiValue, { color: accent }]}>
-                                        {activeData?.attendanceData?.totalInscripciones || 0}
+                                        {stats?.attendanceData?.totalInscripciones || 0}
                                     </Text>
                                 </View>
                                 <View style={styles.kpiCard}>
                                     <Text style={styles.kpiLabel}>Asistencias</Text>
                                     <Text style={[styles.kpiValue, { color: accent }]}>
-                                        {activeData?.attendanceData?.totalAsistencias || 0}
+                                        {stats?.attendanceData?.totalAsistencias || 0}
                                     </Text>
                                 </View>
                                 <View style={styles.kpiCard}>
@@ -182,8 +169,45 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
                                 </View>
                             </View>
 
+                            <View style={[styles.card, { marginBottom: 12 }]}>
+                                <Text style={styles.cardTitle}>Ventas</Text>
+                                <Text style={styles.cardSub}>Paquetes por tipo y tienda del período.</Text>
+                                {[
+                                    { key: 'creditos', label: 'Créditos' },
+                                    { key: 'pase', label: 'Acceso libre' },
+                                    { key: 'membresia', label: 'Membresía' },
+                                ].map((kind) => {
+                                    const row = stats?.packageSales?.[kind.key];
+                                    return (
+                                        <View key={kind.key} style={styles.saleBlock}>
+                                            <View style={styles.saleHead}>
+                                                <Text style={styles.saleLabel}>{kind.label}</Text>
+                                                <Text style={[styles.saleValue, { color: accent }]}>
+                                                    {row?.count || 0} · {money(row?.amount)}
+                                                </Text>
+                                            </View>
+                                            {kind.key === 'creditos' && (row?.byType || []).map((typeRow) => (
+                                                <View key={typeRow.id} style={styles.typeRow}>
+                                                    <Text style={styles.typeName} numberOfLines={1}>{typeRow.name}</Text>
+                                                    <Text style={styles.typeAmount}>{typeRow.count} · {money(typeRow.amount)}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    );
+                                })}
+                                <View style={styles.saleHead}>
+                                    <Text style={styles.saleLabel}>Tienda</Text>
+                                    <Text style={[styles.saleValue, { color: accent }]}>
+                                        {stats?.storeSales?.count || 0} · {money(stats?.storeSales?.amount)}
+                                    </Text>
+                                </View>
+                                <Text style={styles.kpiHint}>
+                                    {stats?.storeSales?.units || 0} productos
+                                </Text>
+                            </View>
+
                             <View style={styles.card}>
-                                <Text style={styles.cardTitle}>Inscripciones por mes</Text>
+                                <Text style={styles.cardTitle}>Inscripciones del período</Text>
                                 <Text style={styles.cardSub}>Evolución de actividad reciente.</Text>
                                 {activityData ? (
                                     <LineChart
@@ -222,6 +246,8 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
                 </View>
             </View>
         </Modal>
+        <StatsPeriodPicker period={period} gymColor={accent} />
+        </>
     );
 };
 
@@ -314,6 +340,7 @@ const getStyles = (colorScheme, accent) => {
         },
         kpiLabel: { fontSize: 11, fontWeight: '600', color: colors.text, opacity: 0.6, textAlign: 'center' },
         kpiValue: { fontSize: 22, fontWeight: '800', marginTop: 6, textAlign: 'center' },
+        kpiHint: { fontSize: 11, color: colors.text, opacity: 0.65, marginTop: 4, textAlign: 'center' },
         card: {
             backgroundColor: softCard,
             borderRadius: 16,
@@ -323,6 +350,20 @@ const getStyles = (colorScheme, accent) => {
         },
         cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
         cardSub: { fontSize: 13, color: colors.text, opacity: 0.6, marginTop: 4, marginBottom: 12 },
+        saleBlock: { marginBottom: 10 },
+        saleHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+        saleLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+        saleValue: { fontSize: 14, fontWeight: '800' },
+        typeRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 6,
+            paddingLeft: 10,
+            gap: 12,
+        },
+        typeName: { flex: 1, fontSize: 13, color: colors.text, opacity: 0.8 },
+        typeAmount: { fontSize: 13, fontWeight: '600', color: colors.text },
         chart: { borderRadius: 12, alignSelf: 'center' },
         emptyText: {
             textAlign: 'center',

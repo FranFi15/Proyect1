@@ -10,7 +10,6 @@ import {
     Modal,
     Linking,
     Image,
-    InteractionManager,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -52,7 +51,10 @@ const ProfileScreen = () => {
     const handlePaymentResult = useCallback((payload) => {
         // Close Comprar first; show confirmation on profile after the Modal finishes dismissing.
         setActiveModal(null);
-        InteractionManager.runAfterInteractions(() => {
+        const schedule = typeof requestIdleCallback === 'function'
+            ? requestIdleCallback
+            : (cb) => setTimeout(cb, 0);
+        schedule(() => {
             setTimeout(() => {
                 setAlertInfo({
                     visible: true,

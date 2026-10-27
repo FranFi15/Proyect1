@@ -27,10 +27,11 @@ import PlanContentEditor from './PlanContentEditor';
 import TemplateManagerModal from './TemplateManagerModal'; 
 
 // --- COMPONENTE INTERNO: EDITOR DE PLANES ---
-const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, setPlan }) => { 
+const PlanEditor = ({ plan, onSave, onCancel, onSaveAsTemplate, colorScheme, isBulk, targetName, setPlan }) => { 
     const { gymColor } = useAuth();
     const styles = getStyles(colorScheme, gymColor);
     const [templatesVisible, setTemplatesVisible] = useState(false);
+    const [savingTemplate, setSavingTemplate] = useState(false);
 
     const parseStructured = (content) => {
         if (!content) return false;
@@ -76,18 +77,18 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
                     <Text style={styles.templateButtonText}>Cargar desde Plantilla</Text>
                 </TouchableOpacity>
 
+                <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={plan.name} 
+                    onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
+                    placeholder="Ej: Hipertrofia Mes 1" 
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    returnKeyType="next"
+                />
+
                 {editorMode === 'html' && (
                     <>
-                        <Text style={styles.label}>Título <Text style={{color:'red'}}>*</Text></Text>
-                        <TextInput 
-                            style={styles.input} 
-                            value={plan.name} 
-                            onChangeText={t => setPlan(p => ({ ...p, name: t }))} 
-                            placeholder="Ej: Hipertrofia Mes 1" 
-                            placeholderTextColor={Colors[colorScheme].icon}
-                            returnKeyType="next"
-                        />
-                        
                         <Text style={styles.label}>Descripción</Text>
                         <TextInput 
                             style={styles.input} 
@@ -117,10 +118,30 @@ const PlanEditor = ({ plan, onSave, onCancel, colorScheme, isBulk, targetName, s
             </ScrollView>
 
             <View style={styles.footerButtons}>
-                <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onCancel}>
+                <TouchableOpacity style={[styles.button, styles.buttonSecondary, styles.footerButton]} onPress={onCancel}>
                     <Text style={styles.buttonTextSecondary}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={() => onSave(plan)}>
+                <TouchableOpacity
+                    style={[styles.templateSaveButton, styles.footerButton]}
+                    disabled={savingTemplate}
+                    onPress={async () => {
+                        setSavingTemplate(true);
+                        try {
+                            await onSaveAsTemplate(plan);
+                        } finally {
+                            setSavingTemplate(false);
+                        }
+                    }}
+                >
+                    {savingTemplate ? (
+                        <ActivityIndicator color={gymColor || '#1a5276'} />
+                    ) : (
+                        <Text style={[styles.templateSaveButtonText, { color: gymColor || '#1a5276' }]}>
+                            Guardar como plantilla
+                        </Text>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.button, styles.footerButton]} onPress={() => onSave(plan)}>
                     <Text style={styles.buttonText}>{isBulk ? 'Asignar' : 'Guardar'}</Text>
                 </TouchableOpacity>
             </View>
@@ -363,7 +384,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
         });
     };
 
-    const handleSaveChanges = async (planToSave) => {
+    const resolvePlanName = (planToSave) => {
         let nameToSave = planToSave.name?.trim();
         try {
             const parsed = JSON.parse(planToSave.content);
@@ -371,6 +392,44 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                 nameToSave = `Rutina: ${parsed.days?.[0]?.name || 'Por Días'}`;
             }
         } catch (e) {}
+        return nameToSave;
+    };
+
+    const handleSaveAsTemplate = async (planToSave) => {
+        const nameToSave = resolvePlanName(planToSave);
+        if (!nameToSave || !planToSave.content?.trim()) {
+            setAlertInfo({
+                visible: true,
+                title: 'Campos Requeridos',
+                message: 'Completá el contenido del plan antes de guardarlo como plantilla.',
+                buttons: [{ text: 'Entendido', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+            return;
+        }
+        try {
+            await apiClient.post('/plans/templates', {
+                name: nameToSave,
+                description: planToSave.description || '',
+                content: planToSave.content,
+            });
+            setAlertInfo({
+                visible: true,
+                title: 'Plantilla guardada',
+                message: `"${nameToSave}" quedó en tus plantillas para reutilizarla.`,
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'No se pudo guardar la plantilla.',
+                buttons: [{ text: 'OK', onPress: () => setAlertInfo({ visible: false }) }]
+            });
+        }
+    };
+
+    const handleSaveChanges = async (planToSave) => {
+        const nameToSave = resolvePlanName(planToSave);
 
         // --- CORRECCIÓN 2: Validación de campos vacíos ---
         if (!nameToSave || !planToSave.content?.trim()) {
@@ -454,7 +513,8 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
                     <PlanEditor 
                         plan={currentPlan} 
                         setPlan={setCurrentPlan} 
-                        onSave={handleSaveChanges} 
+                        onSave={handleSaveChanges}
+                        onSaveAsTemplate={handleSaveAsTemplate}
                         onCancel={() => isSingleClient ? setView('list') : onClose()} 
                         colorScheme={colorScheme} 
                         isBulk={!isSingleClient}
@@ -648,7 +708,8 @@ const getStyles = (colorScheme, gymColor) => {
     iconBtn: { padding: 6 },
     planActions: { flexDirection: 'row', gap: 15, marginTop: 5 },
     footerContainer: { marginTop: 10, marginBottom: 20 },
-    footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 20, gap: 10 },
+    footerButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 20, gap: 8 },
+    footerButton: { flex: 1 },
     button: { padding: 12, borderRadius: 14, alignItems: 'center', backgroundColor: gymColor, justifyContent: 'center' },
     buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
     buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors[colorScheme].border },
@@ -679,6 +740,21 @@ const getStyles = (colorScheme, gymColor) => {
         fontWeight: 'bold',
         marginLeft: 10,
         fontSize: 16
+    },
+    templateSaveButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: gymColor || '#1a5276',
+        backgroundColor: soft,
+    },
+    templateSaveButtonText: {
+        fontWeight: 'bold',
+        fontSize: 13,
+        textAlign: 'center',
     },
     listTabRow: {
         flexDirection: 'row',

@@ -8,9 +8,9 @@ import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { ThemedText } from '@/components/ThemedText';
 
-import RichTextEditor from '@/components/RichTextEditor';
+import { format } from 'date-fns';
 import PlanContentEditor from './PlanContentEditor';
-import CustomAlert from '@/components/CustomAlert'; // <--- IMPORTANTE
+import CustomAlert from '@/components/CustomAlert';
 
 const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, colorScheme }) => {
     const styles = getStyles(colorScheme, gymColor);
@@ -26,6 +26,20 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     const parseStructured = (content) => {
         if (!content) return false;
         try { return JSON.parse(content).type === 'structured'; } catch (e) { return false; }
+    };
+
+    const summarizeTemplate = (item) => {
+        try {
+            const parsed = JSON.parse(item.content);
+            if (parsed?.type === 'structured' && Array.isArray(parsed.days)) {
+                const exercises = parsed.days.reduce(
+                    (total, day) => total + (Array.isArray(day.exercises) ? day.exercises.length : 0),
+                    0
+                );
+                return { kind: 'structured', days: parsed.days.length, exercises };
+            }
+        } catch (e) {}
+        return { kind: 'html', days: 0, exercises: 0 };
     };
     const [editorMode, setEditorMode] = useState('structured');
 
@@ -140,36 +154,54 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
 
     const renderItem = ({ item }) => {
         const hasValidDesc = item.description && !item.description.trim().startsWith('{') && !item.description.trim().startsWith('<');
+        const summary = summarizeTemplate(item);
+        const accent = gymColor || '#1a5276';
         return (
-            <View style={[styles.card, { flexDirection: 'column' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                    <TouchableOpacity 
-                        style={[styles.cardContent, { flex: 1 }]} 
-                        onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
-                    >
-                        <Text style={styles.cardTitle}>{item.name}</Text>
+            <View style={styles.card}>
+                <View style={[styles.accentBar, { backgroundColor: accent }]} />
+                <TouchableOpacity
+                    style={styles.cardBody}
+                    onPress={() => onSelectTemplate ? onSelectTemplate(item) : openForm(item)}
+                    activeOpacity={0.85}
+                >
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
                         {hasValidDesc ? <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text> : null}
-                    </TouchableOpacity>
-                    
-                    <View style={styles.cardActions}>
-                        <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn}>
-                            <FontAwesome6 name="edit" size={20} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn}>
-                            <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
-                        </TouchableOpacity>
+                        <View style={styles.metaRow}>
+                            <Ionicons name="calendar-outline" size={12} color={Colors[colorScheme].icon} />
+                            <Text style={styles.metaText}>
+                                {item.updatedAt ? format(new Date(item.updatedAt), 'dd/MM/yyyy') : 'Sin fecha'}
+                            </Text>
+                            <View style={[styles.pill, { backgroundColor: accent + '22' }]}>
+                                <Text style={[styles.pillText, { color: accent }]}>
+                                    {summary.kind === 'structured'
+                                        ? `${summary.days} día${summary.days === 1 ? '' : 's'}`
+                                        : 'Texto libre'}
+                                </Text>
+                            </View>
+                            {summary.kind === 'structured' && summary.exercises > 0 ? (
+                                <Text style={styles.metaText}>{summary.exercises} ejercicios</Text>
+                            ) : null}
+                        </View>
                     </View>
-                </View>
-
-                {onSelectTemplate && (
-                    <TouchableOpacity 
-                        style={[styles.useButton, { backgroundColor: gymColor || '#007bff' }]}
-                        onPress={() => onSelectTemplate(item)}
-                    >
-                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                        <Text style={styles.useButtonText}>Seleccionar y Asignar esta Plantilla</Text>
+                </TouchableOpacity>
+                <View style={styles.cardActions}>
+                    {onSelectTemplate ? (
+                        <TouchableOpacity
+                            onPress={() => onSelectTemplate(item)}
+                            style={[styles.useChip, { backgroundColor: accent }]}
+                            hitSlop={6}
+                        >
+                            <Text style={styles.useChipText}>Usar</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity onPress={() => openForm(item)} style={styles.iconBtn} hitSlop={8}>
+                        <FontAwesome6 name="edit" size={16} color={accent} />
                     </TouchableOpacity>
-                )}
+                    <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.iconBtn} hitSlop={8}>
+                        <Octicons name="trash" size={16} color={Colors[colorScheme].text} />
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     };
@@ -182,20 +214,24 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                 style={styles.modalOverlay}
             >
                 <View style={styles.modalContainer}>
-                    {/* HEADER */}
-                    <View style={styles.header}>
+                    <View style={[styles.header, { backgroundColor: gymColor || '#1a5276' }]}>
                         {viewMode === 'form' ? (
-                            <TouchableOpacity onPress={() => setViewMode('list')}>
-                                <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
+                            <TouchableOpacity onPress={() => setViewMode('list')} style={styles.headerIconBtn}>
+                                <Ionicons name="arrow-back" size={22} color="#fff" />
                             </TouchableOpacity>
                         ) : (
-                            <View style={{width: 24}} /> 
+                            <View style={styles.headerIconBtn} />
                         )}
-                        <Text style={styles.headerTitle}>
-                            {viewMode === 'list' ? (onSelectTemplate ? 'Seleccionar Plantilla' : 'Plantillas') : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
-                        </Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close" size={28} color={Colors[colorScheme].text} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.headerTitle}>
+                                {viewMode === 'list' ? (onSelectTemplate ? 'Seleccionar Plantilla' : 'Plantillas') : (formData.id ? 'Editar Plantilla' : 'Nueva Plantilla')}
+                            </Text>
+                            <Text style={styles.headerSub}>
+                                {viewMode === 'list' ? 'Rutinas guardadas para reutilizar' : 'Nombre, notas y contenido'}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={onClose} style={styles.headerIconBtn}>
+                            <Ionicons name="close" size={22} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
@@ -284,16 +320,37 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
     );
 };
 
-const getStyles = (ColorScheme, gymColor) => StyleSheet.create({
+const getStyles = (ColorScheme, gymColor) => {
+    const soft = ColorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : '#f7f8fa';
+    return StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', alignItems: 'center' },
-    modalContainer: { width: '100%', height: '85%', backgroundColor: Colors[ColorScheme].background, borderRadius: 15, overflow: 'hidden',},
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderColor: Colors[ColorScheme].border },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', color: Colors[ColorScheme].text },
-    card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',backgroundColor: Colors[ColorScheme].cardBackground, borderRadius: 8, padding: 15, marginVertical: 6, marginHorizontal: 15, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, borderWidth: 1, borderColor: Colors[ColorScheme].border },
-    cardTitle: { fontSize: 16, fontWeight: 'bold', color: Colors[ColorScheme].text },
-    cardDesc: { fontSize: 12, color: Colors[ColorScheme].text, opacity: 0.7, marginTop: 4 },
-    cardActions: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 10,  },
-    iconBtn: { padding: 10 },
+    modalContainer: { width: '100%', height: '88%', backgroundColor: Colors[ColorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 12, gap: 8 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+    headerSub: { fontSize: 12, color: '#fff', opacity: 0.85, marginTop: 2 },
+    headerIconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    card: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: soft,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors[ColorScheme].border,
+        marginBottom: 10,
+        overflow: 'hidden',
+    },
+    accentBar: { width: 5, alignSelf: 'stretch' },
+    cardBody: { flex: 1, paddingVertical: 14, paddingLeft: 12, paddingRight: 4 },
+    cardTitle: { fontSize: 16, fontWeight: '800', color: Colors[ColorScheme].text },
+    cardDesc: { fontSize: 13, color: Colors[ColorScheme].text, opacity: 0.65, marginTop: 3, lineHeight: 18 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' },
+    metaText: { fontSize: 12, fontWeight: '500', color: Colors[ColorScheme].icon },
+    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+    pillText: { fontSize: 11, fontWeight: '800' },
+    cardActions: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+    useChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, marginRight: 2 },
+    useChipText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+    iconBtn: { padding: 8 },
     fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: gymColor, justifyContent: 'center', alignItems: 'center', elevation: 5 },
     createButtonHeader: { 
         flexDirection: 'row', 
@@ -334,6 +391,7 @@ const getStyles = (ColorScheme, gymColor) => StyleSheet.create({
     input: { backgroundColor: Colors[ColorScheme].cardBackground, borderRadius: 8, padding: 12, marginBottom: 15, borderWidth: 1, borderColor: Colors[ColorScheme].border, color: Colors[ColorScheme].text },
     saveButton: { backgroundColor: gymColor, padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 20, marginBottom: 30 },
     saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
-});
+    });
+};
 
 export default TemplateManagerModal;

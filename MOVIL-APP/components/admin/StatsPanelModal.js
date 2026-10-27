@@ -8,8 +8,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
+import StatsPeriodBar, { useStatsPeriod, statsModalVisible, StatsPeriodPicker } from './StatsPeriodBar';
 
 const screenWidth = Dimensions.get("window").width;
+
+const money = (n) =>
+    `$${Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+
+const bucketLabel = (id) => {
+    const parts = String(id).split('-');
+    if (parts.length >= 3) {
+        return format(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), 'dd/MM');
+    }
+    return format(new Date(Number(parts[0]), Number(parts[1]) - 1, 1), 'MMM', { locale: es });
+};
+
+const monthSeries = (rows, valueKey = 'amount') => {
+    if (!rows?.length) return null;
+    return {
+        labels: rows.map((d) => bucketLabel(d._id)),
+        datasets: [{ data: rows.map((d) => Number(d[valueKey]) || 0) }],
+    };
+};
 
 const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     const colorScheme = useColorScheme() ?? 'light';
@@ -18,19 +38,23 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState(null);
     const [activeClassTab, setActiveClassTab] = useState('average'); // 'average' | 'percentage'
+    const [packageTab, setPackageTab] = useState('creditos');
+    const period = useStatsPeriod();
 
     const fetchStats = useCallback(async () => {
         if (!apiClient || !visible) return;
         setLoading(true);
         try {
-            const res = await apiClient.get('/stats/dashboard');
+            const res = await apiClient.get('/stats/dashboard', {
+                params: { from: period.fromDate, to: period.toDate },
+            });
             setStats(res.data);
         } catch (error) {
             console.error("Error cargando estadísticas:", error);
         } finally {
             setLoading(false);
         }
-    }, [apiClient, visible]);
+    }, [apiClient, visible, period.fromDate, period.toDate]);
 
     useEffect(() => {
         if (visible) fetchStats();
@@ -52,10 +76,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     let newUsersData = null;
     if (stats?.newUsersByMonth && stats.newUsersByMonth.length > 0) {
         newUsersData = {
-            labels: stats.newUsersByMonth.map(d => {
-                const [year, month] = d._id.split('-');
-                return format(new Date(year, month - 1, 1), 'MMM', { locale: es });
-            }),
+            labels: stats.newUsersByMonth.map(d => bucketLabel(d._id)),
             datasets: [{ data: stats.newUsersByMonth.map(d => d.count) }]
         };
     }
@@ -107,7 +128,8 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     }
 
     return (
-        <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
+        <>
+        <Modal visible={statsModalVisible(visible, period)} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
             <View style={styles.modalContainer}>
                 <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -115,6 +137,10 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Panel de Estadísticas</Text>
                     <View style={{ width: 28 }} />
+                </View>
+
+                <View style={{ paddingHorizontal: 15, paddingTop: 12 }}>
+                    <StatsPeriodBar period={period} gymColor={gymColor} />
                 </View>
 
                 {loading ? (
@@ -128,10 +154,82 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                     </View>
                 ) : (
                     <ScrollView contentContainerStyle={styles.scrollContent}>
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Paquetes</Text>
+                            <View style={styles.tabContainer}>
+                                {[
+                                    { id: 'creditos', label: 'Créditos' },
+                                    { id: 'pase', label: 'Acceso libre' },
+                                    { id: 'membresia', label: 'Membresía' },
+                                ].map((tab) => (
+                                    <TouchableOpacity
+                                        key={tab.id}
+                                        style={[styles.tabButton, packageTab === tab.id && { backgroundColor: gymColor || '#1a5276' }]}
+                                        onPress={() => setPackageTab(tab.id)}
+                                    >
+                                        <Text style={[styles.tabText, packageTab === tab.id && { color: '#fff' }]}>{tab.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            <View style={styles.salesRow}>
+                                <View style={styles.salesKpi}>
+                                    <Text style={styles.salesKpiLabel}>Ventas</Text>
+                                    <Text style={[styles.salesKpiValue, { color: gymColor || '#1a5276' }]}>
+                                        {stats.sales?.packages?.[packageTab]?.count || 0}
+                                    </Text>
+                                    <Text style={styles.salesKpiHint}>{money(stats.sales?.packages?.[packageTab]?.amount)}</Text>
+                                </View>
+                            </View>
+                            {packageTab === 'creditos' && (stats.sales?.packages?.creditos?.byType || []).map((row) => (
+                                <View key={row.id} style={styles.typeRow}>
+                                    <Text style={styles.typeName} numberOfLines={1}>{row.name}</Text>
+                                    <Text style={styles.typeAmount}>{row.count} · {money(row.amount)}</Text>
+                                </View>
+                            ))}
+                            {monthSeries(stats.sales?.packages?.[packageTab]?.byMonth) ? (
+                                <BarChart
+                                    data={monthSeries(stats.sales.packages[packageTab].byMonth)}
+                                    width={screenWidth - 40}
+                                    height={200}
+                                    yAxisLabel="$"
+                                    yAxisSuffix=""
+                                    chartConfig={{ ...chartConfig, decimalPlaces: 0 }}
+                                    style={styles.chartStyle}
+                                    fromZero
+                                />
+                            ) : <Text style={styles.emptyText}>Sin ventas en este tipo</Text>}
+                        </View>
+
+                        <View style={styles.card}>
+                            <Text style={styles.cardTitle}>Tienda</Text>
+                            <View style={styles.salesRow}>
+                                <View style={styles.salesKpi}>
+                                    <Text style={styles.salesKpiLabel}>Pedidos</Text>
+                                    <Text style={[styles.salesKpiValue, { color: gymColor || '#1a5276' }]}>
+                                        {stats.sales?.store?.count || 0}
+                                    </Text>
+                                    <Text style={styles.salesKpiHint}>
+                                        {stats.sales?.store?.units || 0} productos · {money(stats.sales?.store?.amount)}
+                                    </Text>
+                                </View>
+                            </View>
+                            {monthSeries(stats.sales?.store?.byMonth) ? (
+                                <BarChart
+                                    data={monthSeries(stats.sales.store.byMonth)}
+                                    width={screenWidth - 40}
+                                    height={200}
+                                    yAxisLabel="$"
+                                    yAxisSuffix=""
+                                    chartConfig={{ ...chartConfig, decimalPlaces: 0 }}
+                                    style={styles.chartStyle}
+                                    fromZero
+                                />
+                            ) : <Text style={styles.emptyText}>Sin ventas de tienda</Text>}
+                        </View>
 
                         {/* Nuevos Usuarios */}
                         <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Nuevos Usuarios por Mes</Text>
+                            <Text style={styles.cardTitle}>Nuevos usuarios</Text>
                             {newUsersData ? (
                                 <LineChart
                                     data={newUsersData}
@@ -146,7 +244,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                         {/* Popularidad de Clases */}
                         <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Popularidad de Clases (Últimos 30 días)</Text>
+                            <Text style={styles.cardTitle}>Popularidad de clases</Text>
                             
                             {/* Tabs Switcher */}
                             <View style={styles.tabContainer}>
@@ -214,6 +312,8 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                 )}
             </View>
         </Modal>
+        <StatsPeriodPicker period={period} gymColor={gymColor} />
+        </>
     );
 };
 
@@ -252,7 +352,29 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontSize: 13,
         fontWeight: 'bold',
         color: Colors[colorScheme].text,
-    }
+    },
+    salesRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    salesKpi: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    salesKpiLabel: { fontSize: 12, fontWeight: '600', color: Colors[colorScheme].text, opacity: 0.65, textAlign: 'center' },
+    salesKpiValue: { fontSize: 26, fontWeight: '800', marginTop: 4 },
+    salesKpiHint: { fontSize: 12, color: Colors[colorScheme].text, opacity: 0.7, marginTop: 2, textAlign: 'center' },
+    typeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colorScheme === 'dark' ? '#333' : '#e6e6e6',
+        gap: 12,
+    },
+    typeName: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors[colorScheme].text },
+    typeFigures: { alignItems: 'flex-end' },
+    typeAmount: { fontSize: 13, fontWeight: '700', color: Colors[colorScheme].text },
+    typeHint: { fontSize: 11, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
 });
 
 export default StatsPanelModal;

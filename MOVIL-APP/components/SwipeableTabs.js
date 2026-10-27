@@ -1,18 +1,11 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Image } from 'react-native';
-import { withLayoutContext } from 'expo-router';
-import { createMaterialTopTabNavigator } from 'expo-router/js-top-tabs';
+import { TopTabs } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 
-const { Navigator } = createMaterialTopTabNavigator();
-
-// Only keep explicitly declared screens so redirect-only `index` is not appended.
-export const SwipeableTabs = withLayoutContext(
-  Navigator,
-  (screens) => screens.filter((screen) => screen.name !== 'index'),
-  true
-);
+// SDK 58 top tabs only show screens declared in the layout, so the redirect-only index stays out.
+export const SwipeableTabs = TopTabs;
 
 function isHiddenTab(options) {
   if (options?.href === null) return true;
@@ -59,6 +52,9 @@ export function SwipeableBottomTabBar({
   state,
   descriptors,
   navigation,
+  emitter,
+  navigateToTab,
+  jumpTo,
   activeColor,
   inactiveColor,
   backgroundColor,
@@ -99,18 +95,25 @@ export function SwipeableBottomTabBar({
         });
 
         const onPress = () => {
-          const event = navigation.emit({
+          const event = emitter?.emit?.({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          }) ?? navigation?.emit?.({
             type: 'tabPress',
             target: route.key,
             canPreventDefault: true,
           });
-          if (!focused && !event.defaultPrevented) {
-            navigation.navigate(route.name, route.params);
+          if (!focused && !event?.defaultPrevented) {
+            if (navigateToTab) navigateToTab(route.key);
+            else if (jumpTo) jumpTo(route.key);
+            else navigation?.navigate?.(route.name, route.params);
           }
         };
 
         const onLongPress = () => {
-          navigation.emit({
+          const emit = emitter?.emit || navigation?.emit;
+          emit?.({
             type: 'tabLongPress',
             target: route.key,
           });
