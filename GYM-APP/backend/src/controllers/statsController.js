@@ -1,7 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
-import { subMonths, startOfMonth, subDays } from 'date-fns';
+import { parseISO, isValid, startOfDay, endOfDay, startOfMonth } from 'date-fns';
 
 const notVoided = {
     $or: [{ voidedAt: null }, { voidedAt: { $exists: false } }],
@@ -21,14 +21,39 @@ const firstOrEmpty = (rows) => {
     };
 };
 
-const packageBaseStages = ({ userId, since } = {}) => {
+const resolveRange = (query = {}) => {
+    const now = new Date();
+    let start = query.from ? parseISO(String(query.from)) : startOfMonth(now);
+    let end = query.to ? parseISO(String(query.to)) : now;
+    if (!isValid(start)) start = startOfMonth(now);
+    if (!isValid(end)) end = now;
+    let from = startOfDay(start);
+    let to = endOfDay(end);
+    if (from > to) {
+        const swappedFrom = startOfDay(end);
+        to = endOfDay(start);
+        from = swappedFrom;
+    }
+    return { from, to };
+};
+
+const bucketFormat = (from, to) => {
+    const days = (to.getTime() - from.getTime()) / 86400000;
+    return days <= 45 ? '%Y-%m-%d' : '%Y-%m';
+};
+
+const packageBaseStages = ({ userId, since, until } = {}) => {
     const match = {
         type: 'charge',
         'relatedItem.itemType': 'class_pack',
         ...notVoided,
     };
     if (userId) match.user = userId;
-    if (since) match.createdAt = { $gte: since };
+    if (since || until) {
+        match.createdAt = {};
+        if (since) match.createdAt.$gte = since;
+        if (until) match.createdAt.$lte = until;
+    }
     const isCredit = {
         $and: [
             { $ne: ['$pkg.isMembresia', true] },
@@ -91,7 +116,7 @@ const packageByMonthPipeline = (opts) => [
     {
         $group: {
             _id: {
-                month: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+                month: { $dateToString: { format: opts.bucket || '%Y-%m', date: '$createdAt' } },
                 kind: '$kind',
             },
             count: { $sum: 1 },
@@ -126,15 +151,6 @@ const shapePackageBreakdown = (rows) => {
     return result;
 };
 
-const attachLast30ToCreditTypes = (totalTypes, last30Types) => {
-    const lastById = new Map((last30Types || []).map((row) => [row.id, row]));
-    return (totalTypes || []).map((row) => ({
-        ...row,
-        last30Count: lastById.get(row.id)?.count || 0,
-        last30Amount: lastById.get(row.id)?.amount || 0,
-    }));
-};
-
 const splitMonthsByKind = (rows) => {
     const months = { creditos: [], pase: [], membresia: [] };
     for (const row of rows || []) {
@@ -149,20 +165,16 @@ const splitMonthsByKind = (rows) => {
     return months;
 };
 
-const buildDashboardPackages = (totalRows, last30Rows, monthRows) => {
-    const total = shapePackageBreakdown(totalRows);
-    const last30 = shapePackageBreakdown(last30Rows);
+const buildPeriodPackages = (rows, monthRows) => {
+    const shaped = shapePackageBreakdown(rows);
     const months = splitMonthsByKind(monthRows);
     const kindBlock = (key) => ({
-        total: { count: total[key].count, amount: total[key].amount },
-        last30Days: { count: last30[key].count, amount: last30[key].amount },
+        count: shaped[key].count,
+        amount: shaped[key].amount,
         byMonth: months[key],
     });
     return {
-        creditos: {
-            ...kindBlock('creditos'),
-            byType: attachLast30ToCreditTypes(total.creditos.byType, last30.creditos.byType),
-        },
+        creditos: { ...kindBlock('creditos'), byType: shaped.creditos.byType },
         pase: kindBlock('pase'),
         membresia: kindBlock('membresia'),
     };
@@ -192,15 +204,14 @@ const storeSalesStages = ({ userId } = {}) => {
 
 const getDashboardStats = asyncHandler(async (req, res) => {
     const { User, Clase, Transaction, StoreOrder } = getModels(req.gymDBConnection);
-    
-    // 1. Usuarios Nuevos por Mes (últimos 6 meses)
-    const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
+    const { from, to } = resolveRange(req.query);
+    const bucket = bucketFormat(from, to);
     
     const newUsersByMonth = await User.aggregate([
-        { $match: { roles: 'cliente', createdAt: { $gte: sixMonthsAgo } } },
+        { $match: { roles: 'cliente', createdAt: { $gte: from, $lte: to } } },
         { 
             $group: { 
-                _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
+                _id: { $dateToString: { format: bucket, date: "$createdAt" } }, 
                 count: { $sum: 1 } 
             } 
         },
@@ -242,11 +253,8 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         else ageDistribution['65+']++;
     });
 
-    // 4. Clases más populares (agrupadas por tipoClase en el último mes)
-    const lastMonth = subMonths(new Date(), 1);
-    
     const classAssistance = await Clase.aggregate([
-        { $match: { fecha: { $gte: lastMonth }, estado: { $in: ['activa', 'completada'] } } },
+        { $match: { fecha: { $gte: from, $lte: to }, estado: { $in: ['activa', 'completada'] } } },
         { 
             $lookup: {
                 from: 'tipoclases', 
@@ -278,35 +286,28 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         { $sort: { averageInscritos: -1 } }
     ]);
 
-    const thirtyDaysAgo = subDays(new Date(), 30);
     const storeBase = storeSalesStages();
+    const rangeOpts = { since: from, until: to, bucket };
 
     const [
-        packageTotal,
-        packageLast30,
+        packageRows,
         packageByMonth,
         storeTotal,
-        storeLast30,
         storeByMonth,
     ] = await Promise.all([
-        Transaction.aggregate(packageBreakdownPipeline()),
-        Transaction.aggregate(packageBreakdownPipeline({ since: thirtyDaysAgo })),
-        Transaction.aggregate(packageByMonthPipeline({ since: sixMonthsAgo })),
+        Transaction.aggregate(packageBreakdownPipeline(rangeOpts)),
+        Transaction.aggregate(packageByMonthPipeline(rangeOpts)),
         StoreOrder.aggregate([
             ...storeBase,
+            { $match: { soldAt: { $gte: from, $lte: to } } },
             { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amountTransferred' }, units: { $sum: '$units' } } },
         ]),
         StoreOrder.aggregate([
             ...storeBase,
-            { $match: { soldAt: { $gte: thirtyDaysAgo } } },
-            { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amountTransferred' }, units: { $sum: '$units' } } },
-        ]),
-        StoreOrder.aggregate([
-            ...storeBase,
-            { $match: { soldAt: { $gte: sixMonthsAgo } } },
+            { $match: { soldAt: { $gte: from, $lte: to } } },
             {
                 $group: {
-                    _id: { $dateToString: { format: '%Y-%m', date: '$soldAt' } },
+                    _id: { $dateToString: { format: bucket, date: '$soldAt' } },
                     count: { $sum: 1 },
                     amount: { $sum: '$amountTransferred' },
                     units: { $sum: '$units' },
@@ -322,10 +323,9 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         ageDistribution,
         classAssistance,
         sales: {
-            packages: buildDashboardPackages(packageTotal, packageLast30, packageByMonth),
+            packages: buildPeriodPackages(packageRows, packageByMonth),
             store: {
-                total: firstOrEmpty(storeTotal),
-                last30Days: firstOrEmpty(storeLast30),
+                ...firstOrEmpty(storeTotal),
                 byMonth: storeByMonth,
             },
         },
@@ -337,9 +337,9 @@ const getClientStats = asyncHandler(async (req, res) => {
     const userId = req.params.id;
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { from, to } = resolveRange(req.query);
+    const bucket = bucketFormat(from, to);
+    const dateFilter = { $gte: from, $lte: to };
 
     const getMatchFilter = (dateFilter = null) => {
         const match = { 
@@ -369,53 +369,36 @@ const getClientStats = asyncHandler(async (req, res) => {
         { $sort: { count: -1 } }
     ];
 
-    const sixMonthsAgo = startOfMonth(subMonths(new Date(), 5));
-
     const storeBase = storeSalesStages({ userId: userObjectId });
 
     const [
-        attendanceTotalRes, attendance30Res,
-        favoritesTotalRes, favorites30Res,
+        attendanceRes,
+        favoritesRes,
         activityByMonth,
-        packageTotal, packageLast30,
-        storeTotal, storeLast30,
+        packageRows,
+        storeTotal,
     ] = await Promise.all([
-        Clase.aggregate(getAttendanceQuery()),
-        Clase.aggregate(getAttendanceQuery({ $gte: thirtyDaysAgo })),
-        Clase.aggregate(getFavoritesQuery()),
-        Clase.aggregate(getFavoritesQuery({ $gte: thirtyDaysAgo })),
+        Clase.aggregate(getAttendanceQuery(dateFilter)),
+        Clase.aggregate(getFavoritesQuery(dateFilter)),
         Clase.aggregate([
-            { $match: { usuariosInscritos: userObjectId, fecha: { $gte: sixMonthsAgo } } },
-            { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$fecha" } }, count: { $sum: 1 } } },
+            { $match: { usuariosInscritos: userObjectId, fecha: dateFilter } },
+            { $group: { _id: { $dateToString: { format: bucket, date: "$fecha" } }, count: { $sum: 1 } } },
             { $sort: { _id: 1 } }
         ]),
-        Transaction.aggregate(packageBreakdownPipeline({ userId: userObjectId })),
-        Transaction.aggregate(packageBreakdownPipeline({ userId: userObjectId, since: thirtyDaysAgo })),
+        Transaction.aggregate(packageBreakdownPipeline({ userId: userObjectId, since: from, until: to })),
         StoreOrder.aggregate([
             ...storeBase,
-            { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amountTransferred' }, units: { $sum: '$units' } } },
-        ]),
-        StoreOrder.aggregate([
-            ...storeBase,
-            { $match: { soldAt: { $gte: thirtyDaysAgo } } },
+            { $match: { soldAt: dateFilter } },
             { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amountTransferred' }, units: { $sum: '$units' } } },
         ]),
     ]);
 
     res.json({
-        totales: {
-            attendanceData: attendanceTotalRes.length > 0 ? attendanceTotalRes[0] : { totalInscripciones: 0, totalAsistencias: 0 },
-            favoriteClasses: favoritesTotalRes,
-            packageSales: shapePackageBreakdown(packageTotal),
-            storeSales: firstOrEmpty(storeTotal),
-        },
-        last30Days: {
-            attendanceData: attendance30Res.length > 0 ? attendance30Res[0] : { totalInscripciones: 0, totalAsistencias: 0 },
-            favoriteClasses: favorites30Res,
-            packageSales: shapePackageBreakdown(packageLast30),
-            storeSales: firstOrEmpty(storeLast30),
-        },
-        activityByMonth
+        attendanceData: attendanceRes.length > 0 ? attendanceRes[0] : { totalInscripciones: 0, totalAsistencias: 0 },
+        favoriteClasses: favoritesRes,
+        packageSales: shapePackageBreakdown(packageRows),
+        storeSales: firstOrEmpty(storeTotal),
+        activityByMonth,
     });
 });
 
