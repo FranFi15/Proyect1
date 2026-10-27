@@ -38,8 +38,12 @@ const checkAndSendReminders = async (gymDBConnection, clientId) => {
 
         for (const clase of potentialClasses) {
             // 2. Construir fecha exacta
-            const classDateString = clase.fecha.toISOString().split('T')[0]; 
-            const classDateTimeString = `${classDateString}T${clase.horaInicio}:00-03:00`; 
+            const classDateString = clase.fecha.toISOString().split('T')[0];
+            const timeMatch = String(clase.horaInicio || '').trim().match(/(\d{1,2})[:.](\d{1,2})/);
+            if (!timeMatch) continue;
+            const hh = String(Math.min(23, parseInt(timeMatch[1], 10))).padStart(2, '0');
+            const mm = String(Math.min(59, parseInt(timeMatch[2], 10))).padStart(2, '0');
+            const classDateTimeString = `${classDateString}T${hh}:${mm}:00-03:00`; 
             const classStartTime = new Date(classDateTimeString);
 
             // console.log(`   -> Revisando clase "${clase.nombre || 'Sin nombre'}" - Inicio: ${classStartTime.toISOString()}`);

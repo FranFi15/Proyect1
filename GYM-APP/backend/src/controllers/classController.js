@@ -35,15 +35,10 @@ const setNoonUTC = (date) => {
 
 const parseClassMoment = (dateStr, timeStr, timeZone) => {
     const raw = String(timeStr || '').trim();
-    const match = raw.match(/(\d{1,2})[:.](\d{2})/);
-    const normalized = match
-        ? `${String(Math.min(23, parseInt(match[1], 10))).padStart(2, '0')}:${String(Math.min(59, parseInt(match[2], 10))).padStart(2, '0')}`
-        : raw;
-    let m = moment.tz(`${dateStr} ${normalized}`, 'YYYY-MM-DD HH:mm', true, timeZone);
-    if (!m.isValid()) {
-        m = moment.tz(`${dateStr} ${normalized}`, timeZone);
-    }
-    return m;
+    const match = raw.match(/(\d{1,2})[:.](\d{1,2})/);
+    if (!match) return moment.invalid();
+    const normalized = `${String(Math.min(23, parseInt(match[1], 10))).padStart(2, '0')}:${String(Math.min(59, parseInt(match[2], 10))).padStart(2, '0')}`;
+    return moment.tz(`${dateStr} ${normalized}`, 'YYYY-MM-DD HH:mm', true, timeZone);
 };
 
 const enrichClassWithUTC = (cls, tz) => {
@@ -526,8 +521,8 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
     if (classItem.fecha && classItem.horaFin) {
         const dateStr = new Date(classItem.fecha).toISOString().substring(0, 10);
-        const endUTC = moment.tz(`${dateStr} ${classItem.horaFin}`, tz).toDate();
-        if (new Date() >= endUTC) {
+        const end = parseClassMoment(dateStr, classItem.horaFin, tz);
+        if (end.isValid() && new Date() >= end.toDate()) {
             res.status(400);
             throw new Error('No te puedes inscribir a un turno que ya ha finalizado.');
         }
@@ -702,7 +697,8 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
 
     const dateStr = clase.fecha.toISOString().substring(0, 10);
     const tz = req.gymTimezone || 'America/Argentina/Buenos_Aires';
-    const classStartDateTime = moment.tz(`${dateStr} ${clase.horaInicio}`, tz).toDate();
+    const classStart = parseClassMoment(dateStr, clase.horaInicio, tz);
+    const classStartDateTime = classStart.isValid() ? classStart.toDate() : new Date(clase.fecha);
     
     // Importante: usar subMinutes importado al principio de classController.js o directamente manipulando la fecha
     // Dado que subHours ya estaba importado, y moment está disponible, mejor usamos moment para restar los minutos:

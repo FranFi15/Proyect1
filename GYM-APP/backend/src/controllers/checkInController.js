@@ -90,7 +90,7 @@ const hasValidPaseLibreForDate = (user, fechaTurno) => {
 const normalizeTimeHHMM = (value) => {
     if (value == null) return null;
     const raw = String(value).trim();
-    const match = raw.match(/(\d{1,2})[:.](\d{2})/);
+    const match = raw.match(/(\d{1,2})[:.](\d{1,2})/);
     if (!match) return null;
     const hours = String(Math.min(23, Math.max(0, parseInt(match[1], 10)))).padStart(2, '0');
     const minutes = String(Math.min(59, Math.max(0, parseInt(match[2], 10)))).padStart(2, '0');
@@ -104,11 +104,7 @@ const isClassStillOpen = (clase, tz) => {
     const dateStr = new Date(clase.fecha).toISOString().substring(0, 10);
     const horaFin = normalizeTimeHHMM(clase.horaFin) || String(clase.horaFin).trim();
     const endMoment = moment.tz(`${dateStr} ${horaFin}`, 'YYYY-MM-DD HH:mm', true, timeZone);
-    if (!endMoment.isValid()) {
-        const loose = moment.tz(`${dateStr} ${horaFin}`, timeZone);
-        if (!loose.isValid()) return true;
-        return moment().isBefore(loose);
-    }
+    if (!endMoment.isValid()) return true;
     return moment().isBefore(endMoment);
 };
 
@@ -578,8 +574,11 @@ const confirmClientCheckIn = asyncHandler(async (req, res) => {
 
                 if (clase.fecha && clase.horaFin) {
                     const dateStr = new Date(clase.fecha).toISOString().substring(0, 10);
-                    const endUTC = moment.tz(`${dateStr} ${clase.horaFin}`, tz).toDate();
-                    if (new Date() >= endUTC) {
+                    const horaFin = normalizeTimeHHMM(clase.horaFin);
+                    const endUTC = horaFin
+                        ? moment.tz(`${dateStr} ${horaFin}`, 'YYYY-MM-DD HH:mm', true, tz)
+                        : null;
+                    if (endUTC?.isValid() && new Date() >= endUTC.toDate()) {
                         res.status(400);
                         throw new Error('No te puedes inscribir a un turno que ya ha finalizado.');
                     }
