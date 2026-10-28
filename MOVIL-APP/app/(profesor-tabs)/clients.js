@@ -81,7 +81,9 @@ const ProfessorClientsScreen = () => {
 
     const fetchClients = useCallback(async () => {
         const response = await apiClient.get('/users?role=cliente');
-        setUsers(response.data || []);
+        const list = response.data || [];
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setUsers(list);
     }, []);
 
     const fetchFeedbacks = useCallback(async () => {
@@ -179,10 +181,17 @@ const ProfessorClientsScreen = () => {
     // --- Filtrado ---
     const filteredData = useMemo(() => {
         if (!searchTerm) return users;
-        return users.filter(user =>
-            `${user.nombre} ${user.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.dni?.includes(searchTerm)
-        );
+        const normalizeText = (text) => {
+            if (!text) return '';
+            return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        };
+        const query = normalizeText(searchTerm.trim());
+        return users.filter((user) => {
+            const fullName = normalizeText(`${user.nombre} ${user.apellido}`);
+            const email = normalizeText(user.email);
+            const dni = String(user.dni || '');
+            return fullName.includes(query) || email.includes(query) || dni.includes(searchTerm.trim());
+        });
     }, [users, searchTerm]);
 
     const filteredFeedbacks = useMemo(() => {
