@@ -585,6 +585,21 @@ const confirmClientCheckIn = asyncHandler(async (req, res) => {
                 }
 
                 const settings = await Settings.findById('main_settings');
+                const enrollmentTimeLimitMinutes = settings?.enrollmentTimeLimitMinutes || 0;
+                if (enrollmentTimeLimitMinutes > 0 && clase.fecha && clase.horaInicio) {
+                    const dateStr = new Date(clase.fecha).toISOString().substring(0, 10);
+                    const horaInicio = normalizeTimeHHMM(clase.horaInicio);
+                    const start = horaInicio
+                        ? moment.tz(`${dateStr} ${horaInicio}`, 'YYYY-MM-DD HH:mm', true, tz)
+                        : null;
+                    if (start?.isValid()) {
+                        const enrollmentDeadline = start.clone().subtract(enrollmentTimeLimitMinutes, 'minutes').toDate();
+                        if (new Date() > enrollmentDeadline) {
+                            res.status(400);
+                            throw new Error(`No puedes inscribirte a menos de ${enrollmentTimeLimitMinutes} minuto(s) del inicio del turno.`);
+                        }
+                    }
+                }
                 const maxDailyClasses = settings?.maxDailyClassesPerUser || 0;
                 if (maxDailyClasses > 0) {
                     const enrollmentsToday = await Clase.countDocuments({

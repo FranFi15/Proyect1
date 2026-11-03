@@ -12,6 +12,7 @@ const getSettings = asyncHandler(async (req, res) => {
         courtesyCredit: settings?.courtesyCredit || { isActive: false, amount: 1, tipoClase: null },
         bankDetails: settings?.bankDetails || { cbu: '', alias: '', bankName: '' },
         cancellationTimeLimitMinutes: settings?.cancellationTimeLimitMinutes ?? 60,
+        enrollmentTimeLimitMinutes: settings?.enrollmentTimeLimitMinutes ?? 0,
         maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0,
         reviewsPublic: !!settings?.reviewsPublic,
         mercadoPago: {
@@ -21,13 +22,22 @@ const getSettings = asyncHandler(async (req, res) => {
 });
 
 const updateSettings = asyncHandler(async (req, res) => {
-    const { classVisibilityDays, courtesyCredit, bankDetails, cancellationTimeLimitMinutes, maxDailyClassesPerUser, reviewsPublic } = req.body;
+    const {
+        classVisibilityDays,
+        courtesyCredit,
+        bankDetails,
+        cancellationTimeLimitMinutes,
+        enrollmentTimeLimitMinutes,
+        maxDailyClassesPerUser,
+        reviewsPublic,
+    } = req.body;
     const { Settings } = getModels(req.gymDBConnection);
     
     const updateData = {};
     
     if (classVisibilityDays !== undefined) updateData.classVisibilityDays = Number(classVisibilityDays) || 0;
     if (cancellationTimeLimitMinutes !== undefined) updateData.cancellationTimeLimitMinutes = Number(cancellationTimeLimitMinutes);
+    if (enrollmentTimeLimitMinutes !== undefined) updateData.enrollmentTimeLimitMinutes = Number(enrollmentTimeLimitMinutes) || 0;
     if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
     if (reviewsPublic !== undefined) updateData.reviewsPublic = Boolean(reviewsPublic);
 

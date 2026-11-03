@@ -22,6 +22,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [classTypes, setClassTypes] = useState([]);
     const [visibilityDays, setVisibilityDays] = useState('0');
     const [cancellationTimeLimitMinutes, setCancellationTimeLimitMinutes] = useState('60');
+    const [enrollmentTimeLimitMinutes, setEnrollmentTimeLimitMinutes] = useState('0');
     const [maxDailyClassesPerUser, setMaxDailyClassesPerUser] = useState('0');
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
@@ -62,6 +63,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
             if (settingsRes.data) {
                 setVisibilityDays((settingsRes.data.classVisibilityDays ?? 0).toString());
                 setCancellationTimeLimitMinutes((settingsRes.data.cancellationTimeLimitMinutes ?? 60).toString());
+                setEnrollmentTimeLimitMinutes((settingsRes.data.enrollmentTimeLimitMinutes ?? 0).toString());
                 setMaxDailyClassesPerUser((settingsRes.data.maxDailyClassesPerUser ?? 0).toString());
                 setReviewsPublic(!!settingsRes.data.reviewsPublic);
 
@@ -104,6 +106,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
             const payload = {
                 classVisibilityDays: Number(visibilityDays) || 0,
                 cancellationTimeLimitMinutes: Number(cancellationTimeLimitMinutes) || 0,
+                enrollmentTimeLimitMinutes: Number(enrollmentTimeLimitMinutes) || 0,
                 maxDailyClassesPerUser: Number(maxDailyClassesPerUser) || 0,
                 courtesyCredit: {
                     isActive: courtesyConfig.isActive,
@@ -242,10 +245,13 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                 <View>
                                     <Text style={styles.sectionTitle}>Calendario</Text>
                                     <Text style={styles.cardDescription}>
-                                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límite de cancelaciones y cupo diario.
+                                        Define cuántos días hacia el futuro podrán ver y reservar tus clientes, límites de inscripción y cancelación, y cupo diario.
                                     </Text>
                                     <Text style={styles.inputLabel}>Días visibles (0 = sin límite):</Text>
                                     <TextInput style={styles.input} value={visibilityDays} onChangeText={setVisibilityDays} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
+
+                                    <Text style={styles.inputLabel}>Anticipación límite para inscribirse (Minutos, 0 = sin límite):</Text>
+                                    <TextInput style={styles.input} value={enrollmentTimeLimitMinutes} onChangeText={setEnrollmentTimeLimitMinutes} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
 
                                     <Text style={styles.inputLabel}>Anticipación límite para cancelar (Minutos):</Text>
                                     <TextInput style={styles.input} value={cancellationTimeLimitMinutes} onChangeText={setCancellationTimeLimitMinutes} keyboardType="number-pad" placeholder="60" placeholderTextColor="#999" />

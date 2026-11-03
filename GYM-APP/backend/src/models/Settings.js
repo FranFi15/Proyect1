@@ -29,6 +29,10 @@ const settingsSchema = new mongoose.Schema({
         type: Number,
         default: 60
     },
+    enrollmentTimeLimitMinutes: {
+        type: Number,
+        default: 0 // 0 = sin límite; N = no se puede inscribir a menos de N minutos del inicio
+    },
     maxDailyClassesPerUser: {
         type: Number,
         default: 0 // 0 significa sin límite

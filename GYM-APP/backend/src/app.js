@@ -47,6 +47,7 @@ import { schedulePaseLibreExpirationCheck } from './cron/PaseLibreExpirationJob.
 import { scheduleNotificationCleanup } from './cron/NotificationCleanupJob.js';
 import { scheduleClassReminders } from './cron/ClassReminderJob.js';
 import { scheduleScoreboardResultsJob } from './cron/ScoreboardResultsJob.js';
+import { scheduleBirthdayReminders } from './cron/BirthdayReminderJob.js';
 
 
 
@@ -145,6 +146,7 @@ schedulePaseLibreExpirationCheck();
 scheduleNotificationCleanup();
 scheduleClassReminders();
 scheduleScoreboardResultsJob();
+scheduleBirthdayReminders();
 
 
 

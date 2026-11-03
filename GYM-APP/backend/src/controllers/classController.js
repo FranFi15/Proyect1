@@ -533,6 +533,23 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     }
 
     const settings = await Settings.findById('main_settings');
+    const enrollmentTimeLimitMinutes = settings?.enrollmentTimeLimitMinutes || 0;
+    const isClientSelfEnroll = req.user.roles?.includes('cliente')
+        && !req.user.roles?.includes('admin')
+        && !req.user.roles?.includes('profesor');
+
+    if (isClientSelfEnroll && enrollmentTimeLimitMinutes > 0 && classItem.fecha && classItem.horaInicio) {
+        const dateStr = new Date(classItem.fecha).toISOString().substring(0, 10);
+        const start = parseClassMoment(dateStr, classItem.horaInicio, tz);
+        if (start.isValid()) {
+            const enrollmentDeadline = moment(start.toDate()).subtract(enrollmentTimeLimitMinutes, 'minutes').toDate();
+            if (new Date() > enrollmentDeadline) {
+                res.status(400);
+                throw new Error(`No puedes inscribirte a menos de ${enrollmentTimeLimitMinutes} minuto(s) del inicio del turno.`);
+            }
+        }
+    }
+
     const maxDailyClasses = settings?.maxDailyClassesPerUser || 0;
 
     if (maxDailyClasses > 0) {
