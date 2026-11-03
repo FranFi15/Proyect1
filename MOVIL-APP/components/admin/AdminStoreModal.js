@@ -95,6 +95,8 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
     });
 
     const loadData = useCallback(async ({ silent = false } = {}) => {
+        // Yield before setState so effect callers don't sync-update in the effect body.
+        await Promise.resolve();
         if (silent) setRefreshing(true);
         else setLoading(true);
         try {
@@ -117,24 +119,41 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [orderFilter]);
+    }, [orderFilter, setAlertInfo]);
 
     const onRefresh = useCallback(() => loadData({ silent: true }), [loadData]);
 
-    // Reset to productos only when the modal opens — not when orderFilter/loadData changes.
+    // Reset tab when the modal opens (during render — avoids setState inside an effect).
+    const [wasVisible, setWasVisible] = useState(visible);
+    if (visible !== wasVisible) {
+        setWasVisible(visible);
+        if (visible) setTab('products');
+    }
+
+    // Load when the modal opens — omit loadData so orderFilter refreshes don't reset the tab.
     useEffect(() => {
         if (!visible) return undefined;
-        setTab('products');
-        loadData();
-        return undefined;
-        // intentionally omit loadData: including it re-ran this and kicked users off Pedidos
+        let cancelled = false;
+        (async () => {
+            await loadData();
+            if (cancelled) return;
+        })();
+        return () => {
+            cancelled = true;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
     useEffect(() => {
         if (!visible) return undefined;
-        loadData({ silent: true });
-        return undefined;
+        let cancelled = false;
+        (async () => {
+            await loadData({ silent: true });
+            if (cancelled) return;
+        })();
+        return () => {
+            cancelled = true;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [orderFilter]);
 
