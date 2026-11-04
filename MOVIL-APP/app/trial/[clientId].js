@@ -7,7 +7,6 @@ import {
     ScrollView,
     FlatList,
     StyleSheet,
-    ActivityIndicator,
     Platform,
     KeyboardAvoidingView,
     Image,
@@ -30,6 +29,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import ClassCard, { ClassCardAction } from '@/components/ClassCard';
 import FilterModal from '@/components/FilterModal';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useEntranceEpoch, useStaggerEnter } from '@/hooks/useEntranceEpoch';
 import TrialTurnstile from '@/components/TrialTurnstile';
@@ -492,9 +492,14 @@ const TrialEnrollmentScreen = () => {
 
     if (loading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={gymColor} />
-                <Text style={styles.muted}>Cargando...</Text>
+            <View style={[styles.centered, { backgroundColor: gymColor }]}>
+                <GymLogoSpinner
+                    logoUrl={gym.logoUrl}
+                    color="#fff"
+                    size={96}
+                    label="Cargando..."
+                    labelStyle={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}
+                />
             </View>
         );
     }
@@ -587,7 +592,7 @@ const TrialEnrollmentScreen = () => {
                                     disabled={submitting}
                                 >
                                     {submitting ? (
-                                        <ActivityIndicator color="#fff" />
+                                        <GymLogoSpinner logoUrl={gym.logoUrl} color="#fff" size={28} />
                                     ) : (
                                         <Text style={styles.submitText}>Enviar código al email</Text>
                                     )}
@@ -656,7 +661,7 @@ const TrialEnrollmentScreen = () => {
                                 disabled={submitting}
                             >
                                 {submitting ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <GymLogoSpinner logoUrl={gym.logoUrl} color="#fff" size={28} />
                                 ) : (
                                     <Text style={styles.submitText}>Verificar y ver turnos</Text>
                                 )}
@@ -688,8 +693,13 @@ const TrialEnrollmentScreen = () => {
                     >
                         {loadingClasses ? (
                             <View style={styles.centered}>
-                                <ActivityIndicator size="large" color={gymColor} />
-                                <Text style={styles.muted}>Cargando turnos...</Text>
+                                <GymLogoSpinner
+                                    logoUrl={gym.logoUrl}
+                                    color={gymColor}
+                                    size={88}
+                                    label="Cargando turnos..."
+                                    labelStyle={[styles.muted, { color: Colors[colorScheme].text }]}
+                                />
                             </View>
                         ) : (
                             <FlatList
