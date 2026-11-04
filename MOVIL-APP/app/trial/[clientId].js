@@ -137,6 +137,8 @@ const TrialEnrollmentScreen = () => {
     const listEntranceEpoch = useEntranceEpoch('trial', selectedDate, selectedClassType, step);
 
     const loadBranding = useCallback(async () => {
+        // Yield first so effect callers don't sync-setState in the effect body (React Compiler).
+        await Promise.resolve();
         if (!clientId || !token) {
             setError('Link incompleto. Pedile al gimnasio un link válido.');
             setLoading(false);
@@ -177,6 +179,7 @@ const TrialEnrollmentScreen = () => {
     }, [clientId, token]);
 
     const loadClasses = useCallback(async (activeSession) => {
+        await Promise.resolve();
         const session = activeSession || sessionToken;
         if (!clientId || !token || !session) return;
         if (token === 'preview') {
@@ -241,13 +244,26 @@ const TrialEnrollmentScreen = () => {
     }, [clientId, token, sessionToken]);
 
     useEffect(() => {
-        loadBranding();
+        let cancelled = false;
+        (async () => {
+            await loadBranding();
+            if (cancelled) return;
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [loadBranding]);
 
     useEffect(() => {
-        if (step === 'calendar' && sessionToken) {
-            loadClasses(sessionToken);
-        }
+        if (step !== 'calendar' || !sessionToken) return undefined;
+        let cancelled = false;
+        (async () => {
+            await loadClasses(sessionToken);
+            if (cancelled) return;
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [step, sessionToken, loadClasses]);
 
     const classTypes = useMemo(() => {
