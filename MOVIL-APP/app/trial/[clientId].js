@@ -494,7 +494,7 @@ const TrialEnrollmentScreen = () => {
                         <Image source={{ uri: gym.logoUrl }} style={styles.logo} resizeMode="contain" />
                     ) : (
                         <View style={styles.logoFallback}>
-                            <Ionicons name="barbell-outline" size={40} color="#fff" />
+                            <Ionicons name="barbell-outline" size={32} color="#fff" />
                         </View>
                     )}
                     <Text style={styles.brandSub}>Clase de prueba</Text>
@@ -809,32 +809,28 @@ const getStyles = (colorScheme, gymColor) => {
         brandHeader: {
             alignItems: 'center',
             justifyContent: 'center',
-            paddingHorizontal: 20,
-            paddingTop: Platform.OS === 'web' ? 28 : 56,
-            paddingBottom: 22,
-            borderBottomLeftRadius: 24,
-            borderBottomRightRadius: 24,
-            gap: 12,
+            paddingHorizontal: 16,
+            paddingTop: Platform.OS === 'web' ? 14 : 40,
+            paddingBottom: 12,
+            borderBottomLeftRadius: 18,
+            borderBottomRightRadius: 18,
+            gap: 6,
         },
         logo: {
-            width: 140,
-            height: 140,
-            borderRadius: 24,
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            width: 88,
+            height: 88,
         },
         logoFallback: {
-            width: 140,
-            height: 140,
-            borderRadius: 24,
+            width: 88,
+            height: 88,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.18)',
         },
         brandSub: {
             color: '#fff',
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: '800',
-            letterSpacing: 0.3,
+            letterSpacing: 0.2,
             textAlign: 'center',
         },
         listHeader: {
