@@ -126,6 +126,24 @@ const packageByMonthPipeline = (opts) => [
     { $sort: { '_id.month': 1 } },
 ];
 
+/** Monthly credit sales broken down by credit type (for chart filters). */
+const packageCreditTypeByMonthPipeline = (opts) => [
+    ...packageBaseStages(opts),
+    { $match: { kind: 'creditos' } },
+    {
+        $group: {
+            _id: {
+                month: { $dateToString: { format: opts.bucket || '%Y-%m', date: '$createdAt' } },
+                creditTypeId: '$creditTypeId',
+                creditTypeName: '$creditTypeName',
+            },
+            count: { $sum: 1 },
+            amount: { $sum: '$amount' },
+        },
+    },
+    { $sort: { '_id.month': 1 } },
+];
+
 const shapePackageBreakdown = (rows) => {
     const result = {
         creditos: { count: 0, amount: 0, byType: [] },
@@ -165,7 +183,25 @@ const splitMonthsByKind = (rows) => {
     return months;
 };
 
-const buildPeriodPackages = (rows, monthRows) => {
+const attachCreditTypeMonths = (byType, typeMonthRows) => {
+    const buckets = new Map();
+    for (const row of typeMonthRows || []) {
+        const id = row._id?.creditTypeId ? String(row._id.creditTypeId) : 'none';
+        if (!buckets.has(id)) buckets.set(id, []);
+        if (!row._id?.month) continue;
+        buckets.get(id).push({
+            _id: row._id.month,
+            count: row.count || 0,
+            amount: roundMoney(row.amount),
+        });
+    }
+    return (byType || []).map((t) => ({
+        ...t,
+        byMonth: buckets.get(t.id) || [],
+    }));
+};
+
+const buildPeriodPackages = (rows, monthRows, creditTypeMonthRows) => {
     const shaped = shapePackageBreakdown(rows);
     const months = splitMonthsByKind(monthRows);
     const kindBlock = (key) => ({
@@ -174,10 +210,42 @@ const buildPeriodPackages = (rows, monthRows) => {
         byMonth: months[key],
     });
     return {
-        creditos: { ...kindBlock('creditos'), byType: shaped.creditos.byType },
+        creditos: {
+            ...kindBlock('creditos'),
+            byType: attachCreditTypeMonths(shaped.creditos.byType, creditTypeMonthRows),
+        },
         pase: kindBlock('pase'),
         membresia: kindBlock('membresia'),
     };
+};
+
+const shapeStoreByProduct = (productRows, productMonthRows) => {
+    const monthBuckets = new Map();
+    for (const row of productMonthRows || []) {
+        const id = row._id?.productId ? String(row._id.productId) : 'none';
+        if (!monthBuckets.has(id)) monthBuckets.set(id, []);
+        if (!row._id?.month) continue;
+        monthBuckets.get(id).push({
+            _id: row._id.month,
+            count: row.count || 0,
+            amount: roundMoney(row.amount),
+            units: row.units || 0,
+        });
+    }
+
+    return (productRows || [])
+        .map((row) => {
+            const id = row._id?.productId ? String(row._id.productId) : 'none';
+            return {
+                id,
+                name: row._id?.name || 'Producto',
+                count: row.count || 0,
+                units: row.units || 0,
+                amount: roundMoney(row.amount),
+                byMonth: monthBuckets.get(id) || [],
+            };
+        })
+        .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'es'));
 };
 
 const storeSalesStages = ({ userId } = {}) => {
@@ -289,22 +357,29 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     const storeBase = storeSalesStages();
     const rangeOpts = { since: from, until: to, bucket };
 
+    const storeRangeMatch = [
+        ...storeBase,
+        { $match: { soldAt: { $gte: from, $lte: to } } },
+    ];
+
     const [
         packageRows,
         packageByMonth,
+        packageCreditTypeByMonth,
         storeTotal,
         storeByMonth,
+        storeByProduct,
+        storeByProductByMonth,
     ] = await Promise.all([
         Transaction.aggregate(packageBreakdownPipeline(rangeOpts)),
         Transaction.aggregate(packageByMonthPipeline(rangeOpts)),
+        Transaction.aggregate(packageCreditTypeByMonthPipeline(rangeOpts)),
         StoreOrder.aggregate([
-            ...storeBase,
-            { $match: { soldAt: { $gte: from, $lte: to } } },
+            ...storeRangeMatch,
             { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amountTransferred' }, units: { $sum: '$units' } } },
         ]),
         StoreOrder.aggregate([
-            ...storeBase,
-            { $match: { soldAt: { $gte: from, $lte: to } } },
+            ...storeRangeMatch,
             {
                 $group: {
                     _id: { $dateToString: { format: bucket, date: '$soldAt' } },
@@ -315,6 +390,52 @@ const getDashboardStats = asyncHandler(async (req, res) => {
             },
             { $sort: { _id: 1 } },
         ]),
+        StoreOrder.aggregate([
+            ...storeRangeMatch,
+            { $unwind: '$items' },
+            {
+                $group: {
+                    _id: {
+                        productId: '$items.storeItem',
+                        name: '$items.name',
+                    },
+                    count: { $sum: 1 },
+                    units: { $sum: { $ifNull: ['$items.quantity', 1] } },
+                    amount: {
+                        $sum: {
+                            $multiply: [
+                                { $ifNull: ['$items.price', 0] },
+                                { $ifNull: ['$items.quantity', 1] },
+                            ],
+                        },
+                    },
+                },
+            },
+        ]),
+        StoreOrder.aggregate([
+            ...storeRangeMatch,
+            { $unwind: '$items' },
+            {
+                $group: {
+                    _id: {
+                        month: { $dateToString: { format: bucket, date: '$soldAt' } },
+                        productId: '$items.storeItem',
+                        name: '$items.name',
+                    },
+                    count: { $sum: 1 },
+                    units: { $sum: { $ifNull: ['$items.quantity', 1] } },
+                    amount: {
+                        $sum: {
+                            $multiply: [
+                                { $ifNull: ['$items.price', 0] },
+                                { $ifNull: ['$items.quantity', 1] },
+                            ],
+                        },
+                    },
+                },
+            },
+            { $sort: { '_id.month': 1 } },
+        ]),
     ]);
 
     res.json({
@@ -323,10 +444,11 @@ const getDashboardStats = asyncHandler(async (req, res) => {
         ageDistribution,
         classAssistance,
         sales: {
-            packages: buildPeriodPackages(packageRows, packageByMonth),
+            packages: buildPeriodPackages(packageRows, packageByMonth, packageCreditTypeByMonth),
             store: {
                 ...firstOrEmpty(storeTotal),
                 byMonth: storeByMonth,
+                byProduct: shapeStoreByProduct(storeByProduct, storeByProductByMonth),
             },
         },
     });
