@@ -41,6 +41,16 @@ const settingsSchema = new mongoose.Schema({
         type: Boolean,
         default: false // Por defecto ocultas a los clientes
     },
+    /** Public trial-class enrollment (outside the app). */
+    trialEnrollmentEnabled: {
+        type: Boolean,
+        default: false,
+    },
+    /** Secret token required in the public trial URL. */
+    trialAccessToken: {
+        type: String,
+        default: '',
+    },
     mercadoPago: {
         isLinked: { type: Boolean, default: false },
         accessToken: { type: String, default: null },

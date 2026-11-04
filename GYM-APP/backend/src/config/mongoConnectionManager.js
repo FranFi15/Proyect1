@@ -45,7 +45,7 @@ const getDbConfig = async (clientId) => {
             }
         );
         
-        let { connectionStringDB, estadoSuscripcion, _id, apiSecretKey, timezone, pais } = response.data;
+        let { connectionStringDB, estadoSuscripcion, _id, apiSecretKey, timezone, pais, nombre, logoUrl, primaryColor } = response.data;
 
         if (process.env.MONGO_URI_BASE && process.env.MONGO_URI_BASE.includes('cluster0')) {
              connectionStringDB = forceStagingConnection(connectionStringDB);
@@ -63,7 +63,10 @@ const getDbConfig = async (clientId) => {
             gymId: _id, 
             apiSecretKey,
             timezone: timezone || 'America/Argentina/Buenos_Aires',
-            pais: pais || 'Argentina'
+            pais: pais || 'Argentina',
+            gymName: nombre || '',
+            logoUrl: logoUrl || '',
+            primaryColor: primaryColor || '#150224',
         };
 
     } catch (error) {
@@ -89,7 +92,12 @@ const connectToGymDB = async (clientId) => {
         tenantMetadataCache.set(clientId, { config: dbConfig, timestamp: Date.now() });
     }
 
-    const { connectionStringDB, gymId, apiSecretKey, timezone, pais } = dbConfig;
+    const { connectionStringDB, gymId, apiSecretKey, timezone, pais, gymName, logoUrl, primaryColor } = dbConfig;
+    const branding = {
+        gymName: gymName || '',
+        logoUrl: logoUrl || '',
+        primaryColor: primaryColor || '#150224',
+    };
 
     if (activeConnections.has(connectionStringDB)) {
         const cachedConn = activeConnections.get(connectionStringDB);
@@ -98,7 +106,8 @@ const connectToGymDB = async (clientId) => {
             superAdminId: gymId,
             apiSecretKey: apiSecretKey,
             timezone: timezone || 'America/Argentina/Buenos_Aires',
-            pais: pais || 'Argentina'
+            pais: pais || 'Argentina',
+            ...branding,
         };
     }
 
@@ -113,12 +122,12 @@ const connectToGymDB = async (clientId) => {
             superAdminId: gymId,
             apiSecretKey: apiSecretKey,
             timezone: timezone || 'America/Argentina/Buenos_Aires',
-            pais: pais || 'Argentina'
+            pais: pais || 'Argentina',
         };
 
         activeConnections.set(connectionStringDB, connectionData);
 
-        return connectionData;
+        return { ...connectionData, ...branding };
 
     } catch (error) {
         console.error(`Error al crear la conexión de Mongoose para ${clientId}:`, error);

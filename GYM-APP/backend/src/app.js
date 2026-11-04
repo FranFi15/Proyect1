@@ -18,6 +18,7 @@ import creditLogRoutes from './routes/creditLogRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 import trainingPlanRoutes from './routes/trainingPlanRoutes.js';
 import publicUserRoutes from './routes/publicRoutes.js';
+import trialPublicRoutes from './routes/trialPublicRoutes.js';
 import debugRoutes from './routes/debugRoutes.js';
 import checkInRoutes from './routes/checkInRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
@@ -130,6 +131,7 @@ app.use('/api/mercadopago', gymTenantMiddleware, mercadopagoAdminRoutes);
 
 //Ruta publica
 app.use('/api/public/users', publicUserRoutes);
+app.use('/api/public/trial', trialPublicRoutes);
 
 
 app.use('/api/debug', debugRoutes); 

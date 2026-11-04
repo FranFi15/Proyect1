@@ -173,6 +173,11 @@ const userSchema = mongoose.Schema({
     type: Boolean,
     default: true, 
 },
+    /** Set when the person used the public “clase de prueba” enrollment (one-time). */
+    trialEnrollmentUsedAt: {
+        type: Date,
+        default: null,
+    },
 lastLogin: {
         type: Date,
         default: null
