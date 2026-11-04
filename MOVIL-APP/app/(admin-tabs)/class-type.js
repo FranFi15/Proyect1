@@ -4,7 +4,9 @@ import {
     useColorScheme, ActivityIndicator, RefreshControl, Switch,
     ScrollView, Platform, Modal, useWindowDimensions
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -52,6 +54,8 @@ const ClassTypeManagementScreen = () => {
     const [alertInfo, setAlertInfo] = useState({ visible: false });
 
     const [isScoreboardModalVisible, setIsScoreboardModalVisible] = useState(false);
+    const creditsEntranceEpoch = useEntranceEpoch('admin-credits', searchTerm);
+    const packagesEntranceEpoch = useEntranceEpoch('admin-packages', searchPackageTerm, packageFilter);
 
     const performDataFetch = useCallback(async () => {
         try {
@@ -216,9 +220,14 @@ const ClassTypeManagementScreen = () => {
                 <FontAwesome5 name="search" size={16} color={Colors[colorScheme].icon} style={styles.searchIcon} />
             </View>
             <FlatList
+                key={creditsEntranceEpoch}
                 data={filteredClassTypes}
-                renderItem={({ item }) => (
-                    <View style={styles.itemCard}>
+                renderItem={({ item, index }) => {
+                    const entering = shouldPlayEntrance(`${creditsEntranceEpoch}:${item._id}`)
+                        ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+                        : undefined;
+                    return (
+                    <Animated.View entering={entering} style={styles.itemCard}>
                         <View style={styles.cardContent}>
                             <ThemedText style={styles.itemTitle}>{item.nombre} {item.esUniversal && <FontAwesome6 name="shield" size={14} color="#f39c12" style={{ marginLeft: 10 }}/>}</ThemedText>
                             <ThemedText style={styles.cardDescription}>
@@ -235,15 +244,15 @@ const ClassTypeManagementScreen = () => {
                                 </TouchableOpacity>
                             )}
                         </View>
-                    </View>
-                )}
+                    </Animated.View>
+                )}}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
                 ListEmptyComponent={<ThemedText style={styles.emptyText}>No hay créditos base registrados.</ThemedText>}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
         </View>
-    ), [filteredClassTypes, searchTerm, colorScheme, gymColor, isRefreshing]);
+    ), [filteredClassTypes, searchTerm, colorScheme, gymColor, isRefreshing, creditsEntranceEpoch]);
 
     const PackagesRoute = useCallback(() => (
         <View style={{flex: 1}}>
@@ -267,12 +276,16 @@ const ClassTypeManagementScreen = () => {
                 <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
             </TouchableOpacity>
             <FlatList
+                key={packagesEntranceEpoch}
                 data={filteredPackages}
-                renderItem={({ item }) => {
+                renderItem={({ item, index }) => {
                     const kindLabel = item.isPaseLibre ? 'Pase Libre' : item.isMembresia ? 'Membresía' : 'Créditos';
                     const kindColor = item.isPaseLibre ? '#0e8a6f' : item.isMembresia ? '#7c3aed' : gymColor;
+                    const entering = shouldPlayEntrance(`${packagesEntranceEpoch}:${item._id}`)
+                        ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+                        : undefined;
                     return (
-                    <View style={styles.itemCard}>
+                    <Animated.View entering={entering} style={styles.itemCard}>
                         <View style={styles.cardContent}>
                             <View style={[styles.kindBadge, { backgroundColor: kindColor + '18' }]}>
                                 <Text style={{ color: kindColor, fontWeight: '800', fontSize: 11 }}>{kindLabel}</Text>
@@ -294,7 +307,7 @@ const ClassTypeManagementScreen = () => {
                                 <Octicons name="trash" size={24} color={Colors[colorScheme].text} />
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </Animated.View>
                 )}}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={styles.listContainer}
@@ -302,7 +315,7 @@ const ClassTypeManagementScreen = () => {
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[gymColor]} />}
             />
         </View>
-    ), [filteredPackages, searchPackageTerm, packageFilter, colorScheme, gymColor, isRefreshing]);
+    ), [filteredPackages, searchPackageTerm, packageFilter, colorScheme, gymColor, isRefreshing, packagesEntranceEpoch]);
 
     const renderScene = SceneMap({
         credits: CreditsRoute,

@@ -11,6 +11,7 @@ import {
     ScrollView,
     Platform
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,6 +19,8 @@ import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { useRouter } from 'expo-router';
 import CustomAlert from '@/components/CustomAlert';
+
+const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 const ForgotPasswordScreen = () => {
     const [email, setEmail] = useState('');
@@ -33,7 +36,6 @@ const ForgotPasswordScreen = () => {
     });
     const router = useRouter();
 
-    // Tu lógica de handleResetPassword no necesita cambios.
     const handleResetPassword = async () => {
         if (!email) {
             setAlertInfo({
@@ -81,40 +83,49 @@ const ForgotPasswordScreen = () => {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    {gymLogo ? (
-                        <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
-                    ) : (
-                        <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
-                    )}
-                    <ThemedText type="title" style={styles.title}>Recuperar Contraseña</ThemedText>
-                    <ThemedText style={styles.subtitle}>
-                        Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
-                    </ThemedText>
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Tu correo electrónico"
-                        placeholderTextColor={Colors[colorScheme].icon}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
-
-                    <TouchableOpacity style={styles.button} onPress={handleResetPassword} disabled={isLoading}>
-                        {isLoading ? (
-                            <ActivityIndicator color="#fff" />
+                    <Animated.View entering={enter(0)}>
+                        {gymLogo ? (
+                            <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
                         ) : (
-                            <Text style={styles.buttonText}>Enviar Enlace</Text>
+                            <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
                         )}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
-                                                <Text style={styles.loginLink}>Volver a Inicio de Sesión</Text>
-                                            </TouchableOpacity>
+                    </Animated.View>
+                    <Animated.View entering={enter(1)}>
+                        <ThemedText type="title" style={styles.title}>Recuperar Contraseña</ThemedText>
+                        <ThemedText style={styles.subtitle}>
+                            Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+                        </ThemedText>
+                    </Animated.View>
+
+                    <Animated.View entering={enter(2)}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Tu correo electrónico"
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+                    </Animated.View>
+
+                    <Animated.View entering={enter(3)}>
+                        <TouchableOpacity style={styles.button} onPress={handleResetPassword} disabled={isLoading}>
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.buttonText}>Enviar Enlace</Text>
+                            )}
+                        </TouchableOpacity>
+                    </Animated.View>
+                    <Animated.View entering={enter(4)}>
+                        <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+                            <Text style={styles.loginLink}>Volver a Inicio de Sesión</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* El CustomAlert se queda fuera para superponerse a todo */}
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}
@@ -128,7 +139,6 @@ const ForgotPasswordScreen = () => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    // Nuevos estilos para la estructura
     outerContainer: {
         flex: 1,
     },
@@ -137,14 +147,13 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         justifyContent: 'center',
         padding: 20,
     },
-    // El resto de tus estilos permanecen igual
     logo: {
         width: 200,
         height: 200,
         alignSelf: 'center',
         marginBottom: 20,
     },
-    gymName: { // Añadido estilo para gymName por si no hay logo
+    gymName: {
         fontSize: 22,
         color: gymColor || '#4b187b',
         textAlign: 'center',

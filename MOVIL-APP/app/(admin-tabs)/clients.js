@@ -19,7 +19,16 @@ import {
     useWindowDimensions,
     Keyboard,
 } from 'react-native';
+import Animated, {
+    FadeInUp,
+    FadeInDown,
+    FadeOutUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from 'react-native-reanimated';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { TabView, TabBar } from 'react-native-tab-view'; // <-- Importamos TabView
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -107,9 +116,12 @@ const UserCardItem = React.memo(({
     handleDeleteClient,
     handleOpenStatsModal,
     getTypeName,
-    setSelectedProfesorForReviews
+    setSelectedProfesorForReviews,
+    animationIndex = 0,
+    entranceEpoch = 'admin-users',
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const chevronProgress = useSharedValue(0);
     const hasCredits = Object.values(item.creditosPorTipo || {}).some(amount => amount > 0);
     const today = startOfDay(new Date()); 
     const paseLibreDate = item.paseLibreHasta ? parseISO(item.paseLibreHasta) : null;
@@ -121,8 +133,21 @@ const UserCardItem = React.memo(({
     const balance = item.balance || 0;
     const isDebtor = balance < 0;
     const hasCredit = balance > 0;
+    const entranceToken = `${entranceEpoch}:${item?._id || ''}`;
+    const entering = shouldPlayEntrance(entranceToken)
+        ? FadeInUp.delay(Math.min(Number(animationIndex) || 0, 8) * 45).duration(300)
+        : undefined;
+
+    useEffect(() => {
+        chevronProgress.value = withTiming(isExpanded ? 1 : 0, { duration: 220 });
+    }, [isExpanded, chevronProgress]);
+
+    const chevronStyle = useAnimatedStyle(() => ({
+        transform: [{ rotate: `${chevronProgress.value * 180}deg` }],
+    }));
 
     return (
+        <Animated.View entering={entering}>
         <View style={[dynamicStyles.card, !item.isActive && dynamicStyles.inactiveCard]}>
             <TouchableOpacity 
                 activeOpacity={0.7} 
@@ -144,13 +169,17 @@ const UserCardItem = React.memo(({
                         </View>
                     </View>
                 </View>
-                <View style={{ paddingLeft: 10 }}>
-                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={Colors[colorScheme].text} />
-                </View>
+                <Animated.View style={[{ paddingLeft: 10 }, chevronStyle]}>
+                    <Ionicons name="chevron-down" size={22} color={Colors[colorScheme].text} />
+                </Animated.View>
             </TouchableOpacity>
 
             {isExpanded && (
-                <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}>
+                <Animated.View
+                    entering={FadeInDown.duration(220)}
+                    exiting={FadeOutUp.duration(160)}
+                    style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors[colorScheme].border }}
+                >
                     <Text style={[dynamicStyles.cardSubtitle, { marginBottom: 8 }]}>{item.email}</Text>
                     
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap:'wrap', marginBottom: 10}}>
@@ -283,9 +312,10 @@ const UserCardItem = React.memo(({
                             <Octicons name="trash" size={22} color={Colors[colorScheme].text} />
                         </TouchableOpacity>
                     </View>
-                </View>
+                </Animated.View>
             )}
         </View>
+        </Animated.View>
     );
 });
 
@@ -737,8 +767,10 @@ const ManageClientsScreen = () => {
         }
     };
 
+    const listEntranceEpoch = useEntranceEpoch('admin-users', searchTerm);
+
     // 🔥 FIX TECLADO 3: Envolvemos la tarjeta en useCallback
-    const renderUserCard = useCallback(({ item }) => (
+    const renderUserCard = useCallback(({ item, index }) => (
         <UserCardItem
             item={item}
             dynamicStyles={dynamicStyles}
@@ -755,8 +787,10 @@ const ManageClientsScreen = () => {
             handleOpenStatsModal={setSelectedClientForStats}
             getTypeName={getTypeName}
             setSelectedProfesorForReviews={setSelectedProfesorForReviews}
+            animationIndex={index}
+            entranceEpoch={listEntranceEpoch}
         />
-    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews]);
+    ), [dynamicStyles, gymColor, colorScheme, handleOpenBillingModal, handleOpenCreditsModal, handleQuickRemovePaseLibre, handleQuickRemoveMembresia, handleUploadQrIngreso, setSelectedMedicalOrderClient, handleOpenEditModal, handleDeleteClient, setSelectedClientForStats, getTypeName, setSelectedProfesorForReviews, listEntranceEpoch]);
 
     // 🔥 FIX TECLADO 4: Extraemos las rutas fuera del SceneMap para que no se recreen al buscar
     const renderClientsRoute = () => (
@@ -767,7 +801,11 @@ const ManageClientsScreen = () => {
             </TouchableOpacity>
 
             {showStats && (
-                <View style={dynamicStyles.statsContainer}>
+                <Animated.View
+                    entering={FadeInDown.duration(220)}
+                    exiting={FadeOutUp.duration(160)}
+                    style={dynamicStyles.statsContainer}
+                >
                     <StatCard label="Clientes Activos" value={`${subscriptionInfo.clientCount} / ${subscriptionInfo.clientLimit}`} icon={<Ionicons name="people" size={18} color={gymColor} />} color={Colors[colorScheme].text} action={() => setActiveModal('upgrade')} actionLabel="Ampliar" styles={dynamicStyles} style={{ flex: 1 }} />
                     <StatCard
                         label="Neto del día"
@@ -777,7 +815,7 @@ const ManageClientsScreen = () => {
                         styles={dynamicStyles}
                         style={{ flex: 1.3 }}
                     />
-                </View>
+                </Animated.View>
             )}
             
             <View style={dynamicStyles.searchInputContainer}>
@@ -796,6 +834,7 @@ const ManageClientsScreen = () => {
             </View>
             
             <FlatList
+                key={listEntranceEpoch}
                 data={filteredData}
                 renderItem={renderUserCard}
                 keyExtractor={(item) => item._id}

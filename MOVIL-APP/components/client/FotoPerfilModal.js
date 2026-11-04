@@ -107,10 +107,13 @@ const FotoPerfilModal = ({ onClose, profile, onUpdate }) => {
     return (
         <View style={styles.modalOverlay}>
             <ThemedView style={styles.modalView}>
-                <View style={styles.header}>
-                    <ThemedText style={styles.modalTitle}>Foto de Perfil</ThemedText>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerBannerTitle}>Foto de Perfil</Text>
+                        <Text style={styles.headerBannerSub}>Personalizá tu perfil y credencial</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={10}>
+                        <Ionicons name="close" size={24} color="#fff" />
                     </TouchableOpacity>
                 </View>
 
@@ -167,31 +170,34 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
+        justifyContent: 'flex-end',
     },
     modalView: {
         width: '100%',
+        height: '85%',
         maxHeight: '85%',
-        borderRadius: 16,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: Colors[colorScheme].border,
-        backgroundColor: Colors[colorScheme].cardBackground,
+        backgroundColor: Colors[colorScheme].background,
     },
-    header: {
+    headerBanner: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors[colorScheme].border,
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        justifyContent: 'space-between',
     },
-    modalTitle: {
-        fontSize: 18,
+    headerBannerTitle: {
+        fontSize: 19,
         fontWeight: 'bold',
-        color: Colors[colorScheme].text,
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
     },
     closeButton: {
         padding: 4,

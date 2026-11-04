@@ -156,14 +156,13 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
         >
             <View style={dynamicStyles.modalOverlay}>
                 <View style={dynamicStyles.modalContainer}>
-                    {/* Header */}
-                    <View style={dynamicStyles.modalHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesome5 name="store" size={20} color={gymColor || Colors[colorScheme].tint} style={{ marginRight: 10 }} />
-                            <ThemedText style={dynamicStyles.modalTitle}>Gestión de Sucursales</ThemedText>
+                    <View style={[dynamicStyles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={dynamicStyles.headerBannerTitle}>Gestión de Sucursales</Text>
+                            <Text style={dynamicStyles.headerBannerSub}>Creá y editá las sedes del gimnasio</Text>
                         </View>
-                        <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-                            <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                        <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton} hitSlop={10}>
+                            <Ionicons name="close" size={24} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
@@ -280,22 +279,27 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         maxHeight: '88%',
+        height: '85%',
         width: '100%',
-        paddingTop: 16,
+        overflow: 'hidden',
     },
-    modalHeader: {
+    headerBanner: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 18,
         paddingHorizontal: 20,
-        paddingBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: colorScheme === 'dark' ? '#2c2c2e' : '#e5e5ea',
+        justifyContent: 'space-between',
     },
-    modalTitle: {
-        fontSize: 18,
+    headerBannerTitle: {
+        fontSize: 19,
         fontWeight: 'bold',
-        color: Colors[colorScheme].text,
+        color: '#fff',
+    },
+    headerBannerSub: {
+        fontSize: 13,
+        color: '#fff',
+        opacity: 0.85,
+        marginTop: 2,
     },
     closeButton: {
         padding: 4,

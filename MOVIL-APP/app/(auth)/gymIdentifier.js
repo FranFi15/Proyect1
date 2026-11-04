@@ -13,6 +13,7 @@ import {
     ScrollView,
     Platform
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -23,6 +24,8 @@ import CustomAlert from '@/components/CustomAlert';
 import config from '../../config'
 
 const SUPER_ADMIN_API_URL = config.superAdminBackend;
+
+const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 export default function GymIdentifierScreen() {
     const [identifier, setIdentifier] = useState('');
@@ -114,35 +117,45 @@ export default function GymIdentifierScreen() {
                 enabled={isReady}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    <Image
-                        source={
-                            colorScheme === 'dark'
-                                ? require('../../assets/images/modo-oscuro-logo.png')
-                                : require('../../assets/images/modo-claro-logo.png')
-                        }
-                        style={styles.logo}
-                    />
-                    <ThemedText type="title" style={styles.title}>Introduce tu Código</ThemedText>
+                    <Animated.View entering={enter(0)}>
+                        <Image
+                            source={
+                                colorScheme === 'dark'
+                                    ? require('../../assets/images/modo-oscuro-logo.png')
+                                    : require('../../assets/images/modo-claro-logo.png')
+                            }
+                            style={styles.logo}
+                        />
+                    </Animated.View>
+                    <Animated.View entering={enter(1)} style={{ width: '100%' }}>
+                        <ThemedText type="title" style={styles.title}>Introduce tu Código</ThemedText>
+                    </Animated.View>
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="xxx-xxx-xxx"
-                        placeholderTextColor={Colors[colorScheme].icon}
-                        value={identifier}
-                        onChangeText={setIdentifier}
-                        autoCapitalize="none"
-                    />
-                    <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleWhatsAppContact} style={styles.contactButton}>
-                        <ThemedText style={styles.contactText}>
-                            ¿Aún no tienes tu app?
-                        </ThemedText>
-                        <Text style={styles.contactLink}>
-                            Contáctanos aquí
-                        </Text>
-                    </TouchableOpacity>
+                    <Animated.View entering={enter(2)} style={{ width: '100%' }}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="xxx-xxx-xxx"
+                            placeholderTextColor={Colors[colorScheme].icon}
+                            value={identifier}
+                            onChangeText={setIdentifier}
+                            autoCapitalize="none"
+                        />
+                    </Animated.View>
+                    <Animated.View entering={enter(3)} style={{ width: '100%' }}>
+                        <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
+                            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
+                        </TouchableOpacity>
+                    </Animated.View>
+                    <Animated.View entering={enter(4)}>
+                        <TouchableOpacity onPress={handleWhatsAppContact} style={styles.contactButton}>
+                            <ThemedText style={styles.contactText}>
+                                ¿Aún no tienes tu app?
+                            </ThemedText>
+                            <Text style={styles.contactLink}>
+                                Contáctanos aquí
+                            </Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 

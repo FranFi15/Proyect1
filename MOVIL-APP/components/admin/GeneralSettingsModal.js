@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 
@@ -27,6 +28,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [courtesyConfig, setCourtesyConfig] = useState({ isActive: false, amount: '1', tipoClase: '' });
     const [bankDetails, setBankDetails] = useState({ cbu: '', alias: '', bankName: '' });
     const [reviewsPublic, setReviewsPublic] = useState(false);
+    const [trialEnrollmentEnabled, setTrialEnrollmentEnabled] = useState(false);
+    const [trialEnrollmentUrl, setTrialEnrollmentUrl] = useState('');
     const [mpStatus, setMpStatus] = useState({ isLinked: false, linkedAt: null });
     const [mpBusy, setMpBusy] = useState(false);
 
@@ -66,6 +69,8 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                 setEnrollmentTimeLimitMinutes((settingsRes.data.enrollmentTimeLimitMinutes ?? 0).toString());
                 setMaxDailyClassesPerUser((settingsRes.data.maxDailyClassesPerUser ?? 0).toString());
                 setReviewsPublic(!!settingsRes.data.reviewsPublic);
+                setTrialEnrollmentEnabled(!!settingsRes.data.trialEnrollmentEnabled);
+                setTrialEnrollmentUrl(settingsRes.data.trialEnrollmentUrl || '');
 
                 if (settingsRes.data.bankDetails) {
                     setBankDetails({
@@ -114,9 +119,12 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                     tipoClase: courtesyConfig.tipoClase
                 },
                 bankDetails: bankDetails,
-                reviewsPublic: reviewsPublic
+                reviewsPublic: reviewsPublic,
+                trialEnrollmentEnabled,
             };
-            await apiClient.put('/settings', payload);
+            const { data } = await apiClient.put('/settings', payload);
+            setTrialEnrollmentEnabled(!!data?.trialEnrollmentEnabled);
+            setTrialEnrollmentUrl(data?.trialEnrollmentUrl || '');
             showAlert({
                 title: 'Éxito',
                 message: 'Configuración general guardada correctamente.',
@@ -128,6 +136,78 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleTrialToggle = async (enabled) => {
+        if (!apiClient) return;
+        const previousEnabled = trialEnrollmentEnabled;
+        const previousUrl = trialEnrollmentUrl;
+        setTrialEnrollmentEnabled(enabled);
+        if (!enabled) setTrialEnrollmentUrl('');
+        try {
+            const { data } = await apiClient.put('/settings', { trialEnrollmentEnabled: enabled });
+            setTrialEnrollmentEnabled(!!data?.trialEnrollmentEnabled);
+            setTrialEnrollmentUrl(data?.trialEnrollmentUrl || '');
+            if (enabled && data?.trialEnrollmentUrl) {
+                showAlert({
+                    title: 'Link listo',
+                    message: 'Se generó un link nuevo. Los links anteriores ya no funcionan. Copialo y compartilo.',
+                });
+            } else if (!enabled) {
+                showAlert({
+                    title: 'Desactivado',
+                    message: 'La inscripción de prueba quedó apagada y el link anterior dejó de valer.',
+                });
+            }
+        } catch (error) {
+            setTrialEnrollmentEnabled(previousEnabled);
+            setTrialEnrollmentUrl(previousUrl);
+            showAlert({ title: 'Error', message: 'No se pudo actualizar la clase de prueba.' });
+        }
+    };
+
+    const handleCopyTrialUrl = async () => {
+        if (!trialEnrollmentUrl) {
+            showAlert({ title: 'Atención', message: 'Activá la clase de prueba para generar el link.' });
+            return;
+        }
+        try {
+            await Clipboard.setStringAsync(trialEnrollmentUrl);
+            showAlert({ title: 'Copiado', message: 'Link de clase de prueba copiado al portapapeles.' });
+        } catch (error) {
+            showAlert({ title: 'Error', message: 'No se pudo copiar el link.' });
+        }
+    };
+
+    const handleRotateTrialUrl = () => {
+        if (!apiClient || !trialEnrollmentEnabled) return;
+        showAlert({
+            title: 'Regenerar link',
+            message: 'Se va a invalidar el link actual. Quien lo tenga guardado ya no podrá usarlo.',
+            buttons: [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Regenerar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const { data } = await apiClient.put('/settings', { rotateTrialAccessToken: true });
+                            setTrialEnrollmentEnabled(!!data?.trialEnrollmentEnabled);
+                            setTrialEnrollmentUrl(data?.trialEnrollmentUrl || '');
+                            showAlert({
+                                title: 'Link nuevo',
+                                message: 'Listo. Copiá el link nuevo y compartilo de nuevo.',
+                            });
+                        } catch (error) {
+                            showAlert({
+                                title: 'Error',
+                                message: error.response?.data?.message || 'No se pudo regenerar el link.',
+                            });
+                        }
+                    },
+                },
+            ],
+        });
     };
 
     const handleLinkMercadoPago = async () => {
@@ -181,7 +261,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     if (!visible) return null;
 
     return (
-        <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
+        <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlayWrapper}>
                 <Pressable style={styles.modalBackdrop} onPress={onClose} />
                 <View style={styles.modalContainer}>
@@ -258,6 +338,39 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                                     <Text style={styles.inputLabel}>Límite de reservas por día (0 = sin límite):</Text>
                                     <TextInput style={styles.input} value={maxDailyClassesPerUser} onChangeText={setMaxDailyClassesPerUser} keyboardType="number-pad" placeholder="0" placeholderTextColor="#999" />
+
+                                    <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Clase de prueba</Text>
+                                    <Text style={styles.cardDescription}>
+                                        Activá un link público para que personas de afuera se anoten una sola vez a un turno (nombre, apellido, DNI, teléfono y email). Cada DNI/email solo puede usarlo una vez. Al activar o regenerar, el link anterior deja de funcionar.
+                                    </Text>
+                                    <View style={styles.switchContainer}>
+                                        <Text style={styles.inputLabel}>¿Habilitar inscripción de prueba?</Text>
+                                        <Switch
+                                            trackColor={{ true: gymColor }}
+                                            onValueChange={handleTrialToggle}
+                                            value={trialEnrollmentEnabled}
+                                        />
+                                    </View>
+                                    {trialEnrollmentEnabled && (
+                                        <>
+                                            <Text style={styles.inputLabel}>Link público:</Text>
+                                            <Text style={styles.linkPreview} selectable>
+                                                {trialEnrollmentUrl || 'Generando link...'}
+                                            </Text>
+                                            <TouchableOpacity
+                                                style={[styles.mpBtn, { backgroundColor: gymColor || '#1a5276' }]}
+                                                onPress={handleCopyTrialUrl}
+                                            >
+                                                <Text style={styles.saveBtnText}>Copiar link</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.mpBtn, styles.mpBtnDanger]}
+                                                onPress={handleRotateTrialUrl}
+                                            >
+                                                <Text style={styles.saveBtnText}>Regenerar link</Text>
+                                            </TouchableOpacity>
+                                        </>
+                                    )}
                                 </View>
                             )}
 
@@ -372,9 +485,9 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
 };
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
-    modalOverlayWrapper: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+    modalOverlayWrapper: { flex: 1, justifyContent: 'flex-end' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-    modalContainer: { width: '100%', maxWidth: 500, height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+    modalContainer: { width: '100%', height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
     headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, justifyContent: 'space-between' },
     headerBannerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
     headerBannerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },
@@ -392,7 +505,18 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     mpDot: { width: 10, height: 10, borderRadius: 5 },
     mpTitle: { fontSize: 16, fontWeight: '800', color: Colors[colorScheme].text, marginBottom: 2 },
     mpBtn: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    mpBtnDanger: { backgroundColor: '#c0392b' }
+    mpBtnDanger: { backgroundColor: '#c0392b' },
+    linkPreview: {
+        fontSize: 13,
+        color: Colors[colorScheme].text,
+        opacity: 0.85,
+        marginBottom: 10,
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        backgroundColor: Colors[colorScheme].cardBackground,
+    },
 });
 
 export default GeneralSettingsModal;

@@ -4,10 +4,12 @@ import {
     useColorScheme, Button, TextInput, Switch, Platform, KeyboardAvoidingView,
     Modal, ScrollView, useWindowDimensions
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -150,6 +152,7 @@ const NotificationAdminScreen = () => {
         { key: 'history', title: 'Historial' },
     ]);
     const [historyTab, setHistoryTab] = useState('sent'); // 'sent' or 'received'
+    const listEntranceEpoch = useEntranceEpoch('admin-notif', historyTab);
     const [sentNotifications, setSentNotifications] = useState([]);
     const [receivedNotifications, setReceivedNotifications] = useState([]);
 
@@ -455,8 +458,12 @@ const NotificationAdminScreen = () => {
         </View>
     );
 
-    const renderSentItem = ({ item }) => (
-        <View style={styles.historyCard}>
+    const renderSentItem = ({ item, index }) => {
+        const entering = shouldPlayEntrance(`${listEntranceEpoch}:sent:${item._id}`)
+            ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+            : undefined;
+        return (
+        <Animated.View entering={entering} style={styles.historyCard}>
             <Text style={styles.historyTitle}>{item.title}</Text>
             <Text style={styles.historyMessage}>{item.message}</Text>
             <View style={styles.historyFooter}>
@@ -465,18 +472,22 @@ const NotificationAdminScreen = () => {
                     <Text style={styles.historyBadgeText}>A {item.recipientCount} usu.</Text>
                 </View>
             </View>
-        </View>
-    );
+        </Animated.View>
+    );};
 
-    const renderReceivedItem = ({ item }) => (
-        <View style={styles.historyCard}>
+    const renderReceivedItem = ({ item, index }) => {
+        const entering = shouldPlayEntrance(`${listEntranceEpoch}:recv:${item._id}`)
+            ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+            : undefined;
+        return (
+        <Animated.View entering={entering} style={styles.historyCard}>
             <Text style={styles.historyTitle}>{item.title}</Text>
             <Text style={styles.historyMessage}>{item.message}</Text>
             <View style={styles.historyFooter}>
                 <Text style={styles.historyDate}>{format(parseISO(item.createdAt), "dd MMM HH:mm", { locale: es })}</Text>
             </View>
-        </View>
-    );
+        </Animated.View>
+    );};
 
     const renderHistoryScene = () => (
         <View style={[styles.container, { padding: 16 }]}>
@@ -496,6 +507,7 @@ const NotificationAdminScreen = () => {
             </View>
             {historyTab === 'sent' ? (
                 <FlatList
+                    key={`${listEntranceEpoch}-sent`}
                     data={sentNotifications}
                     renderItem={renderSentItem}
                     keyExtractor={item => item._id}
@@ -503,6 +515,7 @@ const NotificationAdminScreen = () => {
                 />
             ) : (
                 <FlatList
+                    key={`${listEntranceEpoch}-recv`}
                     data={receivedNotifications}
                     renderItem={renderReceivedItem}
                     keyExtractor={item => item._id}

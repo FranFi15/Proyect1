@@ -35,7 +35,9 @@ import FilterModal from '@/components/FilterModal';
 import KeyboardAwareSheet from '@/components/KeyboardAwareSheet';
 import SheetDatePicker from '@/components/SheetDatePicker';
 import ClassCard from '@/components/ClassCard';
+import { useEntranceEpoch } from '@/hooks/useEntranceEpoch';
 import { TabView, TabBar } from 'react-native-tab-view';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 LocaleConfig.locales['es'] = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -70,9 +72,8 @@ const ManageClassesScreen = () => {
     const [classTypes, setClassTypes] = useState([]);
 
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-
-  
     const [selectedRecurrentClassTypeFilter, setSelectedRecurrentClassTypeFilter] = useState('all');
+    const listEntranceEpoch = useEntranceEpoch('admin-classes', selectedDate, selectedRecurrentClassTypeFilter, index);
 
     // --- Estado para Notificaciones de Extensión ---
     const [notifiedGroups, setNotifiedGroups] = useState(new Set());
@@ -680,7 +681,7 @@ const ManageClassesScreen = () => {
         </TouchableOpacity>
     );
 
-    const renderClassItem = ({ item }) => {
+    const renderClassItem = ({ item, index: rowIndex }) => {
         const isCancelled = item.estado === 'cancelada';
         const accent = gymColor || '#1a5276';
 
@@ -709,6 +710,8 @@ const ManageClassesScreen = () => {
                     </View>
                 ) : null}
                 footer={footer}
+                animationIndex={rowIndex}
+                entranceEpoch={listEntranceEpoch}
             />
         );
     };
@@ -917,7 +920,7 @@ const ManageClassesScreen = () => {
         });
     };
 
-    const renderGroupedClassItem = ({ item }) => {
+    const renderGroupedClassItem = ({ item, index: rowIndex }) => {
         const isExpiring = item.cantidadDeInstancias === 1;
         const accent = gymColor || '#1a5276';
         return (
@@ -925,6 +928,8 @@ const ManageClassesScreen = () => {
                 item={item}
                 gymColor={gymColor}
                 showCapacity={false}
+                animationIndex={rowIndex}
+                entranceEpoch={listEntranceEpoch}
                 badges={isExpiring ? (
                     <View style={styles.statusPillWarn}>
                         <Text style={styles.statusPillWarnText}>ÚLTIMO</Text>
@@ -970,7 +975,7 @@ const ManageClassesScreen = () => {
                     <FlatList
                         ListHeaderComponent={
                             <>
-
+                            <Animated.View entering={FadeInDown.duration(320)}>
                             <Calendar
                                 onDayPress={(day) => setSelectedDate(day.dateString)}
                                 markedDates={markedDates}
@@ -985,6 +990,7 @@ const ManageClassesScreen = () => {
                                     arrowColor: gymColor,
                                 }}
                             />
+                            </Animated.View>
                             <View style={styles.searchInputContainer}>
                                     <TextInput
                                         style={styles.searchInput}

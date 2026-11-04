@@ -361,13 +361,12 @@ const ProfileScreen = () => {
             <Modal visible={activeModal === 'balance'} transparent animationType="slide" onRequestClose={() => setActiveModal(null)} presentationStyle="overFullScreen" statusBarTranslucent>
                 <BalanceModal onClose={() => setActiveModal(null)} />
             </Modal>
-            <Modal visible={activeModal === 'payment'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'payment'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <TransferPaymentModal
-                    onClose={() => setActiveModal(null)}
-                    onPaymentResult={handlePaymentResult}
+                    onClose={() => setActiveModal(null)}                    onPaymentResult={handlePaymentResult}
                 />
             </Modal>
-            <Modal visible={activeModal === 'plans'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'plans'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <PlansAndCreditsModal onClose={() => setActiveModal(null)} />
             </Modal>
 
@@ -377,7 +376,7 @@ const ProfileScreen = () => {
                 gymColor={gymColor}
             />
 
-            <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'ordenMedica'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <OrdenMedicaModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
                     try {
                         if (refreshUser) await refreshUser();
@@ -387,7 +386,7 @@ const ProfileScreen = () => {
                 }} />
             </Modal>
 
-            <Modal visible={activeModal === 'fotoPerfil'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'fotoPerfil'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <FotoPerfilModal profile={profile} onClose={() => setActiveModal(null)} onUpdate={async () => {
                     try {
                         if (refreshUser) await refreshUser();
@@ -397,13 +396,13 @@ const ProfileScreen = () => {
                 }} />
             </Modal>
 
-            <Modal visible={activeModal === 'edit'} transparent={true} animationType="fade" onRequestClose={() => setActiveModal(null)}>
+            <Modal visible={activeModal === 'edit'} transparent={true} animationType="slide" onRequestClose={() => setActiveModal(null)}>
                 <EditProfileModal userProfile={profile} onClose={() => setActiveModal(null)} />
             </Modal>
 
             <RMCalculatorModal
                 visible={activeModal === 'rm'}
-                animationType="fade"
+                animationType="slide"
                 onClose={() => setActiveModal(null)}
                 initialRecords={profile?.rmRecords || []}
                 colorScheme={colorScheme}

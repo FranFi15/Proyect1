@@ -169,8 +169,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     },
     modalView: {
         height: '85%',
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 20,
     },
     header: {

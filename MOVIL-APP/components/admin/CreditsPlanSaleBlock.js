@@ -7,8 +7,10 @@ import {
     ActivityIndicator,
     StyleSheet,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 
 const METHODS = [
     { id: 'efectivo', label: 'Efectivo' },
@@ -36,6 +38,7 @@ const CreditsPlanSaleBlock = ({
     onAlert,
     onSuccess,
 }) => {
+    const listEntranceEpoch = useEntranceEpoch('sale-pkgs', kind, packages.length);
     const [selectedPkgId, setSelectedPkgId] = useState(null);
     const [salePrice, setSalePrice] = useState('');
     const [selectedDiscountId, setSelectedDiscountId] = useState(null);
@@ -253,27 +256,31 @@ const CreditsPlanSaleBlock = ({
                     {packages.length === 0 ? (
                         <Text style={styles.empty}>No hay paquetes activos de este tipo.</Text>
                     ) : (
-                        packages.map((p) => {
+                        packages.map((p, index) => {
                             const selected = selectedPkgId === p._id;
+                            const entering = shouldPlayEntrance(`${listEntranceEpoch}:${p._id}`)
+                                ? FadeInUp.delay(Math.min(index, 8) * 40).duration(260)
+                                : undefined;
                             return (
-                                <TouchableOpacity
-                                    key={p._id}
-                                    style={[styles.pkgRow, selected && { borderColor: accent, backgroundColor: accent + '14' }]}
-                                    onPress={() => selectPackage(p)}
-                                    activeOpacity={0.85}
-                                >
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.pkgName}>{p.name}</Text>
-                                        <Text style={styles.hint}>
-                                            {p.isPaseLibre || p.isMembresia
-                                                ? `${p.durationDays || 30} días`
-                                                : `${p.creditsAmount || 0} créditos`}
-                                            {' · '}
-                                            {money(p.price)}
-                                        </Text>
-                                    </View>
-                                    {selected && <Ionicons name="checkmark-circle" size={20} color={accent} />}
-                                </TouchableOpacity>
+                                <Animated.View key={p._id} entering={entering}>
+                                    <TouchableOpacity
+                                        style={[styles.pkgRow, selected && { borderColor: accent, backgroundColor: accent + '14' }]}
+                                        onPress={() => selectPackage(p)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.pkgName}>{p.name}</Text>
+                                            <Text style={styles.hint}>
+                                                {p.isPaseLibre || p.isMembresia
+                                                    ? `${p.durationDays || 30} días`
+                                                    : `${p.creditsAmount || 0} créditos`}
+                                                {' · '}
+                                                {money(p.price)}
+                                            </Text>
+                                        </View>
+                                        {selected && <Ionicons name="checkmark-circle" size={20} color={accent} />}
+                                    </TouchableOpacity>
+                                </Animated.View>
                             );
                         })
                     )}

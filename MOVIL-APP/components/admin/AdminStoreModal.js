@@ -445,7 +445,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
                 <KeyboardAwareSheet
                     onDismiss={onClose}
                     backgroundColor={Colors[colorScheme].background}
-                    borderRadius={20}
+                    borderRadius={24}
                     style={styles.sheet}
                 >
                     <View style={[styles.header, { backgroundColor: accent }]}>
@@ -713,7 +713,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
                     <KeyboardAwareSheet
                         onDismiss={() => setShowForm(false)}
                         backgroundColor={Colors[colorScheme].background}
-                        borderRadius={20}
+                        borderRadius={24}
                         style={styles.formSheet}
                     >
                         <View style={[styles.formHeader, { backgroundColor: accent }]}>
@@ -863,7 +863,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
             <Modal
                 visible={!!receiptViewer}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setReceiptViewer(null)}
                 presentationStyle="overFullScreen"
                 statusBarTranslucent

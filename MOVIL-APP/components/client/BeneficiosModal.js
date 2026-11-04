@@ -170,7 +170,7 @@ const BeneficiosModal = ({ visible, onClose, gymColor }) => {
             <Modal
                 visible={Boolean(detailBenefit)}
                 transparent
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setSelected(null)}
                 statusBarTranslucent
             >

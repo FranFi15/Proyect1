@@ -408,7 +408,7 @@ const RMCalculatorBody = ({
                 <Modal
                     visible={!!percentageItem}
                     transparent
-                    animationType="fade"
+                    animationType="slide"
                     onRequestClose={() => setPercentageItem(null)}
                 >
                     <View style={styles.modalOverlay}>
@@ -486,7 +486,7 @@ const RMCalculatorModal = ({
 }) => (
     <Modal
         visible={!!visible}
-        animationType="fade"
+        animationType="slide"
         transparent
         onRequestClose={onClose}
         statusBarTranslucent
@@ -512,8 +512,8 @@ const getStyles = (colorScheme, gymColor) =>
         },
         modalContainer: {
             backgroundColor: Colors[colorScheme].background,
-            borderTopLeftRadius: 5,
-            borderTopRightRadius: 5,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             height: '85%',
             overflow: 'hidden',
         },

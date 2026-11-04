@@ -13,6 +13,7 @@ import {
     Platform,
     Keyboard,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
+
+const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -102,78 +105,92 @@ const LoginPage = () => {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {gymLogo ? (
-                        <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
-                    ) : (
-                        <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
-                    )}
+                    <Animated.View entering={enter(0)}>
+                        {gymLogo ? (
+                            <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
+                        ) : (
+                            <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
+                        )}
+                    </Animated.View>
 
-                    <ThemedText type="title" style={styles.title}>Iniciar Sesión</ThemedText>
+                    <Animated.View entering={enter(1)}>
+                        <ThemedText type="title" style={styles.title}>Iniciar Sesión</ThemedText>
+                    </Animated.View>
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor={Colors[colorScheme].icon}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!isLoading}
-                    />
-
-                    <View style={styles.passwordWrap}>
+                    <Animated.View entering={enter(2)}>
                         <TextInput
-                            style={styles.passwordInput}
-                            placeholder="Contraseña"
+                            style={styles.input}
+                            placeholder="Email"
                             placeholderTextColor={Colors[colorScheme].icon}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
+                            value={email}
+                            onChangeText={setEmail}
+                            keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
                             editable={!isLoading}
                         />
-                        <TouchableOpacity
-                            style={styles.eyeButton}
-                            onPress={() => setShowPassword((prev) => !prev)}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        >
-                            <Ionicons
-                                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                                size={22}
-                                color={Colors[colorScheme].icon}
+                    </Animated.View>
+
+                    <Animated.View entering={enter(3)}>
+                        <View style={styles.passwordWrap}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="Contraseña"
+                                placeholderTextColor={Colors[colorScheme].icon}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry={!showPassword}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                editable={!isLoading}
                             />
+                            <TouchableOpacity
+                                style={styles.eyeButton}
+                                onPress={() => setShowPassword((prev) => !prev)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                            >
+                                <Ionicons
+                                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                                    size={22}
+                                    color={Colors[colorScheme].icon}
+                                />
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+
+                    <Animated.View entering={enter(4)}>
+                        <TouchableOpacity onPress={goToForgotPassword} disabled={isLoading}>
+                            <Text style={styles.forgotPasswordLink}>¿Olvidaste tu contraseña?</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
 
-                    <TouchableOpacity onPress={goToForgotPassword} disabled={isLoading}>
-                        <Text style={styles.forgotPasswordLink}>¿Olvidaste tu contraseña?</Text>
-                    </TouchableOpacity>
+                    <Animated.View entering={enter(5)}>
+                        <TouchableOpacity
+                            style={[styles.loginButton, isLoading && { opacity: 0.75 }]}
+                            onPress={handleLogin}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.loginButtonText}>Ingresar</Text>
+                            )}
+                        </TouchableOpacity>
+                    </Animated.View>
 
-                    <TouchableOpacity
-                        style={[styles.loginButton, isLoading && { opacity: 0.75 }]}
-                        onPress={handleLogin}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.loginButtonText}>Ingresar</Text>
-                        )}
-                    </TouchableOpacity>
-
-                    <View style={styles.registerContainer}>
+                    <Animated.View entering={enter(6)} style={styles.registerContainer}>
                         <ThemedText style={styles.registerText}>¿No tenés una cuenta? </ThemedText>
                         <TouchableOpacity onPress={goToRegister} disabled={isLoading}>
                             <Text style={styles.registerLink}>Regístrate</Text>
                         </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity style={styles.changeGymButton} onPress={handleGoBackToIdentifier} disabled={isLoading}>
-                        <Ionicons name="swap-horizontal-outline" size={16} color={styles.changeGymText.color} />
-                        <Text style={styles.changeGymText}>{' '} Cambiar de Institución</Text>
-                    </TouchableOpacity>
+                    </Animated.View>
+                    <Animated.View entering={enter(7)}>
+                        <TouchableOpacity style={styles.changeGymButton} onPress={handleGoBackToIdentifier} disabled={isLoading}>
+                            <Ionicons name="swap-horizontal-outline" size={16} color={styles.changeGymText.color} />
+                            <Text style={styles.changeGymText}>{' '} Cambiar de Institución</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 

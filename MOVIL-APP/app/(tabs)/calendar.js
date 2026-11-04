@@ -4,8 +4,10 @@ import {
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
     KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch } from '@/hooks/useEntranceEpoch';
 import { TabView, TabBar } from 'react-native-tab-view';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -79,6 +81,7 @@ const CalendarScreen = () => {
         message: '',
         qrData: null,
     });
+    const listEntranceEpoch = useEntranceEpoch('client-cal', selectedDate, selectedClassType, selectedSucursal, index);
 
     let isProcessingScan = false;
     
@@ -329,7 +332,7 @@ const CalendarScreen = () => {
         return Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b)).map(dateKey => ({ title: capitalize(format(parseISO(dateKey), "EEEE, d 'de' MMMM", { locale: es })), data: grouped[dateKey] }));
     }, [visibleClasses, selectedDate]);
 
-    const renderClassItem = ({ item }) => {
+    const renderClassItem = ({ item, index: rowIndex }) => {
         const { isEnrolled, isFull, isWaiting, isCancelled, isFinished, didAttend } = item;
         const statusBadge = didAttend ? (
             <View style={styles.statusPillPresent}>
@@ -375,6 +378,8 @@ const CalendarScreen = () => {
                 muted={isFinished && !didAttend}
                 badges={statusBadge}
                 footer={footer}
+                animationIndex={rowIndex}
+                entranceEpoch={listEntranceEpoch}
             />
         );
     };
@@ -386,8 +391,10 @@ const CalendarScreen = () => {
             case 'calendar':
                 return (
                     <ThemedView style={{ flex: 1 }}>
-                        <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
-                        <View style={styles.headerActions}>
+                        <Animated.View entering={FadeInDown.duration(320)}>
+                            <Calendar onDayPress={handleDayPress} markedDates={markedDates} markingType={'custom'} theme={calendarTheme} />
+                        </Animated.View>
+                        <Animated.View entering={FadeInUp.delay(80).duration(320)} style={styles.headerActions}>
                             <TouchableOpacity style={styles.qrButton} onPress={() => setScannerVisible(true)}>
                                 <Ionicons name="qr-code-outline" size={24} color={Colors[colorScheme].icon} />
                                 <ThemedText style={styles.qrButtonText}>Dar Presentismo</ThemedText>
@@ -398,41 +405,44 @@ const CalendarScreen = () => {
                                     <ThemedText style={[styles.qrButtonText, { color: gymColor || Colors.light.tint }]}>QR Ingreso</ThemedText>
                                 </TouchableOpacity>
                             )}
-                        </View>
+                        </Animated.View>
                     </ThemedView>
                 );
             case 'list':
                 return (
                     <ThemedView style={{ flex: 1 }}>
-                        <ThemedText style={[styles.listHeader, { paddingBottom: 10 }]}>{formattedDateTitle}</ThemedText>
+                        <Animated.View entering={FadeIn.duration(280)}>
+                            <ThemedText style={[styles.listHeader, { paddingBottom: 10 }]}>{formattedDateTitle}</ThemedText>
 
-                        <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 15, marginBottom: 12 }}>
-                            {sucursales.length > 1 && (
-                                <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setSucursalFilterVisible(true)}>
+                            <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 15, marginBottom: 12 }}>
+                                {sucursales.length > 1 && (
+                                    <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setSucursalFilterVisible(true)}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                            <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                            <ThemedText style={styles.filterButtonText} numberOfLines={1}>
+                                                {selectedSucursal === 'all' ? 'Todas' : (sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal')}
+                                            </ThemedText>
+                                        </View>
+                                        <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setFilterModalVisible(true)}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                                        <Ionicons name="location-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                        <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
                                         <ThemedText style={styles.filterButtonText} numberOfLines={1}>
-                                            {selectedSucursal === 'all' ? 'Todas' : (sucursales.find(s => s._id === selectedSucursal)?.nombre || 'Sucursal')}
+                                            {selectedClassType === 'all' ? 'Turnos: Todos' : (classTypes.find(t => t._id === selectedClassType)?.nombre || 'Filtrar')}
                                         </ThemedText>
                                     </View>
                                     <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
                                 </TouchableOpacity>
-                            )}
-                            <TouchableOpacity style={[styles.filterButton, { flex: 1, marginHorizontal: 0, marginVertical: 0 }]} onPress={() => setFilterModalVisible(true)}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                                    <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                                    <ThemedText style={styles.filterButtonText} numberOfLines={1}>
-                                        {selectedClassType === 'all' ? 'Turnos: Todos' : (classTypes.find(t => t._id === selectedClassType)?.nombre || 'Filtrar')}
-                                    </ThemedText>
-                                </View>
-                                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} style={{ marginLeft: 4 }} />
-                            </TouchableOpacity>
-                        </View>
+                            </View>
+                        </Animated.View>
                         {visibleClasses.length === 0 && !isLoading ? (
                             <ThemedText style={styles.emptyText}>No hay turnos para los filtros seleccionados.</ThemedText>
                         ) : (
                             selectedDate ? (
                                 <FlatList
+                                    key={listEntranceEpoch}
                                     data={visibleClasses}
                                     keyExtractor={item => item._id}
                                     renderItem={renderClassItem}
@@ -442,6 +452,7 @@ const CalendarScreen = () => {
                                 />
                             ) : (
                                 <SectionList
+                                    key={listEntranceEpoch}
                                     sections={sectionedClasses}
                                     keyExtractor={(item, index) => item._id + index}
                                     renderItem={renderClassItem}

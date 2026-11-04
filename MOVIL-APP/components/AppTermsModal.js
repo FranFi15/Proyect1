@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, useColorScheme, Platform } from 'react-native';
+import { useSegments } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,10 +9,16 @@ const TERMS_KEY = 'app_terms_accepted';
 
 const AppTermsModal = () => {
     const colorScheme = useColorScheme() ?? 'light';
+    const segments = useSegments();
+    const isPublicTrial = segments.some((s) => s === 'trial');
     const [visible, setVisible] = useState(false);
     const [accepted, setAccepted] = useState(false);
 
     useEffect(() => {
+        if (isPublicTrial) {
+            setVisible(false);
+            return;
+        }
         const checkTerms = async () => {
             try {
                 const hasAccepted = await AsyncStorage.getItem(TERMS_KEY);
@@ -24,7 +31,7 @@ const AppTermsModal = () => {
             }
         };
         checkTerms();
-    }, []);
+    }, [isPublicTrial]);
 
     const handleAccept = async () => {
         if (!accepted) return;

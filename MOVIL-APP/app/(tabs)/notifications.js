@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, RefreshControl, useColorScheme, Text } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import notificationService from '../../services/notificationService';
@@ -7,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { useRouter } from 'expo-router';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { Octicons, Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
 import apiClient from '../../services/apiClient';
@@ -175,6 +177,7 @@ const NotificationsScreen = () => {
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
+    const listEntranceEpoch = useEntranceEpoch('notifications', loading ? 'loading' : 'ready');
 
     // Estado para manejar la alerta personalizada
     const [alertInfo, setAlertInfo] = useState({
@@ -285,21 +288,26 @@ const NotificationsScreen = () => {
     if (loading) return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={Colors[colorScheme].tint} /></ThemedView>;
     if (error) return <ThemedView style={styles.centered}><ThemedText style={styles.errorText}>{error}</ThemedText></ThemedView>;
 
-    const renderItem = ({ item }) => {
+    const renderItem = ({ item, index }) => {
+        const entering = shouldPlayEntrance(`${listEntranceEpoch}:${item._id}`)
+            ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+            : undefined;
         return (
-            <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
-                <View style={styles.iconContainer}>
-                    <NotificationIcon type={item.type} size={20} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme} />
-                </View>
-                <View style={styles.notificationContent}>
-                    <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
-                    <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
-                    <ThemedText style={styles.notificationTime}>{new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
-                </View>
-                <TouchableOpacity onPress={() => handleDeleteNotification(item._id)} style={styles.deleteButton}>
-                    <Octicons name="trash" size={20} color={Colors[colorScheme].icon} />
+            <Animated.View entering={entering}>
+                <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadNotification]} onPress={() => handleNotificationPress(item)} activeOpacity={0.7}>
+                    <View style={styles.iconContainer}>
+                        <NotificationIcon type={item.type} size={20} isRead={item.read} gymColor={gymColor} colorScheme={colorScheme} />
+                    </View>
+                    <View style={styles.notificationContent}>
+                        <ThemedText style={styles.notificationTitle}>{item.title}</ThemedText>
+                        <ThemedText style={styles.notificationMessage}>{item.message}</ThemedText>
+                        <ThemedText style={styles.notificationTime}>{new Date(item.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
+                    </View>
+                    <TouchableOpacity onPress={() => handleDeleteNotification(item._id)} style={styles.deleteButton}>
+                        <Octicons name="trash" size={20} color={Colors[colorScheme].icon} />
+                    </TouchableOpacity>
                 </TouchableOpacity>
-            </TouchableOpacity>
+            </Animated.View>
         );
     };
 
@@ -321,6 +329,7 @@ const NotificationsScreen = () => {
                 <ThemedView style={styles.centered}><ThemedText style={styles.noNotificationsText}>No tienes notificaciones.</ThemedText></ThemedView>
             ) : (
                 <SectionList
+                    key={listEntranceEpoch}
                     sections={notifications}
                     keyExtractor={(item) => item._id}
                     renderItem={renderItem}

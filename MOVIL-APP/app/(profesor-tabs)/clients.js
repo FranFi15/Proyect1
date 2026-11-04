@@ -13,8 +13,10 @@ import {
     useWindowDimensions,
     Platform,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { TabView, TabBar } from 'react-native-tab-view';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
@@ -69,6 +71,7 @@ const ProfessorClientsScreen = () => {
     const accent = gymColor || '#1a5276';
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, accent);
+    const listEntranceEpoch = useEntranceEpoch('profesor-clients', searchTerm, index);
 
     const [alertInfo, setAlertInfo] = useState({ 
         visible: false, 
@@ -205,44 +208,50 @@ const ProfessorClientsScreen = () => {
         });
     }, [feedbacks, feedbackSearch]);
 
-    const renderUserCard = ({ item }) => {
+    const renderUserCard = ({ item, index: rowIndex }) => {
         const isSelected = selectedClientIds.includes(item._id);
+        const entranceToken = `${listEntranceEpoch}:${item._id}`;
+        const entering = shouldPlayEntrance(entranceToken)
+            ? FadeInUp.delay(Math.min(rowIndex, 8) * 45).duration(300)
+            : undefined;
         return (
-            <TouchableOpacity 
-                style={[styles.card, isSelected && styles.cardSelected]} 
-                onPress={() => handleCardPress(item)}
-                onLongPress={() => toggleSelectionMode(item._id)}
-                delayLongPress={300}
-                activeOpacity={0.85}
-            >
-                <View style={[styles.accentBar, { backgroundColor: accent }]} />
-                <View style={styles.cardBody}>
-                    {item.fotoPerfil ? (
-                        <Image source={{ uri: item.fotoPerfil }} style={styles.avatar} />
-                    ) : (
-                        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: accent }]}>
-                            <Ionicons name="person" size={20} color="#fff" />
+            <Animated.View entering={entering}>
+                <TouchableOpacity 
+                    style={[styles.card, isSelected && styles.cardSelected]} 
+                    onPress={() => handleCardPress(item)}
+                    onLongPress={() => toggleSelectionMode(item._id)}
+                    delayLongPress={300}
+                    activeOpacity={0.85}
+                >
+                    <View style={[styles.accentBar, { backgroundColor: accent }]} />
+                    <View style={styles.cardBody}>
+                        {item.fotoPerfil ? (
+                            <Image source={{ uri: item.fotoPerfil }} style={styles.avatar} />
+                        ) : (
+                            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: accent }]}>
+                                <Ionicons name="person" size={20} color="#fff" />
+                            </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre} {item.apellido}</Text>
+                            <Text style={styles.cardSubtitle} numberOfLines={1}>{item.email}</Text>
                         </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre} {item.apellido}</Text>
-                        <Text style={styles.cardSubtitle} numberOfLines={1}>{item.email}</Text>
+                        {isSelectionMode ? (
+                            <MaterialCommunityIcons 
+                                name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
+                                size={24} 
+                                color={isSelected ? accent : Colors[colorScheme].icon} 
+                            />
+                        ) : (
+                            <Ionicons name="chevron-forward" size={18} color={Colors[colorScheme].icon} />
+                        )}
                     </View>
-                    {isSelectionMode ? (
-                        <MaterialCommunityIcons 
-                            name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
-                            size={24} 
-                            color={isSelected ? accent : Colors[colorScheme].icon} 
-                        />
-                    ) : (
-                        <Ionicons name="chevron-forward" size={18} color={Colors[colorScheme].icon} />
-                    )}
-                </View>
-            </TouchableOpacity>
+                </TouchableOpacity>
+            </Animated.View>
         );
     };
 
-    const renderFeedbackCard = ({ item }) => {
+    const renderFeedbackCard = ({ item, index: rowIndex }) => {
         const clientName = item.user
             ? `${item.user.nombre || ''} ${item.user.apellido || ''}`.trim()
             : 'Cliente';
@@ -250,9 +259,13 @@ const ProfessorClientsScreen = () => {
         const dateLabel = item.updatedAt
             ? format(new Date(item.updatedAt), 'dd/MM/yyyy HH:mm')
             : '';
+        const entranceToken = `${listEntranceEpoch}-fb:${item._id || rowIndex}`;
+        const entering = shouldPlayEntrance(entranceToken)
+            ? FadeInUp.delay(Math.min(rowIndex, 8) * 45).duration(300)
+            : undefined;
 
         return (
-            <View style={styles.feedbackCard}>
+            <Animated.View entering={entering} style={styles.feedbackCard}>
                 <View style={[styles.accentBar, { backgroundColor: accent }]} />
                 <View style={styles.feedbackCardBody}>
                     <View style={styles.feedbackTopRow}>
@@ -275,7 +288,7 @@ const ProfessorClientsScreen = () => {
                         </View>
                     )}
                 </View>
-            </View>
+            </Animated.View>
         );
     };
 

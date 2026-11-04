@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
@@ -8,6 +9,7 @@ import apiClient from '../../services/apiClient';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import CustomAlert from '@/components/CustomAlert';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { parseISO, isValid } from 'date-fns';
 
 const formatDateUTC = (dateString) => {
@@ -28,6 +30,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
     const [submittingSubId, setSubmittingSubId] = useState(null);
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, gymColor);
+    const listEntranceEpoch = useEntranceEpoch('my-credits', loading ? 'loading' : 'ready');
 
     const [alertInfo, setAlertInfo] = useState({ 
         visible: false, 
@@ -239,8 +242,14 @@ const PlansAndCreditsModal = ({ onClose }) => {
                     {activeSubscriptions.length > 0 && (
                         <>
                             <ThemedText style={[styles.cardTitle, { marginBottom: 10 }]}>Débito automático</ThemedText>
-                            {activeSubscriptions.map((sub) => (
-                                <ThemedView key={sub._id} style={styles.card}>
+                            {activeSubscriptions.map((sub, index) => (
+                                <Animated.View
+                                    key={sub._id}
+                                    entering={shouldPlayEntrance(`${listEntranceEpoch}:sub:${sub._id}`)
+                                        ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+                                        : undefined}
+                                >
+                                <ThemedView style={styles.card}>
                                     <View style={styles.cardHeaderRow}>
                                         <ThemedText style={styles.cardTitle}>
                                             {sub.package?.name || 'Plan'}
@@ -277,12 +286,18 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                         </TouchableOpacity>
                                     )}
                                 </ThemedView>
+                                </Animated.View>
                             ))}
                         </>
                     )}
 
                     {/* --- SECCIÓN PASE LIBRE --- */}
                     {hasPaseLibre && (
+                        <Animated.View
+                            entering={shouldPlayEntrance(`${listEntranceEpoch}:pase`)
+                                ? FadeInUp.duration(280)
+                                : undefined}
+                        >
                         <ThemedView style={styles.paseLibreCard}>
                             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
                                 <FontAwesome5 name="star" size={20} color="#FFD700" style={{marginRight: 10}} />
@@ -296,10 +311,16 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                 </ThemedText>
                             </View>
                         </ThemedView>
+                        </Animated.View>
                     )}
 
                     {/* --- SECCIÓN PASE LIBRE HORARIO (OFF-PEAK) --- */}
                     {profile?.hasPaseLibreHorario && (
+                        <Animated.View
+                            entering={shouldPlayEntrance(`${listEntranceEpoch}:horario`)
+                                ? FadeInUp.delay(45).duration(280)
+                                : undefined}
+                        >
                         <ThemedView style={[styles.paseLibreCard, { borderColor: '#00bcd4' }]}>
                             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
                                 <Ionicons name="time" size={22} color="#00bcd4" style={{marginRight: 10}} />
@@ -318,12 +339,19 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                 </ThemedText>
                             </View>
                         </ThemedView>
+                        </Animated.View>
                     )}
 
                     {/* --- SECCIÓN CRÉDITOS --- */}
                     {detailedCredits && detailedCredits.filter(g => g.total > 0).length > 0 ? (
                         detailedCredits.filter(g => g.total > 0).map((group, index) => (
-                            <ThemedView key={group._id || index} style={styles.card}>
+                            <Animated.View
+                                key={group._id || index}
+                                entering={shouldPlayEntrance(`${listEntranceEpoch}:credit:${group._id || index}`)
+                                    ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+                                    : undefined}
+                            >
+                            <ThemedView style={styles.card}>
                                 <View style={styles.cardHeaderRow}>
                                     <ThemedText style={styles.cardTitle}>{group.name}</ThemedText>
                                     <View style={[styles.badge, { backgroundColor: group.total > 0 ? (gymColor || '#28a745') : '#dc3545' }]}>
@@ -349,6 +377,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                     </>
                                 )}
                             </ThemedView>
+                            </Animated.View>
                         ))
                     ) : (
                         <View style={styles.emptyContainer}>
@@ -373,7 +402,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 15, borderTopRightRadius: 15, elevation: 5 },
+    modalView: { height: '85%', backgroundColor: Colors[colorScheme].background, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 5 },
     
     header: { alignItems: 'center', marginBottom: 20, marginTop: 10 },
     modalTitle: { fontSize: 22, fontWeight: 'bold', color: Colors[colorScheme].text },

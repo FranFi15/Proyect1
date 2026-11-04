@@ -141,7 +141,7 @@ const BalanceModal = ({ onClose }) => {
             <KeyboardAwareSheet
                 onDismiss={onClose}
                 backgroundColor={Colors[colorScheme].background}
-                borderRadius={20}
+                borderRadius={24}
                 style={styles.sheet}
             >
                 <View style={[styles.header, { backgroundColor: accent }]}>

@@ -12,13 +12,15 @@ import {
     Text,
     View 
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView'; 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-// --- 1. Importar CustomAlert ---
 import CustomAlert from '@/components/CustomAlert';
+
+const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 const RegisterPage = () => {
     const [nombre, setNombre] = useState('');
@@ -41,7 +43,6 @@ const RegisterPage = () => {
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
 
-    // --- 2. Reemplazar el estado de 'error' por 'alertInfo' ---
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
         title: '',
@@ -60,7 +61,6 @@ const RegisterPage = () => {
 
     const handleRegister = async () => {
         if (!nombre || !apellido || !email || !password || !dni || !fechaNacimiento || !telefonoEmergencia) {
-            // --- 3. Usar setAlertInfo para mostrar el error en el modal ---
             setAlertInfo({
                 visible: true,
                 title: 'Campos Incompletos',
@@ -94,68 +94,77 @@ const RegisterPage = () => {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    {gymLogo ? (
-                        <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
-                    ) : (
-                        <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
-                    )}
-
-                    <ThemedText type="title" style={styles.title}>Crear Cuenta</ThemedText>
-
-                    {/* El Text de error se elimina de aquí */}
-
-                    <TextInput style={styles.input} placeholder="Nombre (*)" placeholderTextColor={Colors[colorScheme].text} value={nombre} onChangeText={setNombre} />
-                    <TextInput style={styles.input} placeholder="Apellido (*)" placeholderTextColor={Colors[colorScheme].text} value={apellido} onChangeText={setApellido} />
-                    <TextInput style={styles.input} placeholder="Email (*)" placeholderTextColor={Colors[colorScheme].text} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                    <TextInput style={styles.input} placeholder="Contraseña (*)" placeholderTextColor={Colors[colorScheme].text} value={password} onChangeText={setPassword} secureTextEntry />
-                    <TextInput style={styles.input} placeholder="DNI (*)" placeholderTextColor={Colors[colorScheme].text} value={dni} onChangeText={setDni} keyboardType="numeric" />
-                    
-                    <ThemedText style={styles.label}>Fecha de Nacimiento (*)</ThemedText>
-                    <View style={styles.dateInputContainer}>
-                        <TextInput style={styles.dateInput} placeholder="DD" placeholderTextColor={Colors[colorScheme].text} value={day} onChangeText={setDay} keyboardType="number-pad" maxLength={2} />
-                        <TextInput style={styles.dateInput} placeholder="MM" placeholderTextColor={Colors[colorScheme].text} value={month} onChangeText={setMonth} keyboardType="number-pad" maxLength={2} />
-                        <TextInput style={styles.dateInput} placeholder="AAAA" placeholderTextColor={Colors[colorScheme].text} value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} />
-                    </View>
-                    <TextInput style={styles.input} placeholder="Dirección " placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
-                    <TextInput style={styles.input} placeholder="Teléfono " placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
-                    <TextInput style={styles.input} placeholder="Teléfono de Emergencia (*)" placeholderTextColor={Colors[colorScheme].text} value={telefonoEmergencia} onChangeText={setTelefonoEmergencia} keyboardType="phone-pad" />
-                    
-                    <ThemedText style={styles.label}>Sexo</ThemedText>
-                    <View style={styles.genderSelector}>
-                        {['Femenino', 'Masculino', 'Otro'].map((option) => (
-                            <TouchableOpacity
-                                key={option}
-                                style={[styles.genderButton, sexo === option && styles.genderButtonSelected]}
-                                onPress={() => setSexo(option)}
-                            >
-                                <Text style={[styles.genderButtonText, sexo === option && styles.genderButtonTextSelected]}>{option}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                    <TextInput style={styles.input} placeholder="Obra Social " placeholderTextColor={Colors[colorScheme].text} value={obraSocial} onChangeText={setObraSocial} />
-
-                    <TouchableOpacity 
-                        style={styles.registerButtonContainer} 
-                        onPress={handleRegister} 
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <ActivityIndicator color="#fff" />
+                    <Animated.View entering={enter(0)}>
+                        {gymLogo ? (
+                            <Image source={{ uri: gymLogo }} style={styles.logo} resizeMode="contain" />
                         ) : (
-                            <Text style={styles.registerButtonText}>Registrarse</Text>
+                            <ThemedText style={styles.gymName}>{gymName || 'Gimnasio'}</ThemedText>
                         )}
-                    </TouchableOpacity>
+                    </Animated.View>
 
-                    <View style={styles.loginContainer}>
+                    <Animated.View entering={enter(1)}>
+                        <ThemedText type="title" style={styles.title}>Crear Cuenta</ThemedText>
+                    </Animated.View>
+
+                    <Animated.View entering={enter(2)}>
+                        <TextInput style={styles.input} placeholder="Nombre (*)" placeholderTextColor={Colors[colorScheme].text} value={nombre} onChangeText={setNombre} />
+                        <TextInput style={styles.input} placeholder="Apellido (*)" placeholderTextColor={Colors[colorScheme].text} value={apellido} onChangeText={setApellido} />
+                        <TextInput style={styles.input} placeholder="Email (*)" placeholderTextColor={Colors[colorScheme].text} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                        <TextInput style={styles.input} placeholder="Contraseña (*)" placeholderTextColor={Colors[colorScheme].text} value={password} onChangeText={setPassword} secureTextEntry />
+                        <TextInput style={styles.input} placeholder="DNI (*)" placeholderTextColor={Colors[colorScheme].text} value={dni} onChangeText={setDni} keyboardType="numeric" />
+                    </Animated.View>
+                    
+                    <Animated.View entering={enter(3)}>
+                        <ThemedText style={styles.label}>Fecha de Nacimiento (*)</ThemedText>
+                        <View style={styles.dateInputContainer}>
+                            <TextInput style={styles.dateInput} placeholder="DD" placeholderTextColor={Colors[colorScheme].text} value={day} onChangeText={setDay} keyboardType="number-pad" maxLength={2} />
+                            <TextInput style={styles.dateInput} placeholder="MM" placeholderTextColor={Colors[colorScheme].text} value={month} onChangeText={setMonth} keyboardType="number-pad" maxLength={2} />
+                            <TextInput style={styles.dateInput} placeholder="AAAA" placeholderTextColor={Colors[colorScheme].text} value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4} />
+                        </View>
+                        <TextInput style={styles.input} placeholder="Dirección " placeholderTextColor={Colors[colorScheme].text} value={direccion} onChangeText={setDireccion} />
+                        <TextInput style={styles.input} placeholder="Teléfono " placeholderTextColor={Colors[colorScheme].text} value={numeroTelefono} onChangeText={setNumeroTelefono} keyboardType="phone-pad"/>
+                        <TextInput style={styles.input} placeholder="Teléfono de Emergencia (*)" placeholderTextColor={Colors[colorScheme].text} value={telefonoEmergencia} onChangeText={setTelefonoEmergencia} keyboardType="phone-pad" />
+                    </Animated.View>
+                    
+                    <Animated.View entering={enter(4)}>
+                        <ThemedText style={styles.label}>Sexo</ThemedText>
+                        <View style={styles.genderSelector}>
+                            {['Femenino', 'Masculino', 'Otro'].map((option) => (
+                                <TouchableOpacity
+                                    key={option}
+                                    style={[styles.genderButton, sexo === option && styles.genderButtonSelected]}
+                                    onPress={() => setSexo(option)}
+                                >
+                                    <Text style={[styles.genderButtonText, sexo === option && styles.genderButtonTextSelected]}>{option}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <TextInput style={styles.input} placeholder="Obra Social " placeholderTextColor={Colors[colorScheme].text} value={obraSocial} onChangeText={setObraSocial} />
+                    </Animated.View>
+
+                    <Animated.View entering={enter(5)}>
+                        <TouchableOpacity 
+                            style={styles.registerButtonContainer} 
+                            onPress={handleRegister} 
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.registerButtonText}>Registrarse</Text>
+                            )}
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                    <Animated.View entering={enter(6)} style={styles.loginContainer}>
                         <ThemedText style={styles.loginText}>¿Ya tienes una cuenta? </ThemedText>
                         <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
                             <Text style={styles.loginLink}>Inicia Sesión</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* --- 4. Añadir el componente CustomAlert al final --- */}
             <CustomAlert
                 visible={alertInfo.visible}
                 title={alertInfo.title}

@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import QrScannerModal from '../../components/profesor/QrScannerModal';
 import RateClassModal from '@/components/client/RateClassModal';
 import ClassCard, { ClassCardAction, formatClassTeachers } from '@/components/ClassCard';
+import { useEntranceEpoch } from '@/hooks/useEntranceEpoch';
 
 // --- AÑADIDO: Importaciones para TabView ---
 import { TabView, TabBar } from 'react-native-tab-view';
@@ -47,6 +48,7 @@ const MyClassesScreen = () => {
 
     const [enrolledClasses, setEnrolledClasses] = useState([]);
     const [userProfile, setUserProfile] = useState(null);
+    const listEntranceEpoch = useEntranceEpoch('my-classes', index);
     const [isScannerVisible, setScannerVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const { user, refreshUser, gymColor } = useAuth();
@@ -277,7 +279,7 @@ const MyClassesScreen = () => {
         return Object.keys(grouped).map(dateKey => ({ title: dateKey, data: grouped[dateKey] }));
     }, [enrolledClasses]);
 
-    const renderClassItem = ({ item }) => {
+    const renderClassItem = ({ item, index: rowIndex }) => {
         const now = new Date();
         const didAttend = item.asistencias?.some(id => id?.toString() === user?._id?.toString()) || userProfile?.historialAsistencias?.some(h => (h.claseId === item._id || h.claseId?._id === item._id || h.claseId?.toString() === item._id?.toString()));
         const canUnenroll = item.dateTime >= now && !didAttend;
@@ -331,6 +333,8 @@ const MyClassesScreen = () => {
                 muted={index === 1 && !didAttend && classFinished}
                 badges={badges}
                 footer={footer}
+                animationIndex={rowIndex}
+                entranceEpoch={listEntranceEpoch}
             />
         );
     };
@@ -340,6 +344,7 @@ const MyClassesScreen = () => {
             case 'upcoming':
                 return (
                     <SectionList
+                        key={`${listEntranceEpoch}-upcoming`}
                         sections={upcomingClasses}
                         keyExtractor={(item, index) => item._id + index}
                         renderItem={renderClassItem}
@@ -352,6 +357,7 @@ const MyClassesScreen = () => {
             case 'past':
                 return (
                     <SectionList
+                        key={`${listEntranceEpoch}-past`}
                         sections={pastClasses}
                         keyExtractor={(item, index) => item._id + index}
                         renderItem={renderClassItem}

@@ -301,13 +301,17 @@ const getClientInternalDbInfo = asyncHandler(async (req, res) => {
     }
 
     res.status(200).json({
-        _id: client._id, 
-        clientId: client.clientId, 
+        _id: client._id,
+        clientId: client.clientId,
         connectionStringDB: client.connectionStringDB,
         estadoSuscripcion: client.estadoSuscripcion,
         apiSecretKey: client.apiSecretKey,
         pais: client.pais || 'Argentina',
-        timezone: client.timezone || 'America/Argentina/Buenos_Aires'
+        timezone: client.timezone || 'America/Argentina/Buenos_Aires',
+        nombre: client.nombre || '',
+        logoUrl: client.logoUrl || '',
+        primaryColor: client.primaryColor || '#150224',
+        urlIdentifier: client.urlIdentifier || '',
     });
 });
 

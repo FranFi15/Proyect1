@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, ScrollView,
     useColorScheme, StyleSheet, ActivityIndicator, Dimensions
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import StatsPeriodBar, { useStatsPeriod, statsModalVisible, StatsPeriodPicker } from './StatsPeriodBar';
+import FilterModal from '@/components/FilterModal';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -39,6 +40,10 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [stats, setStats] = useState(null);
     const [activeClassTab, setActiveClassTab] = useState('average'); // 'average' | 'percentage'
     const [packageTab, setPackageTab] = useState('creditos');
+    const [creditTypeFilter, setCreditTypeFilter] = useState('all');
+    const [productFilter, setProductFilter] = useState('all');
+    const [creditFilterVisible, setCreditFilterVisible] = useState(false);
+    const [productFilterVisible, setProductFilterVisible] = useState(false);
     const period = useStatsPeriod();
 
     const fetchStats = useCallback(async () => {
@@ -49,6 +54,8 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                 params: { from: period.fromDate, to: period.toDate },
             });
             setStats(res.data);
+            setCreditTypeFilter('all');
+            setProductFilter('all');
         } catch (error) {
             console.error("Error cargando estadísticas:", error);
         } finally {
@@ -59,6 +66,58 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
     useEffect(() => {
         if (visible) fetchStats();
     }, [visible, fetchStats]);
+
+    const creditTypes = stats?.sales?.packages?.creditos?.byType || [];
+    const storeProducts = stats?.sales?.store?.byProduct || [];
+
+    const creditFilterOptions = useMemo(
+        () => [{ _id: 'all', nombre: 'Todos los tipos' }, ...creditTypes.map((t) => ({ _id: t.id, nombre: t.name }))],
+        [creditTypes]
+    );
+    const productFilterOptions = useMemo(
+        () => [{ _id: 'all', nombre: 'Todos los productos' }, ...storeProducts.map((p) => ({ _id: p.id, nombre: p.name }))],
+        [storeProducts]
+    );
+
+    const selectedCreditLabel = creditFilterOptions.find((o) => o._id === creditTypeFilter)?.nombre || 'Todos los tipos';
+    const selectedProductLabel = productFilterOptions.find((o) => o._id === productFilter)?.nombre || 'Todos los productos';
+
+    const selectedCreditType = creditTypeFilter === 'all'
+        ? null
+        : creditTypes.find((t) => t.id === creditTypeFilter);
+
+    const selectedProduct = productFilter === 'all'
+        ? null
+        : storeProducts.find((p) => p.id === productFilter);
+
+    const packageKpi = (() => {
+        if (packageTab === 'creditos' && selectedCreditType) {
+            return {
+                count: selectedCreditType.count || 0,
+                amount: selectedCreditType.amount || 0,
+            };
+        }
+        return stats?.sales?.packages?.[packageTab] || { count: 0, amount: 0 };
+    })();
+
+    const packageChartRows = (() => {
+        if (packageTab === 'creditos' && selectedCreditType) {
+            return selectedCreditType.byMonth || [];
+        }
+        return stats?.sales?.packages?.[packageTab]?.byMonth || [];
+    })();
+
+    const storeKpi = selectedProduct
+        ? {
+            count: selectedProduct.count || 0,
+            units: selectedProduct.units || 0,
+            amount: selectedProduct.amount || 0,
+        }
+        : (stats?.sales?.store || { count: 0, units: 0, amount: 0 });
+
+    const storeChartRows = selectedProduct
+        ? (selectedProduct.byMonth || [])
+        : (stats?.sales?.store?.byMonth || []);
 
     if (!visible) return null;
 
@@ -132,11 +191,13 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
         <Modal visible={statsModalVisible(visible, period)} animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet">
             <View style={styles.modalContainer}>
                 <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="chevron-down" size={28} color="#fff" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.headerTitle}>Panel de Estadísticas</Text>
+                        <Text style={styles.headerSub}>Métricas del gimnasio</Text>
+                    </View>
+                    <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={10}>
+                        <Ionicons name="close" size={24} color="#fff" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Panel de Estadísticas</Text>
-                    <View style={{ width: 28 }} />
                 </View>
 
                 <View style={{ paddingHorizontal: 15, paddingTop: 12 }}>
@@ -165,30 +226,53 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
                                     <TouchableOpacity
                                         key={tab.id}
                                         style={[styles.tabButton, packageTab === tab.id && { backgroundColor: gymColor || '#1a5276' }]}
-                                        onPress={() => setPackageTab(tab.id)}
+                                        onPress={() => {
+                                            setPackageTab(tab.id);
+                                            if (tab.id !== 'creditos') setCreditTypeFilter('all');
+                                        }}
                                     >
                                         <Text style={[styles.tabText, packageTab === tab.id && { color: '#fff' }]}>{tab.label}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
+
+                            {packageTab === 'creditos' && creditTypes.length > 0 && (
+                                <TouchableOpacity
+                                    style={styles.filterButton}
+                                    onPress={() => setCreditFilterVisible(true)}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                        <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                        <Text style={styles.filterButtonText} numberOfLines={1}>{selectedCreditLabel}</Text>
+                                    </View>
+                                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                            )}
+
                             <View style={styles.salesRow}>
                                 <View style={styles.salesKpi}>
                                     <Text style={styles.salesKpiLabel}>Ventas</Text>
                                     <Text style={[styles.salesKpiValue, { color: gymColor || '#1a5276' }]}>
-                                        {stats.sales?.packages?.[packageTab]?.count || 0}
+                                        {packageKpi.count || 0}
                                     </Text>
-                                    <Text style={styles.salesKpiHint}>{money(stats.sales?.packages?.[packageTab]?.amount)}</Text>
+                                    <Text style={styles.salesKpiHint}>{money(packageKpi.amount)}</Text>
                                 </View>
                             </View>
-                            {packageTab === 'creditos' && (stats.sales?.packages?.creditos?.byType || []).map((row) => (
-                                <View key={row.id} style={styles.typeRow}>
+                            {packageTab === 'creditos' && creditTypeFilter === 'all' && creditTypes.map((row) => (
+                                <TouchableOpacity
+                                    key={row.id}
+                                    style={styles.typeRow}
+                                    onPress={() => setCreditTypeFilter(row.id)}
+                                    activeOpacity={0.7}
+                                >
                                     <Text style={styles.typeName} numberOfLines={1}>{row.name}</Text>
                                     <Text style={styles.typeAmount}>{row.count} · {money(row.amount)}</Text>
-                                </View>
+                                </TouchableOpacity>
                             ))}
-                            {monthSeries(stats.sales?.packages?.[packageTab]?.byMonth) ? (
+                            {monthSeries(packageChartRows) ? (
                                 <BarChart
-                                    data={monthSeries(stats.sales.packages[packageTab].byMonth)}
+                                    data={monthSeries(packageChartRows)}
                                     width={screenWidth - 40}
                                     height={200}
                                     yAxisLabel="$"
@@ -202,20 +286,48 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                         <View style={styles.card}>
                             <Text style={styles.cardTitle}>Tienda</Text>
+
+                            {storeProducts.length > 0 && (
+                                <TouchableOpacity
+                                    style={styles.filterButton}
+                                    onPress={() => setProductFilterVisible(true)}
+                                    activeOpacity={0.85}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                        <Ionicons name="cube-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                        <Text style={styles.filterButtonText} numberOfLines={1}>{selectedProductLabel}</Text>
+                                    </View>
+                                    <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                </TouchableOpacity>
+                            )}
+
                             <View style={styles.salesRow}>
                                 <View style={styles.salesKpi}>
-                                    <Text style={styles.salesKpiLabel}>Pedidos</Text>
+                                    <Text style={styles.salesKpiLabel}>{selectedProduct ? 'Líneas' : 'Pedidos'}</Text>
                                     <Text style={[styles.salesKpiValue, { color: gymColor || '#1a5276' }]}>
-                                        {stats.sales?.store?.count || 0}
+                                        {storeKpi.count || 0}
                                     </Text>
                                     <Text style={styles.salesKpiHint}>
-                                        {stats.sales?.store?.units || 0} productos · {money(stats.sales?.store?.amount)}
+                                        {storeKpi.units || 0} productos · {money(storeKpi.amount)}
                                     </Text>
                                 </View>
                             </View>
-                            {monthSeries(stats.sales?.store?.byMonth) ? (
+
+                            {productFilter === 'all' && storeProducts.map((row) => (
+                                <TouchableOpacity
+                                    key={row.id}
+                                    style={styles.typeRow}
+                                    onPress={() => setProductFilter(row.id)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.typeName} numberOfLines={1}>{row.name}</Text>
+                                    <Text style={styles.typeAmount}>{row.units} u · {money(row.amount)}</Text>
+                                </TouchableOpacity>
+                            ))}
+
+                            {monthSeries(storeChartRows) ? (
                                 <BarChart
-                                    data={monthSeries(stats.sales.store.byMonth)}
+                                    data={monthSeries(storeChartRows)}
                                     width={screenWidth - 40}
                                     height={200}
                                     yAxisLabel="$"
@@ -310,6 +422,33 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                     </ScrollView>
                 )}
+
+                <FilterModal
+                    embedded
+                    visible={creditFilterVisible}
+                    onClose={() => setCreditFilterVisible(false)}
+                    options={creditFilterOptions}
+                    selectedValue={creditTypeFilter}
+                    title="Tipo de crédito"
+                    gymColor={gymColor}
+                    onSelect={(id) => {
+                        setCreditTypeFilter(id);
+                        setCreditFilterVisible(false);
+                    }}
+                />
+                <FilterModal
+                    embedded
+                    visible={productFilterVisible}
+                    onClose={() => setProductFilterVisible(false)}
+                    options={productFilterOptions}
+                    selectedValue={productFilter}
+                    title="Producto"
+                    gymColor={gymColor}
+                    onSelect={(id) => {
+                        setProductFilter(id);
+                        setProductFilterVisible(false);
+                    }}
+                />
             </View>
         </Modal>
         <StatsPeriodPicker period={period} gymColor={gymColor} />
@@ -319,8 +458,9 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
 const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalContainer: { flex: 1, backgroundColor: Colors[colorScheme].background },
-    headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 15, justifyContent: 'space-between' },
+    headerBanner: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, justifyContent: 'space-between' },
     headerTitle: { fontSize: 19, fontWeight: 'bold', color: '#fff' },
+    headerSub: { fontSize: 13, color: '#fff', opacity: 0.85, marginTop: 2 },
     closeButton: { padding: 4 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { padding: 15, paddingBottom: 50 },
@@ -353,6 +493,25 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: 'bold',
         color: Colors[colorScheme].text,
     },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: Colors[colorScheme].border,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 12,
+        backgroundColor: colorScheme === 'dark' ? '#1c1f20' : '#f7f7f7',
+        gap: 8,
+    },
+    filterButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors[colorScheme].text,
+        flexShrink: 1,
+    },
     salesRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
     salesKpi: {
         flex: 1,
@@ -372,9 +531,7 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         gap: 12,
     },
     typeName: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors[colorScheme].text },
-    typeFigures: { alignItems: 'flex-end' },
     typeAmount: { fontSize: 13, fontWeight: '700', color: Colors[colorScheme].text },
-    typeHint: { fontSize: 11, color: Colors[colorScheme].text, opacity: 0.6, marginTop: 2 },
 });
 
 export default StatsPanelModal;

@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
+import { shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 
 export const formatClassTeachers = (clase) => {
     if (!clase) return 'Sin profesor';
@@ -82,6 +84,12 @@ const ClassCard = ({
     showLocation = true,
     showTime = true,
     extraMeta = null,
+    /** When true (default), plays a one-shot fade-up on first appear. */
+    animate = true,
+    /** Stagger delay index (0, 1, 2...). */
+    animationIndex = 0,
+    /** Change this when filters/date change so cards can animate again. */
+    entranceEpoch = 'default',
 }) => {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
@@ -89,6 +97,10 @@ const ClassCard = ({
     const tone = getOccupancyTone(item);
     const toneColor = TONE_COLOR[tone] || accent;
     const styles = getStyles(colorScheme, accent, toneColor, muted);
+    const entranceToken = `${entranceEpoch}:${item?._id || ''}`;
+    const entering = animate && shouldPlayEntrance(entranceToken)
+        ? FadeInUp.delay(Math.min(Number(animationIndex) || 0, 8) * 45).duration(300)
+        : undefined;
 
     const title = item?.nombre || 'Turno';
     const typeName = item?.tipoClase?.nombre || '';
@@ -163,19 +175,21 @@ const ClassCard = ({
     );
 
     return (
-        <View style={styles.card}>
-            <View style={styles.accentBar} />
-            <View style={styles.content}>
-                {onPress ? (
-                    <TouchableOpacity onPress={onPress} activeOpacity={0.88}>
-                        {Header}
-                    </TouchableOpacity>
-                ) : (
-                    Header
-                )}
-                {!!footer && <View style={styles.footer}>{footer}</View>}
+        <Animated.View entering={entering}>
+            <View style={styles.card}>
+                <View style={styles.accentBar} />
+                <View style={styles.content}>
+                    {onPress ? (
+                        <TouchableOpacity onPress={onPress} activeOpacity={0.88}>
+                            {Header}
+                        </TouchableOpacity>
+                    ) : (
+                        Header
+                    )}
+                    {!!footer && <View style={styles.footer}>{footer}</View>}
+                </View>
             </View>
-        </View>
+        </Animated.View>
     );
 };
 

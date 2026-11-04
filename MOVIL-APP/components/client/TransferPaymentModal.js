@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity, Image, TextInput,
     ActivityIndicator, ScrollView, useColorScheme, Platform, RefreshControl,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
@@ -11,6 +12,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import CustomAlert from '../CustomAlert';
 import FilterModal from '../FilterModal';
 
@@ -99,6 +101,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
     const [isKindFilterVisible, setIsKindFilterVisible] = useState(false);
     const [isCreditFilterVisible, setIsCreditFilterVisible] = useState(false);
     const [assignedDiscount, setAssignedDiscount] = useState(null);
+    const listEntranceEpoch = useEntranceEpoch('shop', shopTab, selectedKind, selectedCreditType);
 
     useEffect(() => {
         aliveRef.current = true;
@@ -614,13 +617,18 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         }
     };
 
-    const renderPackageCard = (pkg) => {
+    const renderPackageCard = (pkg, index = 0) => {
         const inCart = cart[pkg._id];
         const kind = getPackageKind(pkg);
         const meta = KIND_META[kind];
+        const entranceToken = `${listEntranceEpoch}:pkg:${pkg._id}`;
+        const entering = shouldPlayEntrance(entranceToken)
+            ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+            : undefined;
         return (
-            <View
+            <Animated.View
                 key={pkg._id}
+                entering={entering}
                 style={[styles.packageCard, inCart && { borderColor: gymColor, backgroundColor: gymColor + '12' }]}
             >
                 <View style={styles.packageTop}>
@@ -658,22 +666,27 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                         </TouchableOpacity>
                     )}
                 </View>
-            </View>
+            </Animated.View>
         );
     };
 
     const storeLinesForItem = (item) =>
         storeCartItems.filter((entry) => entry.item._id === item._id);
 
-    const renderStoreCard = (item) => {
+    const renderStoreCard = (item, index = 0) => {
         const lines = storeLinesForItem(item);
         const inCart = lines.length > 0;
         const options = getStoreOptionRows(item);
         const totalStock = getStoreTotalStock(item);
         const outOfStock = totalStock <= 0;
+        const entranceToken = `${listEntranceEpoch}:store:${item._id}`;
+        const entering = shouldPlayEntrance(entranceToken)
+            ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+            : undefined;
         return (
-            <View
+            <Animated.View
                 key={item._id}
+                entering={entering}
                 style={[styles.packageCard, inCart && { borderColor: gymColor, backgroundColor: gymColor + '12' }]}
             >
                 {!!item.imageUrl && (
@@ -734,7 +747,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                         <Text style={styles.addBtnText}>{outOfStock ? 'Sin stock' : inCart ? 'Agregar más' : 'Agregar'}</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </Animated.View>
         );
     };
 
@@ -842,7 +855,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                     </View>
                                 ) : (
                                     <View style={styles.packagesGrid}>
-                                        {storeItems.map(renderStoreCard)}
+                                        {storeItems.map((item, index) => renderStoreCard(item, index))}
                                     </View>
                                 )
                             ) : visiblePackages.length === 0 ? (
@@ -851,7 +864,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                 </View>
                             ) : (
                                 <View style={styles.packagesGrid}>
-                                    {visiblePackages.map(renderPackageCard)}
+                                    {visiblePackages.map((pkg, index) => renderPackageCard(pkg, index))}
                                 </View>
                             )}
                         </ScrollView>

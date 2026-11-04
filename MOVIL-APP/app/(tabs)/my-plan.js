@@ -11,7 +11,9 @@ import {
     Text,
     TextInput,
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
+import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
@@ -292,6 +294,7 @@ const MyPlanScreen = () => {
     const accent = gymColor || '#1a5276';
     const colorScheme = useColorScheme() ?? 'light';
     const styles = getStyles(colorScheme, accent);
+    const listEntranceEpoch = useEntranceEpoch('my-plans', loading ? 'loading' : 'ready', plans.length);
 
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
@@ -475,9 +478,13 @@ const MyPlanScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {plans.map((plan) => (
+                        {plans.map((plan, index) => {
+                            const entering = shouldPlayEntrance(`${listEntranceEpoch}:${plan._id}`)
+                                ? FadeInUp.delay(Math.min(index, 8) * 45).duration(280)
+                                : undefined;
+                            return (
+                            <Animated.View key={plan._id} entering={entering}>
                             <TouchableOpacity
-                                key={plan._id}
                                 style={styles.planCard}
                                 onPress={() => handlePlanPress(plan)}
                                 activeOpacity={0.85}
@@ -523,7 +530,8 @@ const MyPlanScreen = () => {
                                     <Ionicons name="chevron-forward" size={18} color={Colors[colorScheme].icon} />
                                 </View>
                             </TouchableOpacity>
-                        ))}
+                            </Animated.View>
+                        );})}
                     </>
                 ) : (
                     <View style={styles.emptyWrap}>

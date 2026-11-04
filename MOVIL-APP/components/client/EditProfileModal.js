@@ -94,7 +94,7 @@ const EditProfileModal = ({ userProfile, onClose }) => {
             keyboardVerticalOffset={20}
         >
             <View style={styles.modalContainer}>
-                <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderRadius: 20 }]}>
+                <View style={[styles.modalView, { padding: 0, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }]}>
                 <View style={[styles.headerBanner, { backgroundColor: gymColor || '#1a5276' }]}>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.headerBannerTitle}>Editar Mis Datos</Text>
@@ -177,7 +177,8 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
     modalView: { 
         height: '85%', 
         backgroundColor: Colors[colorScheme].background, 
-        borderRadius: 5,  
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 20, 
         elevation: 5,
     },

@@ -30,6 +30,7 @@ import CustomAlert from '@/components/CustomAlert';
 import QrScannerModal from '@/components/profesor/QrScannerModal';
 import ReceptionQrModal from '@/components/admin/ReceptionQrModal';
 import ClassCard, { ClassCardAction } from '@/components/ClassCard';
+import { useEntranceEpoch } from '@/hooks/useEntranceEpoch';
 
 // --- Funciones Helper ---
 const capitalize = (str) => {
@@ -69,6 +70,7 @@ const ProfessorMyClassesScreen = () => {
 
     const [alertInfo, setAlertInfo] = useState({ visible: false });
     const styles = getStyles(colorScheme, gymColor);
+    const listEntranceEpoch = useEntranceEpoch('profesor-classes');
 
     // --- Lógica de Datos ---
     const fetchMyClasses = useCallback(async () => {
@@ -161,11 +163,13 @@ const ProfessorMyClassesScreen = () => {
         return Object.keys(grouped).map(title => ({ title, data: grouped[title] }));
     }, [myClasses]);
 
-    const renderClassItem = ({ item }) => (
+    const renderClassItem = ({ item, index: rowIndex }) => (
         <ClassCard
             item={item}
             gymColor={gymColor}
             showTeachers={false}
+            animationIndex={rowIndex}
+            entranceEpoch={listEntranceEpoch}
             footer={
                 <ClassCardAction
                     title="Ver Clientes"

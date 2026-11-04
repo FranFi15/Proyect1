@@ -18,7 +18,7 @@ export default function KeyboardAwareSheet({
     children,
     onDismiss,
     backgroundColor = '#fff',
-    borderRadius = 16,
+    borderRadius = 24,
     style,
 }) {
     const [keyboardOpen, setKeyboardOpen] = useState(false);

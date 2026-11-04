@@ -10,8 +10,8 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     Platform,
-    View
 } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -19,19 +19,16 @@ import apiClient from '../../../services/apiClient';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
 
-// NOTA: No importamos useAuth para evitar conflictos de redirección si el usuario no está logueado.
+const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 const ResetPasswordScreen = () => {
-    // 1. Obtener parámetros de la URL (Query Params)
     const params = useLocalSearchParams();
-    // En web a veces llegan como arrays, aseguramos que sean strings
     const token = Array.isArray(params.token) ? params.token[0] : params.token;
     const clientId = Array.isArray(params.clientId) ? params.clientId[0] : params.clientId;
 
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
 
-    // 2. Estado local para configuración visual (independiente del AuthContext)
     const [gymData, setGymData] = useState({
         name: 'Gimnasio',
         color: '#6b6b6b', 
@@ -39,13 +36,11 @@ const ResetPasswordScreen = () => {
     });
     const [isFetchingConfig, setIsFetchingConfig] = useState(true);
     
-    // Estados del formulario
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
-    // 3. Efecto: Cargar datos del gimnasio basados en el clientId de la URL
     useEffect(() => {
         const fetchGymConfig = async () => {
             if (!clientId) {
@@ -53,8 +48,6 @@ const ResetPasswordScreen = () => {
                 return;
             }
             try {
-                // Intentamos obtener la config pública del gym
-                // Si esta ruta específica no existe en tu backend, comenta esta llamada y usa defaults
                 const { data } = await apiClient.get(`/public/gym-config/${clientId}`);
                 
                 setGymData({
@@ -125,37 +118,46 @@ const ResetPasswordScreen = () => {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    
-                <Image
-                        source={
-                            colorScheme === 'dark'
-                                ? require('../../../assets/images/modo-oscuro-logo.png')
-                                : require('../../../assets/images/modo-claro-logo.png')
-                        }
-                        style={styles.logo}
-                    />
-                    <ThemedText type="title" style={styles.title}>Nueva Contraseña</ThemedText>
+                    <Animated.View entering={enter(0)}>
+                        <Image
+                            source={
+                                colorScheme === 'dark'
+                                    ? require('../../../assets/images/modo-oscuro-logo.png')
+                                    : require('../../../assets/images/modo-claro-logo.png')
+                            }
+                            style={styles.logo}
+                        />
+                    </Animated.View>
+                    <Animated.View entering={enter(1)}>
+                        <ThemedText type="title" style={styles.title}>Nueva Contraseña</ThemedText>
+                    </Animated.View>
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Nueva Contraseña"
-                        placeholderTextColor={Colors[colorScheme].icon || '#ccc'}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Confirmar Contraseña"
-                        placeholderTextColor={Colors[colorScheme].icon || '#ccc'}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry
-                    />
+                    <Animated.View entering={enter(2)}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Nueva Contraseña"
+                            placeholderTextColor={Colors[colorScheme].icon || '#ccc'}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                        />
+                    </Animated.View>
+                    <Animated.View entering={enter(3)}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Confirmar Contraseña"
+                            placeholderTextColor={Colors[colorScheme].icon || '#ccc'}
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            secureTextEntry
+                        />
+                    </Animated.View>
 
-                    <TouchableOpacity style={styles.button} onPress={handlePasswordReset} disabled={isLoading}>
-                        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Restablecer</Text>}
-                    </TouchableOpacity>
+                    <Animated.View entering={enter(4)}>
+                        <TouchableOpacity style={styles.button} onPress={handlePasswordReset} disabled={isLoading}>
+                            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Restablecer</Text>}
+                        </TouchableOpacity>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
