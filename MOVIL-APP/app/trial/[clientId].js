@@ -494,13 +494,10 @@ const TrialEnrollmentScreen = () => {
                         <Image source={{ uri: gym.logoUrl }} style={styles.logo} resizeMode="contain" />
                     ) : (
                         <View style={styles.logoFallback}>
-                            <Ionicons name="barbell-outline" size={28} color="#fff" />
+                            <Ionicons name="barbell-outline" size={40} color="#fff" />
                         </View>
                     )}
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.brandName} numberOfLines={1}>{gym.name}</Text>
-                        <Text style={styles.brandSub}>Clase de prueba</Text>
-                    </View>
+                    <Text style={styles.brandSub}>Clase de prueba</Text>
                 </Animated.View>
 
                 {!!error && step !== 'form' && step !== 'verify' && (
@@ -810,26 +807,36 @@ const getStyles = (colorScheme, gymColor) => {
         screen: { flex: 1, backgroundColor: colors.background },
         centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, gap: 10 },
         brandHeader: {
-            flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 20,
+            paddingTop: Platform.OS === 'web' ? 28 : 56,
+            paddingBottom: 22,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
             gap: 12,
-            paddingHorizontal: 16,
-            paddingTop: Platform.OS === 'web' ? 18 : 48,
-            paddingBottom: 16,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20,
         },
-        logo: { width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)' },
+        logo: {
+            width: 140,
+            height: 140,
+            borderRadius: 24,
+            backgroundColor: 'rgba(255,255,255,0.12)',
+        },
         logoFallback: {
-            width: 48,
-            height: 48,
-            borderRadius: 12,
+            width: 140,
+            height: 140,
+            borderRadius: 24,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'rgba(255,255,255,0.18)',
         },
-        brandName: { color: '#fff', fontSize: 20, fontWeight: '800' },
-        brandSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2, fontWeight: '600' },
+        brandSub: {
+            color: '#fff',
+            fontSize: 18,
+            fontWeight: '800',
+            letterSpacing: 0.3,
+            textAlign: 'center',
+        },
         listHeader: {
             textAlign: 'center',
             fontSize: 18,
