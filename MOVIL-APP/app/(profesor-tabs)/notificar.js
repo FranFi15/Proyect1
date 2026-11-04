@@ -3,7 +3,6 @@ import {
     StyleSheet,
     View,
     Text,
-    ActivityIndicator,
     TouchableOpacity,
     useColorScheme,
     Button,
@@ -15,6 +14,7 @@ import {
     ScrollView,
     Modal,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -297,7 +297,7 @@ const NotificationTeacherScreen = () => {
     );
 
     if (loading) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+        return <ThemedView style={styles.centered}><GymLogoSpinner size="large" color={gymColor} /></ThemedView>;
     }
 
     return (
@@ -408,7 +408,7 @@ const NotificationTeacherScreen = () => {
                             activeOpacity={0.85}
                         >
                             {sending ? (
-                                <ActivityIndicator color="#fff" size="small" />
+                                <GymLogoSpinner color="#fff" size="small" />
                             ) : (
                                 <Ionicons name="send" size={20} color="#fff" />
                             )}

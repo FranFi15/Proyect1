@@ -8,12 +8,12 @@ import {
     ScrollView,
     StyleSheet,
     useColorScheme,
-    ActivityIndicator,
     Switch,
     Image,
     Platform,
     RefreshControl,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/Colors';
@@ -244,7 +244,7 @@ const AdminBeneficiosModal = ({ visible, onClose, gymColor }) => {
 
                     {loading ? (
                         <View style={styles.centered}>
-                            <ActivityIndicator size="large" color={accent} />
+                            <GymLogoSpinner size="large" color={accent} />
                         </View>
                     ) : showForm ? (
                         <ScrollView
@@ -325,7 +325,7 @@ const AdminBeneficiosModal = ({ visible, onClose, gymColor }) => {
                                     disabled={saving}
                                 >
                                     {saving ? (
-                                        <ActivityIndicator color="#fff" />
+                                        <GymLogoSpinner size="small" color="#fff" />
                                     ) : (
                                         <Text style={styles.primaryBtnText}>Guardar</Text>
                                     )}

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, TextInput,
-    useColorScheme, StyleSheet, ActivityIndicator,
-    Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform
+    useColorScheme, StyleSheet, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
@@ -104,7 +104,7 @@ const RateClassModal = ({ visible, onClose, gymColor, apiClient, claseId, profes
                                 disabled={submitting}
                             >
                                 {submitting ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <GymLogoSpinner size="small" color="#fff" />
                                 ) : (
                                     <Text style={styles.submitButtonText}>Enviar Reseña</Text>
                                 )}

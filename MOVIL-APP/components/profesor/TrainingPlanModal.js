@@ -6,7 +6,6 @@ import {
     StyleSheet, 
     TouchableOpacity, 
     FlatList, 
-    ActivityIndicator, 
     TextInput, 
     Switch, 
     ScrollView, 
@@ -15,6 +14,7 @@ import {
     Platform, 
     Keyboard 
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useAuth } from '../../contexts/AuthContext';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
@@ -134,7 +134,7 @@ const PlanEditor = ({ plan, onSave, onCancel, onSaveAsTemplate, colorScheme, isB
                     }}
                 >
                     {savingTemplate ? (
-                        <ActivityIndicator color={gymColor || '#1a5276'} />
+                        <GymLogoSpinner size="small" color={gymColor || '#1a5276'} />
                     ) : (
                         <Text style={[styles.templateSaveButtonText, { color: gymColor || '#1a5276' }]}>
                             Guardar como plantilla
@@ -504,7 +504,7 @@ const TrainingPlanModal = ({ clients, visible, onClose }) => {
     };
 
     const renderContent = () => {
-        if (loading) return <ActivityIndicator color={gymColor} size="large" style={{flex: 1}} />;
+        if (loading) return <GymLogoSpinner color={gymColor} size="large" style={{flex: 1}} />;
 
         switch (view) {
             case 'editPlan': 

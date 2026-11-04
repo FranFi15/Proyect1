@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme, ScrollView, TouchableOpacity } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -215,7 +216,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
         return (
             <View style={styles.modalContainer}>
                 <View style={styles.modalView}>
-                    <ActivityIndicator size="large" color={gymColor} />
+                    <GymLogoSpinner size="large" color={gymColor} />
                 </View>
             </View>
         );
@@ -279,7 +280,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                                             disabled={submittingSubId === sub._id}
                                         >
                                             {submittingSubId === sub._id ? (
-                                                <ActivityIndicator color="#dc3545" />
+                                                <GymLogoSpinner size="small" color="#dc3545" />
                                             ) : (
                                                 <Text style={{ color: '#dc3545', fontWeight: '700' }}>Cancelar suscripción</Text>
                                             )}

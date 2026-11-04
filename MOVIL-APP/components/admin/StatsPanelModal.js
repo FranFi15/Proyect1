@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, ScrollView,
-    useColorScheme, StyleSheet, ActivityIndicator, Dimensions
+    useColorScheme, StyleSheet, Dimensions
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
@@ -206,7 +207,7 @@ const StatsPanelModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                 {loading ? (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={gymColor || Colors[colorScheme].tint} />
+                        <GymLogoSpinner size="large" color={gymColor || Colors[colorScheme].tint} />
                         <Text style={{ marginTop: 10, color: Colors[colorScheme].text }}>Cargando métricas...</Text>
                     </View>
                 ) : !stats ? (

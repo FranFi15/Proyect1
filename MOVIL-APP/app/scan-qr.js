@@ -4,11 +4,11 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    ActivityIndicator,
     Platform,
     Dimensions,
     StatusBar,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -136,7 +136,7 @@ export default function ScanQrScreen() {
                         </>
                     ) : (
                         <>
-                            <ActivityIndicator size="large" color="#fff" />
+                            <GymLogoSpinner size="large" color="#fff" />
                             <Text style={[styles.subtitle, { marginTop: 14 }]}>Abriendo cámara…</Text>
                         </>
                     )}

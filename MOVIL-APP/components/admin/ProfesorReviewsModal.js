@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, ScrollView,
-    useColorScheme, StyleSheet, ActivityIndicator
+    useColorScheme, StyleSheet
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -62,7 +63,7 @@ const ProfesorReviewsModal = ({ visible, onClose, gymColor, apiClient, profesorI
 
                 {loading ? (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={gymColor || Colors[colorScheme].tint} />
+                        <GymLogoSpinner size="large" color={gymColor || Colors[colorScheme].tint} />
                         <Text style={{ marginTop: 10, color: Colors[colorScheme].text }}>Cargando reseñas...</Text>
                     </View>
                 ) : !reviewsData || reviewsData.totalRatings === 0 ? (

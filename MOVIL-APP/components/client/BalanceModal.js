@@ -6,10 +6,10 @@ import {
     StyleSheet,
     TouchableOpacity,
     useColorScheme,
-    ActivityIndicator,
     RefreshControl,
     Image,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -156,7 +156,7 @@ const BalanceModal = ({ onClose }) => {
 
                 {loading ? (
                     <View style={styles.loading}>
-                        <ActivityIndicator color={accent} size="large" />
+                        <GymLogoSpinner color={accent} size="large" />
                     </View>
                 ) : (
                     <FlatList

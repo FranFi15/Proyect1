@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Image, TextInput,
-    ActivityIndicator, ScrollView, useColorScheme, Platform, RefreshControl,
+    ScrollView, useColorScheme, Platform, RefreshControl,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
@@ -847,7 +848,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                             )}
 
                             {loading ? (
-                                <ActivityIndicator color={gymColor} style={{ marginTop: 24 }} />
+                                <GymLogoSpinner size="small" color={gymColor} style={{ marginTop: 24 }} />
                             ) : isStoreMode ? (
                                 storeItems.length === 0 ? (
                                     <View style={styles.emptyBox}>
@@ -1002,7 +1003,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                             <>
                                 {checkingPayment ? (
                                     <View style={styles.checkingBox}>
-                                        <ActivityIndicator color="#009EE3" />
+                                        <GymLogoSpinner size="small" color="#009EE3" />
                                         <Text style={styles.checkingText}>Confirmando tu pago…</Text>
                                     </View>
                                 ) : (
@@ -1012,7 +1013,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                             onPress={handleMercadoPago}
                                             disabled={submitting}
                                         >
-                                            {submitting ? <ActivityIndicator color="#fff" /> : (
+                                            {submitting ? <GymLogoSpinner size="small" color="#fff" /> : (
                                                 <Text style={styles.submitBtnText}>Pagar {formatPrice(amountToPay)} con Mercado Pago</Text>
                                             )}
                                         </TouchableOpacity>
@@ -1086,7 +1087,7 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                     onPress={handleSubmitTransfer}
                                     disabled={submitting}
                                 >
-                                    {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Enviar comprobante</Text>}
+                                    {submitting ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.submitBtnText}>Enviar comprobante</Text>}
                                 </TouchableOpacity>
                             </>
                         )}

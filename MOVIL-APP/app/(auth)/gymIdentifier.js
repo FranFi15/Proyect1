@@ -5,13 +5,13 @@ import {
     TouchableOpacity,
     Text,
     StyleSheet,
-    ActivityIndicator,
     Image,
     Linking,
     KeyboardAvoidingView,
     ScrollView,
     Platform
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -143,7 +143,7 @@ export default function GymIdentifierScreen() {
                     </Animated.View>
                     <Animated.View entering={enter(3)} style={{ width: '100%' }}>
                         <TouchableOpacity style={styles.button} onPress={handleContinue} disabled={loading}>
-                            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
+                            {loading ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
                         </TouchableOpacity>
                     </Animated.View>
                     <Animated.View entering={enter(4)}>

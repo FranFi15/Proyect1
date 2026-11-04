@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal, View, Text, StyleSheet, TouchableOpacity, FlatList,
-    TextInput, ActivityIndicator, useColorScheme, KeyboardAvoidingView, Platform, ScrollView
+    TextInput, useColorScheme, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons, FontAwesome6, Octicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
@@ -236,7 +237,7 @@ const TemplateManagerModal = ({ visible, onClose, onSelectTemplate, gymColor, co
                     </View>
 
                     {/* CONTENIDO */}
-                    {loading && <ActivityIndicator style={{margin: 20}} color={gymColor} />}
+                    {loading && <GymLogoSpinner size="small" style={{margin: 20}} color={gymColor} />}
                     
                     {!loading && viewMode === 'list' && (
                         <>

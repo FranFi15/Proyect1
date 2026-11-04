@@ -4,9 +4,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    ActivityIndicator,
     StyleSheet,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
@@ -390,7 +390,7 @@ const CreditsPlanSaleBlock = ({
                     disabled={submitting}
                 >
                     {submitting ? (
-                        <ActivityIndicator color="#fff" />
+                        <GymLogoSpinner size="small" color="#fff" />
                     ) : (
                         <Text style={styles.primaryBtnText}>Confirmar venta</Text>
                     )}

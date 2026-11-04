@@ -3,7 +3,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import * as SplashScreen from 'expo-splash-screen';
-import { Platform, Alert, AppState, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Platform, Alert, AppState, View, StyleSheet } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import notificationService from '../services/notificationService';
 import { getNotifications, isPushNotificationsAvailable } from '../services/expoNotificationsSafe';
 import userService from '../services/userService';
@@ -61,7 +62,7 @@ export default function RootLayout() {
     if (!isReady) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.backgroundColor} />
+                <GymLogoSpinner size="large" color={Colors.backgroundColor} />
             </View>
         );
     }

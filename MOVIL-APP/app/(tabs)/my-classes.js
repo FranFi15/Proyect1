@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
     StyleSheet,
-    ActivityIndicator,
     TouchableOpacity,
     Platform,
     useColorScheme,
@@ -11,6 +10,7 @@ import {
     RefreshControl,
     useWindowDimensions // <-- AÑADIDO
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -391,7 +391,7 @@ const MyClassesScreen = () => {
     if (loading) {
         return (
             <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+                <GymLogoSpinner size="large" color={Colors[colorScheme].tint} />
             </ThemedView>
         );
     }

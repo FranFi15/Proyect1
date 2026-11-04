@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import {
     ScrollView,
     StyleSheet,
-    ActivityIndicator,
     RefreshControl,
     useColorScheme,
     View,
@@ -11,6 +10,7 @@ import {
     Text,
     TextInput,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
@@ -230,7 +230,7 @@ const PlanDetailBody = ({
                                     activeOpacity={0.85}
                                 >
                                     {submitting ? (
-                                        <ActivityIndicator color="#fff" />
+                                        <GymLogoSpinner size="small" color="#fff" />
                                     ) : (
                                         <Text style={styles.feedbackSubmitText}>Enviar</Text>
                                     )}
@@ -445,7 +445,7 @@ const MyPlanScreen = () => {
     if (loading) {
         return (
             <ThemedView style={styles.centeredFull}>
-                <ActivityIndicator size="large" color={accent} />
+                <GymLogoSpinner size="large" color={accent} />
             </ThemedView>
         );
     }

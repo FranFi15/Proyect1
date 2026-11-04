@@ -8,7 +8,6 @@ import {
     TextInput,
     StyleSheet,
     useColorScheme,
-    ActivityIndicator,
     Platform,
     RefreshControl,
     Share,
@@ -17,6 +16,7 @@ import {
     Image,
     Appearance,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import { FullWindowOverlay } from 'react-native-screens';
 import { format, subDays, startOfMonth, parseISO, isValid } from 'date-fns';
@@ -1971,7 +1971,7 @@ const CajaModal = ({
                         disabled={submitting}
                     >
                         {submitting ? (
-                            <ActivityIndicator color="#fff" />
+                            <GymLogoSpinner size="small" color="#fff" />
                         ) : (
                             <Text style={styles.primaryBtnText}>Confirmar venta</Text>
                         )}
@@ -1988,7 +1988,7 @@ const CajaModal = ({
                     disabled={submitting}
                 >
                     {submitting ? (
-                        <ActivityIndicator color="#fff" />
+                        <GymLogoSpinner size="small" color="#fff" />
                     ) : (
                         <Text style={styles.primaryBtnText}>
                             {saleMode === 'gasto'
@@ -2192,7 +2192,7 @@ const CajaModal = ({
             )}
 
             {discountUsageLoading && (
-                <ActivityIndicator style={{ marginTop: 16 }} color={accent} />
+                <GymLogoSpinner size="small" style={{ marginTop: 16 }} color={accent} />
             )}
             {discountUsage && !discountUsageLoading && (
                 <>
@@ -2618,7 +2618,7 @@ const CajaModal = ({
 
             {loading && !dashboard ? (
                 <View style={styles.loading}>
-                    <ActivityIndicator size="large" color={accent} />
+                    <GymLogoSpinner size="large" color={accent} />
                 </View>
             ) : (
                 <>

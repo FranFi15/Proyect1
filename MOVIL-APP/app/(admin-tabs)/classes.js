@@ -4,7 +4,6 @@ import {
     View,
     Text,
     ScrollView,
-    ActivityIndicator,
     TouchableOpacity,
     FlatList,
     useColorScheme,
@@ -17,6 +16,7 @@ import {
     Modal,
     Keyboard,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -1096,7 +1096,7 @@ const ManageClassesScreen = () => {
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" color={gymColor} style={{ flex: 1, backgroundColor: Colors[colorScheme].background }} />;
+        return <GymLogoSpinner size="large" color={gymColor} style={{ flex: 1, backgroundColor: Colors[colorScheme].background }} />;
     }
 
     return (

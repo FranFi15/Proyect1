@@ -4,7 +4,6 @@ import {
     FlatList,
     View,
     TextInput,
-    ActivityIndicator,
     TouchableOpacity,
     useColorScheme,
     Pressable,
@@ -19,6 +18,7 @@ import {
     useWindowDimensions,
     Keyboard,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, {
     FadeInUp,
     FadeInDown,
@@ -873,7 +873,7 @@ const ManageClientsScreen = () => {
     };
 
     if (loading) {
-        return <ThemedView style={dynamicStyles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+        return <ThemedView style={dynamicStyles.centered}><GymLogoSpinner size="large" color={gymColor} /></ThemedView>;
     }
 
     return (

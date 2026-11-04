@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, useColorScheme, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, useColorScheme } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
@@ -213,7 +214,7 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                                     disabled={saving}
                                 >
                                     {saving ? (
-                                        <ActivityIndicator color="#FFF" size="small" />
+                                        <GymLogoSpinner color="#FFF" size="small" />
                                     ) : (
                                         <Text style={dynamicStyles.saveBtnText}>
                                             {editingSucursal ? 'Actualizar Sucursal' : 'Crear Sucursal'}
@@ -227,7 +228,7 @@ const SucursalesModal = ({ visible, onClose, gymColor, apiClient, setAlertInfo }
                         <Text style={dynamicStyles.listSectionTitle}>Sucursales Existentes</Text>
 
                         {loading ? (
-                            <ActivityIndicator size="large" color={gymColor || Colors[colorScheme].tint} style={{ marginVertical: 30 }} />
+                            <GymLogoSpinner size="large" color={gymColor || Colors[colorScheme].tint} style={{ marginVertical: 30 }} />
                         ) : sucursales.length === 0 ? (
                             <Text style={dynamicStyles.emptyText}>No hay sucursales registradas.</Text>
                         ) : (

@@ -7,10 +7,10 @@ import {
     ScrollView,
     StyleSheet,
     useColorScheme,
-    ActivityIndicator,
     Image,
     RefreshControl,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { Colors } from '@/constants/Colors';
@@ -91,7 +91,7 @@ const BeneficiosModal = ({ visible, onClose, gymColor }) => {
 
                     {loading ? (
                         <View style={styles.centered}>
-                            <ActivityIndicator size="large" color={accent} />
+                            <GymLogoSpinner size="large" color={accent} />
                         </View>
                     ) : error ? (
                         <View style={styles.centered}>

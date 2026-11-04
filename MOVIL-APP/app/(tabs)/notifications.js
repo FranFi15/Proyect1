@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, SectionList, ActivityIndicator, StyleSheet, TouchableOpacity, RefreshControl, useColorScheme, Text } from 'react-native';
+import { View, SectionList, StyleSheet, TouchableOpacity, RefreshControl, useColorScheme, Text } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -285,7 +286,7 @@ const NotificationsScreen = () => {
         });
     };
 
-    if (loading) return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={Colors[colorScheme].tint} /></ThemedView>;
+    if (loading) return <ThemedView style={styles.centered}><GymLogoSpinner size="large" color={Colors[colorScheme].tint} /></ThemedView>;
     if (error) return <ThemedView style={styles.centered}><ThemedText style={styles.errorText}>{error}</ThemedText></ThemedView>;
 
     const renderItem = ({ item, index }) => {

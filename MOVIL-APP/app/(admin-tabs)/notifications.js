@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, FlatList,
+    StyleSheet, View, Text, TouchableOpacity, FlatList,
     useColorScheme, Button, TextInput, Switch, Platform, KeyboardAvoidingView,
     Modal, ScrollView, useWindowDimensions
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { format, parseISO } from 'date-fns';
@@ -446,7 +447,7 @@ const NotificationAdminScreen = () => {
                             activeOpacity={0.85}
                         >
                             {sending ? (
-                                <ActivityIndicator color="#fff" size="small" />
+                                <GymLogoSpinner color="#fff" size="small" />
                             ) : (
                                 <Ionicons name="send" size={20} color="#fff" />
                             )}
@@ -539,7 +540,7 @@ const NotificationAdminScreen = () => {
     if (loading) {
         return (
             <ThemedView style={styles.centered}>
-                <ActivityIndicator size="large" color={gymColor || '#007bff'} />
+                <GymLogoSpinner size="large" color={gymColor || '#007bff'} />
             </ThemedView>
         );
     }

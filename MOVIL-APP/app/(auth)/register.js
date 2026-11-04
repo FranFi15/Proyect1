@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
     StyleSheet, 
     TouchableOpacity, 
-    ActivityIndicator, 
     Image, 
     ScrollView, 
     KeyboardAvoidingView, 
@@ -11,6 +10,7 @@ import {
     Text,
     View 
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -149,7 +149,7 @@ const RegisterPage = () => {
                             disabled={isLoading}
                         >
                             {isLoading ? (
-                                <ActivityIndicator color="#fff" />
+                                <GymLogoSpinner size="small" color="#fff" />
                             ) : (
                                 <Text style={styles.registerButtonText}>Registrarse</Text>
                             )}

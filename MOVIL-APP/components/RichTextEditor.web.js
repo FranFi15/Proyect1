@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 
 const RichTextEditor = ({ 
@@ -44,7 +45,7 @@ const RichTextEditor = ({
     if (!QuillComponent) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', height: 300 }]}>
-                <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+                <GymLogoSpinner size="small" color={Colors[colorScheme].tint} />
             </View>
         );
     }

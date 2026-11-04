@@ -4,12 +4,12 @@ import {
     TextInput,
     TouchableOpacity,
     Text,
-    ActivityIndicator,
     Image,
     KeyboardAvoidingView,
     ScrollView,
     Platform,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
@@ -106,7 +106,7 @@ const ResetPasswordScreen = () => {
     if (isFetchingConfig) {
         return (
             <ThemedView style={[styles.outerContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={Colors[colorScheme].text} />
+                <GymLogoSpinner size="large" color={Colors[colorScheme].text} />
             </ThemedView>
         );
     }
@@ -155,7 +155,7 @@ const ResetPasswordScreen = () => {
 
                     <Animated.View entering={enter(4)}>
                         <TouchableOpacity style={styles.button} onPress={handlePasswordReset} disabled={isLoading}>
-                            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Restablecer</Text>}
+                            {isLoading ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.buttonText}>Restablecer</Text>}
                         </TouchableOpacity>
                     </Animated.View>
                 </ScrollView>

@@ -3,7 +3,6 @@ import {
     StyleSheet,
     FlatList,
     View,
-    ActivityIndicator,
     Pressable,
     useColorScheme,
     Text,
@@ -16,6 +15,7 @@ import {
     Alert,
     Image,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import * as Clipboard from 'expo-clipboard';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { ThemedView } from '@/components/ThemedView';
@@ -285,7 +285,7 @@ const ProfessorMyClassesScreen = () => {
     };
 
      if (loading) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+        return <ThemedView style={styles.centered}><GymLogoSpinner size="large" color={gymColor} /></ThemedView>;
     }
 
     return (
@@ -328,7 +328,7 @@ const ProfessorMyClassesScreen = () => {
 
                                 {loadingStudents ? (
                                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                        <ActivityIndicator size="large" color={gymColor} />
+                                        <GymLogoSpinner size="large" color={gymColor} />
                                     </View>
                                 ) : (
                                     <FlatList

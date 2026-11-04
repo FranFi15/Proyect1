@@ -4,13 +4,13 @@ import {
     View,
     Text,
     ScrollView,
-    ActivityIndicator,
     TouchableOpacity,
     useColorScheme,
     Modal,
     Linking,
     Image,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useFocusEffect } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -226,7 +226,7 @@ const ProfileScreen = () => {
     };
 
     if (authLoading || !profile) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+        return <ThemedView style={styles.centered}><GymLogoSpinner size="large" color={gymColor} /></ThemedView>;
     }
 
     return (

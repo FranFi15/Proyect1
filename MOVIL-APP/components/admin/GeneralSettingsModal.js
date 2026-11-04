@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, TextInput,
-    useColorScheme, Switch, KeyboardAvoidingView, ScrollView, Platform, Pressable, StyleSheet, ActivityIndicator
+    useColorScheme, Switch, KeyboardAvoidingView, ScrollView, Platform, Pressable, StyleSheet
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import CustomAlert from '@/components/CustomAlert';
@@ -287,7 +288,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
 
                     {loading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color={gymColor || Colors[colorScheme].tint} />
+                            <GymLogoSpinner size="large" color={gymColor || Colors[colorScheme].tint} />
                         </View>
                     ) : (
                         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
@@ -437,7 +438,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                             onPress={handleUnlinkMercadoPago}
                                             disabled={mpBusy}
                                         >
-                                            {mpBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Desvincular</Text>}
+                                            {mpBusy ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Desvincular</Text>}
                                         </TouchableOpacity>
                                     ) : (
                                         <TouchableOpacity
@@ -445,7 +446,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                             onPress={handleLinkMercadoPago}
                                             disabled={mpBusy}
                                         >
-                                            {mpBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Vincular Mercado Pago</Text>}
+                                            {mpBusy ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Vincular Mercado Pago</Text>}
                                         </TouchableOpacity>
                                     )}
 
@@ -471,7 +472,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                 disabled={saving}
                             >
                                 {saving ? (
-                                    <ActivityIndicator color="#FFF" size="small" />
+                                    <GymLogoSpinner color="#FFF" size="small" />
                                 ) : (
                                     <Text style={styles.saveBtnText}>Guardar Configuración</Text>
                                 )}

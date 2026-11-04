@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, useColorScheme, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, useColorScheme, ScrollView, Platform } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -142,7 +143,7 @@ const OrdenMedicaModal = ({ onClose, profile, onUpdate }) => {
                         disabled={!image || submitting}
                     >
                         {submitting ? (
-                            <ActivityIndicator color="#fff" />
+                            <GymLogoSpinner size="small" color="#fff" />
                         ) : (
                             <Text style={styles.submitBtnText}>Subir Orden Médica</Text>
                         )}

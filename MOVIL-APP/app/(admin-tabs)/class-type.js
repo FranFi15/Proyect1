@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
     StyleSheet, View, Text, FlatList, TouchableOpacity, TextInput,
-    useColorScheme, ActivityIndicator, RefreshControl, Switch,
+    useColorScheme, RefreshControl, Switch,
     ScrollView, Platform, Modal, useWindowDimensions
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
 import { useEntranceEpoch, shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
@@ -323,7 +324,7 @@ const ClassTypeManagementScreen = () => {
     });
 
     if (isLoading) {
-        return <ThemedView style={styles.centered}><ActivityIndicator size="large" color={gymColor} /></ThemedView>;
+        return <ThemedView style={styles.centered}><GymLogoSpinner size="large" color={gymColor} /></ThemedView>;
     }
     
     return (

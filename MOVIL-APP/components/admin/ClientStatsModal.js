@@ -7,9 +7,9 @@ import {
     ScrollView,
     useColorScheme,
     StyleSheet,
-    ActivityIndicator,
     Dimensions,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, PieChart } from 'react-native-chart-kit';
@@ -137,7 +137,7 @@ const ClientStatsModal = ({ visible, onClose, gymColor, apiClient, userId, userN
 
                     {loading ? (
                         <View style={styles.loadingWrap}>
-                            <ActivityIndicator size="large" color={accent} />
+                            <GymLogoSpinner size="large" color={accent} />
                             <Text style={styles.loadingText}>Cargando métricas...</Text>
                         </View>
                     ) : !stats ? (

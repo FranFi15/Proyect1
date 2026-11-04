@@ -1,10 +1,11 @@
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 
 
 export default function StartPage() {
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-            <ActivityIndicator size="large" />
+            <GymLogoSpinner size="large" />
         </View>
     );
 }

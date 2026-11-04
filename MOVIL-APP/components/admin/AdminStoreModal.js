@@ -8,12 +8,12 @@ import {
     ScrollView,
     StyleSheet,
     useColorScheme,
-    ActivityIndicator,
     Switch,
     Image,
     Platform,
     RefreshControl,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -479,7 +479,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
 
                     {loading ? (
                         <View style={styles.loading}>
-                            <ActivityIndicator color={accent} size="large" />
+                            <GymLogoSpinner color={accent} size="large" />
                         </View>
                     ) : tab === 'products' ? (
                         <ScrollView
@@ -843,7 +843,7 @@ const AdminStoreModal = ({ visible, onClose, gymColor }) => {
                                 onPress={handleSaveItem}
                                 disabled={saving}
                             >
-                                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Guardar</Text>}
+                                {saving ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.primaryBtnText}>Guardar</Text>}
                             </TouchableOpacity>
                         </View>
                     </KeyboardAwareSheet>

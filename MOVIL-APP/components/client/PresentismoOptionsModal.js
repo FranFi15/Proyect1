@@ -6,9 +6,9 @@ import {
     ScrollView,
     StyleSheet,
     Modal,
-    ActivityIndicator,
     useColorScheme,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -217,7 +217,7 @@ const PresentismoOptionsModal = ({
                                     >
                                         <View style={[styles.iconWrap, { backgroundColor: accent + '22' }]}>
                                             {busy ? (
-                                                <ActivityIndicator size="small" color={accent} />
+                                                <GymLogoSpinner size="small" color={accent} />
                                             ) : (
                                                 <Ionicons
                                                     name={iconForType(opt.type)}

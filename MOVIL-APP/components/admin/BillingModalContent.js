@@ -7,11 +7,11 @@ import {
     TouchableOpacity,
     TextInput,
     useColorScheme,
-    ActivityIndicator,
     ScrollView,
     Modal,
     Image,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { getUserTransactions, createTransaction } from '../../services/managementApi';
 import apiClient from '../../services/apiClient';
 import { Colors } from '@/constants/Colors';
@@ -214,7 +214,7 @@ const BillingModalContent = ({ client, onClose, onRefresh, sucursales = [] }) =>
 
             {loading ? (
                 <View style={styles.loadingWrap}>
-                    <ActivityIndicator color={accent} size="large" />
+                    <GymLogoSpinner color={accent} size="large" />
                 </View>
             ) : (
                 <ScrollView

@@ -6,10 +6,10 @@ import {
     TouchableOpacity,
     useColorScheme,
     Image,
-    ActivityIndicator,
     useWindowDimensions,
     Pressable,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,7 +55,7 @@ const QrIngresoModal = ({ visible, onClose, qrUrl, userName, gymColor }) => {
 
                     <View style={[styles.qrContainer, { width: qrSize + 32, height: qrSize + 32 }]}>
                         {loading && !error && (
-                            <ActivityIndicator
+                            <GymLogoSpinner
                                 size="large"
                                 color={gymColor || Colors.light.tint}
                                 style={styles.loader}

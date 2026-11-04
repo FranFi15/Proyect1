@@ -4,7 +4,6 @@ import {
     FlatList, 
     View, 
     TextInput, 
-    ActivityIndicator, 
     TouchableOpacity, 
     useColorScheme, 
     Text,
@@ -13,6 +12,7 @@ import {
     useWindowDimensions,
     Platform,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { TabView, TabBar } from 'react-native-tab-view';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
@@ -388,7 +388,7 @@ const ProfessorClientsScreen = () => {
     if (loading) {
         return (
             <ThemedView style={styles.centered}>
-                <ActivityIndicator size="large" color={accent} />
+                <GymLogoSpinner size="large" color={accent} />
             </ThemedView>
         );
     }

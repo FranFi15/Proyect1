@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
     TouchableOpacity,
-    ActivityIndicator,
     Image,
     TextInput,
     View,
@@ -12,6 +11,7 @@ import {
     Platform,
     Keyboard,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -172,7 +172,7 @@ const LoginPage = () => {
                             disabled={isLoading}
                         >
                             {isLoading ? (
-                                <ActivityIndicator color="#fff" />
+                                <GymLogoSpinner size="small" color="#fff" />
                             ) : (
                                 <Text style={styles.loginButtonText}>Ingresar</Text>
                             )}

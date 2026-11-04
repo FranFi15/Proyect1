@@ -8,10 +8,10 @@ import {
     FlatList,
     ScrollView,
     TextInput,
-    ActivityIndicator,
     RefreshControl,
     useColorScheme,
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { format, parseISO, isBefore } from 'date-fns';
 import { Colors } from '@/constants/Colors';
@@ -302,7 +302,7 @@ export default function DesafiosModal({ visible, onClose, gymColor }) {
                         activeOpacity={0.88}
                     >
                         {submitLoading ? (
-                            <ActivityIndicator color="#fff" />
+                            <GymLogoSpinner size="small" color="#fff" />
                         ) : (
                             <>
                                 <Ionicons name="checkmark-circle" size={20} color="#fff" />
@@ -428,7 +428,7 @@ export default function DesafiosModal({ visible, onClose, gymColor }) {
                     {viewMode === 'list' ? (
                         loading && !refreshing ? (
                             <View style={styles.centered}>
-                                <ActivityIndicator color={accent} size="large" />
+                                <GymLogoSpinner color={accent} size="large" />
                             </View>
                         ) : (
                             <FlatList
@@ -450,7 +450,7 @@ export default function DesafiosModal({ visible, onClose, gymColor }) {
                         )
                     ) : loading && !leaderboardData ? (
                         <View style={styles.centered}>
-                            <ActivityIndicator color={accent} size="large" />
+                            <GymLogoSpinner color={accent} size="large" />
                         </View>
                     ) : detailMode === 'form' ? (
                         renderForm()

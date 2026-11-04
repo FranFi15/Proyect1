@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-    StyleSheet, ActivityIndicator, TouchableOpacity, Platform, useColorScheme,
+    StyleSheet, TouchableOpacity, Platform, useColorScheme,
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
     KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
@@ -473,7 +474,7 @@ const CalendarScreen = () => {
     if (isLoading) {
         return (
             <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+                <GymLogoSpinner size="large" color={Colors[colorScheme].tint} />
                 <ThemedText style={styles.loadingText}>Cargando clases...</ThemedText>
             </ThemedView>
         );

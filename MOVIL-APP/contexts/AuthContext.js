@@ -6,7 +6,7 @@ import apiClient from '../services/apiClient';
 import { useRouter } from 'expo-router'; 
 import { registerSessionExpiredHandler } from '../services/sessionEvent';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);

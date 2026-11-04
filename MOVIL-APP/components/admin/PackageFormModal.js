@@ -8,8 +8,8 @@ import {
     ScrollView,
     StyleSheet,
     useColorScheme,
-    ActivityIndicator,
-} from 'react-native';
+    } from 'react-native';
+import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import FilterModal from '@/components/FilterModal';
@@ -331,7 +331,7 @@ const PackageFormModal = ({
                                 activeOpacity={0.85}
                             >
                                 {submitting ? (
-                                    <ActivityIndicator color="#fff" />
+                                    <GymLogoSpinner size="small" color="#fff" />
                                 ) : (
                                     <>
                                         <Ionicons
