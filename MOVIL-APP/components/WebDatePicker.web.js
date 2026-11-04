@@ -1,15 +1,25 @@
 import React, { useEffect } from 'react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import es from 'date-fns/locale/es';
-import 'react-datepicker/dist/react-datepicker.css';
+import datePickerCss from './webDatePickerCss';
 
 registerLocale('es', es);
 
 const STYLE_ID = 'gw-web-datepicker-z-style';
+const BASE_CSS_ID = 'gw-react-datepicker-base-css';
 const PORTAL_ID = 'gw-datepicker-portal';
 
 const ensurePopperStyles = () => {
   if (typeof document === 'undefined') return;
+
+  // Inject as a <style> string — Metro cannot eval package `.css` imports as JS on web.
+  if (!document.getElementById(BASE_CSS_ID)) {
+    const base = document.createElement('style');
+    base.id = BASE_CSS_ID;
+    base.textContent = datePickerCss;
+    document.head.appendChild(base);
+  }
+
   if (!document.getElementById(STYLE_ID)) {
     const style = document.createElement('style');
     style.id = STYLE_ID;
