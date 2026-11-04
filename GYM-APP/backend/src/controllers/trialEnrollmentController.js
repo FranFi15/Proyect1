@@ -1,10 +1,31 @@
 import asyncHandler from 'express-async-handler';
 import crypto from 'crypto';
+import { format, isValid, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 import { checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
 import { sendTrialVerificationEmail } from '../services/emailService.js';
 import { getTurnstilePublicConfig, verifyTurnstileToken } from '../utils/turnstile.js';
+
+const capitalize = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
+
+const formatTrialClassDate = (fecha) => {
+    if (!fecha) return '';
+    let date;
+    if (fecha instanceof Date) {
+        date = fecha;
+    } else if (typeof fecha === 'string') {
+        // Prefer noon UTC for date-only strings to avoid timezone day shifts.
+        const raw = fecha.length <= 10 ? `${fecha}T12:00:00.000Z` : fecha;
+        date = parseISO(raw);
+        if (!isValid(date)) date = new Date(fecha);
+    } else {
+        date = new Date(fecha);
+    }
+    if (!isValid(date)) return String(fecha).slice(0, 10);
+    return capitalize(format(date, "EEEE d 'de' MMMM", { locale: es }));
+};
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -462,8 +483,10 @@ const enrollTrial = asyncHandler(async (req, res) => {
     await pending.save();
     await syncActiveClientCount(User, gymId, apiSecretKey);
 
+    const classLabel = classItem.nombre || classItem.tipoClase?.nombre || 'la clase';
+    const fechaLabel = formatTrialClassDate(classItem.fecha);
     res.status(201).json({
-        message: `¡Listo! Quedaste anotado/a a ${classItem.nombre || classItem.tipoClase?.nombre || 'la clase'} el ${String(classItem.fecha).slice(0, 10)} a las ${classItem.horaInicio}hs.`,
+        message: `¡Listo! Quedaste anotado/a a ${classLabel} el ${fechaLabel} a las ${classItem.horaInicio}hs.`,
         className: classItem.nombre || classItem.tipoClase?.nombre || 'Turno',
         fecha: classItem.fecha,
         horaInicio: classItem.horaInicio,
