@@ -32,6 +32,7 @@ import ClassCard, { ClassCardAction } from '@/components/ClassCard';
 import FilterModal from '@/components/FilterModal';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useEntranceEpoch, useStaggerEnter } from '@/hooks/useEntranceEpoch';
+import TrialTurnstile from '@/components/TrialTurnstile';
 import config from '../../config';
 
 const apiBase = String(config.gymAppBackend || '').replace(/\/$/, '');
@@ -113,6 +114,10 @@ const TrialEnrollmentScreen = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [verifyCode, setVerifyCode] = useState('');
+    const [captcha, setCaptcha] = useState({ siteKey: '', required: false });
+    const [captchaToken, setCaptchaToken] = useState('');
+    const [captchaKey, setCaptchaKey] = useState(0);
+    const [honeypot, setHoneypot] = useState('');
     const [form, setForm] = useState({
         nombre: '',
         apellido: '',
@@ -120,6 +125,11 @@ const TrialEnrollmentScreen = () => {
         numeroTelefono: '',
         email: '',
     });
+
+    const resetCaptcha = () => {
+        setCaptchaToken('');
+        setCaptchaKey((k) => k + 1);
+    };
 
     const gymColor = gym.primaryColor || DEFAULT_GYM.primaryColor;
     const styles = useMemo(() => getStyles(colorScheme, gymColor), [colorScheme, gymColor]);
@@ -147,6 +157,10 @@ const TrialEnrollmentScreen = () => {
                 name: data.gym?.name || DEFAULT_GYM.name,
                 logoUrl: data.gym?.logoUrl || '',
                 primaryColor: data.gym?.primaryColor || DEFAULT_GYM.primaryColor,
+            });
+            setCaptcha({
+                siteKey: data.captcha?.siteKey || '',
+                required: !!data.captcha?.required,
             });
 
             const stored = readStoredSession(clientId);
@@ -323,6 +337,10 @@ const TrialEnrollmentScreen = () => {
             setError('Completá todos los campos.');
             return;
         }
+        if (captcha.required && !captchaToken) {
+            setError('Completá la verificación anti-bot.');
+            return;
+        }
         if (token === 'preview') {
             setStep('verify');
             return;
@@ -332,12 +350,19 @@ const TrialEnrollmentScreen = () => {
             const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, ...form }),
+                body: JSON.stringify({
+                    token,
+                    ...form,
+                    captchaToken,
+                    website: honeypot,
+                }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'No se pudo enviar el código.');
+            resetCaptcha();
             setStep('verify');
         } catch (err) {
+            resetCaptcha();
             setError(err.message || 'No se pudo enviar el código.');
         } finally {
             setSubmitting(false);
@@ -387,18 +412,29 @@ const TrialEnrollmentScreen = () => {
     const handleResend = async () => {
         setError('');
         if (token === 'preview') return;
+        if (captcha.required && !captchaToken) {
+            setError('Completá la verificación anti-bot para reenviar.');
+            return;
+        }
         setSubmitting(true);
         try {
             const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/resend`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, email: form.email }),
+                body: JSON.stringify({
+                    token,
+                    email: form.email,
+                    captchaToken,
+                    website: honeypot,
+                }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'No se pudo reenviar el código.');
+            resetCaptcha();
             setSuccess(data.message || 'Código reenviado.');
             setTimeout(() => setSuccess(''), 3500);
         } catch (err) {
+            resetCaptcha();
             setError(err.message || 'No se pudo reenviar el código.');
         } finally {
             setSubmitting(false);
@@ -510,6 +546,27 @@ const TrialEnrollmentScreen = () => {
                                 </Animated.View>
                             ))}
 
+                            {/* Honeypot — hidden from humans, bots often fill it */}
+                            <TextInput
+                                value={honeypot}
+                                onChangeText={setHoneypot}
+                                style={styles.honeypot}
+                                accessibilityElementsHidden
+                                importantForAccessibility="no-hide-descendants"
+                                autoComplete="off"
+                                tabIndex={-1}
+                            />
+
+                            {!!captcha.siteKey && (
+                                <TrialTurnstile
+                                    key={`start-${captchaKey}`}
+                                    siteKey={captcha.siteKey}
+                                    theme={colorScheme === 'dark' ? 'dark' : 'light'}
+                                    onToken={setCaptchaToken}
+                                    onExpire={() => setCaptchaToken('')}
+                                />
+                            )}
+
                             <Animated.View entering={enter(6)}>
                                 <TouchableOpacity
                                     style={[styles.submitBtn, { backgroundColor: gymColor }, submitting && { opacity: 0.6 }]}
@@ -591,6 +648,16 @@ const TrialEnrollmentScreen = () => {
                                     <Text style={styles.submitText}>Verificar y ver turnos</Text>
                                 )}
                             </TouchableOpacity>
+
+                            {!!captcha.siteKey && (
+                                <TrialTurnstile
+                                    key={`resend-${captchaKey}`}
+                                    siteKey={captcha.siteKey}
+                                    theme={colorScheme === 'dark' ? 'dark' : 'light'}
+                                    onToken={setCaptchaToken}
+                                    onExpire={() => setCaptchaToken('')}
+                                />
+                            )}
 
                             <TouchableOpacity style={styles.linkBtn} onPress={handleResend} disabled={submitting}>
                                 <Text style={[styles.linkText, { color: gymColor }]}>Reenviar código</Text>
@@ -838,6 +905,13 @@ const getStyles = (colorScheme, gymColor) => {
         submitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
         linkBtn: { alignItems: 'center', paddingVertical: 16 },
         linkText: { fontWeight: '700', fontSize: 14 },
+        honeypot: {
+            position: 'absolute',
+            opacity: 0,
+            height: 0,
+            width: 0,
+            overflow: 'hidden',
+        },
         muted: { color: colors.text, opacity: 0.65, fontSize: 14 },
         errorBox: {
             flexDirection: 'row',

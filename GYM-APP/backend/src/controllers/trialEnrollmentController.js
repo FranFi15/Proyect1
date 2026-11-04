@@ -4,6 +4,7 @@ import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 import { checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
 import { sendTrialVerificationEmail } from '../services/emailService.js';
+import { getTurnstilePublicConfig, verifyTurnstileToken } from '../utils/turnstile.js';
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -142,12 +143,44 @@ const getTrialPage = asyncHandler(async (req, res) => {
         gymId: clientId,
         gym,
         requiresEmailVerification: true,
+        captcha: getTurnstilePublicConfig(),
     });
 });
 
+/** Silent reject for bots that fill hidden fields. */
+const isHoneypotTripped = (body = {}) => {
+    const bait = body.website ?? body.company ?? body.fax;
+    return typeof bait === 'string' && bait.trim().length > 0;
+};
+
+const assertCaptchaOrThrow = async (req, captchaToken) => {
+    const result = await verifyTurnstileToken(captchaToken, req.ip);
+    if (!result.ok) {
+        const err = new Error(result.error || 'Verificación anti-bot fallida.');
+        err.statusCode = 400;
+        throw err;
+    }
+};
+
 const startTrial = asyncHandler(async (req, res) => {
     const { clientId } = req.params;
-    const { token, nombre, apellido, dni, email, numeroTelefono } = req.body || {};
+    const {
+        token,
+        nombre,
+        apellido,
+        dni,
+        email,
+        numeroTelefono,
+        captchaToken,
+    } = req.body || {};
+
+    // Honeypot: pretend success so scrapers don't learn the real flow.
+    if (isHoneypotTripped(req.body)) {
+        return res.status(200).json({
+            message: 'Te enviamos un código a tu email. Ingresalo para ver los turnos.',
+            email: normalizeEmail(email) || 'ok',
+        });
+    }
 
     if (!nombre?.trim() || !apellido?.trim() || !dni || !email || !numeroTelefono?.trim()) {
         res.status(400);
@@ -166,6 +199,7 @@ const startTrial = asyncHandler(async (req, res) => {
     const settings = await Settings.findById('main_settings');
     assertTrialAccess(settings, token || req.query.t);
 
+    await assertCaptchaOrThrow(req, captchaToken);
     await assertNotAlreadyRegistered(User, emailNorm, dniNorm, dni);
 
     try {
@@ -243,7 +277,12 @@ const verifyTrialEmail = asyncHandler(async (req, res) => {
 
 const resendTrialCode = asyncHandler(async (req, res) => {
     const { clientId } = req.params;
-    const { token, email } = req.body || {};
+    const { token, email, captchaToken } = req.body || {};
+
+    if (isHoneypotTripped(req.body)) {
+        return res.json({ message: 'Te reenviamos el código.' });
+    }
+
     const emailNorm = normalizeEmail(email);
     if (!emailNorm) {
         res.status(400);
@@ -254,6 +293,7 @@ const resendTrialCode = asyncHandler(async (req, res) => {
     const { Settings, TrialPending } = getModels(connection);
     const settings = await Settings.findById('main_settings');
     assertTrialAccess(settings, token || req.query.t);
+    await assertCaptchaOrThrow(req, captchaToken);
 
     const pending = await TrialPending.findOne({
         email: emailNorm,
