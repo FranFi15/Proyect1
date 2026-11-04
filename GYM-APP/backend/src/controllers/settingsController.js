@@ -2,8 +2,19 @@ import asyncHandler from 'express-async-handler';
 import crypto from 'crypto';
 import getModels from '../utils/getModels.js';
 
+/** WEB_APP_URL is often `…/reset-password` for email redirects — trial links need the origin only. */
+const getWebAppOrigin = () => {
+    const raw = String(process.env.WEB_APP_URL || '').trim();
+    if (!raw) return '';
+    try {
+        return new URL(raw).origin;
+    } catch {
+        return raw.replace(/\/$/, '').replace(/\/reset-password$/i, '');
+    }
+};
+
 const buildTrialEnrollmentUrl = (clientId, token) => {
-    const webBase = String(process.env.WEB_APP_URL || '').replace(/\/$/, '');
+    const webBase = getWebAppOrigin();
     if (!webBase || !clientId || !token) return '';
     return `${webBase}/trial/${encodeURIComponent(clientId)}?t=${encodeURIComponent(token)}`;
 };
