@@ -22,6 +22,7 @@ import getDiscountModel from '../models/Discount.js';
 import getGastoModel from '../models/Gasto.js';
 import getMpSubscriptionModel from '../models/MpSubscription.js';
 import getCajaCierreModel from '../models/CajaCierre.js';
+import getTrialPendingModel from '../models/TrialPending.js';
 
 const getModels = (dbConnection) => {
     if (!dbConnection) {
@@ -56,6 +57,7 @@ const getModels = (dbConnection) => {
         Gasto: getGastoModel(dbConnection),
         MpSubscription: getMpSubscriptionModel(dbConnection),
         CajaCierre: getCajaCierreModel(dbConnection),
+        TrialPending: getTrialPendingModel(dbConnection),
     };
 
     return models;

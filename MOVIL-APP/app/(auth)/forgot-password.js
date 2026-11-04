@@ -6,12 +6,11 @@ import {
     Text,
     ActivityIndicator,
     Image,
-    useColorScheme,
     KeyboardAvoidingView,
     ScrollView,
     Platform
 } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,14 +18,15 @@ import { Colors } from '@/constants/Colors';
 import apiClient from '../../services/apiClient';
 import { useRouter } from 'expo-router';
 import CustomAlert from '@/components/CustomAlert';
-
-const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useStaggerEnter } from '@/hooks/useEntranceEpoch';
 
 const ForgotPasswordScreen = () => {
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { gymColor, gymLogo, gymName } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
+    const enter = useStaggerEnter();
 
     const [alertInfo, setAlertInfo] = useState({
         visible: false,

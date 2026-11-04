@@ -4,7 +4,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { shouldPlayEntrance } from '@/hooks/useEntranceEpoch';
+import { shouldPlayEntrance, useEntranceAllowed } from '@/hooks/useEntranceEpoch';
 
 export const formatClassTeachers = (clase) => {
     if (!clase) return 'Sin profesor';
@@ -97,8 +97,9 @@ const ClassCard = ({
     const tone = getOccupancyTone(item);
     const toneColor = TONE_COLOR[tone] || accent;
     const styles = getStyles(colorScheme, accent, toneColor, muted);
+    const entranceAllowed = useEntranceAllowed();
     const entranceToken = `${entranceEpoch}:${item?._id || ''}`;
-    const entering = animate && shouldPlayEntrance(entranceToken)
+    const entering = animate && shouldPlayEntrance(entranceToken, entranceAllowed)
         ? FadeInUp.delay(Math.min(Number(animationIndex) || 0, 8) * 45).duration(300)
         : undefined;
 

@@ -11,6 +11,7 @@ import ImportantNotificationModal from '../components/ImportantNotificationModal
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '../components/CustomAlert';
 import AppTermsModal from '../components/AppTermsModal';
+import { markWebEntrancesReady } from '@/hooks/useEntranceEpoch';
 
 
 
@@ -51,6 +52,8 @@ export default function RootLayout() {
                 body { -ms-overflow-style: none; }
             `;
             document.head.appendChild(style);
+            // Allow Reanimated entrance animations only after hydration (avoids React #418).
+            markWebEntrancesReady();
         }
     }, []);
     

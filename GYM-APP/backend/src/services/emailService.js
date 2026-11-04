@@ -44,7 +44,27 @@ const sendEmailWithAttachment = async ({ to, subject, html, attachments }) => {
     }
 };
 
+const sendTrialVerificationEmail = async ({ to, subject, html }) => {
+    if (!to || !subject || !html) {
+        throw new Error('Faltan parámetros para enviar el email de verificación.');
+    }
+
+    try {
+        await resend.emails.send({
+            from: 'Gain <noreply@gain-wellness.com>',
+            to: to,
+            subject: subject,
+            html: html,
+        });
+        console.log(`Email de verificación de prueba enviado a ${to}`);
+    } catch (error) {
+        console.error(`Falló el envío de email de verificación para ${to}:`, error);
+        throw new Error('El servicio de email no pudo enviar el mensaje.');
+    }
+};
+
 export {
     sendPasswordResetEmail,
     sendEmailWithAttachment,
+    sendTrialVerificationEmail,
 };

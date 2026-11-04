@@ -8,7 +8,6 @@ import {
     FlatList,
     StyleSheet,
     ActivityIndicator,
-    useColorScheme,
     Platform,
     KeyboardAvoidingView,
     Image,
@@ -31,10 +30,12 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import ClassCard, { ClassCardAction } from '@/components/ClassCard';
 import FilterModal from '@/components/FilterModal';
-import { useEntranceEpoch } from '@/hooks/useEntranceEpoch';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useEntranceEpoch, useStaggerEnter } from '@/hooks/useEntranceEpoch';
 import config from '../../config';
 
 const apiBase = String(config.gymAppBackend || '').replace(/\/$/, '');
+const SESSION_KEY = (clientId) => `trialSession:${clientId}`;
 
 LocaleConfig.locales.es = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -62,13 +63,43 @@ const DEFAULT_GYM = {
     primaryColor: '#1a5276',
 };
 
+const readStoredSession = (clientId) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+    try {
+        const raw = window.sessionStorage.getItem(SESSION_KEY(clientId));
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const storeSession = (clientId, payload) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.setItem(SESSION_KEY(clientId), JSON.stringify(payload));
+    } catch {
+        /* ignore */
+    }
+};
+
+const clearStoredSession = (clientId) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+        window.sessionStorage.removeItem(SESSION_KEY(clientId));
+    } catch {
+        /* ignore */
+    }
+};
+
 const TrialEnrollmentScreen = () => {
     const params = useLocalSearchParams();
     const clientId = paramValue(params.clientId);
     const token = paramValue(params.t) || paramValue(params.token);
     const colorScheme = useColorScheme() ?? 'light';
+    const enter = useStaggerEnter();
 
     const [loading, setLoading] = useState(true);
+    const [loadingClasses, setLoadingClasses] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [classes, setClasses] = useState([]);
     const [gym, setGym] = useState(DEFAULT_GYM);
@@ -76,9 +107,12 @@ const TrialEnrollmentScreen = () => {
     const [selectedClass, setSelectedClass] = useState(null);
     const [selectedClassType, setSelectedClassType] = useState('all');
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    const [step, setStep] = useState('calendar'); // calendar | form | success
+    // form | verify | calendar | success
+    const [step, setStep] = useState('form');
+    const [sessionToken, setSessionToken] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [verifyCode, setVerifyCode] = useState('');
     const [form, setForm] = useState({
         nombre: '',
         apellido: '',
@@ -92,7 +126,7 @@ const TrialEnrollmentScreen = () => {
     const calendarTheme = useMemo(() => getCalendarTheme(colorScheme, gymColor), [colorScheme, gymColor]);
     const listEntranceEpoch = useEntranceEpoch('trial', selectedDate, selectedClassType, step);
 
-    const loadPage = useCallback(async () => {
+    const loadBranding = useCallback(async () => {
         if (!clientId || !token) {
             setError('Link incompleto. Pedile al gimnasio un link válido.');
             setLoading(false);
@@ -102,58 +136,7 @@ const TrialEnrollmentScreen = () => {
         setError('');
         try {
             if (token === 'preview') {
-                const mockGym = {
-                    name: 'Studio Demo',
-                    logoUrl: '',
-                    primaryColor: '#c0392b',
-                };
-                const mock = [
-                    {
-                        _id: '1',
-                        nombre: 'Funcional',
-                        tipoClase: { _id: 'tipo-funcional', nombre: 'Funcional' },
-                        fecha: '2026-11-05',
-                        horaInicio: '09:00',
-                        horaFin: '10:00',
-                        capacidad: 12,
-                        usuariosInscritos: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
-                        cupos: 4,
-                        sucursal: { nombre: 'Centro' },
-                        profesores: [{ nombre: 'Ana', apellido: 'López', ratingAverage: 4.8 }],
-                        estado: 'activa',
-                    },
-                    {
-                        _id: '2',
-                        nombre: 'Cross',
-                        tipoClase: { _id: 'tipo-cross', nombre: 'Cross' },
-                        fecha: '2026-11-05',
-                        horaInicio: '18:30',
-                        horaFin: '19:30',
-                        capacidad: 10,
-                        usuariosInscritos: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
-                        cupos: 2,
-                        sucursal: { nombre: 'Norte' },
-                        profesores: [{ nombre: 'Marcos', apellido: 'Ruiz' }],
-                        estado: 'activa',
-                    },
-                    {
-                        _id: '3',
-                        nombre: 'Yoga',
-                        tipoClase: { _id: 'tipo-yoga', nombre: 'Yoga' },
-                        fecha: '2026-11-06',
-                        horaInicio: '10:00',
-                        horaFin: '11:00',
-                        capacidad: 15,
-                        usuariosInscritos: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-                        cupos: 8,
-                        sucursal: null,
-                        profesores: [{ nombre: 'Lucía', apellido: 'Díaz', ratingAverage: 5 }],
-                        estado: 'activa',
-                    },
-                ];
-                setGym(mockGym);
-                setClasses(mock);
-                setSelectedDate('2026-11-05');
+                setGym({ name: 'Studio Demo', logoUrl: '', primaryColor: '#c0392b' });
                 return;
             }
 
@@ -165,20 +148,93 @@ const TrialEnrollmentScreen = () => {
                 logoUrl: data.gym?.logoUrl || '',
                 primaryColor: data.gym?.primaryColor || DEFAULT_GYM.primaryColor,
             });
-            setClasses(data.classes || []);
-            const firstDate = (data.classes || [])[0]?.fecha;
-            if (firstDate) setSelectedDate(String(firstDate).substring(0, 10));
+
+            const stored = readStoredSession(clientId);
+            if (stored?.sessionToken && stored?.email) {
+                setSessionToken(stored.sessionToken);
+                setForm((prev) => ({ ...prev, email: stored.email, nombre: stored.nombre || prev.nombre }));
+                setStep('calendar');
+            }
         } catch (err) {
             setError(err.message || 'No se pudo cargar la clase de prueba.');
-            setClasses([]);
         } finally {
             setLoading(false);
         }
     }, [clientId, token]);
 
+    const loadClasses = useCallback(async (activeSession) => {
+        const session = activeSession || sessionToken;
+        if (!clientId || !token || !session) return;
+        if (token === 'preview') {
+            const mock = [
+                {
+                    _id: '1',
+                    nombre: 'Funcional',
+                    tipoClase: { _id: 'tipo-funcional', nombre: 'Funcional' },
+                    fecha: '2026-11-05',
+                    horaInicio: '09:00',
+                    horaFin: '10:00',
+                    capacidad: 12,
+                    usuariosInscritos: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+                    cupos: 4,
+                    sucursal: { nombre: 'Centro' },
+                    profesores: [{ nombre: 'Ana', apellido: 'López', ratingAverage: 4.8 }],
+                    estado: 'activa',
+                },
+                {
+                    _id: '2',
+                    nombre: 'Cross',
+                    tipoClase: { _id: 'tipo-cross', nombre: 'Cross' },
+                    fecha: '2026-11-05',
+                    horaInicio: '18:30',
+                    horaFin: '19:30',
+                    capacidad: 10,
+                    usuariosInscritos: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+                    cupos: 2,
+                    sucursal: { nombre: 'Norte' },
+                    profesores: [{ nombre: 'Marcos', apellido: 'Ruiz' }],
+                    estado: 'activa',
+                },
+            ];
+            setClasses(mock);
+            setSelectedDate('2026-11-05');
+            return;
+        }
+
+        setLoadingClasses(true);
+        setError('');
+        try {
+            const qs = new URLSearchParams({ t: token, session });
+            const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/classes?${qs}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                if (res.status === 403) {
+                    clearStoredSession(clientId);
+                    setSessionToken('');
+                    setStep('form');
+                }
+                throw new Error(data.message || 'No se pudieron cargar los turnos.');
+            }
+            setClasses(data.classes || []);
+            const firstDate = (data.classes || [])[0]?.fecha;
+            if (firstDate) setSelectedDate(String(firstDate).substring(0, 10));
+        } catch (err) {
+            setError(err.message || 'No se pudieron cargar los turnos.');
+            setClasses([]);
+        } finally {
+            setLoadingClasses(false);
+        }
+    }, [clientId, token, sessionToken]);
+
     useEffect(() => {
-        loadPage();
-    }, [loadPage]);
+        loadBranding();
+    }, [loadBranding]);
+
+    useEffect(() => {
+        if (step === 'calendar' && sessionToken) {
+            loadClasses(sessionToken);
+        }
+    }, [step, sessionToken, loadClasses]);
 
     const classTypes = useMemo(() => {
         const map = new Map();
@@ -261,53 +317,120 @@ const TrialEnrollmentScreen = () => {
 
     const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-    const handleSelectClass = (cls) => {
-        if (cls.isFull) return;
-        setSelectedClass(cls);
-        setStep('form');
+    const handleStart = async () => {
         setError('');
-        setSuccess('');
-    };
-
-    const handleBackToCalendar = () => {
-        setStep('calendar');
-        setSelectedClass(null);
-        setError('');
-    };
-
-    const handleSubmit = async () => {
-        setError('');
-        setSuccess('');
         if (!form.nombre.trim() || !form.apellido.trim() || !form.dni.trim() || !form.numeroTelefono.trim() || !form.email.trim()) {
             setError('Completá todos los campos.');
             return;
         }
-        if (!selectedClass?._id) {
-            setError('Elegí un turno.');
-            return;
-        }
         if (token === 'preview') {
-            setSuccess(`Vista previa: quedarías anotado/a a ${selectedClass.nombre}.`);
-            setStep('success');
+            setStep('verify');
             return;
         }
         setSubmitting(true);
         try {
+            const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, ...form }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'No se pudo enviar el código.');
+            setStep('verify');
+        } catch (err) {
+            setError(err.message || 'No se pudo enviar el código.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleVerify = async () => {
+        setError('');
+        if (String(verifyCode).replace(/\D/g, '').length !== 6) {
+            setError('Ingresá el código de 6 dígitos.');
+            return;
+        }
+        if (token === 'preview') {
+            const fakeSession = 'preview-session';
+            setSessionToken(fakeSession);
+            storeSession(clientId, { sessionToken: fakeSession, email: form.email, nombre: form.nombre });
+            setStep('calendar');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token,
+                    email: form.email,
+                    code: verifyCode,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'No se pudo verificar el email.');
+            setSessionToken(data.sessionToken);
+            storeSession(clientId, {
+                sessionToken: data.sessionToken,
+                email: data.email || form.email,
+                nombre: data.nombre || form.nombre,
+            });
+            setStep('calendar');
+        } catch (err) {
+            setError(err.message || 'No se pudo verificar el email.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleResend = async () => {
+        setError('');
+        if (token === 'preview') return;
+        setSubmitting(true);
+        try {
+            const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/resend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, email: form.email }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'No se pudo reenviar el código.');
+            setSuccess(data.message || 'Código reenviado.');
+            setTimeout(() => setSuccess(''), 3500);
+        } catch (err) {
+            setError(err.message || 'No se pudo reenviar el código.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSelectClass = async (cls) => {
+        if (cls.isFull) return;
+        setSelectedClass(cls);
+        setError('');
+        setSuccess('');
+        setSubmitting(true);
+        try {
+            if (token === 'preview') {
+                setSuccess(`Vista previa: quedarías anotado/a a ${cls.nombre}.`);
+                setStep('success');
+                return;
+            }
             const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/enroll`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     token,
-                    ...form,
-                    classId: selectedClass._id,
+                    sessionToken,
+                    classId: cls._id,
                 }),
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'No se pudo completar la inscripción.');
+            clearStoredSession(clientId);
             setSuccess(data.message || 'Inscripción realizada.');
-            setForm({ nombre: '', apellido: '', dni: '', numeroTelefono: '', email: '' });
             setStep('success');
-            await loadPage();
         } catch (err) {
             setError(err.message || 'No se pudo completar la inscripción.');
         } finally {
@@ -319,7 +442,7 @@ const TrialEnrollmentScreen = () => {
         return (
             <View style={styles.centered}>
                 <ActivityIndicator size="large" color={gymColor} />
-                <Text style={styles.muted}>Cargando turnos...</Text>
+                <Text style={styles.muted}>Cargando...</Text>
             </View>
         );
     }
@@ -344,131 +467,20 @@ const TrialEnrollmentScreen = () => {
                     </View>
                 </Animated.View>
 
-                {!!error && step !== 'form' && (
+                {!!error && step !== 'form' && step !== 'verify' && (
                     <Animated.View entering={FadeIn.duration(220)} style={styles.errorBox}>
                         <Ionicons name="alert-circle" size={18} color="#a72828" />
                         <Text style={styles.errorText}>{error}</Text>
                     </Animated.View>
                 )}
 
-                {step === 'calendar' && (
-                    <Animated.View
-                        key="step-calendar"
-                        entering={FadeIn.duration(320)}
-                        exiting={FadeOut.duration(180)}
-                        style={{ flex: 1 }}
-                    >
-                        <FlatList
-                            key={`day-${selectedDate || 'none'}-${selectedClassType}`}
-                            data={dayClasses}
-                            keyExtractor={(item) => String(item._id)}
-                            ListHeaderComponent={
-                                <Animated.View entering={FadeInUp.delay(80).duration(360)}>
-                                    <Calendar
-                                        onDayPress={(day) => setSelectedDate(day.dateString)}
-                                        markedDates={markedDates}
-                                        markingType="custom"
-                                        theme={calendarTheme}
-                                    />
-                                    <Text style={styles.listHeader}>{formattedDateTitle}</Text>
-                                    {classTypes.length > 1 && (
-                                        <TouchableOpacity
-                                            style={styles.filterButton}
-                                            onPress={() => setFilterModalVisible(true)}
-                                            activeOpacity={0.85}
-                                        >
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-                                                <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
-                                                <Text style={styles.filterButtonText} numberOfLines={1}>
-                                                    {selectedTypeLabel}
-                                                </Text>
-                                            </View>
-                                            <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
-                                        </TouchableOpacity>
-                                    )}
-                                    <Text style={styles.helper}>
-                                        Tocá un día con punto para ver los turnos y anotarte una sola vez.
-                                    </Text>
-                                </Animated.View>
-                            }
-                            renderItem={({ item, index }) => (
-                                <ClassCard
-                                    item={item}
-                                    gymColor={gymColor}
-                                    muted={item.isFull}
-                                    animationIndex={index}
-                                    entranceEpoch={listEntranceEpoch}
-                                    footer={
-                                        item.isFull ? (
-                                            <Text style={styles.fullLabel}>Sin cupos</Text>
-                                        ) : (
-                                            <ClassCardAction
-                                                title="Probar esta clase"
-                                                onPress={() => handleSelectClass(item)}
-                                                iconName="calendar-check"
-                                                color={gymColor}
-                                            />
-                                        )
-                                    }
-                                />
-                            )}
-                            ListEmptyComponent={
-                                <Animated.View entering={FadeIn.delay(120).duration(280)}>
-                                    <Text style={styles.emptyText}>
-                                        {selectedDate
-                                            ? (selectedClassType === 'all'
-                                                ? 'No hay turnos para este día.'
-                                                : 'No hay turnos de ese tipo para este día.')
-                                            : 'Elegí un día en el calendario.'}
-                                    </Text>
-                                </Animated.View>
-                            }
-                            contentContainerStyle={{ paddingBottom: 40 }}
-                        />
-                    </Animated.View>
-                )}
-
-                <FilterModal
-                    visible={isFilterModalVisible}
-                    onClose={() => setFilterModalVisible(false)}
-                    options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]}
-                    onSelect={(id) => {
-                        setSelectedClassType(id);
-                        setFilterModalVisible(false);
-                    }}
-                    selectedValue={selectedClassType}
-                    title="Tipo de Turno"
-                    gymColor={gymColor}
-                    theme={{ colors: Colors[colorScheme], gymColor }}
-                />
-
                 {step === 'form' && (
-                    <Animated.View
-                        key="step-form"
-                        entering={SlideInRight.duration(280)}
-                        exiting={SlideOutRight.duration(200)}
-                        style={{ flex: 1 }}
-                    >
+                    <Animated.View key="step-form" entering={FadeIn.duration(280)} style={{ flex: 1 }}>
                         <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
-                            <TouchableOpacity style={styles.backRow} onPress={handleBackToCalendar}>
-                                <Ionicons name="arrow-back" size={20} color={gymColor} />
-                                <Text style={[styles.backText, { color: gymColor }]}>Volver al calendario</Text>
-                            </TouchableOpacity>
-
-                            {!!selectedClass && (
-                                <ClassCard
-                                    item={selectedClass}
-                                    gymColor={gymColor}
-                                    showTeachers={false}
-                                    animationIndex={0}
-                                    entranceEpoch={`${listEntranceEpoch}-form`}
-                                />
-                            )}
-
-                            <Animated.View entering={FadeInUp.delay(80).duration(300)}>
+                            <Animated.View entering={enter(0)}>
                                 <Text style={styles.formTitle}>Tus datos</Text>
                                 <Text style={styles.helper}>
-                                    Solo una inscripción por DNI o email. Si ya estás registrado en la app, anotate desde ahí.
+                                    Completá tus datos y verificá tu email para ver los turnos disponibles. Solo una clase de prueba por persona.
                                 </Text>
                             </Animated.View>
 
@@ -486,11 +498,7 @@ const TrialEnrollmentScreen = () => {
                                 { key: 'numeroTelefono', label: 'Teléfono', props: { keyboardType: 'phone-pad' } },
                                 { key: 'email', label: 'Email', props: { keyboardType: 'email-address', autoCapitalize: 'none' } },
                             ].map((field, index) => (
-                                <Animated.View
-                                    key={field.key}
-                                    entering={FadeInUp.delay(100 + index * 45).duration(280)}
-                                    style={styles.field}
-                                >
+                                <Animated.View key={field.key} entering={enter(index + 1)} style={styles.field}>
                                     <Text style={styles.label}>{field.label}</Text>
                                     <TextInput
                                         style={styles.input}
@@ -502,22 +510,192 @@ const TrialEnrollmentScreen = () => {
                                 </Animated.View>
                             ))}
 
-                            <Animated.View entering={FadeInUp.delay(340).duration(300)}>
+                            <Animated.View entering={enter(6)}>
                                 <TouchableOpacity
                                     style={[styles.submitBtn, { backgroundColor: gymColor }, submitting && { opacity: 0.6 }]}
-                                    onPress={handleSubmit}
+                                    onPress={handleStart}
                                     disabled={submitting}
                                 >
                                     {submitting ? (
                                         <ActivityIndicator color="#fff" />
                                     ) : (
-                                        <Text style={styles.submitText}>Anotarme a la clase de prueba</Text>
+                                        <Text style={styles.submitText}>Enviar código al email</Text>
                                     )}
                                 </TouchableOpacity>
                             </Animated.View>
                         </ScrollView>
                     </Animated.View>
                 )}
+
+                {step === 'verify' && (
+                    <Animated.View
+                        key="step-verify"
+                        entering={SlideInRight.duration(280)}
+                        exiting={SlideOutRight.duration(200)}
+                        style={{ flex: 1 }}
+                    >
+                        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+                            <TouchableOpacity
+                                style={styles.backRow}
+                                onPress={() => {
+                                    setStep('form');
+                                    setVerifyCode('');
+                                    setError('');
+                                }}
+                            >
+                                <Ionicons name="arrow-back" size={20} color={gymColor} />
+                                <Text style={[styles.backText, { color: gymColor }]}>Volver a mis datos</Text>
+                            </TouchableOpacity>
+
+                            <Text style={styles.formTitle}>Verificá tu email</Text>
+                            <Text style={styles.helper}>
+                                Te enviamos un código de 6 dígitos a{'\n'}
+                                <Text style={{ fontWeight: '800' }}>{form.email}</Text>
+                            </Text>
+
+                            {!!error && (
+                                <View style={styles.errorBox}>
+                                    <Ionicons name="alert-circle" size={18} color="#a72828" />
+                                    <Text style={styles.errorText}>{error}</Text>
+                                </View>
+                            )}
+                            {!!success && (
+                                <View style={[styles.errorBox, { backgroundColor: '#e8f8ef' }]}>
+                                    <Ionicons name="mail-outline" size={18} color="#1e7a46" />
+                                    <Text style={[styles.errorText, { color: '#1e7a46' }]}>{success}</Text>
+                                </View>
+                            )}
+
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Código</Text>
+                                <TextInput
+                                    style={[styles.input, styles.codeInput]}
+                                    value={verifyCode}
+                                    onChangeText={(text) => setVerifyCode(text.replace(/\D/g, '').slice(0, 6))}
+                                    keyboardType="number-pad"
+                                    maxLength={6}
+                                    placeholder="000000"
+                                    placeholderTextColor="#999"
+                                    textAlign="center"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.submitBtn, { backgroundColor: gymColor }, submitting && { opacity: 0.6 }]}
+                                onPress={handleVerify}
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitText}>Verificar y ver turnos</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.linkBtn} onPress={handleResend} disabled={submitting}>
+                                <Text style={[styles.linkText, { color: gymColor }]}>Reenviar código</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </Animated.View>
+                )}
+
+                {step === 'calendar' && (
+                    <Animated.View
+                        key="step-calendar"
+                        entering={FadeIn.duration(320)}
+                        exiting={FadeOut.duration(180)}
+                        style={{ flex: 1 }}
+                    >
+                        {loadingClasses ? (
+                            <View style={styles.centered}>
+                                <ActivityIndicator size="large" color={gymColor} />
+                                <Text style={styles.muted}>Cargando turnos...</Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                key={`day-${selectedDate || 'none'}-${selectedClassType}`}
+                                data={dayClasses}
+                                keyExtractor={(item) => String(item._id)}
+                                ListHeaderComponent={
+                                    <Animated.View entering={FadeInUp.delay(80).duration(360)}>
+                                        <Text style={styles.helperTop}>
+                                            Hola{form.nombre ? `, ${form.nombre}` : ''}. Elegí un turno para tu clase de prueba.
+                                        </Text>
+                                        <Calendar
+                                            onDayPress={(day) => setSelectedDate(day.dateString)}
+                                            markedDates={markedDates}
+                                            markingType="custom"
+                                            theme={calendarTheme}
+                                        />
+                                        <Text style={styles.listHeader}>{formattedDateTitle}</Text>
+                                        {classTypes.length > 1 && (
+                                            <TouchableOpacity
+                                                style={styles.filterButton}
+                                                onPress={() => setFilterModalVisible(true)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+                                                    <Ionicons name="pricetag-outline" size={14} color={Colors[colorScheme].text} style={{ marginRight: 6 }} />
+                                                    <Text style={styles.filterButtonText} numberOfLines={1}>
+                                                        {selectedTypeLabel}
+                                                    </Text>
+                                                </View>
+                                                <FontAwesome5 name="chevron-down" size={12} color={Colors[colorScheme].text} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </Animated.View>
+                                }
+                                renderItem={({ item, index }) => (
+                                    <ClassCard
+                                        item={item}
+                                        gymColor={gymColor}
+                                        muted={item.isFull || submitting}
+                                        animationIndex={index}
+                                        entranceEpoch={listEntranceEpoch}
+                                        footer={
+                                            item.isFull ? (
+                                                <Text style={styles.fullLabel}>Sin cupos</Text>
+                                            ) : (
+                                                <ClassCardAction
+                                                    title={submitting && selectedClass?._id === item._id ? 'Anotándote...' : 'Probar esta clase'}
+                                                    onPress={() => handleSelectClass(item)}
+                                                    iconName="calendar-check"
+                                                    color={gymColor}
+                                                />
+                                            )
+                                        }
+                                    />
+                                )}
+                                ListEmptyComponent={
+                                    <Animated.View entering={FadeIn.delay(120).duration(280)}>
+                                        <Text style={styles.emptyText}>
+                                            {selectedDate
+                                                ? (selectedClassType === 'all'
+                                                    ? 'No hay turnos para este día.'
+                                                    : 'No hay turnos de ese tipo para este día.')
+                                                : 'Elegí un día en el calendario.'}
+                                        </Text>
+                                    </Animated.View>
+                                }
+                                contentContainerStyle={{ paddingBottom: 40 }}
+                            />
+                        )}
+                    </Animated.View>
+                )}
+
+                <FilterModal
+                    visible={isFilterModalVisible}
+                    onClose={() => setFilterModalVisible(false)}
+                    options={[{ _id: 'all', nombre: 'Todos los Turnos' }, ...classTypes]}
+                    onSelect={(id) => {
+                        setSelectedClassType(id);
+                        setFilterModalVisible(false);
+                    }}
+                    selectedValue={selectedClassType}
+                    title="Tipo de Turno"
+                    gymColor={gymColor}
+                    theme={{ colors: Colors[colorScheme], gymColor }}
+                />
 
                 {step === 'success' && (
                     <Animated.View
@@ -531,16 +709,6 @@ const TrialEnrollmentScreen = () => {
                         </Animated.View>
                         <Text style={styles.successTitle}>¡Listo!</Text>
                         <Text style={styles.successBody}>{success}</Text>
-                        <TouchableOpacity
-                            style={[styles.submitBtn, { backgroundColor: gymColor, marginTop: 20, alignSelf: 'stretch' }]}
-                            onPress={() => {
-                                setStep('calendar');
-                                setSelectedClass(null);
-                                setSuccess('');
-                            }}
-                        >
-                            <Text style={styles.submitText}>Volver al calendario</Text>
-                        </TouchableOpacity>
                     </Animated.View>
                 )}
             </View>
@@ -613,6 +781,15 @@ const getStyles = (colorScheme, gymColor) => {
             paddingTop: 6,
             lineHeight: 18,
         },
+        helperTop: {
+            textAlign: 'center',
+            fontSize: 14,
+            fontWeight: '600',
+            color: colors.text,
+            paddingHorizontal: 20,
+            paddingTop: 14,
+            paddingBottom: 4,
+        },
         filterButton: {
             height: 46,
             flexDirection: 'row',
@@ -645,6 +822,12 @@ const getStyles = (colorScheme, gymColor) => {
             color: colors.text,
             fontSize: 16,
         },
+        codeInput: {
+            fontSize: 28,
+            fontWeight: '800',
+            letterSpacing: 8,
+            paddingVertical: 16,
+        },
         submitBtn: {
             marginHorizontal: 16,
             marginTop: 10,
@@ -653,6 +836,8 @@ const getStyles = (colorScheme, gymColor) => {
             alignItems: 'center',
         },
         submitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+        linkBtn: { alignItems: 'center', paddingVertical: 16 },
+        linkText: { fontWeight: '700', fontSize: 14 },
         muted: { color: colors.text, opacity: 0.65, fontSize: 14 },
         errorBox: {
             flexDirection: 'row',

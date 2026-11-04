@@ -7,13 +7,12 @@ import {
     StyleSheet,
     ActivityIndicator,
     Image,
-    useColorScheme,
     Linking,
     KeyboardAvoidingView,
     ScrollView,
     Platform
 } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -22,10 +21,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
 import config from '../../config'
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useStaggerEnter } from '@/hooks/useEntranceEpoch';
 
 const SUPER_ADMIN_API_URL = config.superAdminBackend;
-
-const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
 
 export default function GymIdentifierScreen() {
     const [identifier, setIdentifier] = useState('');
@@ -33,6 +32,7 @@ export default function GymIdentifierScreen() {
     const router = useRouter();
     const { setGymContext } = useAuth();
     const colorScheme = useColorScheme() ?? 'light';
+    const enter = useStaggerEnter();
     const [isReady, setIsReady] = useState(false);
 
     const [alertInfo, setAlertInfo] = useState({

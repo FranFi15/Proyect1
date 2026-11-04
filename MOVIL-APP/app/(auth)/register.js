@@ -7,20 +7,19 @@ import {
     ScrollView, 
     KeyboardAvoidingView, 
     Platform,
-    useColorScheme, 
     TextInput,
     Text,
     View 
 } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/ThemedView'; 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import CustomAlert from '@/components/CustomAlert';
-
-const enter = (i) => FadeInUp.delay(Math.min(i, 8) * 45).duration(280);
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useStaggerEnter } from '@/hooks/useEntranceEpoch';
 
 const RegisterPage = () => {
     const [nombre, setNombre] = useState('');
@@ -42,6 +41,7 @@ const RegisterPage = () => {
     const { register, gymName, gymLogo, gymColor } = useAuth(); 
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
+    const enter = useStaggerEnter();
 
     const [alertInfo, setAlertInfo] = useState({
         visible: false,
