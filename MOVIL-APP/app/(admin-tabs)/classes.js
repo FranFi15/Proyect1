@@ -1374,7 +1374,16 @@ const ManageClassesScreen = () => {
                                                     </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={styles.rosterName}>{user.nombre} {user.apellido}</Text>
+                                                    <View style={styles.rosterNameRow}>
+                                                        <Text style={styles.rosterName} numberOfLines={1}>
+                                                            {user.nombre} {user.apellido}
+                                                        </Text>
+                                                        {!!user.trialEnrollmentUsedAt && (
+                                                            <View style={styles.trialBadge}>
+                                                                <Text style={styles.trialBadgeText}>Prueba</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
                                                     <Text style={styles.rosterDni}>DNI {user.dni || '—'}</Text>
                                                 </View>
                                                 <TouchableOpacity
@@ -1798,10 +1807,28 @@ const getStyles = (colorScheme, gymColor) => StyleSheet.create({
         fontWeight: '800',
         fontSize: 13,
     },
+    rosterNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+    },
     rosterName: {
         fontSize: 15,
         fontWeight: '700',
         color: Colors[colorScheme].text,
+        flexShrink: 1,
+    },
+    trialBadge: {
+        backgroundColor: '#f39c1222',
+        borderRadius: 999,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    trialBadgeText: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#d68910',
     },
     rosterDni: {
         fontSize: 12,
