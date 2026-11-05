@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import moment from 'moment-timezone';
 import { format } from 'date-fns';
+import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate } from '../utils/paseLibreUtils.js';
 
 const getGymTodayRange = (tz) => {
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
@@ -78,15 +79,6 @@ const canEnrollWithCredits = (user, tipoClaseId, universalTypeId) => {
     return false;
 };
 
-const hasValidPaseLibreForDate = (user, fechaTurno) => {
-    if (!user.paseLibreHasta) return false;
-    const fecha = new Date(fechaTurno);
-    const hasta = new Date(user.paseLibreHasta);
-    if (fecha > hasta) return false;
-    if (user.paseLibreDesde && fecha < new Date(user.paseLibreDesde)) return false;
-    return true;
-};
-
 const normalizeTimeHHMM = (value) => {
     if (value == null) return null;
     const raw = String(value).trim();
@@ -117,7 +109,8 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
     let tipoCreditoADescontar = null;
     let fechaVencimientoCapturada = null;
 
-    const tienePaseLibreValidoParaEsteTurno = hasValidPaseLibreForDate(user, classItem.fecha);
+    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha);
+    const tienePaseLibreValidoParaEsteTurno = paseEval.valid;
     const tipoClaseId = classItem.tipoClase._id.toString();
 
     if (!tienePaseLibreValidoParaEsteTurno) {
@@ -170,9 +163,15 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
 
         if (!tipoCreditoADescontar) {
             const hoy = new Date();
-            if (user.paseLibreHasta) {
+            if (paseEval.reason === 'after_end' && user.paseLibreHasta) {
                 const fechaVencimiento = format(new Date(user.paseLibreHasta), 'dd/MM/yyyy');
                 const err = new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+                err.statusCode = 400;
+                throw err;
+            }
+            if (paseEval.reason === 'before_start' && user.paseLibreDesde) {
+                const fechaInicio = format(new Date(user.paseLibreDesde), 'dd/MM/yyyy');
+                const err = new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles.`);
                 err.statusCode = 400;
                 throw err;
             }

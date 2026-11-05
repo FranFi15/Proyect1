@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
 import moment from 'moment-timezone'; 
 import { ensureDefaultSucursal } from './sucursalController.js';
+import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate } from '../utils/paseLibreUtils.js';
 
 const mapDayToRRule = (day) => {
     const map = {
@@ -573,9 +574,8 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     let fechaVencimientoCapturada = null;
 
     const hoy = new Date();
-    const fechaTurno = new Date(classItem.fecha);
-    const tienePaseLibreValidoParaEsteTurno = user.paseLibreDesde && user.paseLibreHasta &&
-        fechaTurno >= user.paseLibreDesde && fechaTurno <= user.paseLibreHasta;
+    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha);
+    const tienePaseLibreValidoParaEsteTurno = paseEval.valid;
 
     const tipoClaseId = classItem.tipoClase._id.toString();
 
@@ -623,17 +623,22 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         }
 
         if (!tipoCreditoADescontar) {
-            if (user.paseLibreHasta) {
+            if (paseEval.reason === 'after_end' && user.paseLibreHasta) {
                 res.status(400);
                 const fechaVencimiento = format(new Date(user.paseLibreHasta), 'dd/MM/yyyy');
                 throw new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles.`);
-            } else if (user.membresiaHasta && new Date(user.membresiaHasta) >= hoy) {
+            }
+            if (paseEval.reason === 'before_start' && user.paseLibreDesde) {
+                res.status(400);
+                const fechaInicio = format(new Date(user.paseLibreDesde), 'dd/MM/yyyy');
+                throw new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles.`);
+            }
+            if (user.membresiaHasta && new Date(user.membresiaHasta) >= hoy) {
                 res.status(400);
                 throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}". (Tu Membresía solo es válida para ingresar al gimnasio sin turno mediante código QR).`);
-            } else {
-                res.status(400);
-                throw new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
             }
+            res.status(400);
+            throw new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
         }
     }
 
@@ -728,8 +733,7 @@ const unenrollUserFromClass = asyncHandler(async (req, res) => {
     }
 
     const hoy = new Date();
-    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta && 
-                                 hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+    const tienePaseLibreActivo = hasValidPaseLibreForDate(user, hoy);
 
     if (!tienePaseLibreActivo) {
         const detalle = clase.inscripcionesDetalle?.find(d => d.user.toString() === userId.toString());
@@ -999,8 +1003,7 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
                     const user = await User.findById(userId);
                     if (!user) continue;
 
-                    const tienePaseLibreActivo = user.paseLibreDesde && user.paseLibreHasta &&
-                        hoy >= user.paseLibreDesde && hoy <= user.paseLibreHasta;
+                    const tienePaseLibreActivo = hasValidPaseLibreForDate(user, hoy);
 
                     let mensajeExtra = "";
 
