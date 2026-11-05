@@ -60,7 +60,7 @@ const PackageFormModal = ({
                 description: editingPackage.description || '',
                 price: editingPackage.price?.toString() || '',
                 type: editingPackage.isPaseLibre ? 'pase' : editingPackage.isMembresia ? 'membresia' : 'creditos',
-                durationDays: editingPackage.durationDays?.toString() || '30',
+                durationDays: editingPackage.durationDays == null ? '30' : String(editingPackage.durationDays),
                 creditsAmount: editingPackage.creditsAmount?.toString() || '8',
                 tipoClase: editingPackage.tipoClase?._id || editingPackage.tipoClase || classTypes[0]?._id || '',
                 allowAutoDebit: false,
@@ -82,7 +82,11 @@ const PackageFormModal = ({
     const previewLabel = useMemo(() => {
         if (form.type === 'pase') return `Acceso libre por ${form.durationDays || 0} días`;
         if (form.type === 'membresia') return `Membresía QR por ${form.durationDays || 0} días`;
-        return `${form.creditsAmount || 0} créditos de ${selectedType?.nombre || 'clase'}`;
+        const credits = `${form.creditsAmount || 0} créditos de ${selectedType?.nombre || 'clase'}`;
+        if (form.durationDays === '0' || Number(form.durationDays) === 0) {
+            return `${credits} · sin vencimiento`;
+        }
+        return `${credits} · vencen en ${form.durationDays || 30} días`;
     }, [form, selectedType]);
 
     const handleSave = async () => {
@@ -101,7 +105,9 @@ const PackageFormModal = ({
             price: Number(form.price),
             isPaseLibre: form.type === 'pase',
             isMembresia: form.type === 'membresia',
-            durationDays: Number(form.durationDays) || 30,
+            durationDays: form.type === 'creditos'
+                ? (form.durationDays === '' || form.durationDays == null ? 30 : Math.max(0, Number(form.durationDays) || 0))
+                : (Number(form.durationDays) || 30),
             creditsAmount: form.type === 'creditos' ? Number(form.creditsAmount) || 0 : 0,
             tipoClase: form.type === 'creditos' ? form.tipoClase : null,
             allowAutoDebit: false,
@@ -274,6 +280,47 @@ const PackageFormModal = ({
                                             </Text>
                                             <Ionicons name="chevron-down" size={16} color={colors.text} />
                                         </TouchableOpacity>
+
+                                        <Text style={[styles.label, { marginTop: 14 }]}>Vencimiento de los créditos</Text>
+                                        <Text style={styles.cardSub}>Desde la compra. Podés elegir sin vencimiento o N días.</Text>
+                                        <View style={styles.chipRow}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.chip,
+                                                    form.durationDays === '0' && { backgroundColor: accent, borderColor: accent },
+                                                ]}
+                                                onPress={() => setField('durationDays', '0')}
+                                            >
+                                                <Text style={[styles.chipText, form.durationDays === '0' && { color: '#fff' }]}>
+                                                    Sin venc.
+                                                </Text>
+                                            </TouchableOpacity>
+                                            {DURATION_PRESETS.map((days) => {
+                                                const selected = form.durationDays === String(days);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={days}
+                                                        style={[
+                                                            styles.chip,
+                                                            selected && { backgroundColor: accent, borderColor: accent },
+                                                        ]}
+                                                        onPress={() => setField('durationDays', String(days))}
+                                                    >
+                                                        <Text style={[styles.chipText, selected && { color: '#fff' }]}>
+                                                            {days}d
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="O ingresá días (0 = sin vencimiento)"
+                                            placeholderTextColor={colors.icon}
+                                            keyboardType="numeric"
+                                            value={form.durationDays}
+                                            onChangeText={(text) => setField('durationDays', text)}
+                                        />
                                     </>
                                 ) : (
                                     <>

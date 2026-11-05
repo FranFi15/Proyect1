@@ -142,7 +142,7 @@ const PlansAndCreditsModal = ({ onClose }) => {
                 
                 // Buscamos la configuración de este tipo de clase
                 const cType = classTypes.find(ct => ct._id?.toString() === typeId);
-                const isResetEnabled = cType ? cType.resetMensual : false; // ¿Tiene vencimiento?
+                const isResetEnabled = cType ? cType.resetMensual : false;
 
                 if (!groups[typeId]) {
                     groups[typeId] = {
@@ -156,9 +156,10 @@ const PlansAndCreditsModal = ({ onClose }) => {
                 
                 groups[typeId].total += (item.cantidad || 0);
                 
+                // Show the lote date whenever it exists (package-defined or monthly).
                 groups[typeId].batches.push({
                     amount: item.cantidad || 0,
-                    date: isResetEnabled ? item.fechaVencimiento : null 
+                    date: item.fechaVencimiento || null
                 });
             });
         }

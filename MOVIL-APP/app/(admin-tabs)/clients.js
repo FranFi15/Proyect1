@@ -388,6 +388,9 @@ const ManageClientsScreen = () => {
     const [paseLibreData, setPaseLibreData] = useState({ desde: null, hasta: null });
     const [membresiaData, setMembresiaData] = useState({ desde: null, hasta: null });
     const [creditsModalTab, setCreditsModalTab] = useState('credits');
+    const [postponeDays, setPostponeDays] = useState('14');
+    const [postponeTargetKey, setPostponeTargetKey] = useState(null);
+    const [postponeSubmitting, setPostponeSubmitting] = useState(false);
     const [paymentPackages, setPaymentPackages] = useState([]);
     const [cajaDiscounts, setCajaDiscounts] = useState([]);
     
@@ -463,7 +466,9 @@ const ManageClientsScreen = () => {
         setPlanData({ tipoClaseId: '', creditsToAdd: '0', isSubscription: false, autoRenewAmount: '8' }); 
         setMassEnrollFilters({ tipoClaseId: '', diasDeSemana: [], fechaInicio: '', fechaFin: '' }); 
         setAvailableSlots([]); 
-        setSelectedSlot(null); 
+        setSelectedSlot(null);
+        setPostponeDays('14');
+        setPostponeTargetKey(null); 
         if (client.paseLibreDesde && client.paseLibreHasta) {
             setPaseLibreData({
                 desde: client.paseLibreDesde.substring(0, 10),
@@ -557,6 +562,100 @@ const ManageClientsScreen = () => {
     const handleOpenAddModal = () => { setNewClientData({ nombre: '', apellido: '', email: '', contraseña: '', dni: '', fechaNacimiento: '', sexo: 'Otro', telefonoEmergencia: '', numeroTelefono: '', obraSocial: '', roles: ['cliente'], ordenMedicaRequerida: false, ordenMedicaEntregada: false, puedeGestionarEjercicios: false }); setNewClientDay(''); setNewClientMonth(''); setNewClientYear(''); setShowAddFormModal(true); };
     const handleDeleteClient = (client) => { setAlertInfo({ visible: true, title: "Eliminar Socio", message: `¿Estás seguro de que quieres eliminar a ${client.nombre} ${client.apellido}?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Eliminar", style: "destructive", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.delete(`/users/${client._id}`); setAlertInfo({ visible: true, title: 'Éxito', message: 'Socio eliminado correctamente.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo eliminar al socio.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     const handlePlanSubmit = async () => { if (!selectedClient || !planData.tipoClaseId) { setAlertInfo({ visible: true, title: 'Error', message: 'Por favor, selecciona un tipo de Turno.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); return; } const payload = { tipoClaseId: planData.tipoClaseId, creditsToAdd: Number(planData.creditsToAdd) || 0, isSubscription: planData.isSubscription, autoRenewAmount: Number(planData.autoRenewAmount) || 0, }; try { await apiClient.put(`/users/${selectedClient._id}/plan`, payload); setAlertInfo({ visible: true, title: 'Éxito', message: 'El plan del socio ha sido actualizado.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo actualizar el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } };
+    const postponeTargets = useMemo(() => {
+        if (!selectedClient) return [];
+        const items = [];
+        (selectedClient.vencimientosDetallados || []).forEach((batch, index) => {
+            if (!batch?.fechaVencimiento || !(batch.cantidad > 0)) return;
+            const batchId = batch._id || batch.idCarga;
+            if (!batchId) return;
+            const typeId = (batch.tipoClaseId?._id || batch.tipoClaseId)?.toString();
+            const typeName = classTypes.find((t) => t._id === typeId)?.nombre || 'Crédito';
+            const dateLabel = (() => {
+                try {
+                    const d = typeof batch.fechaVencimiento === 'string'
+                        ? parseISO(batch.fechaVencimiento)
+                        : new Date(batch.fechaVencimiento);
+                    return isValid(d) ? format(d, 'dd/MM/yyyy') : '—';
+                } catch {
+                    return '—';
+                }
+            })();
+            items.push({
+                key: `credit:${batchId}`,
+                target: { type: 'credit_batch', batchId: String(batchId) },
+                title: typeName,
+                subtitle: `${batch.cantidad} crédito(s) · vence ${dateLabel}`,
+            });
+        });
+        if (selectedClient.paseLibreHasta) {
+            const d = parseISO(String(selectedClient.paseLibreHasta).substring(0, 10));
+            items.push({
+                key: 'pase',
+                target: { type: 'pase' },
+                title: 'Acceso libre',
+                subtitle: `Vence ${isValid(d) ? format(d, 'dd/MM/yyyy') : '—'}`,
+            });
+        }
+        if (selectedClient.membresiaHasta) {
+            const d = parseISO(String(selectedClient.membresiaHasta).substring(0, 10));
+            items.push({
+                key: 'membresia',
+                target: { type: 'membresia' },
+                title: 'Membresía',
+                subtitle: `Vence ${isValid(d) ? format(d, 'dd/MM/yyyy') : '—'}`,
+            });
+        }
+        return items;
+    }, [selectedClient, classTypes]);
+
+    const handlePostponeVencimientos = async () => {
+        if (!selectedClient) return;
+        const days = Number(postponeDays);
+        if (!Number.isFinite(days) || days === 0) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'Indicá cuántos días posponer (distinto de 0).',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+            return;
+        }
+        const selected = postponeTargets.find((t) => t.key === postponeTargetKey);
+        if (!selected) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: 'Elegí el crédito o plan que querés posponer.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+            return;
+        }
+        setPostponeSubmitting(true);
+        try {
+            const { data } = await apiClient.put(`/users/${selectedClient._id}/postpone-vencimientos`, {
+                days,
+                target: selected.target,
+            });
+            setAlertInfo({
+                visible: true,
+                title: 'Éxito',
+                message: data?.message || 'Vencimiento actualizado.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+            setPostponeTargetKey(null);
+            fetchAllData();
+        } catch (error) {
+            setAlertInfo({
+                visible: true,
+                title: 'Error',
+                message: error.response?.data?.message || 'No se pudo posponer el vencimiento.',
+                buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }],
+            });
+        } finally {
+            setPostponeSubmitting(false);
+        }
+    };
     const findAvailableSlots = async () => { const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters; if (!tipoClaseId || diasDeSemana.length === 0 || !fechaInicio ) { setAlertInfo({ visible: true, title: 'Error', message: 'Completa todos los filtros para buscar horarios.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); return; } setIsLoadingSlots(true); try { const params = { tipoClaseId, diasDeSemana: diasDeSemana.join(','), fechaInicio }; if (fechaFin) { params.fechaFin = fechaFin; } const response = await apiClient.get('/classes/available-slots', {params}); setAvailableSlots(response.data); if (response.data.length === 0) { setAlertInfo({ visible: true, title: 'Sin resultados', message: 'No se encontraron horarios disponibles para esa combinación.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: 'No se pudieron buscar los horarios.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } finally { setIsLoadingSlots(false); } };
     const handleMassEnrollSubmit = async () => { if (!selectedClient || !selectedSlot) { setAlertInfo({ visible: true, title: 'Error', message: 'Selecciona un horario para inscribir.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); return; } const { tipoClaseId, diasDeSemana, fechaInicio, fechaFin } = massEnrollFilters; const { horaInicio, horaFin } = selectedSlot; const payload = { tipoClaseId, diasDeSemana, fechaInicio, horaInicio, horaFin }; if (fechaFin) { payload.fechaFin = fechaFin; } setAlertInfo({ visible: true, title: "Confirmar Inscripción Masiva", message: `¿Inscribir a ${selectedClient.nombre} en este plan?`, buttons: [ { text: "Cancelar", style: "cancel", onPress: () => setAlertInfo({ visible: false }) }, { text: "Inscribir", style: "primary", onPress: async () => { setAlertInfo({ visible: false }); try { await apiClient.post(`/users/${selectedClient._id}/subscribe-to-plan`, payload); setAlertInfo({ visible: true, title: 'Éxito', message: 'El socio ha sido inscrito en el plan.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); fetchAllData(); } catch (error) { setAlertInfo({ visible: true, title: 'Error', message: error.response?.data?.message || 'No se pudo procesar la inscripción.', buttons: [{ text: 'OK', style: 'primary', onPress: () => setAlertInfo({ visible: false }) }] }); } } } ] }); };
     const handleDaySelection = (day) => { const currentDays = massEnrollFilters.diasDeSemana; const newDays = currentDays.includes(day) ? currentDays.filter(d => d !== day) : [...currentDays, day]; setMassEnrollFilters(prev => ({ ...prev, diasDeSemana: newDays })); };
@@ -1428,6 +1527,7 @@ const ManageClientsScreen = () => {
                                 { id: 'freeAccess', label: 'Libre', icon: 'infinite-outline' },
                                 { id: 'membership', label: 'Membresía', icon: 'id-card-outline' },
                                 { id: 'fixedSchedule', label: 'Horario', icon: 'calendar-outline' },
+                                { id: 'postpone', label: 'Posponer', icon: 'time-outline' },
                             ].map((tab) => {
                                 const selected = creditsModalTab === tab.id;
                                 return (
@@ -1745,6 +1845,122 @@ const ManageClientsScreen = () => {
                                             <Text style={dynamicStyles.creditsPrimaryBtnText}>Inscribir sin cobro</Text>
                                         </TouchableOpacity>
                                     )}
+                                </View>
+                            )}
+
+                            {creditsModalTab === 'postpone' && (
+                                <View style={dynamicStyles.creditsCard}>
+                                    <Text style={dynamicStyles.creditsCardTitle}>Posponer vencimiento</Text>
+                                    <Text style={dynamicStyles.creditsCardSub}>
+                                        Elegí un lote de créditos (o acceso libre / membresía) y cuántos días moverlo.
+                                    </Text>
+
+                                    <Text style={dynamicStyles.creditsLabel}>Qué posponer</Text>
+                                    {postponeTargets.length === 0 ? (
+                                        <Text style={{ color: Colors[colorScheme].icon, fontSize: 13, paddingVertical: 8 }}>
+                                            Este socio no tiene vencimientos activos para posponer.
+                                        </Text>
+                                    ) : (
+                                        postponeTargets.map((item) => {
+                                            const selected = postponeTargetKey === item.key;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={item.key}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        gap: 10,
+                                                        paddingVertical: 12,
+                                                        borderBottomWidth: StyleSheet.hairlineWidth,
+                                                        borderBottomColor: Colors[colorScheme].border,
+                                                    }}
+                                                    onPress={() => setPostponeTargetKey(item.key)}
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <Ionicons
+                                                        name={selected ? 'radio-button-on' : 'radio-button-off'}
+                                                        size={22}
+                                                        color={selected ? (gymColor || '#1a5276') : Colors[colorScheme].icon}
+                                                    />
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: Colors[colorScheme].text, fontSize: 15, fontWeight: '700' }}>
+                                                            {item.title}
+                                                        </Text>
+                                                        <Text style={{ color: Colors[colorScheme].icon, fontSize: 12, marginTop: 2 }}>
+                                                            {item.subtitle}
+                                                        </Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            );
+                                        })
+                                    )}
+
+                                    <Text style={[dynamicStyles.creditsLabel, { marginTop: 14 }]}>Días a posponer</Text>
+                                    <View style={dynamicStyles.quickRow}>
+                                        {[7, 14, 21, 30, 45, 60].map((days) => {
+                                            const selected = String(days) === String(postponeDays);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={days}
+                                                    style={[
+                                                        dynamicStyles.quickChip,
+                                                        {
+                                                            backgroundColor: selected
+                                                                ? (gymColor || '#1a5276')
+                                                                : Colors[colorScheme].cardBackground,
+                                                            borderWidth: 1,
+                                                            borderColor: selected
+                                                                ? (gymColor || '#1a5276')
+                                                                : Colors[colorScheme].border,
+                                                        },
+                                                    ]}
+                                                    onPress={() => setPostponeDays(String(days))}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            dynamicStyles.quickChipText,
+                                                            !selected && { color: Colors[colorScheme].text },
+                                                        ]}
+                                                    >
+                                                        +{days}d
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                    <TextInput
+                                        style={dynamicStyles.creditsInput}
+                                        value={postponeDays}
+                                        onChangeText={setPostponeDays}
+                                        placeholder="O ingresá otra cantidad de días"
+                                        placeholderTextColor={Colors[colorScheme].icon}
+                                        keyboardType="numeric"
+                                    />
+
+                                    <TouchableOpacity
+                                        style={[
+                                            dynamicStyles.creditsPrimaryBtn,
+                                            {
+                                                backgroundColor: gymColor || '#1a5276',
+                                                marginTop: 16,
+                                                opacity: postponeSubmitting || !postponeTargetKey ? 0.7 : 1,
+                                            },
+                                        ]}
+                                        onPress={handlePostponeVencimientos}
+                                        disabled={postponeSubmitting || !postponeTargetKey}
+                                        activeOpacity={0.85}
+                                    >
+                                        {postponeSubmitting ? (
+                                            <GymLogoSpinner size="small" color="#fff" />
+                                        ) : (
+                                            <>
+                                                <Ionicons name="time-outline" size={18} color="#fff" />
+                                                <Text style={dynamicStyles.creditsPrimaryBtnText}>
+                                                    Posponer {postponeDays || 0} día(s)
+                                                </Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
                             )}
                         </ScrollView>
