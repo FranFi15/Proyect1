@@ -5,10 +5,29 @@ const superAdminApiClient = axios.create({
     baseURL: process.env.ADMIN_PANEL_API_URL, 
 });
 
+/** Trial-only guests (and legacy trial accounts) must not count as plan clients. */
+export const isTrialOnlyUser = (user) => {
+    if (!user) return false;
+    if (user.isTrialOnly === true) return true;
+    // Legacy: used trial and never converted via register
+    return !!(user.trialEnrollmentUsedAt && user.isTrialOnly !== false);
+};
+
+/** Mongo filter: real clients only (excludes trial guests + legacy trial accounts). */
+export const realClientFilter = {
+    isTrialOnly: { $ne: true },
+    $or: [
+        { trialEnrollmentUsedAt: null },
+        { trialEnrollmentUsedAt: { $exists: false } },
+        { isTrialOnly: false },
+    ],
+};
+
 export const countActiveClients = async (UserModel) => {
     return UserModel.countDocuments({
         roles: 'cliente',
         isActive: { $ne: false },
+        ...realClientFilter,
     });
 };
 

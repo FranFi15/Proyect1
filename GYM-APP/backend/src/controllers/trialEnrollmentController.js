@@ -4,7 +4,6 @@ import { format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
-import { checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
 import { sendTrialVerificationEmail } from '../services/emailService.js';
 import { getTurnstilePublicConfig, verifyTurnstileToken } from '../utils/turnstile.js';
 
@@ -101,7 +100,13 @@ const assertNotAlreadyRegistered = async (User, emailNorm, dniNorm, dniRaw) => {
     const existing = existingByEmail || existingByDni;
     if (!existing) return;
 
-    if (existing.trialEnrollmentUsedAt || existingByEmail?.trialEnrollmentUsedAt || existingByDni?.trialEnrollmentUsedAt) {
+    const usedTrial =
+        existing.isTrialOnly === true ||
+        existingByEmail?.isTrialOnly === true ||
+        existingByDni?.isTrialOnly === true ||
+        !!(existing.trialEnrollmentUsedAt || existingByEmail?.trialEnrollmentUsedAt || existingByDni?.trialEnrollmentUsedAt);
+
+    if (usedTrial) {
         const err = new Error('Ya usaste tu clase de prueba con estos datos.');
         err.statusCode = 400;
         throw err;
@@ -436,16 +441,10 @@ const enrollTrial = asyncHandler(async (req, res) => {
         throw new Error('Ese turno ya está completo.');
     }
 
-    const liveCount = await countActiveClients(User);
-    const hasSpace = await checkClientLimit(gymId, apiSecretKey, liveCount);
-    if (!hasSpace) {
-        res.status(403);
-        throw new Error('El gimnasio alcanzó el límite de usuarios. Contactá al administrador.');
-    }
-
     const randomPassword = crypto.randomBytes(24).toString('hex');
     const phone = String(pending.numeroTelefono).trim();
 
+    // Trial guests stay in the roster for that class, but do not count as plan clients.
     const user = await User.create({
         nombre: String(pending.nombre).trim(),
         apellido: String(pending.apellido).trim(),
@@ -457,6 +456,7 @@ const enrollTrial = asyncHandler(async (req, res) => {
         fechaNacimiento: new Date('2000-01-01T12:00:00.000Z'),
         roles: ['cliente'],
         isActive: true,
+        isTrialOnly: true,
         trialEnrollmentUsedAt: new Date(),
         todasLasSucursales: true,
         sucursales: [],
@@ -481,7 +481,7 @@ const enrollTrial = asyncHandler(async (req, res) => {
     await classItem.save();
     await user.save();
     await pending.save();
-    await syncActiveClientCount(User, gymId, apiSecretKey);
+    // Do not bump plan client count — trial-only users are excluded from the live count.
 
     const classLabel = classItem.nombre || classItem.tipoClase?.nombre || 'la clase';
     const fechaLabel = formatTrialClassDate(classItem.fecha);

@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { sendSingleNotification } from './notificationController.js';
 import crypto from 'crypto';
 import { sendPasswordResetEmail } from '../services/emailService.js';
-import { getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
+import { getClientSubscriptionInfo, upgradeClientPlan, checkClientLimit, countActiveClients, syncActiveClientCount, realClientFilter } from '../utils/superAdminApiClient.js';
 import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
 
 
@@ -17,6 +17,10 @@ const getAllUsers = asyncHandler(async (req, res) => {
     let query = {};
     if (role) {
         query.roles = role;
+    }
+    // Trial guests stay on class rosters but are not listed as socios.
+    if (!role || role === 'cliente') {
+        Object.assign(query, realClientFilter);
     }
 
     const users = await User.find(query)

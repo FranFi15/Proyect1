@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import generateToken from '../utils/generateToken.js';
 import { calculateAge } from '../utils/ageUtils.js';
 import getModels from '../utils/getModels.js';
-import { checkClientLimit, countActiveClients, syncActiveClientCount } from '../utils/superAdminApiClient.js';
+import { checkClientLimit, countActiveClients, syncActiveClientCount, isTrialOnlyUser } from '../utils/superAdminApiClient.js';
 import { sendSingleNotification } from './notificationController.js';
 
 
@@ -10,6 +10,24 @@ const isValidEmail = (email) => {
     return String(email)
         .toLowerCase()
         .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+};
+
+const applyCourtesyCredit = async (user, Settings) => {
+    try {
+        const settings = await Settings.findById('main_settings');
+        if (settings && settings.courtesyCredit?.isActive && settings.courtesyCredit.tipoClase) {
+            const creditTypeId = settings.courtesyCredit.tipoClase.toString();
+            const amountToGive = settings.courtesyCredit.amount || 1;
+            if (!user.creditosPorTipo || !(user.creditosPorTipo instanceof Map)) {
+                user.creditosPorTipo = new Map();
+            }
+            user.creditosPorTipo.set(creditTypeId, amountToGive);
+            return { amount: amountToGive, creditTypeId };
+        }
+    } catch (error) {
+        console.error("Error asignando crédito de cortesía (no crítico):", error);
+    }
+    return null;
 };
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -47,15 +65,90 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const dniNorm = String(dni || '').replace(/\D/g, '') || String(dni || '').trim();
 
-    const userExists = await User.findOne({ email: normalizedEmail });
-    if (userExists) {
+    const byEmail = await User.findOne({ email: normalizedEmail });
+    const byDni = await User.findOne({
+        $or: [{ dni: dniNorm }, { dni: String(dni).trim() }],
+    });
+
+    if (byEmail && byDni && byEmail._id.toString() !== byDni._id.toString()) {
+        res.status(400);
+        throw new Error('El email o DNI ya está en uso por otra cuenta.');
+    }
+
+    const existing = byEmail || byDni;
+
+    // Trial guest → upgrade into a real client (same person, now counts toward the plan).
+    if (existing && isTrialOnlyUser(existing)) {
+        const liveCount = await countActiveClients(User);
+        const hasSpace = await checkClientLimit(req.gymId, req.apiSecretKey, liveCount);
+        if (!hasSpace) {
+            res.status(403);
+            throw new Error('La institución ha alcanzado el límite de usuarios. Por favor, contacta al administrador.');
+        }
+
+        existing.nombre = nombre;
+        existing.apellido = apellido;
+        existing.email = normalizedEmail;
+        existing.contraseña = contraseña;
+        existing.dni = dniNorm || String(dni).trim();
+        existing.fechaNacimiento = new Date(fechaNacimiento);
+        existing.telefonoEmergencia = telefonoEmergencia;
+        existing.direccion = direccion || existing.direccion || '';
+        existing.numeroTelefono = numeroTelefono || existing.numeroTelefono || '';
+        existing.obraSocial = obraSocial || existing.obraSocial || '';
+        existing.sexo = sexo || existing.sexo || 'Otro';
+        existing.pushToken = pushToken || existing.pushToken || null;
+        existing.todasLasSucursales = todasLasSucursales !== undefined ? todasLasSucursales : true;
+        existing.sucursales = sucursales || existing.sucursales || [];
+        existing.isTrialOnly = false;
+        existing.isActive = true;
+        if (!existing.roles?.includes('cliente')) {
+            existing.roles = ['cliente'];
+        }
+
+        const courtesyNotificationData = await applyCourtesyCredit(existing, Settings);
+        await existing.save();
+        await syncActiveClientCount(User, req.gymId, req.apiSecretKey);
+
+        if (courtesyNotificationData) {
+            try {
+                const tipoClase = await TipoClase.findById(courtesyNotificationData.creditTypeId);
+                const nombreCredito = tipoClase ? tipoClase.nombre : 'Crédito de Bienvenida';
+                await sendSingleNotification(
+                    Notification,
+                    User,
+                    existing._id,
+                    '¡Bienvenido/a! ',
+                    `Te regalamos ${courtesyNotificationData.amount} crédito(s) de "${nombreCredito}" para que te anotes.`,
+                    'welcome_gift',
+                    true
+                );
+            } catch (notifError) {
+                console.error('Error enviando notificación de bienvenida:', notifError);
+            }
+        }
+
+        return res.status(201).json({
+            _id: existing._id,
+            nombre: existing.nombre,
+            email: existing.email,
+            paseLibreDesde: existing.paseLibreDesde,
+            paseLibreHasta: existing.paseLibreHasta,
+            membresiaDesde: existing.membresiaDesde,
+            membresiaHasta: existing.membresiaHasta,
+            fotoPerfil: existing.fotoPerfil,
+            qrIngresoUrl: existing.qrIngresoUrl || null,
+            token: generateToken(existing._id, req.gymId, existing.roles, existing.email, existing.nombre),
+        });
+    }
+
+    if (byEmail) {
         res.status(400);
         throw new Error('Ya existe un usuario con este email.');
     }
-
-    const dniExists = await User.findOne({ dni });
-    if (dniExists) {
+    if (byDni) {
         res.status(400);
         throw new Error('Ya existe un usuario con este DNI.');
     }
@@ -77,7 +170,7 @@ const registerUser = asyncHandler(async (req, res) => {
         apellido, 
         email: normalizedEmail, 
         contraseña, 
-        dni, 
+        dni: dniNorm || String(dni).trim(), 
         fechaNacimiento: new Date(fechaNacimiento), 
         telefonoEmergencia, 
         direccion: direccion || '', 
@@ -87,7 +180,8 @@ const registerUser = asyncHandler(async (req, res) => {
         sexo: sexo || 'Otro' ,
         pushToken: pushToken || null,
         todasLasSucursales: todasLasSucursales !== undefined ? todasLasSucursales : true,
-        sucursales: sucursales || []
+        sucursales: sucursales || [],
+        isTrialOnly: false,
     };
     
     const user = new User(userData);
@@ -95,24 +189,7 @@ const registerUser = asyncHandler(async (req, res) => {
     let courtesyNotificationData = null;
 
     if (user.roles.includes('cliente')) {
-        try {
-            const settings = await Settings.findById('main_settings');
-            
-            if (settings && settings.courtesyCredit?.isActive && settings.courtesyCredit.tipoClase) {
-                
-                const creditTypeId = settings.courtesyCredit.tipoClase.toString();
-                const amountToGive = settings.courtesyCredit.amount || 1;
-
-                user.creditosPorTipo.set(creditTypeId, amountToGive);
-                
-                courtesyNotificationData = {
-                    amount: amountToGive,
-                    creditTypeId: creditTypeId
-                };
-            }
-        } catch (error) {
-            console.error("Error asignando crédito de cortesía (no crítico):", error);
-        }
+        courtesyNotificationData = await applyCourtesyCredit(user, Settings);
     }
 
     await user.save();
@@ -176,7 +253,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
     if (user && (await user.matchPassword(contraseña))) {
-        
+        if (isTrialOnlyUser(user)) {
+            res.status(403);
+            throw new Error('Usaste una clase de prueba. Registrate en la app con el mismo email para crear tu cuenta.');
+        }
+
         if (user.isActive === false) {
             res.status(403);
             throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al administrador.');

@@ -178,6 +178,11 @@ const userSchema = mongoose.Schema({
         type: Date,
         default: null,
     },
+    /** Trial guests are not real clients until they register in the app. */
+    isTrialOnly: {
+        type: Boolean,
+        default: false,
+    },
 lastLogin: {
         type: Date,
         default: null
