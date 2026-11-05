@@ -274,7 +274,7 @@ const getClassById = asyncHandler(async (req, res) => {
     const { Clase } = getModels(req.gymDBConnection);
     const classItem = await Clase.findById(req.params.id)
         .populate('tipoClase', 'nombre')
-        .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial')
+        .populate('usuariosInscritos', 'nombre apellido dni fechaNacimiento sexo numeroTelefono telefonoEmergencia obraSocial trialEnrollmentUsedAt')
         .populate('profesores', 'nombre apellido')
         .populate('profesor', 'nombre apellido')
         .populate('sucursal', 'nombre direccion');
@@ -1545,7 +1545,7 @@ const getClassStudents = asyncHandler(async (req, res) => {
     const classItem = await Clase.findById(classId)
         .populate({
             path: 'usuariosInscritos',
-            select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocial ordenMedicaRequerida ordenMedicaEntregada ordenMedicaUrl fotoPerfil', 
+            select: 'nombre apellido dni email numeroTelefono fechaNacimiento telefonoEmergencia obraSocial ordenMedicaRequerida ordenMedicaEntregada ordenMedicaUrl fotoPerfil trialEnrollmentUsedAt',
         })
         .select('profesores profesor usuariosInscritos'); 
 
