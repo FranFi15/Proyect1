@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 import { sendSingleNotification } from './notificationController.js'; 
 import moment from 'moment-timezone'; 
 import { ensureDefaultSucursal } from './sucursalController.js';
-import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate } from '../utils/paseLibreUtils.js';
+import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate, formatPaseEvalDebug } from '../utils/paseLibreUtils.js';
 
 const mapDayToRRule = (day) => {
     const map = {
@@ -574,18 +574,30 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
     let fechaVencimientoCapturada = null;
 
     const hoy = new Date();
-    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha);
+    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha, tz);
     const tienePaseLibreValidoParaEsteTurno = paseEval.valid;
+    if (!tienePaseLibreValidoParaEsteTurno) {
+        console.warn('[enroll] Acceso Libre no cubre el turno:', {
+            userId: String(user._id),
+            classId: String(classItem._id),
+            classFecha: classItem.fecha,
+            paseLibreDesde: user.paseLibreDesde,
+            paseLibreHasta: user.paseLibreHasta,
+            paseEval,
+        });
+    }
 
     const tipoClaseId = classItem.tipoClase._id.toString();
 
     if (!tienePaseLibreValidoParaEsteTurno) {
-        let creditosEspecificos = user.creditosPorTipo.get(tipoClaseId) || 0;
+        let creditosEspecificos = user.creditosPorTipo?.get
+            ? (user.creditosPorTipo.get(tipoClaseId) || 0)
+            : 0;
 
         if (creditosEspecificos > 0) {
             user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
 
-            const indicesVto = user.vencimientosDetallados
+            const indicesVto = (user.vencimientosDetallados || [])
                 .map((v, i) => v.tipoClaseId.toString() === tipoClaseId ? i : -1)
                 .filter(i => i !== -1)
                 .sort((a, b) => user.vencimientosDetallados[a].fechaVencimiento - user.vencimientosDetallados[b].fechaVencimiento);
@@ -603,10 +615,10 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
             const universalType = await TipoClase.findOne({ esUniversal: true });
             if (universalType) {
                 const uId = universalType._id.toString();
-                const uCreds = user.creditosPorTipo.get(uId) || 0;
+                const uCreds = user.creditosPorTipo?.get ? (user.creditosPorTipo.get(uId) || 0) : 0;
                 if (uCreds > 0) {
                     user.creditosPorTipo.set(uId, uCreds - 1);
-                     const indicesVtoUni = user.vencimientosDetallados
+                     const indicesVtoUni = (user.vencimientosDetallados || [])
                         .map((v, i) => v.tipoClaseId.toString() === uId ? i : -1)
                         .filter(i => i !== -1)
                         .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
@@ -623,22 +635,23 @@ const enrollUserInClass = asyncHandler(async (req, res) => {
         }
 
         if (!tipoCreditoADescontar) {
+            const debug = formatPaseEvalDebug(paseEval, classItem.fecha);
             if (paseEval.reason === 'after_end' && user.paseLibreHasta) {
                 res.status(400);
                 const fechaVencimiento = format(new Date(user.paseLibreHasta), 'dd/MM/yyyy');
-                throw new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+                throw new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles. (${debug})`);
             }
             if (paseEval.reason === 'before_start' && user.paseLibreDesde) {
                 res.status(400);
                 const fechaInicio = format(new Date(user.paseLibreDesde), 'dd/MM/yyyy');
-                throw new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles.`);
+                throw new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles. (${debug})`);
             }
             if (user.membresiaHasta && new Date(user.membresiaHasta) >= hoy) {
                 res.status(400);
                 throw new Error(`No tienes créditos disponibles para "${classItem.tipoClase.nombre}". (Tu Membresía solo es válida para ingresar al gimnasio sin turno mediante código QR).`);
             }
             res.status(400);
-            throw new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
+            throw new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}". (${debug})`);
         }
     }
 

@@ -2,7 +2,7 @@ import asyncHandler from 'express-async-handler';
 import getModels from '../utils/getModels.js';
 import moment from 'moment-timezone';
 import { format } from 'date-fns';
-import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate } from '../utils/paseLibreUtils.js';
+import { evaluatePaseLibreForClassDate, hasValidPaseLibreForDate, formatPaseEvalDebug } from '../utils/paseLibreUtils.js';
 
 const getGymTodayRange = (tz) => {
     const timeZone = tz || 'America/Argentina/Buenos_Aires';
@@ -109,7 +109,8 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
     let tipoCreditoADescontar = null;
     let fechaVencimientoCapturada = null;
 
-    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha);
+    const gymTz = 'America/Argentina/Buenos_Aires';
+    const paseEval = evaluatePaseLibreForClassDate(user, classItem.fecha, gymTz);
     const tienePaseLibreValidoParaEsteTurno = paseEval.valid;
     const tipoClaseId = classItem.tipoClase._id.toString();
 
@@ -124,7 +125,7 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
         if (creditosEspecificos > 0) {
             user.creditosPorTipo.set(tipoClaseId, creditosEspecificos - 1);
 
-            const indicesVto = user.vencimientosDetallados
+            const indicesVto = (user.vencimientosDetallados || [])
                 .map((v, i) => v.tipoClaseId.toString() === tipoClaseId ? i : -1)
                 .filter(i => i !== -1)
                 .sort((a, b) => user.vencimientosDetallados[a].fechaVencimiento - user.vencimientosDetallados[b].fechaVencimiento);
@@ -145,7 +146,7 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
                 const uCreds = user.creditosPorTipo?.get ? (user.creditosPorTipo.get(uId) || 0) : 0;
                 if (uCreds > 0) {
                     user.creditosPorTipo.set(uId, uCreds - 1);
-                    const indicesVtoUni = user.vencimientosDetallados
+                    const indicesVtoUni = (user.vencimientosDetallados || [])
                         .map((v, i) => v.tipoClaseId.toString() === uId ? i : -1)
                         .filter(i => i !== -1)
                         .sort((a, b) => new Date(user.vencimientosDetallados[a].fechaVencimiento) - new Date(user.vencimientosDetallados[b].fechaVencimiento));
@@ -163,15 +164,16 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
 
         if (!tipoCreditoADescontar) {
             const hoy = new Date();
+            const debug = formatPaseEvalDebug(paseEval, classItem.fecha);
             if (paseEval.reason === 'after_end' && user.paseLibreHasta) {
                 const fechaVencimiento = format(new Date(user.paseLibreHasta), 'dd/MM/yyyy');
-                const err = new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles.`);
+                const err = new Error(`Tu Acceso Libre vence el ${fechaVencimiento} y este turno es posterior. Tampoco tienes créditos disponibles. (${debug})`);
                 err.statusCode = 400;
                 throw err;
             }
             if (paseEval.reason === 'before_start' && user.paseLibreDesde) {
                 const fechaInicio = format(new Date(user.paseLibreDesde), 'dd/MM/yyyy');
-                const err = new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles.`);
+                const err = new Error(`Tu Acceso Libre empieza el ${fechaInicio}. Este turno es anterior. Tampoco tienes créditos disponibles. (${debug})`);
                 err.statusCode = 400;
                 throw err;
             }
@@ -180,7 +182,7 @@ const applyEnrollmentToClass = async ({ user, classItem, TipoClase }) => {
                 err.statusCode = 400;
                 throw err;
             }
-            const err = new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}".`);
+            const err = new Error(`No tienes un Acceso Libre activo ni créditos disponibles para "${classItem.tipoClase.nombre}". (${debug})`);
             err.statusCode = 400;
             throw err;
         }
