@@ -36,6 +36,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
         email: user.email,
         roles: user.roles,
         creditosPorTipo: Object.fromEntries(user.creditosPorTipo || new Map()),
+        vencimientosDetallados: user.vencimientosDetallados || [],
         clasesInscritas: user.clasesInscritas,
         balance: user.balance,
         telefonoEmergencia: user.telefonoEmergencia,
@@ -409,15 +410,22 @@ const updateUserPlan = asyncHandler(async (req, res) => {
         user.creditosPorTipo.set(tipoClaseId, newTotal);
 
         if (creditsToAddNum > 0) {
-            const fechaVto = new Date();
-            fechaVto.setDate(fechaVto.getDate() + 30); 
+            // Manual add: follow tipo resetMensual (30 days) or no expiry batch tracking.
+            if (tipoClase.resetMensual) {
+                const fechaVto = new Date();
+                fechaVto.setDate(fechaVto.getDate() + 30);
+                fechaVto.setUTCHours(23, 59, 59, 999);
 
-            user.vencimientosDetallados.push({
-                tipoClaseId: tipoClaseId,
-                cantidad: creditsToAddNum,
-                fechaVencimiento: fechaVto,
-                idCarga: new mongoose.Types.ObjectId().toString()
-            });
+                if (!Array.isArray(user.vencimientosDetallados)) {
+                    user.vencimientosDetallados = [];
+                }
+                user.vencimientosDetallados.push({
+                    tipoClaseId: tipoClaseId,
+                    cantidad: creditsToAddNum,
+                    fechaVencimiento: fechaVto,
+                    idCarga: new mongoose.Types.ObjectId().toString()
+                });
+            }
         } else if (creditsToAddNum < 0) {
             // --- SOLUCIÓN: Lógica para RESTAR de los vencimientos detallados ---
             let creditsToRemove = Math.abs(creditsToAddNum);
@@ -1178,6 +1186,103 @@ const uploadQrIngresoAdmin = asyncHandler(async (req, res) => {
     });
 });
 
+const postponeUserVencimientos = asyncHandler(async (req, res) => {
+    const { User, Notification, TipoClase } = getModels(req.gymDBConnection);
+    const userId = req.params.id;
+    const { days, target } = req.body || {};
+
+    const daysNum = Number(days);
+    if (!Number.isFinite(daysNum) || daysNum === 0) {
+        res.status(400);
+        throw new Error('Indicá cuántos días posponer (número distinto de 0).');
+    }
+
+    const targetType = target?.type;
+    if (!['credit_batch', 'pase', 'membresia'].includes(targetType)) {
+        res.status(400);
+        throw new Error('Elegí qué vencimiento posponer (crédito, acceso libre o membresía).');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    const ms = daysNum * 24 * 60 * 60 * 1000;
+    let label = '';
+    let newDate = null;
+
+    if (targetType === 'credit_batch') {
+        const batchId = target.batchId ? String(target.batchId) : '';
+        if (!batchId) {
+            res.status(400);
+            throw new Error('Elegí el lote de créditos a posponer.');
+        }
+        const batch = (user.vencimientosDetallados || []).find((b) =>
+            b?._id?.toString() === batchId || String(b?.idCarga || '') === batchId
+        );
+        if (!batch || !batch.fechaVencimiento) {
+            res.status(404);
+            throw new Error('No se encontró ese lote de créditos con vencimiento.');
+        }
+        batch.fechaVencimiento = new Date(new Date(batch.fechaVencimiento).getTime() + ms);
+        user.markModified('vencimientosDetallados');
+        newDate = batch.fechaVencimiento;
+
+        let tipoName = 'créditos';
+        try {
+            const tipo = await TipoClase.findById(batch.tipoClaseId).select('nombre');
+            if (tipo?.nombre) tipoName = tipo.nombre;
+        } catch (_) { /* ignore */ }
+        label = `lote de ${tipoName} (${batch.cantidad || 0})`;
+    } else if (targetType === 'pase') {
+        if (!user.paseLibreHasta) {
+            res.status(400);
+            throw new Error('El socio no tiene acceso libre con vencimiento.');
+        }
+        user.paseLibreHasta = new Date(new Date(user.paseLibreHasta).getTime() + ms);
+        newDate = user.paseLibreHasta;
+        label = 'acceso libre';
+    } else if (targetType === 'membresia') {
+        if (!user.membresiaHasta) {
+            res.status(400);
+            throw new Error('El socio no tiene membresía con vencimiento.');
+        }
+        user.membresiaHasta = new Date(new Date(user.membresiaHasta).getTime() + ms);
+        newDate = user.membresiaHasta;
+        label = 'membresía';
+    }
+
+    await user.save();
+
+    const direction = daysNum > 0
+        ? `pospuso ${daysNum} día(s)`
+        : `adelantó ${Math.abs(daysNum)} día(s)`;
+    const formatted = newDate ? format(newDate, 'dd/MM/yyyy') : '';
+
+    try {
+        await sendSingleNotification(
+            Notification,
+            User,
+            userId,
+            'Vencimiento actualizado',
+            `El administrador ${direction} el vencimiento de ${label}${formatted ? ` (nuevo: ${formatted})` : ''}.`,
+            'credit_update',
+            false
+        );
+    } catch (e) {
+        console.error('No se pudo notificar el aplazamiento de vencimientos:', e.message);
+    }
+
+    res.json({
+        message: `Listo: se ${direction} ${label}${formatted ? `. Nueva fecha: ${formatted}` : '.'}`,
+        vencimientosDetallados: user.vencimientosDetallados || [],
+        paseLibreHasta: user.paseLibreHasta || null,
+        membresiaHasta: user.membresiaHasta || null,
+    });
+});
+
 export {
     getAllUsers,
     getUserById,
@@ -1211,4 +1316,5 @@ export {
     uploadFotoPerfil,
     uploadQrIngresoAdmin,
     updateUserAssignedDiscount,
+    postponeUserVencimientos,
 };

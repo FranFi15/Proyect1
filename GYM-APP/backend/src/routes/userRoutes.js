@@ -34,6 +34,7 @@ import {
     uploadFotoPerfil,
     uploadQrIngresoAdmin,
     updateUserAssignedDiscount,
+    postponeUserVencimientos,
 } from '../controllers/userController.js'; 
 import { upload } from '../utils/cloudinary.js';
 
@@ -71,6 +72,9 @@ router.route('/:id')
 
 router.route('/:id/plan')
     .put(protect, authorizeRoles('admin'), updateUserPlan);
+
+router.route('/:id/postpone-vencimientos')
+    .put(protect, authorizeRoles('admin'), postponeUserVencimientos);
 
 router.route('/:id/credits/clear')
     .put(protect, authorizeRoles('admin'), clearUserCredits);

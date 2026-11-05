@@ -12,22 +12,10 @@ const INTERNAL_ADMIN_API_KEY = process.env.INTERNAL_ADMIN_API_KEY;
 
 const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
     try {
-        // 1. Agregamos TipoClase a los modelos
-        const { User, TipoClase } = getModels(gymDBConnection);
+        const { User } = getModels(gymDBConnection);
         const hoy = new Date();
 
-        // 2. BUSCAMOS QUÉ TIPOS DE CLASE TIENEN EL RESET ACTIVADO
-        // Solo nos interesan los IDs de los que tienen resetMensual: true
-        const tiposConReset = await TipoClase.find({ resetMensual: true }).select('_id');
-        
-        // Creamos un Set para búsqueda rápida (O(1))
-        const idsPermitidosParaBorrar = new Set(tiposConReset.map(t => t._id.toString()));
-
-        // Si no hay ningún tipo de clase con reset activado, no tiene sentido buscar usuarios
-        if (idsPermitidosParaBorrar.size === 0) {
-            return; 
-        }
-
+        // Expire any credit batch whose fechaVencimiento has passed (package-defined or monthly).
         const usersToUpdate = await User.find({
             "vencimientosDetallados.fechaVencimiento": { $lte: hoy }
         });
@@ -35,14 +23,9 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
         for (const user of usersToUpdate) {
             let modificado = false;
 
-            // 3. MODIFICADO: El filtro ahora tiene DOBLE CONDICIÓN
-            const vencidos = user.vencimientosDetallados.filter(v => {
-                const estaVencido = v.fechaVencimiento <= hoy;
-                const permiteReset = idsPermitidosParaBorrar.has(v.tipoClaseId.toString());
-                
-                // Solo devuelve true si venció Y el tipo de clase permite el borrado
-                return estaVencido && permiteReset;
-            });
+            const vencidos = (user.vencimientosDetallados || []).filter(v =>
+                v.fechaVencimiento && new Date(v.fechaVencimiento) <= hoy
+            );
             
             if (vencidos.length > 0) {
                 vencidos.forEach(v => {
@@ -53,21 +36,16 @@ const resetCreditsForCurrentGym = async (gymDBConnection, clientId) => {
                     user.creditosPorTipo.set(idTipo, nuevoTotal);
                 });
 
-                // 4. Limpiar el array: Mantenemos los que NO vencieron O los que NO tienen reset activado
-                user.vencimientosDetallados = user.vencimientosDetallados.filter(v => {
-                    const estaVencido = v.fechaVencimiento <= hoy;
-                    const permiteReset = idsPermitidosParaBorrar.has(v.tipoClaseId.toString());
-                    
-                    // Si está vencido Y permite reset, LO SACAMOS (return false)
-                    // En cualquier otro caso, LO DEJAMOS (return true)
-                    return !(estaVencido && permiteReset);
-                });
+                user.vencimientosDetallados = user.vencimientosDetallados.filter(v =>
+                    !(v.fechaVencimiento && new Date(v.fechaVencimiento) <= hoy)
+                );
 
                 modificado = true;
             }
 
             if (modificado) {
                 user.markModified('creditosPorTipo');
+                user.markModified('vencimientosDetallados');
                 await user.save();
             }
         }

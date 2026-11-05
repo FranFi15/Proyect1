@@ -43,18 +43,28 @@ const grantPackageBenefits = async (user, pkg, ticketId, CreditLog, quantity = 1
         const newTotal = currentCredits + creditsToAdd;
         user.creditosPorTipo.set(tipoClaseId, newTotal);
 
-        const fechaVto = new Date();
-        fechaVto.setDate(fechaVto.getDate() + 30);
+        // durationDays: 0 = sin vencimiento; null/undefined (legacy) = 30 días; N = N días.
+        const rawDays = pkg.durationDays;
+        const hasExplicitNoExpiry = rawDays === 0 || rawDays === '0';
+        const validityDays = hasExplicitNoExpiry
+            ? 0
+            : (rawDays == null || rawDays === '' ? 30 : Math.max(0, Number(rawDays) || 0));
 
-        if (!Array.isArray(user.vencimientosDetallados)) {
-            user.vencimientosDetallados = [];
+        if (validityDays > 0) {
+            const fechaVto = new Date();
+            fechaVto.setDate(fechaVto.getDate() + (validityDays * qty));
+            fechaVto.setUTCHours(23, 59, 59, 999);
+
+            if (!Array.isArray(user.vencimientosDetallados)) {
+                user.vencimientosDetallados = [];
+            }
+            user.vencimientosDetallados.push({
+                tipoClaseId,
+                cantidad: creditsToAdd,
+                fechaVencimiento: fechaVto,
+                idCarga: ticketId?.toString()
+            });
         }
-        user.vencimientosDetallados.push({
-            tipoClaseId,
-            cantidad: creditsToAdd,
-            fechaVencimiento: fechaVto,
-            idCarga: ticketId?.toString()
-        });
 
         if (CreditLog) {
             try {
@@ -71,7 +81,10 @@ const grantPackageBenefits = async (user, pkg, ticketId, CreditLog, quantity = 1
             }
         }
 
-        return `Se acreditaron ${creditsToAdd} créditos.`;
+        if (validityDays > 0) {
+            return `Se acreditaron ${creditsToAdd} créditos (vencen en ${validityDays * qty} días).`;
+        }
+        return `Se acreditaron ${creditsToAdd} créditos sin vencimiento.`;
     }
 
     return '';

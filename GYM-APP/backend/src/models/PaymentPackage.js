@@ -14,7 +14,12 @@ const paymentPackageSchema = new mongoose.Schema({
     isPaseLibre: { type: Boolean, default: false },
     // Si el paquete otorga Membresía (Solo acceso por QR):
     isMembresia: { type: Boolean, default: false },
-    durationDays: { type: Number, default: 30 }, // Ej: 30 días de pase libre o membresía
+    /**
+     * Days of validity from purchase.
+     * - Pase/membresía: access length (default 30).
+     * - Créditos: lote expiry. 0 = sin vencimiento. null/undefined on legacy packs → 30 days.
+     */
+    durationDays: { type: Number, default: 30 },
 
     /** Clients can enroll in Mercado Pago Suscripciones for this package. */
     allowAutoDebit: { type: Boolean, default: false },
