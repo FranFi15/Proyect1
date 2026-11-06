@@ -147,8 +147,13 @@ export const fulfillApprovedPayment = async ({
     }
     if (cashPaid < 0) cashPaid = 0;
 
-    if (!payLater && cashPaid > 0) {
-        user.balance += cashPaid;
+    // Record a payment row for cash collected OR fully discounted ($0) purchases,
+    // so historial/caja show original price + discount even when nothing was charged.
+    const shouldRecordPayment = !payLater && (cashPaid > 0 || (cart.length > 0 && discountAmount > 0));
+    if (shouldRecordPayment) {
+        if (cashPaid > 0) {
+            user.balance += cashPaid;
+        }
 
         const paymentOriginal = transactionMeta.originalAmount != null
             ? transactionMeta.originalAmount
@@ -160,10 +165,14 @@ export const fulfillApprovedPayment = async ({
             user: user._id,
             type: 'payment',
             amount: cashPaid,
-            description,
+            description: cashPaid > 0
+                ? description
+                : (description || `Compra gratuita (dto. $${Number(discountAmount).toFixed(2)})`),
             createdBy: actorId,
             receiptUrl: receiptUrl || undefined,
-            method: transactionMeta.method || 'efectivo',
+            method: cashPaid > 0
+                ? (transactionMeta.method || 'efectivo')
+                : (transactionMeta.method || 'manual'),
             source: transactionMeta.source || 'pack',
             originalAmount: paymentOriginal,
             discountAmount: discountAmount || 0,
@@ -186,17 +195,23 @@ export const fulfillApprovedPayment = async ({
         user.balance -= lineTotal;
 
         const packageId = itemPkg._id || itemPkg.id || null;
+        const chargeDesc = quantity > 1
+            ? (payLater
+                ? `Deuda por compra: ${itemPkg.name} x${quantity}`
+                : lineTotal <= 0
+                    ? `Cargo gratuito: ${itemPkg.name} x${quantity}`
+                    : `Cargo por compra: ${itemPkg.name} x${quantity}`)
+            : (payLater
+                ? `Deuda por compra de paquete: ${itemPkg.name}`
+                : lineTotal <= 0
+                    ? `Cargo gratuito: ${itemPkg.name}`
+                    : `Cargo por compra de paquete: ${itemPkg.name}`);
+
         await Transaction.create({
             user: user._id,
             type: 'charge',
             amount: lineTotal,
-            description: quantity > 1
-                ? (payLater
-                    ? `Deuda por compra: ${itemPkg.name} x${quantity}`
-                    : `Cargo por compra: ${itemPkg.name} x${quantity}`)
-                : (payLater
-                    ? `Deuda por compra de paquete: ${itemPkg.name}`
-                    : `Cargo por compra de paquete: ${itemPkg.name}`),
+            description: chargeDesc,
             createdBy: actorId,
             method: payLater
                 ? (transactionMeta.method || 'deuda')

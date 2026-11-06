@@ -119,6 +119,14 @@ const BalanceModal = ({ onClose }) => {
                     <Text style={styles.transactionDate}>
                         {format(new Date(item.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
                     </Text>
+                    {!isCharge && Number(item.discountAmount) > 0 && (
+                        <Text style={styles.transactionDate}>
+                            Descuento ${parseFloat(item.discountAmount).toFixed(2)}
+                            {Number(item.originalAmount) > 0
+                                ? ` (antes $${parseFloat(item.originalAmount).toFixed(2)})`
+                                : ''}
+                        </Text>
+                    )}
                     {!!item.receiptUrl && (
                         <TouchableOpacity
                             style={[styles.viewReceiptBtn, { backgroundColor: accent + '18' }]}
