@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 import getModels from '../utils/getModels.js';
 import { fulfillApprovedPayment, resolveTicketCart } from '../services/paymentFulfillment.js';
 import { enrollUserInFixedPlan } from '../services/fixedPlanEnrollment.js';
+import { decrementStoreItemStock, generateOrderCode } from '../services/storeFulfillment.js';
+import { sendSingleNotification } from './notificationController.js';
 
 const CURRENCY_BY_COUNTRY = {
     Argentina: 'ARS',
@@ -408,7 +410,10 @@ const getCajaDashboard = asyncHandler(async (req, res) => {
             originalAmount: p.originalAmount,
             discountAmount: p.discountAmount,
             discount: p.discountId,
-            clientName: p.user ? `${p.user.nombre || ''} ${p.user.apellido || ''}`.trim() : '—',
+            clientName: p.user
+                ? `${p.user.nombre || ''} ${p.user.apellido || ''}`.trim()
+                : (p.guestName ? `${p.guestName} (visitante)` : '—'),
+            guestName: p.guestName || '',
             userId: p.user?._id,
             receiptUrl: p.receiptUrl,
             sucursalId: p.sucursal?._id || p.sucursal || null,
@@ -1095,17 +1100,22 @@ const refundCajaPayment = asyncHandler(async (req, res) => {
         throw new Error('Este ingreso ya fue anulado.');
     }
 
-    const user = await User.findById(tx.user);
-    if (!user) {
-        res.status(404);
-        throw new Error('Cliente no encontrado.');
-    }
-
     // Store sales are logged in caja without touching client balance.
     const isStoreSale = tx.source === 'store' || !!tx.storeOrderId;
-    if (!isStoreSale) {
-        user.balance = (Number(user.balance) || 0) - (Number(tx.amount) || 0);
-        await user.save();
+    let user = null;
+    if (tx.user) {
+        user = await User.findById(tx.user);
+        if (!user && !isStoreSale) {
+            res.status(404);
+            throw new Error('Cliente no encontrado.');
+        }
+        if (user && !isStoreSale) {
+            user.balance = (Number(user.balance) || 0) - (Number(tx.amount) || 0);
+            await user.save();
+        }
+    } else if (!isStoreSale) {
+        res.status(400);
+        throw new Error('No se puede anular este ingreso sin cliente asociado.');
     }
 
     tx.voidedAt = new Date();
@@ -1115,10 +1125,182 @@ const refundCajaPayment = asyncHandler(async (req, res) => {
 
     res.json({
         message: isStoreSale
-            ? 'Ingreso de tienda anulado en caja. El pedido de tienda no se revierte automáticamente.'
+            ? 'Ingreso de tienda anulado en caja. El stock / pedido de tienda no se revierte automáticamente.'
             : 'Ingreso anulado. El saldo del cliente fue ajustado. Los beneficios del paquete no se revierten automáticamente.',
         transactionId: tx._id,
-        newBalance: user.balance,
+        newBalance: user ? user.balance : null,
+    });
+});
+
+/**
+ * In-person store sale from caja: catalog items (stock) and/or custom lines.
+ * Buyer can be a registered client OR a walk-in guest (guestName).
+ */
+const createCajaStoreSale = asyncHandler(async (req, res) => {
+    const { StoreItem, StoreOrder, Transaction, User, Notification } = getModels(req.gymDBConnection);
+    const {
+        userId,
+        guestName,
+        items = [],
+        customItems = [],
+        method = 'efectivo',
+        sucursalId,
+        description,
+    } = req.body;
+
+    const allowedMethods = ['efectivo', 'transfer', 'mercadopago', 'manual'];
+    if (!allowedMethods.includes(method)) {
+        res.status(400);
+        throw new Error('Método de pago inválido.');
+    }
+
+    const guest = String(guestName || '').trim();
+    let user = null;
+    if (userId) {
+        user = await User.findById(userId);
+        if (!user) {
+            res.status(404);
+            throw new Error('Cliente no encontrado.');
+        }
+    } else if (!guest) {
+        res.status(400);
+        throw new Error('Seleccioná un cliente o escribí el nombre del visitante.');
+    }
+
+    const catalogLines = [];
+    for (const raw of Array.isArray(items) ? items : []) {
+        const storeItemId = raw.storeItemId || raw.storeItem || raw._id;
+        if (!storeItemId) continue;
+        const quantity = Math.max(1, Number(raw.quantity) || 1);
+        const selectedOption = String(raw.selectedOption || '').trim();
+        const item = await StoreItem.findById(storeItemId);
+        if (!item || item.isActive === false) {
+            res.status(404);
+            throw new Error('Producto de tienda no encontrado o inactivo.');
+        }
+        catalogLines.push({
+            storeItem: item._id,
+            name: item.name,
+            price: Number(item.price) || 0,
+            quantity,
+            selectedOption,
+            itemDoc: item,
+        });
+    }
+
+    const customLines = [];
+    for (const raw of Array.isArray(customItems) ? customItems : []) {
+        const name = String(raw.name || '').trim();
+        const price = Math.max(0, Number(raw.price) || 0);
+        const quantity = Math.max(1, Number(raw.quantity) || 1);
+        if (!name || !(price > 0)) continue;
+        customLines.push({ name, price, quantity, selectedOption: '' });
+    }
+
+    if (catalogLines.length === 0 && customLines.length === 0) {
+        res.status(400);
+        throw new Error('Agregá al menos un producto de tienda o un ítem manual.');
+    }
+
+    for (const line of catalogLines) {
+        await decrementStoreItemStock(StoreItem, line);
+    }
+
+    const allLines = [
+        ...catalogLines.map(({ storeItem, name, price, quantity, selectedOption }) => ({
+            storeItem, name, price, quantity, selectedOption,
+        })),
+        ...customLines,
+    ];
+    const total = Math.round(
+        allLines.reduce((sum, l) => sum + Number(l.price) * Number(l.quantity), 0) * 100
+    ) / 100;
+    if (!(total > 0)) {
+        res.status(400);
+        throw new Error('El total de la venta debe ser mayor a 0.');
+    }
+
+    const itemNames = allLines.map((l) => {
+        const base = l.quantity > 1 ? `${l.name} x${l.quantity}` : l.name;
+        return l.selectedOption ? `${base} (${l.selectedOption})` : base;
+    }).join(', ');
+
+    const buyerLabel = user
+        ? `${user.nombre || ''} ${user.apellido || ''}`.trim()
+        : guest;
+    const orderCode = generateOrderCode();
+    let storeOrder = null;
+
+    if (user && catalogLines.length > 0) {
+        storeOrder = await StoreOrder.create({
+            user: user._id,
+            items: catalogLines.map((l) => ({
+                storeItem: l.storeItem,
+                name: l.name,
+                price: l.price,
+                quantity: l.quantity,
+                selectedOption: l.selectedOption || '',
+            })),
+            orderCode,
+            amountTransferred: total,
+            receiptUrl: '',
+            method: method === 'mercadopago'
+                ? 'mercadopago'
+                : (method === 'efectivo' ? 'efectivo' : (method === 'manual' ? 'manual' : 'transfer')),
+            status: 'delivered',
+            adminNotes: customLines.length
+                ? `Caja mostrador. Extra: ${customLines.map((c) => c.name).join(', ')}`
+                : 'Venta de tienda registrada en caja.',
+            reviewedBy: req.user._id,
+            reviewedAt: new Date(),
+            deliveredAt: new Date(),
+        });
+
+        if (Notification && User) {
+            try {
+                await sendSingleNotification(
+                    Notification,
+                    User,
+                    user._id,
+                    'Compra de tienda',
+                    `Compraste en el gimnasio (${orderCode}): ${itemNames}. Total $${total.toFixed(2)}.`,
+                    'store_order_paid',
+                    false
+                );
+            } catch (error) {
+                console.error('No se pudo notificar venta de tienda en caja:', error.message);
+            }
+        }
+    }
+
+    const desc = String(description || '').trim()
+        || `Tienda ${orderCode}: ${itemNames}${user ? '' : ` · Visitante: ${guest}`}`;
+
+    const tx = await Transaction.create({
+        user: user?._id || null,
+        guestName: user ? '' : guest,
+        type: 'payment',
+        amount: total,
+        description: desc,
+        createdBy: req.user._id,
+        method,
+        source: 'store',
+        storeOrderId: storeOrder?._id || null,
+        sucursal: parseObjectId(sucursalId),
+        originalAmount: total,
+        discountAmount: 0,
+    });
+
+    res.status(201).json({
+        message: user
+            ? `Venta de tienda registrada para ${buyerLabel}.`
+            : `Venta de tienda registrada (visitante: ${guest}).`,
+        amountPaid: total,
+        orderCode,
+        transactionId: tx._id,
+        storeOrderId: storeOrder?._id || null,
+        buyer: buyerLabel,
+        items: itemNames,
     });
 });
 
@@ -1385,6 +1567,7 @@ const getClientLastPurchase = asyncHandler(async (req, res) => {
 export {
     getCajaDashboard,
     createCajaSale,
+    createCajaStoreSale,
     listDiscounts,
     createDiscount,
     updateDiscount,

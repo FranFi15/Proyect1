@@ -2,6 +2,7 @@ import express from 'express';
 import {
     getCajaDashboard,
     createCajaSale,
+    createCajaStoreSale,
     listDiscounts,
     createDiscount,
     updateDiscount,
@@ -24,6 +25,7 @@ router.use(protect, authorizeRoles('admin'));
 
 router.get('/dashboard', getCajaDashboard);
 router.post('/sale', createCajaSale);
+router.post('/store-sale', createCajaStoreSale);
 router.post('/refunds', refundCajaPayment);
 router.get('/clients/:userId/last-purchase', getClientLastPurchase);
 

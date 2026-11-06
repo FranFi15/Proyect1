@@ -4,7 +4,14 @@ const transactionSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
+        required: false,
+        default: null,
+    },
+    /** Walk-in / non-client name for mostrador store sales. */
+    guestName: {
+        type: String,
+        default: '',
+        trim: true,
     },
     type: {
         type: String,

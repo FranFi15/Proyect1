@@ -75,9 +75,28 @@ const PACKAGE_TYPE_FILTERS = [
 
 const SALE_MODE_FILTERS = [
     { id: 'paquete', label: 'Paquete' },
+    { id: 'tienda', label: 'Tienda' },
     { id: 'abono', label: 'Abono / a favor' },
     { id: 'gasto', label: 'Gasto' },
 ];
+
+const normalizeStoreOptions = (item) => {
+    const raw = item?.options || [];
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw
+        .map((entry) => {
+            if (typeof entry === 'string') {
+                const name = entry.trim();
+                return name ? { name, amount: 0 } : null;
+            }
+            const name = String(entry?.name || '').trim();
+            if (!name) return null;
+            return { name, amount: Math.max(0, Number(entry?.amount) || 0) };
+        })
+        .filter(Boolean);
+};
+
+const storeCartKey = (itemId, option = '') => `${itemId}::${option || ''}`;
 
 const GASTO_CATEGORIES = [
     { id: 'alquiler', label: 'Alquiler' },
@@ -129,6 +148,7 @@ const CajaModal = ({
     const [submitting, setSubmitting] = useState(false);
     const [dashboard, setDashboard] = useState(null);
     const [packages, setPackages] = useState([]);
+    const [storeItems, setStoreItems] = useState([]);
     const [discounts, setDiscounts] = useState([]);
     const [alertInfo, setAlertInfo] = useState({ visible: false, title: '', message: '', buttons: [] });
 
@@ -138,7 +158,12 @@ const CajaModal = ({
     const [lastPurchase, setLastPurchase] = useState(null);
     const [lastPurchaseLoading, setLastPurchaseLoading] = useState(false);
     const [selectedPkgIds, setSelectedPkgIds] = useState({}); // id -> qty
-    const [saleMode, setSaleMode] = useState('paquete'); // paquete | abono
+    const [storeCart, setStoreCart] = useState({}); // key -> { item, selectedOption, quantity }
+    const [storeBuyerMode, setStoreBuyerMode] = useState('client'); // client | guest
+    const [guestName, setGuestName] = useState('');
+    const [customStoreName, setCustomStoreName] = useState('');
+    const [customStorePrice, setCustomStorePrice] = useState('');
+    const [saleMode, setSaleMode] = useState('paquete'); // paquete | tienda | abono | gasto
     const [packageTypeFilter, setPackageTypeFilter] = useState('credits'); // credits | pase | membresia
     const [creditTypeFilter, setCreditTypeFilter] = useState('all');
     const [freeAmount, setFreeAmount] = useState('');
@@ -304,9 +329,10 @@ const CajaModal = ({
         try {
             const params = { from: fromDate, to: toDate };
             if (sucursalFilter && sucursalFilter !== 'all') params.sucursal = sucursalFilter;
-            const [dashRes, pkgRes, discRes, cierreRes] = await Promise.all([
+            const [dashRes, pkgRes, storeRes, discRes, cierreRes] = await Promise.all([
                 apiClient.get('/caja/dashboard', { params }),
                 apiClient.get('/payments/packages'),
+                apiClient.get('/store/items').catch(() => ({ data: [] })),
                 apiClient.get('/caja/discounts?all=true'),
                 apiClient.get('/caja/cierres', {
                     params: sucursalFilter !== 'all' ? { sucursal: sucursalFilter } : {},
@@ -314,6 +340,7 @@ const CajaModal = ({
             ]);
             setDashboard(dashRes.data);
             setPackages(pkgRes.data || []);
+            setStoreItems(Array.isArray(storeRes.data) ? storeRes.data : []);
             setDiscounts(discRes.data || []);
             setCierreHistory(Array.isArray(cierreRes.data) ? cierreRes.data : []);
         } catch (error) {
@@ -478,6 +505,16 @@ const CajaModal = ({
         [cartItems]
     );
 
+    const storeCartItems = useMemo(() => Object.values(storeCart), [storeCart]);
+    const storeCatalogTotal = useMemo(
+        () => storeCartItems.reduce((s, e) => s + Number(e.item.price) * e.quantity, 0),
+        [storeCartItems]
+    );
+    const customStoreTotal = (Number(customStorePrice) > 0 && customStoreName.trim())
+        ? Number(customStorePrice)
+        : 0;
+    const storeSaleTotal = storeCatalogTotal + customStoreTotal;
+
     const activeDiscounts = useMemo(
         () => discounts.filter((d) => d.isActive),
         [discounts]
@@ -497,27 +534,85 @@ const CajaModal = ({
         setSaleMode(id);
         if (id === 'abono') {
             setSelectedPkgIds({});
+            setStoreCart({});
             setSelectedDiscountId(null);
             setAdhocPercent('');
             setGastoName('');
             setGastoAmount('');
             setUseCreditBalance(false);
+            setCustomStoreName('');
+            setCustomStorePrice('');
         } else if (id === 'gasto') {
             setSelectedClient(null);
             setLastPurchase(null);
             setSelectedPkgIds({});
+            setStoreCart({});
             setFreeAmount('');
             setFreePaymentName('');
             setSelectedDiscountId(null);
             setAdhocPercent('');
             setUseCreditBalance(false);
+            setGuestName('');
+            setCustomStoreName('');
+            setCustomStorePrice('');
+        } else if (id === 'tienda') {
+            setSelectedPkgIds({});
+            setSelectedDiscountId(null);
+            setAdhocPercent('');
+            setFreeAmount('');
+            setFreePaymentName('');
+            setGastoName('');
+            setGastoAmount('');
+            setUseCreditBalance(false);
+            setStoreBuyerMode('client');
         } else {
             setUseCreditBalance(false);
             setFreeAmount('');
             setFreePaymentName('');
             setGastoName('');
             setGastoAmount('');
+            setStoreCart({});
+            setGuestName('');
+            setCustomStoreName('');
+            setCustomStorePrice('');
         }
+    };
+
+    const addStoreItemToCart = (item, selectedOption = '') => {
+        const options = normalizeStoreOptions(item);
+        if (options.length > 0 && !selectedOption) {
+            showAlert('Elegí una opción', `“${item.name}” tiene variantes. Tocá una opción para sumarla.`);
+            return;
+        }
+        const key = storeCartKey(item._id, selectedOption);
+        const available = options.length > 0
+            ? (options.find((o) => o.name === selectedOption)?.amount || 0)
+            : Number(item.amount) || 0;
+        setStoreCart((prev) => {
+            const current = prev[key];
+            const nextQty = (current?.quantity || 0) + 1;
+            if (nextQty > available) {
+                showAlert('Sin stock', `Solo hay ${available} de “${item.name}${selectedOption ? ` (${selectedOption})` : ''}”.`);
+                return prev;
+            }
+            return {
+                ...prev,
+                [key]: { item, selectedOption, quantity: nextQty },
+            };
+        });
+    };
+
+    const setStoreCartQuantity = (key, quantity) => {
+        setStoreCart((prev) => {
+            const entry = prev[key];
+            if (!entry) return prev;
+            if (quantity <= 0) {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+            }
+            return { ...prev, [key]: { ...entry, quantity } };
+        });
     };
 
     const activeFilterConfig = useMemo(() => {
@@ -680,7 +775,9 @@ const CajaModal = ({
             ? (Number(freeAmount) || 0)
             : saleMode === 'gasto'
                 ? (Number(gastoAmount) || 0)
-                : packageDue - creditAppliedPreview + (Number(freeAmount) || 0)
+                : saleMode === 'tienda'
+                    ? storeSaleTotal
+                    : packageDue - creditAppliedPreview + (Number(freeAmount) || 0)
     );
 
     const togglePackage = (pkgId) => {
@@ -698,6 +795,11 @@ const CajaModal = ({
         setLastPurchase(null);
         setLastPurchaseLoading(false);
         setSelectedPkgIds({});
+        setStoreCart({});
+        setStoreBuyerMode('client');
+        setGuestName('');
+        setCustomStoreName('');
+        setCustomStorePrice('');
         setSaleMode('paquete');
         setPackageTypeFilter('credits');
         setCreditTypeFilter('all');
@@ -746,6 +848,55 @@ const CajaModal = ({
                 setTab('resumen');
             } catch (error) {
                 showAlert('Error', error.response?.data?.message || 'No se pudo guardar el gasto.');
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
+
+        if (saleMode === 'tienda') {
+            if (storeBuyerMode === 'client' && !selectedClient?._id) {
+                showAlert('Falta cliente', 'Seleccioná un cliente o cambiá a visitante.');
+                return;
+            }
+            if (storeBuyerMode === 'guest' && !guestName.trim()) {
+                showAlert('Falta nombre', 'Escribí el nombre del visitante.');
+                return;
+            }
+            if (storeCartItems.length === 0 && !(customStoreName.trim() && Number(customStorePrice) > 0)) {
+                showAlert('Falta producto', 'Elegí un producto de tienda o un ítem manual.');
+                return;
+            }
+            setSubmitting(true);
+            try {
+                const payload = {
+                    method,
+                    sucursalId: resolvedSaleSucursalId,
+                    items: storeCartItems.map((e) => ({
+                        storeItemId: e.item._id,
+                        quantity: e.quantity,
+                        selectedOption: e.selectedOption || '',
+                    })),
+                    customItems: (customStoreName.trim() && Number(customStorePrice) > 0)
+                        ? [{ name: customStoreName.trim(), price: Number(customStorePrice), quantity: 1 }]
+                        : [],
+                };
+                if (storeBuyerMode === 'client') payload.userId = selectedClient._id;
+                else payload.guestName = guestName.trim();
+
+                const res = await apiClient.post('/caja/store-sale', payload);
+                showAlert(
+                    'Venta de tienda OK',
+                    (res.data.message || 'Venta registrada.')
+                        + (res.data.orderCode ? `\nCódigo: ${res.data.orderCode}` : '')
+                        + `\nTotal: ${money(res.data.amountPaid)}`
+                );
+                resetSaleForm();
+                await loadAll();
+                onRefresh?.();
+                setTab('resumen');
+            } catch (error) {
+                showAlert('Error', error.response?.data?.message || 'No se pudo registrar la venta de tienda.');
             } finally {
                 setSubmitting(false);
             }
@@ -1588,102 +1739,156 @@ const CajaModal = ({
 
             {saleMode !== 'gasto' && (
                 <>
-                    <Text style={styles.sectionTitle}>Cliente</Text>
-                    {selectedClient ? (
-                        <View style={styles.selectedClient}>
-                            <Text style={styles.selectedClientName}>
-                                {selectedClient.nombre} {selectedClient.apellido}
-                            </Text>
-                            <Text style={styles.kpiHint}>
-                                {Number(selectedClient.balance) < 0
-                                    ? `Debe: ${money(Math.abs(selectedClient.balance))}`
-                                    : Number(selectedClient.balance) > 0
-                                        ? `A favor: ${money(selectedClient.balance)}`
-                                        : 'Saldo: al día'}
-                            </Text>
-                            {lastPurchaseLoading ? (
-                                <Text style={styles.kpiHint}>Cargando última compra...</Text>
-                            ) : lastPurchase?.description || (lastPurchase?.items || []).length > 0 ? (
-                                <View style={{ marginTop: 6 }}>
-                                    <Text style={[styles.kpiHint, { fontWeight: '700', color: colors.text }]}>
-                                        Última compra
-                                    </Text>
-                                    <Text style={styles.kpiHint} numberOfLines={2}>
-                                        {(lastPurchase.items || []).length > 0
-                                            ? lastPurchase.items
-                                                .map((i) => (i.quantity > 1 ? `${i.name} x${i.quantity}` : i.name))
-                                                .join(', ')
-                                            : (lastPurchase.description || 'Sin descripción')}
-                                    </Text>
-                                    <Text style={styles.kpiHint}>
-                                        {lastPurchase.date
-                                            ? format(new Date(lastPurchase.date), "d MMM yyyy · HH:mm", { locale: es })
-                                            : '—'}
-                                        {lastPurchase.amount != null ? ` · ${money(lastPurchase.amount)}` : ''}
-                                        {lastPurchase.method
-                                            ? ` · ${METHOD_LABELS[lastPurchase.method] || lastPurchase.method}`
-                                            : ''}
-                                    </Text>
-                                    {lastPurchase.canRepeat ? (
-                                        <TouchableOpacity
-                                            style={[styles.secondaryBtn, { marginTop: 8, borderColor: accent }]}
-                                            onPress={repeatLastPurchase}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Text style={{ color: accent, fontWeight: '800', fontSize: 14 }}>
-                                                Repetir compra
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <Text style={[styles.kpiHint, { marginTop: 6, color: '#e67e22' }]}>
-                                            No se puede repetir: el paquete ya no existe o está inactivo.
-                                        </Text>
-                                    )}
-                                </View>
-                            ) : (
-                                <Text style={styles.kpiHint}>Sin compras anteriores</Text>
-                            )}
-                            <TouchableOpacity onPress={() => {
-                                setSelectedClient(null);
-                                setLastPurchase(null);
-                                setUseCreditBalance(false);
-                            }}>
-                                <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
+                    {saleMode === 'tienda' && (
                         <>
+                            <Text style={styles.sectionTitle}>¿Quién compra?</Text>
+                            <View style={styles.rowWrap}>
+                                {[
+                                    { id: 'client', label: 'Cliente' },
+                                    { id: 'guest', label: 'Visitante' },
+                                ].map((m) => (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        style={[
+                                            styles.filterPill,
+                                            storeBuyerMode === m.id && { backgroundColor: accent, borderColor: accent },
+                                        ]}
+                                        onPress={() => {
+                                            setStoreBuyerMode(m.id);
+                                            if (m.id === 'guest') {
+                                                setSelectedClient(null);
+                                                setLastPurchase(null);
+                                            } else {
+                                                setGuestName('');
+                                            }
+                                        }}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text style={[
+                                            styles.filterPillText,
+                                            storeBuyerMode === m.id && { color: '#fff' },
+                                        ]}>
+                                            {m.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </>
+                    )}
+
+                    {saleMode === 'tienda' && storeBuyerMode === 'guest' ? (
+                        <>
+                            <Text style={styles.sectionTitle}>Nombre del visitante</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Escribí nombre, DNI o email..."
+                                placeholder="Ej: Juan Pérez (mostrador)"
                                 placeholderTextColor={colors.icon}
-                                value={clientQuery}
-                                onChangeText={setClientQuery}
+                                value={guestName}
+                                onChangeText={setGuestName}
                             />
-                            <Text style={styles.kpiHint}>
-                                {clientQuery.trim()
-                                    ? `${filteredClients.length} resultado(s)`
-                                    : 'Empezá a escribir para buscar un cliente'}
-                            </Text>
-                            {filteredClients.map((c) => (
-                                <TouchableOpacity
-                                    key={c._id}
-                                    style={styles.listItem}
-                                    onPress={() => {
-                                        setSelectedClient(c);
-                                        setUseCreditBalance(false);
-                                        setClientQuery('');
-                                        loadLastPurchase(c._id);
-                                    }}
-                                >
-                                    <Text style={styles.listItemTitle}>
-                                        {c.nombre} {c.apellido}
+                        </>
+                    ) : (
+                        <>
+                            <Text style={styles.sectionTitle}>Cliente</Text>
+                            {selectedClient ? (
+                                <View style={styles.selectedClient}>
+                                    <Text style={styles.selectedClientName}>
+                                        {selectedClient.nombre} {selectedClient.apellido}
                                     </Text>
-                                    <Text style={styles.kpiHint}>{c.dni || c.email}</Text>
-                                </TouchableOpacity>
-                            ))}
-                            {clientQuery.trim() && filteredClients.length === 0 && (
-                                <Text style={styles.empty}>Ningún cliente coincide con la búsqueda.</Text>
+                                    <Text style={styles.kpiHint}>
+                                        {Number(selectedClient.balance) < 0
+                                            ? `Debe: ${money(Math.abs(selectedClient.balance))}`
+                                            : Number(selectedClient.balance) > 0
+                                                ? `A favor: ${money(selectedClient.balance)}`
+                                                : 'Saldo: al día'}
+                                    </Text>
+                                    {saleMode === 'paquete' && (
+                                        lastPurchaseLoading ? (
+                                            <Text style={styles.kpiHint}>Cargando última compra...</Text>
+                                        ) : lastPurchase?.description || (lastPurchase?.items || []).length > 0 ? (
+                                            <View style={{ marginTop: 6 }}>
+                                                <Text style={[styles.kpiHint, { fontWeight: '700', color: colors.text }]}>
+                                                    Última compra
+                                                </Text>
+                                                <Text style={styles.kpiHint} numberOfLines={2}>
+                                                    {(lastPurchase.items || []).length > 0
+                                                        ? lastPurchase.items
+                                                            .map((i) => (i.quantity > 1 ? `${i.name} x${i.quantity}` : i.name))
+                                                            .join(', ')
+                                                        : (lastPurchase.description || 'Sin descripción')}
+                                                </Text>
+                                                <Text style={styles.kpiHint}>
+                                                    {lastPurchase.date
+                                                        ? format(new Date(lastPurchase.date), "d MMM yyyy · HH:mm", { locale: es })
+                                                        : '—'}
+                                                    {lastPurchase.amount != null ? ` · ${money(lastPurchase.amount)}` : ''}
+                                                    {lastPurchase.method
+                                                        ? ` · ${METHOD_LABELS[lastPurchase.method] || lastPurchase.method}`
+                                                        : ''}
+                                                </Text>
+                                                {lastPurchase.canRepeat ? (
+                                                    <TouchableOpacity
+                                                        style={[styles.secondaryBtn, { marginTop: 8, borderColor: accent }]}
+                                                        onPress={repeatLastPurchase}
+                                                        activeOpacity={0.85}
+                                                    >
+                                                        <Text style={{ color: accent, fontWeight: '800', fontSize: 14 }}>
+                                                            Repetir compra
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    <Text style={[styles.kpiHint, { marginTop: 6, color: '#e67e22' }]}>
+                                                        No se puede repetir: el paquete ya no existe o está inactivo.
+                                                    </Text>
+                                                )}
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.kpiHint}>Sin compras anteriores</Text>
+                                        )
+                                    )}
+                                    <TouchableOpacity onPress={() => {
+                                        setSelectedClient(null);
+                                        setLastPurchase(null);
+                                        setUseCreditBalance(false);
+                                    }}>
+                                        <Text style={{ color: accent, fontWeight: '700' }}>Cambiar</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Escribí nombre, DNI o email..."
+                                        placeholderTextColor={colors.icon}
+                                        value={clientQuery}
+                                        onChangeText={setClientQuery}
+                                    />
+                                    <Text style={styles.kpiHint}>
+                                        {clientQuery.trim()
+                                            ? `${filteredClients.length} resultado(s)`
+                                            : 'Empezá a escribir para buscar un cliente'}
+                                    </Text>
+                                    {filteredClients.map((c) => (
+                                        <TouchableOpacity
+                                            key={c._id}
+                                            style={styles.listItem}
+                                            onPress={() => {
+                                                setSelectedClient(c);
+                                                setUseCreditBalance(false);
+                                                setClientQuery('');
+                                                if (saleMode === 'paquete') loadLastPurchase(c._id);
+                                            }}
+                                        >
+                                            <Text style={styles.listItemTitle}>
+                                                {c.nombre} {c.apellido}
+                                            </Text>
+                                            <Text style={styles.kpiHint}>{c.dni || c.email}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    {clientQuery.trim() && filteredClients.length === 0 && (
+                                        <Text style={styles.empty}>Ningún cliente coincide con la búsqueda.</Text>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
@@ -1821,6 +2026,127 @@ const CajaModal = ({
                         onChangeText={setFreeAmount}
                     />
                 </>
+            ) : saleMode === 'tienda' ? (
+                <>
+                    <Text style={styles.sectionTitle}>Productos de tienda</Text>
+                    {storeItems.length === 0 ? (
+                        <Text style={styles.empty}>No hay productos activos en la tienda.</Text>
+                    ) : (
+                        storeItems.map((item) => {
+                            const options = normalizeStoreOptions(item);
+                            const stockLabel = options.length > 0
+                                ? options.map((o) => `${o.name}: ${o.amount}`).join(' · ')
+                                : `Stock ${item.amount ?? 0}`;
+                            return (
+                                <View key={item._id} style={styles.listItem}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.listItemTitle}>{item.name}</Text>
+                                        <Text style={styles.kpiHint}>{money(item.price)} · {stockLabel}</Text>
+                                        {options.length > 0 ? (
+                                            <View style={[styles.rowWrap, { marginTop: 8 }]}>
+                                                {options.map((opt) => (
+                                                    <TouchableOpacity
+                                                        key={opt.name}
+                                                        style={[
+                                                            styles.filterPill,
+                                                            opt.amount <= 0 && { opacity: 0.4 },
+                                                            !!storeCart[storeCartKey(item._id, opt.name)] && {
+                                                                backgroundColor: accent,
+                                                                borderColor: accent,
+                                                            },
+                                                        ]}
+                                                        disabled={opt.amount <= 0}
+                                                        onPress={() => addStoreItemToCart(item, opt.name)}
+                                                        activeOpacity={0.85}
+                                                    >
+                                                        <Text style={[
+                                                            styles.filterPillText,
+                                                            !!storeCart[storeCartKey(item._id, opt.name)] && { color: '#fff' },
+                                                        ]}>
+                                                            {opt.name}
+                                                            {storeCart[storeCartKey(item._id, opt.name)]
+                                                                ? ` ×${storeCart[storeCartKey(item._id, opt.name)].quantity}`
+                                                                : ''}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={[styles.secondaryBtn, { marginTop: 8, borderColor: accent }]}
+                                                onPress={() => addStoreItemToCart(item)}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Text style={{ color: accent, fontWeight: '800', fontSize: 14 }}>
+                                                    {storeCart[storeCartKey(item._id)]
+                                                        ? `En carrito ×${storeCart[storeCartKey(item._id)].quantity} (+1)`
+                                                        : 'Agregar'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+                            );
+                        })
+                    )}
+
+                    {storeCartItems.length > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>Carrito</Text>
+                            {storeCartItems.map((entry) => {
+                                const key = storeCartKey(entry.item._id, entry.selectedOption);
+                                return (
+                                    <View key={key} style={styles.listItem}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.listItemTitle}>
+                                                {entry.item.name}
+                                                {entry.selectedOption ? ` (${entry.selectedOption})` : ''}
+                                            </Text>
+                                            <Text style={styles.kpiHint}>
+                                                {money(entry.item.price)} · subtotal {money(Number(entry.item.price) * entry.quantity)}
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <TouchableOpacity
+                                                onPress={() => setStoreCartQuantity(key, entry.quantity - 1)}
+                                                style={[styles.filterPill, { paddingHorizontal: 10 }]}
+                                            >
+                                                <Text style={styles.filterPillText}>-</Text>
+                                            </TouchableOpacity>
+                                            <Text style={styles.listItemTitle}>{entry.quantity}</Text>
+                                            <TouchableOpacity
+                                                onPress={() => addStoreItemToCart(entry.item, entry.selectedOption)}
+                                                style={[styles.filterPill, { paddingHorizontal: 10, backgroundColor: accent, borderColor: accent }]}
+                                            >
+                                                <Text style={[styles.filterPillText, { color: '#fff' }]}>+</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </>
+                    )}
+
+                    <Text style={styles.sectionTitle}>Ítem manual (opcional)</Text>
+                    <Text style={styles.kpiHint}>
+                        Para algo que no está en el catálogo (no descuenta stock).
+                    </Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Nombre (ej: Remera XL)"
+                        placeholderTextColor={colors.icon}
+                        value={customStoreName}
+                        onChangeText={setCustomStoreName}
+                    />
+                    <TextInput
+                        style={styles.input}
+                        keyboardType="decimal-pad"
+                        placeholder="Precio"
+                        placeholderTextColor={colors.icon}
+                        value={customStorePrice}
+                        onChangeText={setCustomStorePrice}
+                    />
+                </>
             ) : saleMode === 'abono' ? (
                 <>
                     <Text style={styles.sectionTitle}>Nombre del pago</Text>
@@ -1933,6 +2259,16 @@ const CajaModal = ({
                         {creditAppliedPreview > 0 ? ` − saldo a favor ${money(creditAppliedPreview)}` : ''}
                         {Number(freeAmount) > 0 ? ` + extra a favor ${money(freeAmount)}` : ''}
                     </Text>
+                ) : saleMode === 'tienda' ? (
+                    <Text style={styles.kpiHint}>
+                        {storeBuyerMode === 'guest'
+                            ? (guestName.trim() || 'Visitante')
+                            : (selectedClient
+                                ? `${selectedClient.nombre} ${selectedClient.apellido}`
+                                : 'Sin cliente')}
+                        {storeCartItems.length > 0 ? ` · ${storeCartItems.length} producto(s)` : ''}
+                        {customStoreTotal > 0 ? ' · + ítem manual' : ''}
+                    </Text>
                 ) : saleMode === 'abono' ? (
                     <Text style={styles.kpiHint}>
                         {freePaymentName.trim() || 'Abono / a favor'} · {money(freeAmount)}
@@ -1950,9 +2286,9 @@ const CajaModal = ({
                 </Text>
             </View>
 
-            {saleMode === 'paquete' ? (
+            {saleMode === 'paquete' || saleMode === 'tienda' ? (
                 <View style={[styles.actionRow, { marginTop: 14 }]}>
-                    {totalToCharge > 0 && (
+                    {saleMode === 'paquete' && totalToCharge > 0 && (
                         <TouchableOpacity
                             style={[
                                 styles.secondaryBtn,
@@ -1980,7 +2316,9 @@ const CajaModal = ({
                             <GymLogoSpinner size="small" color="#fff" />
                         ) : (
                             <Text style={styles.primaryBtnText}>
-                                {totalToCharge <= 0 ? 'Acreditar gratis' : 'Confirmar venta'}
+                                {saleMode === 'tienda'
+                                    ? 'Cobrar tienda'
+                                    : (totalToCharge <= 0 ? 'Acreditar gratis' : 'Confirmar venta')}
                             </Text>
                         )}
                     </TouchableOpacity>

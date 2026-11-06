@@ -28,6 +28,52 @@ const normalizeOptionRows = (rawOptions) => {
         .filter(Boolean);
 };
 
+/** Decrement stock for one catalog line. Throws Error with statusCode on failure. */
+export const decrementStoreItemStock = async (StoreItem, line) => {
+    const item = await StoreItem.findById(line.storeItem || line.storeItemId);
+    if (!item) {
+        const err = new Error('Producto de tienda no encontrado.');
+        err.statusCode = 404;
+        throw err;
+    }
+    const qty = Math.max(1, Number(line.quantity) || 1);
+    const options = normalizeOptionRows(item.options);
+    const selectedOption = String(line.selectedOption || '').trim();
+
+    if (options.length > 0) {
+        if (!selectedOption) {
+            const err = new Error(`Elegí una opción para "${item.name}".`);
+            err.statusCode = 400;
+            throw err;
+        }
+        const idx = options.findIndex((o) => o.name === selectedOption);
+        if (idx < 0) {
+            const err = new Error(`La opción "${selectedOption}" no existe en "${item.name}".`);
+            err.statusCode = 400;
+            throw err;
+        }
+        const available = Number(options[idx].amount || 0);
+        if (available < qty) {
+            const err = new Error(`Stock insuficiente de "${item.name}" (${selectedOption}): hay ${available}.`);
+            err.statusCode = 400;
+            throw err;
+        }
+        options[idx].amount = available - qty;
+        item.options = options;
+        item.amount = options.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+    } else {
+        const available = Number(item.amount || 0);
+        if (available < qty) {
+            const err = new Error(`Stock insuficiente de "${item.name}": hay ${available}.`);
+            err.statusCode = 400;
+            throw err;
+        }
+        item.amount = available - qty;
+    }
+    await item.save();
+    return item;
+};
+
 /**
  * Mark store order as paid: decrement option stock, notify client with pickup code.
  * Caller must ensure order is currently pending (or already transitioning).
@@ -43,22 +89,7 @@ export const fulfillPaidStoreOrder = async ({
     const { StoreItem, Notification, User, Transaction } = models;
 
     for (const line of order.items || []) {
-        const item = await StoreItem.findById(line.storeItem);
-        if (!item) continue;
-        const qty = Math.max(1, Number(line.quantity) || 1);
-        const options = normalizeOptionRows(item.options);
-
-        if (options.length > 0 && line.selectedOption) {
-            const idx = options.findIndex((o) => o.name === line.selectedOption);
-            if (idx >= 0) {
-                options[idx].amount = Math.max(0, Number(options[idx].amount || 0) - qty);
-            }
-            item.options = options;
-            item.amount = options.reduce((sum, o) => sum + Number(o.amount || 0), 0);
-        } else {
-            item.amount = Math.max(0, Number(item.amount || 0) - qty);
-        }
-        await item.save();
+        await decrementStoreItemStock(StoreItem, line);
     }
 
     order.status = 'paid';

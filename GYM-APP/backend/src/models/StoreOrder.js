@@ -16,7 +16,7 @@ const storeOrderSchema = new mongoose.Schema({
     receiptUrl: { type: String, default: '' },
     method: {
         type: String,
-        enum: ['transfer', 'mercadopago'],
+        enum: ['transfer', 'mercadopago', 'efectivo', 'manual'],
         default: 'transfer',
     },
     mpPreferenceId: { type: String },
