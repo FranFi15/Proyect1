@@ -404,6 +404,10 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
         setCustomAmount(debtAmount ? String(debtAmount) : '');
     };
 
+    const isFreePackageCart = !isStoreMode
+        && cartItems.length > 0
+        && Number(cartTotalDiscounted) <= 0;
+
     const goToCheckout = () => {
         if (!canCheckout) {
             return showAlert({
@@ -413,12 +417,47 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                     : 'Agregá al menos un paquete o un monto para continuar.',
             });
         }
+        // 100% discount / $0 cart: no transfer or Mercado Pago needed.
+        if (!isStoreMode && cartItems.length > 0 && Number(cartTotalDiscounted) <= 0) {
+            setPaymentMethod('free');
+            setStep('checkout');
+            return;
+        }
         if (!mpLinked && !hasBankDetails) {
             return showAlert({ title: 'Pagos no disponibles', message: 'El gimnasio todavía no configuró Mercado Pago ni una transferencia.' });
         }
         if (mpLinked) setPaymentMethod('mercadopago');
         else setPaymentMethod('transfer');
         setStep('checkout');
+    };
+
+    const handleClaimFree = async () => {
+        if (!isFreePackageCart) {
+            return showAlert({ title: 'No aplica', message: 'Este carrito no es gratuito.' });
+        }
+        setSubmitting(true);
+        try {
+            const { data } = await apiClient.post('/payments/claim-free', {
+                items: cartItems.map((item) => ({
+                    packageId: item.pkg._id,
+                    quantity: item.quantity,
+                })),
+            });
+            deliverPaymentResult({
+                title: 'Paquete acreditado',
+                message: data.benefitMessage
+                    || data.message
+                    || 'Tu compra quedó acreditada sin cargo.',
+            });
+        } catch (error) {
+            if (!aliveRef.current) return;
+            showAlert({
+                title: 'No se pudo acreditar',
+                message: error.response?.data?.message || 'Hubo un problema al confirmar la compra gratuita.',
+            });
+        } finally {
+            if (aliveRef.current) setSubmitting(false);
+        }
     };
 
     const pickImage = async () => {
@@ -977,6 +1016,24 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                             <Text style={[styles.summaryPrice, { color: gymColor }]}>{formatPrice(amountToPay)}</Text>
                         </View>
 
+                        {isFreePackageCart ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Compra sin cargo</Text>
+                                <Text style={styles.methodSub}>
+                                    Tenés un descuento del 100%. Confirmá y el paquete se acredita al instante.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.submitBtn, { backgroundColor: gymColor, marginTop: 16 }, submitting && { opacity: 0.6 }]}
+                                    onPress={handleClaimFree}
+                                    disabled={submitting}
+                                >
+                                    {submitting
+                                        ? <GymLogoSpinner size="small" color="#fff" />
+                                        : <Text style={styles.submitBtnText}>Confirmar venta</Text>}
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                        <>
                         <Text style={styles.sectionTitle}>¿Cómo querés pagar?</Text>
                         <View style={styles.methodRow}>
                             {mpLinked && (
@@ -1090,6 +1147,8 @@ const TransferPaymentModal = ({ onClose, onPaymentResult }) => {
                                     {submitting ? <GymLogoSpinner size="small" color="#fff" /> : <Text style={styles.submitBtnText}>Enviar comprobante</Text>}
                                 </TouchableOpacity>
                             </>
+                        )}
+                        </>
                         )}
                     </ScrollView>
                 )}

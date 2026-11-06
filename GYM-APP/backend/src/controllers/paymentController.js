@@ -491,6 +491,76 @@ const getMyTicket = asyncHandler(async (req, res) => {
     });
 });
 
+/**
+ * Client self-checkout when assigned discount (or $0 packages) makes the cart free.
+ * No transfer receipt / Mercado Pago — benefits are granted immediately.
+ */
+const claimFreeCart = asyncHandler(async (req, res) => {
+    const { User, Discount, PaymentPackage, Transaction, CreditLog, Notification } = getModels(req.gymDBConnection);
+    const cartEntries = parseCartPayload(req.body);
+
+    if (cartEntries.length === 0) {
+        res.status(400);
+        throw new Error('Elegí al menos un paquete.');
+    }
+
+    let cart;
+    try {
+        cart = await loadCartPackages(PaymentPackage, cartEntries);
+    } catch (error) {
+        res.status(error.statusCode || 400);
+        throw error;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+
+    const userDiscount = await resolveUserDiscount(Discount, user);
+    const quote = quoteCart(cart, { discount: userDiscount });
+
+    if (quote.total > 0.009) {
+        res.status(400);
+        throw new Error('Este carrito no es gratuito. Usá transferencia o Mercado Pago.');
+    }
+
+    const names = cart.map((e) => (e.quantity > 1 ? `${e.pkg.name} x${e.quantity}` : e.pkg.name));
+    const desc = quote.discountAmount > 0
+        ? `Compra gratuita (dto. $${quote.discountAmount.toFixed(2)}): ${names.join(', ')}`
+        : `Compra gratuita: ${names.join(', ')}`;
+
+    const result = await fulfillApprovedPayment({
+        models: { Transaction, CreditLog, Notification, User },
+        user,
+        packages: cart,
+        amount: 0,
+        description: desc,
+        createdBy: req.user._id,
+        payLater: false,
+        transactionMeta: {
+            method: 'manual',
+            source: 'pack',
+            originalAmount: quote.subtotal,
+            discountAmount: quote.discountAmount,
+            discountId: quote.discountId,
+            freeAmount: 0,
+            creditApplied: 0,
+        },
+    });
+
+    res.status(201).json({
+        message: 'Paquete acreditado sin cargo.',
+        amountPaid: 0,
+        amountCharged: 0,
+        discountAmount: quote.discountAmount,
+        benefitMessage: result.benefitMessage || '',
+        newBalance: user.balance,
+        quote,
+    });
+});
+
 export {
     createPackage,
     getPackages,
@@ -502,4 +572,5 @@ export {
     createMercadoPagoPreference,
     getMyTicket,
     getMyPricing,
+    claimFreeCart,
 };

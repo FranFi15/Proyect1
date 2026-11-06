@@ -231,11 +231,14 @@ export const fulfillApprovedPayment = async ({
                 ? 'Compra confirmada'
                 : 'Pago acreditado');
     const creditNote = creditApplied > 0 ? ` Se usaron $${creditApplied.toFixed(2)} de saldo a favor.` : '';
+    const isFreePurchase = !payLater && cashPaid <= 0 && names.length > 0;
     const notifyMessage = payLater
         ? `Se cargó una deuda de $${chargedTotal}${names.length > 1 ? ` (${names.join(', ')})` : ''}. ${benefitMessage}`.trim()
-        : names.length > 0
-            ? `Registramos tu pago de $${cashPaid}${names.length > 1 ? ` (${names.join(', ')})` : ''}.${creditNote} ${benefitMessage}`.trim()
-            : `Registramos tu pago de $${cashPaid}.${creditNote} Tu saldo fue actualizado.`.trim();
+        : isFreePurchase
+            ? `Tu compra${names.length > 1 ? ` (${names.join(', ')})` : ''} quedó acreditada sin cargo.${creditNote} ${benefitMessage}`.trim()
+            : names.length > 0
+                ? `Registramos tu pago de $${cashPaid}${names.length > 1 ? ` (${names.join(', ')})` : ''}.${creditNote} ${benefitMessage}`.trim()
+                : `Registramos tu pago de $${cashPaid}.${creditNote} Tu saldo fue actualizado.`.trim();
     if (Notification && User) {
         try {
             await sendSingleNotification(

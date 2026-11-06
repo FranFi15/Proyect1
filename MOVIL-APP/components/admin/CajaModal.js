@@ -1905,21 +1905,25 @@ const CajaModal = ({
                 </>
             )}
 
-            <Text style={styles.sectionTitle}>Método de pago</Text>
-            <View style={styles.rowWrap}>
-                {METHODS.map((m) => (
-                    <TouchableOpacity
-                        key={m.id}
-                        style={[styles.filterPill, method === m.id && { backgroundColor: accent, borderColor: accent }]}
-                        onPress={() => setMethod(m.id)}
-                        activeOpacity={0.85}
-                    >
-                        <Text style={[styles.filterPillText, method === m.id && { color: '#fff' }]}>
-                            {m.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            {!(saleMode === 'paquete' && totalToCharge <= 0) && (
+                <>
+                    <Text style={styles.sectionTitle}>Método de pago</Text>
+                    <View style={styles.rowWrap}>
+                        {METHODS.map((m) => (
+                            <TouchableOpacity
+                                key={m.id}
+                                style={[styles.filterPill, method === m.id && { backgroundColor: accent, borderColor: accent }]}
+                                onPress={() => setMethod(m.id)}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.filterPillText, method === m.id && { color: '#fff' }]}>
+                                    {m.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </>
+            )}
 
             <View style={styles.totalBox}>
                 {saleMode === 'paquete' ? (
@@ -1948,19 +1952,21 @@ const CajaModal = ({
 
             {saleMode === 'paquete' ? (
                 <View style={[styles.actionRow, { marginTop: 14 }]}>
-                    <TouchableOpacity
-                        style={[
-                            styles.secondaryBtn,
-                            { borderColor: accent },
-                            submitting && { opacity: 0.6 },
-                        ]}
-                        onPress={confirmPayLater}
-                        disabled={submitting}
-                    >
-                        <Text style={{ color: accent, fontWeight: '800', fontSize: 15 }}>
-                            Paga luego
-                        </Text>
-                    </TouchableOpacity>
+                    {totalToCharge > 0 && (
+                        <TouchableOpacity
+                            style={[
+                                styles.secondaryBtn,
+                                { borderColor: accent },
+                                submitting && { opacity: 0.6 },
+                            ]}
+                            onPress={confirmPayLater}
+                            disabled={submitting}
+                        >
+                            <Text style={{ color: accent, fontWeight: '800', fontSize: 15 }}>
+                                Paga luego
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         style={[
                             styles.primaryBtn,
@@ -1973,7 +1979,9 @@ const CajaModal = ({
                         {submitting ? (
                             <GymLogoSpinner size="small" color="#fff" />
                         ) : (
-                            <Text style={styles.primaryBtnText}>Confirmar venta</Text>
+                            <Text style={styles.primaryBtnText}>
+                                {totalToCharge <= 0 ? 'Acreditar gratis' : 'Confirmar venta'}
+                            </Text>
                         )}
                     </TouchableOpacity>
                 </View>

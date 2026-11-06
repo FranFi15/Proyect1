@@ -11,6 +11,7 @@ import {
     createMercadoPagoPreference,
     getMyTicket,
     getMyPricing,
+    claimFreeCart,
 } from '../controllers/paymentController.js';
 import {
     createMpSubscription,
@@ -38,6 +39,7 @@ router.put('/ticket/:id/process', authorizeRoles('admin'), processTransferTicket
 router.get('/ticket/:id', getMyTicket);
 router.get('/my-pricing', getMyPricing);
 router.post('/quote', getMyPricing);
+router.post('/claim-free', claimFreeCart);
 
 router.post('/mercadopago/preference', createMercadoPagoPreference);
 router.post('/mercadopago/subscription', createMpSubscription);

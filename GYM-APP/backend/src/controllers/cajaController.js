@@ -694,7 +694,9 @@ const createCajaSale = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('El monto a cobrar no es válido.');
     }
-    if (cashPaid <= 0 && creditApplied <= 0) {
+    // $0 is allowed when a package cart is fully covered by discount (or $0 list price).
+    const isFullyDiscountedCart = cart.length > 0 && totalDue <= 0;
+    if (cashPaid <= 0 && creditApplied <= 0 && !isFullyDiscountedCart) {
         res.status(400);
         throw new Error('El monto a cobrar debe ser mayor a 0.');
     }
@@ -812,9 +814,11 @@ const createCajaSale = asyncHandler(async (req, res) => {
             ? 'Venta cargada como deuda al cliente.'
             : appliedCredit > 0 && paidCash <= 0
                 ? 'Venta cubierta con saldo a favor.'
-                : appliedCredit > 0
-                    ? `Venta registrada. Cobrado $${paidCash.toFixed(2)} + $${appliedCredit.toFixed(2)} de saldo a favor.`
-                    : 'Venta registrada en caja.',
+                : paidCash <= 0 && discountValue > 0
+                    ? 'Venta gratuita por descuento. Paquete acreditado.'
+                    : appliedCredit > 0
+                        ? `Venta registrada. Cobrado $${paidCash.toFixed(2)} + $${appliedCredit.toFixed(2)} de saldo a favor.`
+                        : 'Venta registrada en caja.',
         amountPaid: paidCash,
         amountCharged: totalDue,
         creditApplied: appliedCredit,
