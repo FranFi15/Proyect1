@@ -14,12 +14,14 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON",
         "EXPO_PUBLIC_ENV": "staging"
       }
     },
     "production": {
+      "channel": "production",
       "env": {
         "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON",
         "EXPO_PUBLIC_ENV": "prod"

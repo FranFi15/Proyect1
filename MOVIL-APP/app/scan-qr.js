@@ -5,16 +5,14 @@ import {
     StyleSheet,
     TouchableOpacity,
     Platform,
-    Dimensions,
     StatusBar,
+    BackHandler,
 } from 'react-native';
 import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { completeQrScan, cancelQrScan } from '../services/qrScanBridge';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 /**
  * Full-screen QR scanner route.
@@ -25,68 +23,106 @@ export default function ScanQrScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const [cameraKey, setCameraKey] = useState(0);
     const [showCamera, setShowCamera] = useState(false);
-    const [isFocused, setIsFocused] = useState(false);
     const [mountError, setMountError] = useState(null);
     const scannedLock = useRef(false);
     const finished = useRef(false);
+    const blurCancelTimer = useRef(null);
+    const permissionRef = useRef(permission);
+    const requestPermissionRef = useRef(requestPermission);
+    permissionRef.current = permission;
+    requestPermissionRef.current = requestPermission;
 
-    const finish = useCallback((data) => {
-        if (finished.current) return;
-        finished.current = true;
-        setShowCamera(false);
-        if (data) completeQrScan(data);
-        else cancelQrScan();
+    const goBack = useCallback(() => {
         if (router.canGoBack()) router.back();
         else router.replace('/(tabs)/calendar');
     }, [router]);
 
+    const finish = useCallback((data) => {
+        if (finished.current) return;
+        finished.current = true;
+        scannedLock.current = true;
+        setShowCamera(false);
+
+        if (blurCancelTimer.current) {
+            clearTimeout(blurCancelTimer.current);
+            blurCancelTimer.current = null;
+        }
+
+        // Resolve waiter first so calendar can fetch options, then pop.
+        if (data) completeQrScan(String(data));
+        else cancelQrScan();
+
+        setTimeout(goBack, 60);
+    }, [goBack]);
+
     useFocusEffect(
         useCallback(() => {
-            let cancelled = false;
-            // Stay "finished" briefly so React Strict Mode remount does not cancel the waiter
-            finished.current = true;
-            const armTimer = setTimeout(() => {
-                finished.current = false;
-            }, 150);
-            scannedLock.current = false;
-            setIsFocused(true);
+            let active = true;
+
+            // A previous blur scheduled a cancel — this remount/refocus means
+            // the scan session is still alive (Strict Mode or brief blur).
+            if (blurCancelTimer.current) {
+                clearTimeout(blurCancelTimer.current);
+                blurCancelTimer.current = null;
+            }
+
+            // Only arm a fresh session if we are not already closing after a scan
+            if (!finished.current) {
+                scannedLock.current = false;
+            }
             setMountError(null);
             setShowCamera(false);
 
+            const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+                finish(null);
+                return true;
+            });
+
             (async () => {
-                let granted = permission?.granted;
-                if (!granted) {
-                    const res = await requestPermission();
-                    granted = !!res?.granted;
+                try {
+                    let granted = permissionRef.current?.granted;
+                    if (!granted) {
+                        const res = await requestPermissionRef.current?.();
+                        granted = !!res?.granted;
+                    }
+                    if (!granted || !active || finished.current) return;
+
+                    await new Promise((r) => setTimeout(r, Platform.OS === 'android' ? 450 : 250));
+                    if (!active || finished.current) return;
+
+                    setCameraKey((k) => k + 1);
+                    setShowCamera(true);
+                } catch (_e) {
+                    if (active) setMountError('No se pudo abrir la cámara');
                 }
-                if (!granted || cancelled) return;
-                await new Promise((r) => setTimeout(r, 350));
-                if (cancelled) return;
-                setCameraKey((k) => k + 1);
-                setShowCamera(true);
             })();
 
             return () => {
-                cancelled = true;
-                clearTimeout(armTimer);
-                setIsFocused(false);
+                active = false;
+                backSub.remove();
                 setShowCamera(false);
-                if (!finished.current) {
-                    finished.current = true;
-                    cancelQrScan();
-                }
+
+                // Defer cancel so Strict Mode remount can clear this timer.
+                // Real leave (user backed out) keeps the timer and cancels the waiter.
+                blurCancelTimer.current = setTimeout(() => {
+                    blurCancelTimer.current = null;
+                    if (!finished.current) {
+                        finished.current = true;
+                        cancelQrScan();
+                    }
+                }, 500);
             };
-        }, [permission?.granted, requestPermission])
+        }, [finish])
     );
 
     const onBarcodeScanned = useCallback(({ data }) => {
-        if (!data || scannedLock.current || !isFocused) return;
+        if (!data || scannedLock.current || finished.current) return;
         scannedLock.current = true;
         finish(String(data));
-    }, [finish, isFocused]);
+    }, [finish]);
 
     const granted = !!permission?.granted;
-    const canShowCamera = isFocused && granted && showCamera && !mountError;
+    const canShowCamera = granted && showCamera && !mountError;
 
     return (
         <View style={styles.container}>
@@ -144,8 +180,7 @@ export default function ScanQrScreen() {
             )}
 
             {canShowCamera && (
-                <View style={styles.overlay} pointerEvents="none">
-                    <View style={styles.scanFrame} />
+                <View style={styles.hintBar} pointerEvents="none">
                     <Text style={styles.hint}>Apuntá al QR del gimnasio</Text>
                 </View>
             )}
@@ -169,6 +204,7 @@ const styles = StyleSheet.create({
     camera: {
         flex: 1,
         width: '100%',
+        height: '100%',
     },
     centered: {
         flex: 1,
@@ -177,26 +213,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         backgroundColor: '#000',
     },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
+    hintBar: {
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? 64 : 88,
+        left: 24,
+        right: 24,
         alignItems: 'center',
-    },
-    scanFrame: {
-        width: Math.min(260, SCREEN_W * 0.7),
-        height: Math.min(260, SCREEN_W * 0.7),
-        borderRadius: 18,
-        borderWidth: 2.5,
-        borderColor: 'rgba(255,255,255,0.9)',
-        backgroundColor: 'transparent',
-        marginBottom: 16,
+        zIndex: 10,
     },
     hint: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
         textAlign: 'center',
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 10,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.45)',
         textShadowColor: 'rgba(0,0,0,0.75)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 4,

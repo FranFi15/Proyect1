@@ -31,6 +31,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
     const [reviewsPublic, setReviewsPublic] = useState(false);
     const [trialEnrollmentEnabled, setTrialEnrollmentEnabled] = useState(false);
     const [trialEnrollmentUrl, setTrialEnrollmentUrl] = useState('');
+    const [maxUsuariosPruebaPorClase, setMaxUsuariosPruebaPorClase] = useState('0');
     const [mpStatus, setMpStatus] = useState({ isLinked: false, linkedAt: null });
     const [mpBusy, setMpBusy] = useState(false);
 
@@ -72,6 +73,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                 setReviewsPublic(!!settingsRes.data.reviewsPublic);
                 setTrialEnrollmentEnabled(!!settingsRes.data.trialEnrollmentEnabled);
                 setTrialEnrollmentUrl(settingsRes.data.trialEnrollmentUrl || '');
+                setMaxUsuariosPruebaPorClase((settingsRes.data.maxUsuariosPruebaPorClase ?? 0).toString());
 
                 if (settingsRes.data.bankDetails) {
                     setBankDetails({
@@ -122,6 +124,7 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                 bankDetails: bankDetails,
                 reviewsPublic: reviewsPublic,
                 trialEnrollmentEnabled,
+                maxUsuariosPruebaPorClase: Number(maxUsuariosPruebaPorClase) || 0,
             };
             const { data } = await apiClient.put('/settings', payload);
             setTrialEnrollmentEnabled(!!data?.trialEnrollmentEnabled);
@@ -352,6 +355,15 @@ const GeneralSettingsModal = ({ visible, onClose, gymColor, apiClient }) => {
                                             value={trialEnrollmentEnabled}
                                         />
                                     </View>
+                                    <Text style={styles.inputLabel}>Máx. usuarios de prueba por turno (0 = sin límite):</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={maxUsuariosPruebaPorClase}
+                                        onChangeText={setMaxUsuariosPruebaPorClase}
+                                        keyboardType="number-pad"
+                                        placeholder="0"
+                                        placeholderTextColor="#999"
+                                    />
                                     {trialEnrollmentEnabled && (
                                         <>
                                             <Text style={styles.inputLabel}>Link público:</Text>

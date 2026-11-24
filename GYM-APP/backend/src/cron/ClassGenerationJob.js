@@ -21,7 +21,9 @@ export const scheduleMonthlyClassGeneration = () => {
         }
 
         try {
-            const response = await fetch(`${ADMIN_PANEL_API_URL}/clients/internal/all-clients`, { // Adjust path if needed
+            // SuperAdmin mounts clients at /api/clients (same as every other cron job)
+            const allClientsUrl = `${ADMIN_PANEL_API_URL}/api/clients/internal/all-clients`;
+            const response = await fetch(allClientsUrl, {
                 headers: {
                     'x-internal-api-key': INTERNAL_ADMIN_API_KEY,
                     Accept: 'application/json',
@@ -36,7 +38,7 @@ export const scheduleMonthlyClassGeneration = () => {
             } catch {
                 const preview = rawBody.slice(0, 120).replace(/\s+/g, ' ');
                 throw new Error(
-                    `Respuesta no JSON desde ${ADMIN_PANEL_API_URL}/clients/internal/all-clients `
+                    `Respuesta no JSON desde ${allClientsUrl} `
                     + `(HTTP ${response.status}, content-type: ${contentType || 'desconocido'}). `
                     + `Preview: ${preview}`
                 );

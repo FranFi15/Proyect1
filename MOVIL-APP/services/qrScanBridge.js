@@ -1,20 +1,32 @@
-import { Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 import { CameraView } from 'expo-camera';
 
 /**
  * Opens a QR scanner and resolves with the scanned string (or null if cancelled).
- * Prefers the OS modern scanner to avoid black CameraView previews.
+ * iOS: prefers the OS modern scanner.
+ * Android: always uses the in-app /scan-qr CameraView — Google Code Scanner
+ * (CameraView.launchScanner) has been crashing production builds on some devices.
  */
+export const QR_SCAN_EVENT = 'movil-qr-scan-result';
+
 let pendingResolve = null;
 
 const resolvePending = (data) => {
     const resolve = pendingResolve;
     pendingResolve = null;
-    if (typeof resolve === 'function') resolve(data == null ? null : String(data));
+    if (typeof resolve === 'function') {
+        resolve(data == null ? null : String(data));
+    }
 };
 
 export const completeQrScan = (data) => {
-    resolvePending(data);
+    const value = data == null ? null : String(data);
+    resolvePending(value);
+    // Backup channel: survives cases where the promise waiter was already cleared
+    // by a remount/blur cancel, so the calendar can still open presentismo.
+    if (value) {
+        DeviceEventEmitter.emit(QR_SCAN_EVENT, value);
+    }
 };
 
 export const cancelQrScan = () => {
@@ -33,8 +45,6 @@ const extractScanData = (event) => {
     );
 };
 
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
 const scanWithModernScanner = () =>
     new Promise(async (resolve) => {
         let done = false;
@@ -51,31 +61,28 @@ const scanWithModernScanner = () =>
             resolve(data == null ? null : String(data));
         };
 
-        // Must subscribe BEFORE launchScanner. On Android the native promise resolves
-        // in the same success callback as sendEvent, so the JS event can arrive slightly
-        // after await — keep the listener alive briefly after resolve.
         subscription = CameraView.onModernBarcodeScanned((event) => {
             const value = extractScanData(event);
             if (!value) return;
             finish(value);
-            if (Platform.OS === 'ios') {
-                CameraView.dismissScanner().catch(() => {});
-            }
+            CameraView.dismissScanner().catch(() => {});
         });
 
         try {
             await CameraView.launchScanner({ barcodeTypes: ['qr'] });
-
-            if (Platform.OS === 'android') {
-                // Success path: wait for onModernBarcodeScanned to flush across the bridge
-                await delay(900);
-                if (!done) finish(null);
-            }
-            // iOS: launchScanner returns when the sheet is presented; stay listening until scan.
-            // Dismiss-without-scan is handled next time openQrScanner runs (cancels pending).
         } catch (_e) {
-            // Android cancel / failure rejects the native promise
             finish(null);
+        }
+    });
+
+const scanWithRoute = (router) =>
+    new Promise((resolve) => {
+        pendingResolve = resolve;
+        try {
+            router.push('/scan-qr');
+        } catch (_e) {
+            pendingResolve = null;
+            resolve(null);
         }
     });
 
@@ -86,14 +93,15 @@ export const openQrScanner = async (router) => {
     }
 
     const canUseModern =
-        Platform.OS !== 'web' && !!CameraView.isModernBarcodeScannerAvailable;
+        Platform.OS === 'ios' && !!CameraView.isModernBarcodeScannerAvailable;
 
     if (canUseModern) {
-        return scanWithModernScanner();
+        try {
+            return await scanWithModernScanner();
+        } catch (_e) {
+            // Fall through to CameraView route.
+        }
     }
 
-    return new Promise((resolve) => {
-        pendingResolve = resolve;
-        router.push('/scan-qr');
-    });
+    return scanWithRoute(router);
 };

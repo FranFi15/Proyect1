@@ -6,6 +6,7 @@ import connectToGymDB from '../config/mongoConnectionManager.js';
 import getModels from '../utils/getModels.js';
 import { sendTrialVerificationEmail } from '../services/emailService.js';
 import { getTurnstilePublicConfig, verifyTurnstileToken } from '../utils/turnstile.js';
+import { isTrialOnlyUser } from '../utils/superAdminApiClient.js';
 
 const capitalize = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : value);
 
@@ -68,9 +69,19 @@ const assertTrialAccess = (settings, token) => {
     }
 };
 
-const mapClassForClient = (cls) => {
+const countTrialSeatsUsed = (cls) => {
+    const enrolled = cls.usuariosInscritos || [];
+    return enrolled.filter((u) => {
+        if (!u || typeof u !== 'object') return false;
+        return isTrialOnlyUser(u);
+    }).length;
+};
+
+const mapClassForClient = (cls, maxTrialSeats = 0) => {
     const enrolled = (cls.usuariosInscritos || []).length;
     const capacity = cls.capacidad || 0;
+    const trialUsed = countTrialSeatsUsed(cls);
+    const trialCupos = maxTrialSeats > 0 ? Math.max(0, maxTrialSeats - trialUsed) : null;
     return {
         _id: cls._id,
         nombre: cls.nombre || cls.tipoClase?.nombre || 'Turno',
@@ -89,6 +100,9 @@ const mapClassForClient = (cls) => {
             ratingAverage: p.ratingAverage,
         })),
         cupos: Math.max(0, capacity - enrolled),
+        permiteUsuariosPrueba: true,
+        trialCupos,
+        maxUsuariosPruebaPorClase: maxTrialSeats || 0,
     };
 };
 
@@ -387,25 +401,34 @@ const getTrialClasses = asyncHandler(async (req, res) => {
     const horizon = new Date(today);
     horizon.setDate(horizon.getDate() + 21);
 
+    const maxTrialSeats = Number(settings?.maxUsuariosPruebaPorClase) || 0;
+
     const classes = await Clase.find({
         estado: { $in: ['activa', 'llena'] },
         fecha: { $gte: today, $lte: horizon },
+        permiteUsuariosPrueba: true,
     })
         .populate('tipoClase', 'nombre')
         .populate('sucursal', 'nombre')
         .populate('profesores', 'nombre apellido ratingAverage')
+        .populate('usuariosInscritos', 'isTrialOnly trialEnrollmentUsedAt')
         .sort({ fecha: 1, horaInicio: 1 })
         .lean();
 
     const available = classes
         .filter((cls) => cls.estado !== 'cancelada')
-        .map(mapClassForClient);
+        .filter((cls) => {
+            if (maxTrialSeats <= 0) return true;
+            return countTrialSeatsUsed(cls) < maxTrialSeats;
+        })
+        .map((cls) => mapClassForClient(cls, maxTrialSeats));
 
     res.json({
         enabled: true,
         timezone,
         gymId: clientId,
         gym,
+        maxUsuariosPruebaPorClase: maxTrialSeats,
         classes: available,
     });
 });
@@ -431,14 +454,33 @@ const enrollTrial = asyncHandler(async (req, res) => {
 
     await assertNotAlreadyRegistered(User, emailNorm, dniNorm, pending.dni);
 
-    const classItem = await Clase.findById(classId).populate('tipoClase', 'nombre');
+    const classItem = await Clase.findById(classId)
+        .populate('tipoClase', 'nombre')
+        .populate('usuariosInscritos', 'isTrialOnly trialEnrollmentUsedAt');
     if (!classItem || classItem.estado === 'cancelada') {
         res.status(404);
         throw new Error('El turno no está disponible.');
     }
+    if (!classItem.permiteUsuariosPrueba) {
+        res.status(400);
+        throw new Error('Este turno no admite usuarios de prueba.');
+    }
     if ((classItem.usuariosInscritos || []).length >= classItem.capacidad) {
         res.status(400);
         throw new Error('Ese turno ya está completo.');
+    }
+
+    const maxTrialSeats = Number(settings?.maxUsuariosPruebaPorClase) || 0;
+    if (maxTrialSeats > 0) {
+        const trialUsed = countTrialSeatsUsed(classItem);
+        if (trialUsed >= maxTrialSeats) {
+            res.status(400);
+            throw new Error(
+                maxTrialSeats === 1
+                    ? 'Este turno ya tiene el cupo de prueba ocupado.'
+                    : `Este turno ya alcanzó el máximo de ${maxTrialSeats} usuarios de prueba.`
+            );
+        }
     }
 
     const randomPassword = crypto.randomBytes(24).toString('hex');

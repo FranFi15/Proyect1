@@ -15,6 +15,7 @@ import {
     KeyboardAvoidingView,
     Modal,
     Keyboard,
+    Switch,
 } from 'react-native';
 import GymLogoSpinner from '@/components/GymLogoSpinner';
 import { useCachedFocusEffect } from '@/hooks/useCachedFocusEffect';
@@ -118,6 +119,7 @@ const ManageClassesScreen = () => {
         horaInicio: '',
         horaFin: '',
         capacidad: '10',
+        permiteUsuariosPrueba: false,
         profesores: [],
         tipoInscripcion: 'libre',
         diaDeSemana: [],
@@ -267,6 +269,7 @@ const ManageClassesScreen = () => {
             horaInicio: classItem.horaInicio,
             horaFin: classItem.horaFin,
             capacidad: classItem.capacidad.toString(),
+            permiteUsuariosPrueba: !!classItem.permiteUsuariosPrueba,
             profesores: profesoresIds,
             tipoInscripcion: classItem.tipoInscripcion,
             diaDeSemana: classItem.diaDeSemana || [],
@@ -598,6 +601,7 @@ const ManageClassesScreen = () => {
                     horaInicio: cls.horaInicio,
                     horaFin: cls.horaFin,
                     capacidad: cls.capacidad,
+                    permiteUsuariosPrueba: !!cls.permiteUsuariosPrueba,
                     profesor: cls.profesor,
                     profesores: cls.profesores,
                     sucursal: cls.sucursal || null,
@@ -606,6 +610,8 @@ const ManageClassesScreen = () => {
                     _id: groupKey,
                     lastDate: cls.fecha,
                 };
+            } else if (cls.permiteUsuariosPrueba) {
+                acc[groupKey].permiteUsuariosPrueba = true;
             }
             if (Array.isArray(cls.diaDeSemana) && cls.diaDeSemana.length > 0) {
                 acc[groupKey].diasDeSemana.add(cls.diaDeSemana[0]);
@@ -729,6 +735,7 @@ const ManageClassesScreen = () => {
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
             capacidad: group.capacidad ? group.capacidad.toString() : '',
+            permiteUsuariosPrueba: !!group.permiteUsuariosPrueba,
             diasDeSemana: [...(group.diasDeSemana || [])],
             sucursal: String(group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '') || '')
         });
@@ -738,6 +745,7 @@ const ManageClassesScreen = () => {
     const handleBulkUpdate = async () => {
         if (!editingGroup) return;
         const updates = Object.fromEntries(Object.entries(bulkUpdates).filter(([key, value]) => {
+            if (key === 'permiteUsuariosPrueba') return typeof value === 'boolean';
             if (typeof value === 'string') return value.trim() !== '';
             if (Array.isArray(value)) return value.length > 0;
             return value != null;
@@ -1124,6 +1132,7 @@ const ManageClassesScreen = () => {
                     horaInicio: '09:00',
                     horaFin: '10:00',
                     capacidad: '10',
+                    permiteUsuariosPrueba: false,
                     profesores: teachers.length > 0 ? [teachers[0]._id] : [],
                     tipoInscripcion: 'libre',
                     diaDeSemana: [],
@@ -1218,6 +1227,17 @@ const ManageClassesScreen = () => {
 
                                     <ThemedText style={styles.inputLabel}>Capacidad Máxima (Cupos)</ThemedText>
                                     <TextInput style={styles.input} keyboardType="numeric" value={formData.capacidad} onChangeText={text => handleFormChange('capacidad', text)} placeholder="Ej: 20" placeholderTextColor={Colors[colorScheme].icon} />
+
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
+                                        <ThemedText style={[styles.inputLabel, { marginBottom: 0, flex: 1, paddingRight: 12 }]}>
+                                            ¿Permitir usuarios de prueba?
+                                        </ThemedText>
+                                        <Switch
+                                            trackColor={{ true: gymColor || '#007bff' }}
+                                            value={!!formData.permiteUsuariosPrueba}
+                                            onValueChange={(val) => handleFormChange('permiteUsuariosPrueba', val)}
+                                        />
+                                    </View>
                                 </View>
 
                                 {/* Sección 2: Programación */}
@@ -1518,6 +1538,16 @@ const ManageClassesScreen = () => {
                                 <TextInput style={styles.input} value={bulkUpdates.horaFin} onChangeText={text => handleTimeInputChange(text, 'horaFin', setBulkUpdates)} keyboardType="numeric" maxLength={5} />
                                 <ThemedText style={styles.inputLabel}>Capacidad:</ThemedText>
                                 <TextInput style={styles.input} keyboardType="numeric" value={bulkUpdates.capacidad} onChangeText={text => setBulkUpdates(p => ({...p, capacidad: text}))} />
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+                                    <ThemedText style={[styles.inputLabel, { marginBottom: 0, flex: 1, paddingRight: 12 }]}>
+                                        ¿Permitir usuarios de prueba?
+                                    </ThemedText>
+                                    <Switch
+                                        trackColor={{ true: gymColor || '#007bff' }}
+                                        value={!!bulkUpdates.permiteUsuariosPrueba}
+                                        onValueChange={(val) => setBulkUpdates(p => ({ ...p, permiteUsuariosPrueba: val }))}
+                                    />
+                                </View>
                                 {sucursales && sucursales.length > 0 && (
                                     <>
                                         <ThemedText style={styles.inputLabel}>Sucursal del Grupo:</ThemedText>

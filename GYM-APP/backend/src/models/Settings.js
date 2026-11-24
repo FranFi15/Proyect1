@@ -51,6 +51,11 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
+    /** Max trial-only seats per class (0 = unlimited). */
+    maxUsuariosPruebaPorClase: {
+        type: Number,
+        default: 0,
+    },
     mercadoPago: {
         isLinked: { type: Boolean, default: false },
         accessToken: { type: String, default: null },

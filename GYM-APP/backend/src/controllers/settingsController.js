@@ -33,6 +33,7 @@ const getSettings = asyncHandler(async (req, res) => {
         cancellationTimeLimitMinutes: settings?.cancellationTimeLimitMinutes ?? 60,
         enrollmentTimeLimitMinutes: settings?.enrollmentTimeLimitMinutes ?? 0,
         maxDailyClassesPerUser: settings?.maxDailyClassesPerUser || 0,
+        maxUsuariosPruebaPorClase: settings?.maxUsuariosPruebaPorClase || 0,
         reviewsPublic: !!settings?.reviewsPublic,
         trialEnrollmentEnabled: trialEnabled,
         trialEnrollmentUrl: trialEnabled ? buildTrialEnrollmentUrl(req.gymId, trialToken) : '',
@@ -52,6 +53,7 @@ const updateSettings = asyncHandler(async (req, res) => {
         cancellationTimeLimitMinutes,
         enrollmentTimeLimitMinutes,
         maxDailyClassesPerUser,
+        maxUsuariosPruebaPorClase,
         reviewsPublic,
         trialEnrollmentEnabled,
         rotateTrialAccessToken,
@@ -64,6 +66,10 @@ const updateSettings = asyncHandler(async (req, res) => {
     if (cancellationTimeLimitMinutes !== undefined) updateData.cancellationTimeLimitMinutes = Number(cancellationTimeLimitMinutes);
     if (enrollmentTimeLimitMinutes !== undefined) updateData.enrollmentTimeLimitMinutes = Number(enrollmentTimeLimitMinutes) || 0;
     if (maxDailyClassesPerUser !== undefined) updateData.maxDailyClassesPerUser = Number(maxDailyClassesPerUser);
+    if (maxUsuariosPruebaPorClase !== undefined) {
+        const n = Number(maxUsuariosPruebaPorClase);
+        updateData.maxUsuariosPruebaPorClase = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    }
     if (reviewsPublic !== undefined) updateData.reviewsPublic = Boolean(reviewsPublic);
 
     if (trialEnrollmentEnabled !== undefined || rotateTrialAccessToken) {

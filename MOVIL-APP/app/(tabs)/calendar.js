@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
     StyleSheet, TouchableOpacity, Platform, useColorScheme,
     SectionList, FlatList, View, Text, RefreshControl, Linking, useWindowDimensions,
-    KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback
+    KeyboardAvoidingView, TextInput, ScrollView, Pressable, Switch, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
 import GymLogoSpinner from '@/components/GymLogoSpinner';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -84,8 +84,8 @@ const CalendarScreen = () => {
     });
     const listEntranceEpoch = useEntranceEpoch('client-cal', selectedDate, selectedClassType, selectedSucursal, index);
 
-    let isProcessingScan = false;
-    
+    const isProcessingScanRef = useRef(false);
+
     const confirmCheckIn = async (type, id, qrData) => {
         setAlertInfo(prev => ({ ...prev, visible: false }));
         try {
@@ -116,15 +116,15 @@ const CalendarScreen = () => {
     };
 
     const handleClientReceptionScan = async ({ data }) => {
-        if (isProcessingScan) return;
-        isProcessingScan = true;
-        
+        if (!data || isProcessingScanRef.current) return;
+        isProcessingScanRef.current = true;
+
         setScannerVisible(false);
         try {
             const response = await apiClient.post('/check-in/client-scan-options', { qrData: data });
-            
+
             if (response.data.options && response.data.options.length > 0) {
-                // Delay so the scanner Modal fully closes on iOS before opening options
+                // Small delay so the camera Modal can finish closing first
                 setTimeout(() => {
                     setPresentismoModal({
                         visible: true,
@@ -132,24 +132,24 @@ const CalendarScreen = () => {
                         message: response.data.message || '¿Qué querés registrar?',
                         qrData: data,
                     });
-                }, 350);
+                }, 300);
             } else {
-                setAlertInfo({ 
-                    visible: true, 
-                    title: 'Atención', 
+                setAlertInfo({
+                    visible: true,
+                    title: 'Atención',
                     message: response.data.message || 'No hay clases disponibles.',
-                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                    buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }],
                 });
             }
         } catch (error) {
-            setAlertInfo({ 
-                visible: true, 
-                title: 'Atención', 
+            setAlertInfo({
+                visible: true,
+                title: 'Atención',
                 message: error.response?.data?.message || 'No se pudo leer tus opciones de presentismo.',
-                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }]
+                buttons: [{ text: 'Aceptar', onPress: () => setAlertInfo({ visible: false }) }],
             });
         } finally {
-            setTimeout(() => { isProcessingScan = false; }, 2000);
+            setTimeout(() => { isProcessingScanRef.current = false; }, 2000);
         }
     };
 
@@ -471,31 +471,32 @@ const CalendarScreen = () => {
         }
     };
 
-    if (isLoading) {
-        return (
-            <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <GymLogoSpinner size="large" color={Colors[colorScheme].tint} />
-                <ThemedText style={styles.loadingText}>Cargando clases...</ThemedText>
-            </ThemedView>
-        );
-    }
-
     return (
         <View style={{ flex: 1 }}>
-            <TabView navigationState={{ index, routes }} renderScene={renderScene} onIndexChange={handleIndexChange} initialLayout={{ width: layout.width }} renderTabBar={props => <TabBar {...props} style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform: 'none' }} />} />
+            {isLoading ? (
+                <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <GymLogoSpinner size="large" color={Colors[colorScheme].tint} />
+                    <ThemedText style={styles.loadingText}>Cargando clases...</ThemedText>
+                </ThemedView>
+            ) : (
+                <>
+                    <TabView navigationState={{ index, routes }} renderScene={renderScene} onIndexChange={handleIndexChange} initialLayout={{ width: layout.width }} renderTabBar={props => <TabBar {...props} style={{ backgroundColor: gymColor, paddingTop: Platform.OS === 'android' ? 10 : 0, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, marginBottom: 8 }} indicatorStyle={{ backgroundColor: '#ffffff', height: 3 }} labelStyle={{ color: '#ffffff', fontSize: 13, fontWeight: 'bold', textTransform: 'none' }} />} />
 
-            {hasActiveScoreboards && (
-                <TouchableOpacity style={styles.fabScoreboard} onPress={() => setScoreboardVisible(true)}>
-                    <FontAwesome5 name="trophy" size={22} color="#fff" />
-                </TouchableOpacity>
+                    {hasActiveScoreboards && (
+                        <TouchableOpacity style={styles.fabScoreboard} onPress={() => setScoreboardVisible(true)}>
+                            <FontAwesome5 name="trophy" size={22} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+
+                    {adminPhoneNumber && (
+                        <TouchableOpacity style={styles.fabWhatsApp} onPress={() => handleWhatsAppPress(adminPhoneNumber)}>
+                            <FontAwesome5 name="whatsapp" size={30} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+                </>
             )}
 
-            {adminPhoneNumber && (
-                <TouchableOpacity style={styles.fabWhatsApp} onPress={() => handleWhatsAppPress(adminPhoneNumber)}>
-                    <FontAwesome5 name="whatsapp" size={30} color="#fff" />
-                </TouchableOpacity>
-            )}
-
+            {/* Modals stay mounted even during loading so presentismo isn't lost */}
             <DesafiosModal
                 visible={isScoreboardVisible}
                 onClose={() => setScoreboardVisible(false)}
@@ -517,7 +518,7 @@ const CalendarScreen = () => {
                     await confirmCheckIn(opt.type, opt.id, presentismoModal.qrData);
                 }}
             />
-            
+
             <QrIngresoModal
                 visible={isQrImageModalVisible}
                 onClose={() => setQrImageModalVisible(false)}

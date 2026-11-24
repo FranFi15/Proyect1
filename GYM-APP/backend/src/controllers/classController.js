@@ -70,7 +70,8 @@ const resolveSucursalId = (value) => {
 const createClass = asyncHandler(async (req, res) => {
     await ensureDefaultSucursal(req.gymDBConnection);
     const { Clase, TipoClase, Sucursal } = getModels(req.gymDBConnection);
-    const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana, sucursal } = req.body;
+    const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana, sucursal, permiteUsuariosPrueba } = req.body;
+    const permitePrueba = permiteUsuariosPrueba === true || permiteUsuariosPrueba === 'true' || permiteUsuariosPrueba === 1 || permiteUsuariosPrueba === '1';
     
     if (!tipoClaseId) {
         res.status(400);
@@ -143,7 +144,8 @@ const createClass = asyncHandler(async (req, res) => {
                     tipoClase: tipoClaseId, 
                     profesores: profesoresIds,
                     profesor: profesoresIds[0], 
-                    capacidad: capacidadNum, 
+                    capacidad: capacidadNum,
+                    permiteUsuariosPrueba: permitePrueba,
                     horaInicio, 
                     horaFin, 
                     fecha: dateInstance, 
@@ -172,7 +174,8 @@ const createClass = asyncHandler(async (req, res) => {
             tipoClase: tipoClaseId, 
             profesores: profesoresIds,
             profesor: profesoresIds[0], 
-            capacidad: capacidadNum, 
+            capacidad: capacidadNum,
+            permiteUsuariosPrueba: permitePrueba,
             horaInicio, 
             horaFin, 
             fecha: safeDate, 
@@ -322,6 +325,11 @@ const updateClass = asyncHandler(async (req, res) => {
 
     Object.assign(classItem, otherUpdates);
     classItem.capacidad = newCapacity;
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'permiteUsuariosPrueba')) {
+        const v = req.body.permiteUsuariosPrueba;
+        classItem.permiteUsuariosPrueba = v === true || v === 'true' || v === 1 || v === '1';
+    }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'sucursal')) {
         classItem.sucursal = resolveSucursalId(req.body.sucursal);
@@ -867,6 +875,7 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     nombre: pattern.nombre,
                     tipoClase: pattern.tipoClase,
                     capacidad: pattern.capacidad,
+                    permiteUsuariosPrueba: !!pattern.permiteUsuariosPrueba,
                     profesores: pattern.profesores,
                     fecha: dateAtNoon, 
                     horaInicio: pattern.horaInicio,
@@ -1058,6 +1067,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.horaInicio) template.horaInicio = updates.horaInicio;
         if (updates.horaFin) template.horaFin = updates.horaFin;
         if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad);
+        if (updates.permiteUsuariosPrueba !== undefined) {
+            template.permiteUsuariosPrueba = updates.permiteUsuariosPrueba === true
+                || updates.permiteUsuariosPrueba === 'true'
+                || updates.permiteUsuariosPrueba === 1
+                || updates.permiteUsuariosPrueba === '1';
+        }
         if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
             template.sucursal = resolveSucursalId(updates.sucursal);
         } else {
@@ -1104,6 +1119,12 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.horaInicio) updateData.$set.horaInicio = updates.horaInicio;
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
     if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad);
+    if (updates.permiteUsuariosPrueba !== undefined) {
+        updateData.$set.permiteUsuariosPrueba = updates.permiteUsuariosPrueba === true
+            || updates.permiteUsuariosPrueba === 'true'
+            || updates.permiteUsuariosPrueba === 1
+            || updates.permiteUsuariosPrueba === '1';
+    }
     if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
         updateData.$set.sucursal = resolveSucursalId(updates.sucursal);
     } 
@@ -1288,6 +1309,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             diaDeSemana: [classDayName], 
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
+            permiteUsuariosPrueba: !!lastInstance.permiteUsuariosPrueba,
             profesores: lastInstance.profesores,
             fecha: dateAtNoon, 
             horaInicio: lastInstance.horaInicio,
