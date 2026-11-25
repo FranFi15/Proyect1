@@ -71,7 +71,10 @@ const createClass = asyncHandler(async (req, res) => {
     await ensureDefaultSucursal(req.gymDBConnection);
     const { Clase, TipoClase, Sucursal } = getModels(req.gymDBConnection);
     const { nombre, tipoClase: tipoClaseId, profesores, profesor, capacidad, tipoInscripcion, fecha, horaInicio, horaFin, fechaInicio, fechaFin, diaDeSemana, sucursal, permiteUsuariosPrueba } = req.body;
-    const permitePrueba = permiteUsuariosPrueba === true || permiteUsuariosPrueba === 'true' || permiteUsuariosPrueba === 1 || permiteUsuariosPrueba === '1';
+    // Default ON when omitted (legacy open-trial behavior). Explicit false turns it off.
+    const permitePrueba = permiteUsuariosPrueba === undefined || permiteUsuariosPrueba === null || permiteUsuariosPrueba === ''
+        ? true
+        : !(permiteUsuariosPrueba === false || permiteUsuariosPrueba === 'false' || permiteUsuariosPrueba === 0 || permiteUsuariosPrueba === '0');
     
     if (!tipoClaseId) {
         res.status(400);
@@ -328,7 +331,7 @@ const updateClass = asyncHandler(async (req, res) => {
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'permiteUsuariosPrueba')) {
         const v = req.body.permiteUsuariosPrueba;
-        classItem.permiteUsuariosPrueba = v === true || v === 'true' || v === 1 || v === '1';
+        classItem.permiteUsuariosPrueba = !(v === false || v === 'false' || v === 0 || v === '0');
     }
 
     if (Object.prototype.hasOwnProperty.call(req.body, 'sucursal')) {
@@ -875,7 +878,8 @@ const generateFutureFixedClasses = asyncHandler(async (req, res) => {
                     nombre: pattern.nombre,
                     tipoClase: pattern.tipoClase,
                     capacidad: pattern.capacidad,
-                    permiteUsuariosPrueba: !!pattern.permiteUsuariosPrueba,
+                    // Missing flag = allowed (legacy); only explicit false blocks.
+                    permiteUsuariosPrueba: pattern.permiteUsuariosPrueba !== false,
                     profesores: pattern.profesores,
                     fecha: dateAtNoon, 
                     horaInicio: pattern.horaInicio,
@@ -1068,10 +1072,8 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
         if (updates.horaFin) template.horaFin = updates.horaFin;
         if (updates.capacidad !== undefined) template.capacidad = Number(updates.capacidad);
         if (updates.permiteUsuariosPrueba !== undefined) {
-            template.permiteUsuariosPrueba = updates.permiteUsuariosPrueba === true
-                || updates.permiteUsuariosPrueba === 'true'
-                || updates.permiteUsuariosPrueba === 1
-                || updates.permiteUsuariosPrueba === '1';
+            const v = updates.permiteUsuariosPrueba;
+            template.permiteUsuariosPrueba = !(v === false || v === 'false' || v === 0 || v === '0');
         }
         if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
             template.sucursal = resolveSucursalId(updates.sucursal);
@@ -1120,10 +1122,8 @@ const bulkUpdateClasses = asyncHandler(async (req, res) => {
     if (updates.horaFin) updateData.$set.horaFin = updates.horaFin;
     if (updates.capacidad !== undefined) updateData.$set.capacidad = Number(updates.capacidad);
     if (updates.permiteUsuariosPrueba !== undefined) {
-        updateData.$set.permiteUsuariosPrueba = updates.permiteUsuariosPrueba === true
-            || updates.permiteUsuariosPrueba === 'true'
-            || updates.permiteUsuariosPrueba === 1
-            || updates.permiteUsuariosPrueba === '1';
+        const v = updates.permiteUsuariosPrueba;
+        updateData.$set.permiteUsuariosPrueba = !(v === false || v === 'false' || v === 0 || v === '0');
     }
     if (Object.prototype.hasOwnProperty.call(updates, 'sucursal')) {
         updateData.$set.sucursal = resolveSucursalId(updates.sucursal);
@@ -1309,7 +1309,7 @@ const bulkExtendClasses = asyncHandler(async (req, res) => {
             diaDeSemana: [classDayName], 
             tipoInscripcion: lastInstance.tipoInscripcion,
             capacidad: lastInstance.capacidad,
-            permiteUsuariosPrueba: !!lastInstance.permiteUsuariosPrueba,
+            permiteUsuariosPrueba: lastInstance.permiteUsuariosPrueba !== false,
             profesores: lastInstance.profesores,
             fecha: dateAtNoon, 
             horaInicio: lastInstance.horaInicio,

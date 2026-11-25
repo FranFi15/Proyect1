@@ -25,10 +25,10 @@ const classSchema = new mongoose.Schema({
         required: true,
         default: 0,
     },
-    /** When true, public trial users may enroll in this class. */
+    /** When true, public trial users may enroll in this class. Default on to match prior open trial behavior. */
     permiteUsuariosPrueba: {
         type: Boolean,
-        default: false,
+        default: true,
     },
     profesor: {
         type: mongoose.Schema.Types.ObjectId,

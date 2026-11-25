@@ -119,7 +119,7 @@ const ManageClassesScreen = () => {
         horaInicio: '',
         horaFin: '',
         capacidad: '10',
-        permiteUsuariosPrueba: false,
+        permiteUsuariosPrueba: true,
         profesores: [],
         tipoInscripcion: 'libre',
         diaDeSemana: [],
@@ -269,7 +269,7 @@ const ManageClassesScreen = () => {
             horaInicio: classItem.horaInicio,
             horaFin: classItem.horaFin,
             capacidad: classItem.capacidad.toString(),
-            permiteUsuariosPrueba: !!classItem.permiteUsuariosPrueba,
+            permiteUsuariosPrueba: classItem.permiteUsuariosPrueba !== false,
             profesores: profesoresIds,
             tipoInscripcion: classItem.tipoInscripcion,
             diaDeSemana: classItem.diaDeSemana || [],
@@ -601,7 +601,7 @@ const ManageClassesScreen = () => {
                     horaInicio: cls.horaInicio,
                     horaFin: cls.horaFin,
                     capacidad: cls.capacidad,
-                    permiteUsuariosPrueba: !!cls.permiteUsuariosPrueba,
+                    permiteUsuariosPrueba: cls.permiteUsuariosPrueba !== false,
                     profesor: cls.profesor,
                     profesores: cls.profesores,
                     sucursal: cls.sucursal || null,
@@ -610,8 +610,8 @@ const ManageClassesScreen = () => {
                     _id: groupKey,
                     lastDate: cls.fecha,
                 };
-            } else if (cls.permiteUsuariosPrueba) {
-                acc[groupKey].permiteUsuariosPrueba = true;
+            } else if (cls.permiteUsuariosPrueba === false) {
+                acc[groupKey].permiteUsuariosPrueba = false;
             }
             if (Array.isArray(cls.diaDeSemana) && cls.diaDeSemana.length > 0) {
                 acc[groupKey].diasDeSemana.add(cls.diaDeSemana[0]);
@@ -735,7 +735,7 @@ const ManageClassesScreen = () => {
             horaInicio: group.horaInicio,
             horaFin: group.horaFin,
             capacidad: group.capacidad ? group.capacidad.toString() : '',
-            permiteUsuariosPrueba: !!group.permiteUsuariosPrueba,
+            permiteUsuariosPrueba: group.permiteUsuariosPrueba !== false,
             diasDeSemana: [...(group.diasDeSemana || [])],
             sucursal: String(group.sucursal?._id || group.sucursal || (sucursales.length > 0 ? sucursales[0]._id : '') || '')
         });
@@ -1132,7 +1132,7 @@ const ManageClassesScreen = () => {
                     horaInicio: '09:00',
                     horaFin: '10:00',
                     capacidad: '10',
-                    permiteUsuariosPrueba: false,
+                    permiteUsuariosPrueba: true,
                     profesores: teachers.length > 0 ? [teachers[0]._id] : [],
                     tipoInscripcion: 'libre',
                     diaDeSemana: [],
@@ -1234,7 +1234,7 @@ const ManageClassesScreen = () => {
                                         </ThemedText>
                                         <Switch
                                             trackColor={{ true: gymColor || '#007bff' }}
-                                            value={!!formData.permiteUsuariosPrueba}
+                                            value={formData.permiteUsuariosPrueba !== false}
                                             onValueChange={(val) => handleFormChange('permiteUsuariosPrueba', val)}
                                         />
                                     </View>
@@ -1544,7 +1544,7 @@ const ManageClassesScreen = () => {
                                     </ThemedText>
                                     <Switch
                                         trackColor={{ true: gymColor || '#007bff' }}
-                                        value={!!bulkUpdates.permiteUsuariosPrueba}
+                                        value={bulkUpdates.permiteUsuariosPrueba !== false}
                                         onValueChange={(val) => setBulkUpdates(p => ({ ...p, permiteUsuariosPrueba: val }))}
                                     />
                                 </View>

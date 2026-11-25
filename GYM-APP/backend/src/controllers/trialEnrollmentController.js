@@ -406,7 +406,8 @@ const getTrialClasses = asyncHandler(async (req, res) => {
     const classes = await Clase.find({
         estado: { $in: ['activa', 'llena'] },
         fecha: { $gte: today, $lte: horizon },
-        permiteUsuariosPrueba: true,
+        // Missing/undefined = allowed (legacy open trial); only explicit false is blocked.
+        permiteUsuariosPrueba: { $ne: false },
     })
         .populate('tipoClase', 'nombre')
         .populate('sucursal', 'nombre')
@@ -461,7 +462,7 @@ const enrollTrial = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('El turno no está disponible.');
     }
-    if (!classItem.permiteUsuariosPrueba) {
+    if (classItem.permiteUsuariosPrueba === false) {
         res.status(400);
         throw new Error('Este turno no admite usuarios de prueba.');
     }
