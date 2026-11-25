@@ -31,10 +31,38 @@ const CODE_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
 const normalizeEmail = (email) => String(email || '').toLowerCase().trim();
-const normalizeDni = (dni) => String(dni || '').replace(/\D/g, '');
+/** Digits only, strip leading zeros so 0123 and 123 are the same identity. */
+const normalizeDni = (dni) => String(dni || '').replace(/\D/g, '').replace(/^0+/, '');
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
 const makeCode = () => String(crypto.randomInt(100000, 999999));
 const makeSessionToken = () => crypto.randomBytes(32).toString('hex');
+
+const assertValidDni = (rawDni, dniNorm) => {
+    const digitsOnly = String(rawDni || '').replace(/\D/g, '');
+    if (!digitsOnly) {
+        const err = new Error('Ingresá un DNI válido.');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (/^0/.test(digitsOnly)) {
+        const err = new Error('El DNI no puede empezar con 0.');
+        err.statusCode = 400;
+        throw err;
+    }
+    if (!dniNorm) {
+        const err = new Error('Ingresá un DNI válido.');
+        err.statusCode = 400;
+        throw err;
+    }
+};
+
+const findUserByNormalizedDni = async (User, dniNorm) => {
+    if (!dniNorm) return null;
+    return User.findOne({
+        dni: { $regex: new RegExp(`^0*${escapeRegex(dniNorm)}$`) },
+    });
+};
 
 const loadGym = async (clientId) => {
     if (!clientId) {
@@ -106,23 +134,23 @@ const mapClassForClient = (cls, maxTrialSeats = 0) => {
     };
 };
 
-const assertNotAlreadyRegistered = async (User, emailNorm, dniNorm, dniRaw) => {
+const assertNotAlreadyRegistered = async (User, emailNorm, dniNorm) => {
     const existingByEmail = await User.findOne({ email: emailNorm });
-    const existingByDni = await User.findOne({
-        $or: [{ dni: dniNorm }, { dni: String(dniRaw || '').trim() }],
-    });
+    const existingByDni = await findUserByNormalizedDni(User, dniNorm);
     const existing = existingByEmail || existingByDni;
-    if (!existing) return;
+    if (!existing) return null;
 
     const usedTrial =
-        existing.isTrialOnly === true ||
-        existingByEmail?.isTrialOnly === true ||
-        existingByDni?.isTrialOnly === true ||
-        !!(existing.trialEnrollmentUsedAt || existingByEmail?.trialEnrollmentUsedAt || existingByDni?.trialEnrollmentUsedAt);
+        isTrialOnlyUser(existing) ||
+        isTrialOnlyUser(existingByEmail) ||
+        isTrialOnlyUser(existingByDni);
 
     if (usedTrial) {
-        const err = new Error('Ya usaste tu clase de prueba con estos datos.');
+        const err = new Error(
+            'Ya usaste tu clase de prueba con estos datos. Si querés cambiar de turno, usá “Cambiar mi turno”.'
+        );
         err.statusCode = 400;
+        err.code = 'TRIAL_ALREADY_USED';
         throw err;
     }
     const err = new Error('Este email o DNI ya está registrado. Ingresá desde la app para anotarte.');
@@ -156,6 +184,8 @@ const createOrRefreshPending = async ({ TrialPending, payload, gymName }) => {
 
     const pending = await TrialPending.create({
         ...payload,
+        purpose: payload.purpose || 'enroll',
+        userId: payload.userId || null,
         codeHash: hashValue(code),
         codeExpiresAt: new Date(now + CODE_TTL_MS),
         verifiedAt: null,
@@ -166,6 +196,25 @@ const createOrRefreshPending = async ({ TrialPending, payload, gymName }) => {
 
     await sendCodeEmail({ email: payload.email, code, gymName });
     return pending;
+};
+
+const removeUserFromClass = async (Clase, User, userId, classId) => {
+    const classItem = await Clase.findById(classId);
+    if (!classItem) return;
+    classItem.usuariosInscritos = (classItem.usuariosInscritos || []).filter(
+        (id) => String(id) !== String(userId)
+    );
+    classItem.inscripcionesDetalle = (classItem.inscripcionesDetalle || []).filter(
+        (row) => String(row.user) !== String(userId)
+    );
+    if (classItem.estado === 'llena' && classItem.usuariosInscritos.length < classItem.capacidad) {
+        classItem.estado = 'activa';
+    }
+    await classItem.save();
+    await User.updateOne(
+        { _id: userId },
+        { $pull: { clasesInscritas: classItem._id } }
+    );
 };
 
 /** Public branding only — classes require a verified session. */
@@ -229,10 +278,11 @@ const startTrial = asyncHandler(async (req, res) => {
 
     const emailNorm = normalizeEmail(email);
     const dniNorm = normalizeDni(dni);
-    if (!emailNorm || !dniNorm) {
+    if (!emailNorm) {
         res.status(400);
-        throw new Error('Email o DNI inválidos.');
+        throw new Error('Email inválido.');
     }
+    assertValidDni(dni, dniNorm);
 
     const { connection, gym } = await loadGym(clientId);
     const { Settings, User, TrialPending } = getModels(connection);
@@ -240,7 +290,7 @@ const startTrial = asyncHandler(async (req, res) => {
     assertTrialAccess(settings, token || req.query.t);
 
     await assertCaptchaOrThrow(req, captchaToken);
-    await assertNotAlreadyRegistered(User, emailNorm, dniNorm, dni);
+    await assertNotAlreadyRegistered(User, emailNorm, dniNorm);
 
     try {
         await createOrRefreshPending({
@@ -252,6 +302,7 @@ const startTrial = asyncHandler(async (req, res) => {
                 dni: dniNorm,
                 email: emailNorm,
                 numeroTelefono: String(numeroTelefono).trim(),
+                purpose: 'enroll',
             },
         });
     } catch (err) {
@@ -262,6 +313,65 @@ const startTrial = asyncHandler(async (req, res) => {
     res.status(200).json({
         message: `Te enviamos un código a ${emailNorm}. Ingresalo para ver los turnos.`,
         email: emailNorm,
+        purpose: 'enroll',
+    });
+});
+
+/** Start a class-change flow for someone who already used their trial. */
+const startTrialChange = asyncHandler(async (req, res) => {
+    const { clientId } = req.params;
+    const { token, email, captchaToken } = req.body || {};
+
+    if (isHoneypotTripped(req.body)) {
+        return res.status(200).json({
+            message: 'Te enviamos un código a tu email.',
+            email: normalizeEmail(email) || 'ok',
+            purpose: 'change',
+        });
+    }
+
+    const emailNorm = normalizeEmail(email);
+    if (!emailNorm) {
+        res.status(400);
+        throw new Error('Ingresá el email con el que te anotaste.');
+    }
+
+    const { connection, gym } = await loadGym(clientId);
+    const { Settings, User, TrialPending } = getModels(connection);
+    const settings = await Settings.findById('main_settings');
+    assertTrialAccess(settings, token || req.query.t);
+    await assertCaptchaOrThrow(req, captchaToken);
+
+    const user = await User.findOne({ email: emailNorm });
+    if (!user || !isTrialOnlyUser(user)) {
+        res.status(404);
+        throw new Error('No encontramos una clase de prueba con ese email.');
+    }
+
+    try {
+        await createOrRefreshPending({
+            TrialPending,
+            gymName: gym.name,
+            payload: {
+                nombre: user.nombre || 'Usuario',
+                apellido: user.apellido || '',
+                dni: normalizeDni(user.dni) || String(user.dni || '').replace(/\D/g, '') || '0',
+                email: emailNorm,
+                numeroTelefono: user.numeroTelefono || user.telefonoEmergencia || '-',
+                purpose: 'change',
+                userId: user._id,
+            },
+        });
+    } catch (err) {
+        res.status(503);
+        throw new Error(err.message || 'No se pudo enviar el email de verificación.');
+    }
+
+    res.status(200).json({
+        message: `Te enviamos un código a ${emailNorm}. Ingresalo para cambiar tu turno.`,
+        email: emailNorm,
+        purpose: 'change',
+        nombre: user.nombre,
     });
 });
 
@@ -307,11 +417,14 @@ const verifyTrialEmail = asyncHandler(async (req, res) => {
     await pending.save();
 
     res.json({
-        message: 'Email verificado. Ya podés elegir tu clase de prueba.',
+        message: pending.purpose === 'change'
+            ? 'Email verificado. Elegí el nuevo turno.'
+            : 'Email verificado. Ya podés elegir tu clase de prueba.',
         sessionToken,
         email: emailNorm,
         nombre: pending.nombre,
         apellido: pending.apellido,
+        purpose: pending.purpose || 'enroll',
     });
 });
 
@@ -345,6 +458,7 @@ const resendTrialCode = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('No hay una solicitud pendiente para reenviar el código.');
     }
+    // Allow resend for both enroll and change purposes.
 
     const code = makeCode();
     pending.codeHash = hashValue(code);
@@ -434,6 +548,49 @@ const getTrialClasses = asyncHandler(async (req, res) => {
     });
 });
 
+const assertClassAcceptsTrial = (classItem, settings, excludingUserId = null) => {
+    if (!classItem || classItem.estado === 'cancelada') {
+        const err = new Error('El turno no está disponible.');
+        err.statusCode = 404;
+        throw err;
+    }
+    if (classItem.permiteUsuariosPrueba === false) {
+        const err = new Error('Este turno no admite usuarios de prueba.');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const enrolledIds = (classItem.usuariosInscritos || []).map((u) => (u?._id ? u._id : u));
+    const othersCount = excludingUserId
+        ? enrolledIds.filter((id) => String(id) !== String(excludingUserId)).length
+        : enrolledIds.length;
+    if (othersCount >= classItem.capacidad) {
+        const err = new Error('Ese turno ya está completo.');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const maxTrialSeats = Number(settings?.maxUsuariosPruebaPorClase) || 0;
+    if (maxTrialSeats > 0) {
+        const trialUsed = countTrialSeatsUsed(classItem);
+        const selfIsTrialSeat = excludingUserId
+            && (classItem.usuariosInscritos || []).some((u) => {
+                const id = u?._id || u;
+                return String(id) === String(excludingUserId) && isTrialOnlyUser(u);
+            });
+        const effectiveUsed = selfIsTrialSeat ? Math.max(0, trialUsed - 1) : trialUsed;
+        if (effectiveUsed >= maxTrialSeats) {
+            const err = new Error(
+                maxTrialSeats === 1
+                    ? 'Este turno ya tiene el cupo de prueba ocupado.'
+                    : `Este turno ya alcanzó el máximo de ${maxTrialSeats} usuarios de prueba.`
+            );
+            err.statusCode = 400;
+            throw err;
+        }
+    }
+};
+
 const enrollTrial = asyncHandler(async (req, res) => {
     const { clientId } = req.params;
     const { token, sessionToken, classId } = req.body || {};
@@ -443,7 +600,7 @@ const enrollTrial = asyncHandler(async (req, res) => {
         throw new Error('Elegí un turno.');
     }
 
-    const { connection, apiSecretKey, clientId: gymId } = await loadGym(clientId);
+    const { connection } = await loadGym(clientId);
     const { Settings, Clase, User, TrialPending } = getModels(connection);
 
     const settings = await Settings.findById('main_settings');
@@ -452,37 +609,75 @@ const enrollTrial = asyncHandler(async (req, res) => {
     const pending = await loadVerifiedPending(TrialPending, sessionToken);
     const emailNorm = normalizeEmail(pending.email);
     const dniNorm = normalizeDni(pending.dni);
-
-    await assertNotAlreadyRegistered(User, emailNorm, dniNorm, pending.dni);
+    const isChange = pending.purpose === 'change';
 
     const classItem = await Clase.findById(classId)
         .populate('tipoClase', 'nombre')
         .populate('usuariosInscritos', 'isTrialOnly trialEnrollmentUsedAt');
-    if (!classItem || classItem.estado === 'cancelada') {
-        res.status(404);
-        throw new Error('El turno no está disponible.');
-    }
-    if (classItem.permiteUsuariosPrueba === false) {
-        res.status(400);
-        throw new Error('Este turno no admite usuarios de prueba.');
-    }
-    if ((classItem.usuariosInscritos || []).length >= classItem.capacidad) {
-        res.status(400);
-        throw new Error('Ese turno ya está completo.');
+
+    if (isChange) {
+        const user = pending.userId
+            ? await User.findById(pending.userId)
+            : await User.findOne({ email: emailNorm });
+
+        if (!user || !isTrialOnlyUser(user)) {
+            res.status(400);
+            throw new Error('No encontramos tu inscripción de prueba para cambiar.');
+        }
+
+        assertClassAcceptsTrial(classItem, settings, user._id);
+
+        const alreadyOnClass = (user.clasesInscritas || []).some(
+            (id) => String(id) === String(classItem._id)
+        );
+        if (alreadyOnClass) {
+            res.status(400);
+            throw new Error('Ya estás anotado/a en ese turno.');
+        }
+
+        const previousClassIds = [...(user.clasesInscritas || [])];
+        for (const prevId of previousClassIds) {
+            await removeUserFromClass(Clase, User, user._id, prevId);
+        }
+
+        // Reload class after possible mutations if it was in previous set (unlikely same id).
+        const freshClass = await Clase.findById(classId)
+            .populate('tipoClase', 'nombre')
+            .populate('usuariosInscritos', 'isTrialOnly trialEnrollmentUsedAt');
+        assertClassAcceptsTrial(freshClass, settings, user._id);
+
+        freshClass.usuariosInscritos.push(user._id);
+        if (!freshClass.inscripcionesDetalle) freshClass.inscripcionesDetalle = [];
+        freshClass.inscripcionesDetalle.push({
+            user: user._id,
+            tipoCreditoUsado: undefined,
+            fechaInscripcion: new Date(),
+        });
+        if (freshClass.usuariosInscritos.length >= freshClass.capacidad) {
+            freshClass.estado = 'llena';
+        }
+        user.clasesInscritas = [freshClass._id];
+
+        pending.consumedAt = new Date();
+        pending.sessionTokenHash = null;
+
+        await freshClass.save();
+        await user.save();
+        await pending.save();
+
+        const classLabel = freshClass.nombre || freshClass.tipoClase?.nombre || 'la clase';
+        const fechaLabel = formatTrialClassDate(freshClass.fecha);
+        return res.status(200).json({
+            message: `¡Listo! Cambiaste tu turno a ${classLabel} el ${fechaLabel} a las ${freshClass.horaInicio}hs.`,
+            className: freshClass.nombre || freshClass.tipoClase?.nombre || 'Turno',
+            fecha: freshClass.fecha,
+            horaInicio: freshClass.horaInicio,
+            purpose: 'change',
+        });
     }
 
-    const maxTrialSeats = Number(settings?.maxUsuariosPruebaPorClase) || 0;
-    if (maxTrialSeats > 0) {
-        const trialUsed = countTrialSeatsUsed(classItem);
-        if (trialUsed >= maxTrialSeats) {
-            res.status(400);
-            throw new Error(
-                maxTrialSeats === 1
-                    ? 'Este turno ya tiene el cupo de prueba ocupado.'
-                    : `Este turno ya alcanzó el máximo de ${maxTrialSeats} usuarios de prueba.`
-            );
-        }
-    }
+    await assertNotAlreadyRegistered(User, emailNorm, dniNorm);
+    assertClassAcceptsTrial(classItem, settings);
 
     const randomPassword = crypto.randomBytes(24).toString('hex');
     const phone = String(pending.numeroTelefono).trim();
@@ -524,7 +719,6 @@ const enrollTrial = asyncHandler(async (req, res) => {
     await classItem.save();
     await user.save();
     await pending.save();
-    // Do not bump plan client count — trial-only users are excluded from the live count.
 
     const classLabel = classItem.nombre || classItem.tipoClase?.nombre || 'la clase';
     const fechaLabel = formatTrialClassDate(classItem.fecha);
@@ -533,12 +727,14 @@ const enrollTrial = asyncHandler(async (req, res) => {
         className: classItem.nombre || classItem.tipoClase?.nombre || 'Turno',
         fecha: classItem.fecha,
         horaInicio: classItem.horaInicio,
+        purpose: 'enroll',
     });
 });
 
 export {
     getTrialPage,
     startTrial,
+    startTrialChange,
     verifyTrialEmail,
     resendTrialCode,
     getTrialClasses,

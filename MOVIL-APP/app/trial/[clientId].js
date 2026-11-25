@@ -108,8 +108,9 @@ const TrialEnrollmentScreen = () => {
     const [selectedClass, setSelectedClass] = useState(null);
     const [selectedClassType, setSelectedClassType] = useState('all');
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    // form | verify | calendar | success
+    // form | change-form | verify | calendar | success
     const [step, setStep] = useState('form');
+    const [purpose, setPurpose] = useState('enroll'); // enroll | change
     const [sessionToken, setSessionToken] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -125,6 +126,8 @@ const TrialEnrollmentScreen = () => {
         numeroTelefono: '',
         email: '',
     });
+
+    const normalizeDniInput = (value) => String(value || '').replace(/\D/g, '');
 
     const resetCaptcha = () => {
         setCaptchaToken('');
@@ -168,6 +171,7 @@ const TrialEnrollmentScreen = () => {
             const stored = readStoredSession(clientId);
             if (stored?.sessionToken && stored?.email) {
                 setSessionToken(stored.sessionToken);
+                setPurpose(stored.purpose === 'change' ? 'change' : 'enroll');
                 setForm((prev) => ({ ...prev, email: stored.email, nombre: stored.nombre || prev.nombre }));
                 setStep('calendar');
             }
@@ -349,8 +353,13 @@ const TrialEnrollmentScreen = () => {
 
     const handleStart = async () => {
         setError('');
-        if (!form.nombre.trim() || !form.apellido.trim() || !form.dni.trim() || !form.numeroTelefono.trim() || !form.email.trim()) {
+        const dniDigits = normalizeDniInput(form.dni);
+        if (!form.nombre.trim() || !form.apellido.trim() || !dniDigits || !form.numeroTelefono.trim() || !form.email.trim()) {
             setError('Completá todos los campos.');
+            return;
+        }
+        if (/^0/.test(dniDigits)) {
+            setError('El DNI no puede empezar con 0.');
             return;
         }
         if (captcha.required && !captchaToken) {
@@ -358,6 +367,7 @@ const TrialEnrollmentScreen = () => {
             return;
         }
         if (token === 'preview') {
+            setPurpose('enroll');
             setStep('verify');
             return;
         }
@@ -369,6 +379,7 @@ const TrialEnrollmentScreen = () => {
                 body: JSON.stringify({
                     token,
                     ...form,
+                    dni: dniDigits.replace(/^0+/, ''),
                     captchaToken,
                     website: honeypot,
                 }),
@@ -376,6 +387,48 @@ const TrialEnrollmentScreen = () => {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'No se pudo enviar el código.');
             resetCaptcha();
+            setPurpose('enroll');
+            setStep('verify');
+        } catch (err) {
+            resetCaptcha();
+            setError(err.message || 'No se pudo enviar el código.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleChangeStart = async () => {
+        setError('');
+        if (!form.email.trim()) {
+            setError('Ingresá el email con el que te anotaste.');
+            return;
+        }
+        if (captcha.required && !captchaToken) {
+            setError('Completá la verificación anti-bot.');
+            return;
+        }
+        if (token === 'preview') {
+            setPurpose('change');
+            setStep('verify');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const res = await fetch(`${apiBase}/public/trial/${encodeURIComponent(clientId)}/change-start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token,
+                    email: form.email,
+                    captchaToken,
+                    website: honeypot,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'No se pudo enviar el código.');
+            if (data.nombre) setForm((prev) => ({ ...prev, nombre: data.nombre }));
+            resetCaptcha();
+            setPurpose('change');
             setStep('verify');
         } catch (err) {
             resetCaptcha();
@@ -412,10 +465,14 @@ const TrialEnrollmentScreen = () => {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.message || 'No se pudo verificar el email.');
             setSessionToken(data.sessionToken);
+            if (data.purpose === 'change' || data.purpose === 'enroll') {
+                setPurpose(data.purpose);
+            }
             storeSession(clientId, {
                 sessionToken: data.sessionToken,
                 email: data.email || form.email,
                 nombre: data.nombre || form.nombre,
+                purpose: data.purpose || purpose,
             });
             setStep('calendar');
         } catch (err) {
@@ -557,7 +614,16 @@ const TrialEnrollmentScreen = () => {
                                     <TextInput
                                         style={styles.input}
                                         value={form[field.key]}
-                                        onChangeText={(text) => setField(field.key, text)}
+                                        onChangeText={(text) => {
+                                            if (field.key === 'dni') {
+                                                // Digits only; block typing a leading 0.
+                                                let next = normalizeDniInput(text);
+                                                if (next.startsWith('0')) next = next.replace(/^0+/, '');
+                                                setField('dni', next);
+                                                return;
+                                            }
+                                            setField(field.key, text);
+                                        }}
                                         placeholderTextColor="#999"
                                         {...field.props}
                                     />
@@ -597,7 +663,94 @@ const TrialEnrollmentScreen = () => {
                                         <Text style={styles.submitText}>Enviar código al email</Text>
                                     )}
                                 </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.linkBtn}
+                                    onPress={() => {
+                                        setError('');
+                                        setPurpose('change');
+                                        setStep('change-form');
+                                        resetCaptcha();
+                                    }}
+                                >
+                                    <Text style={[styles.linkText, { color: gymColor }]}>
+                                        Ya me anoté — quiero cambiar de turno
+                                    </Text>
+                                </TouchableOpacity>
                             </Animated.View>
+                        </ScrollView>
+                    </Animated.View>
+                )}
+
+                {step === 'change-form' && (
+                    <Animated.View key="step-change-form" entering={FadeIn.duration(280)} style={{ flex: 1 }}>
+                        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+                            <TouchableOpacity
+                                style={styles.backRow}
+                                onPress={() => {
+                                    setStep('form');
+                                    setPurpose('enroll');
+                                    setError('');
+                                }}
+                            >
+                                <Ionicons name="arrow-back" size={20} color={gymColor} />
+                                <Text style={[styles.backText, { color: gymColor }]}>Volver a inscripción</Text>
+                            </TouchableOpacity>
+
+                            <Text style={styles.formTitle}>Cambiar mi turno</Text>
+                            <Text style={styles.helper}>
+                                Ingresá el mismo email con el que te anotaste. Te mandamos un código para confirmar que sos vos y después elegís otro turno.
+                            </Text>
+
+                            {!!error && (
+                                <View style={styles.errorBox}>
+                                    <Ionicons name="alert-circle" size={18} color="#a72828" />
+                                    <Text style={styles.errorText}>{error}</Text>
+                                </View>
+                            )}
+
+                            <View style={styles.field}>
+                                <Text style={styles.label}>Email</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={form.email}
+                                    onChangeText={(text) => setField('email', text)}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            <TextInput
+                                value={honeypot}
+                                onChangeText={setHoneypot}
+                                style={styles.honeypot}
+                                accessibilityElementsHidden
+                                importantForAccessibility="no-hide-descendants"
+                                autoComplete="off"
+                                tabIndex={-1}
+                            />
+
+                            {!!captcha.siteKey && (
+                                <TrialTurnstile
+                                    key={`change-${captchaKey}`}
+                                    siteKey={captcha.siteKey}
+                                    theme={colorScheme === 'dark' ? 'dark' : 'light'}
+                                    onToken={setCaptchaToken}
+                                    onExpire={() => setCaptchaToken('')}
+                                />
+                            )}
+
+                            <TouchableOpacity
+                                style={[styles.submitBtn, { backgroundColor: gymColor }, submitting && { opacity: 0.6 }]}
+                                onPress={handleChangeStart}
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <GymLogoSpinner logoUrl={gym.logoUrl} color="#fff" size={28} />
+                                ) : (
+                                    <Text style={styles.submitText}>Enviar código al email</Text>
+                                )}
+                            </TouchableOpacity>
                         </ScrollView>
                     </Animated.View>
                 )}
@@ -613,19 +766,22 @@ const TrialEnrollmentScreen = () => {
                             <TouchableOpacity
                                 style={styles.backRow}
                                 onPress={() => {
-                                    setStep('form');
+                                    setStep(purpose === 'change' ? 'change-form' : 'form');
                                     setVerifyCode('');
                                     setError('');
                                 }}
                             >
                                 <Ionicons name="arrow-back" size={20} color={gymColor} />
-                                <Text style={[styles.backText, { color: gymColor }]}>Volver a mis datos</Text>
+                                <Text style={[styles.backText, { color: gymColor }]}>
+                                    {purpose === 'change' ? 'Volver' : 'Volver a mis datos'}
+                                </Text>
                             </TouchableOpacity>
 
                             <Text style={styles.formTitle}>Verificá tu email</Text>
                             <Text style={styles.helper}>
                                 Te enviamos un código de 6 dígitos a{'\n'}
                                 <Text style={{ fontWeight: '800' }}>{form.email}</Text>
+                                {purpose === 'change' ? '\npara que puedas cambiar tu turno.' : ''}
                             </Text>
 
                             {!!error && (
@@ -663,7 +819,9 @@ const TrialEnrollmentScreen = () => {
                                 {submitting ? (
                                     <GymLogoSpinner logoUrl={gym.logoUrl} color="#fff" size={28} />
                                 ) : (
-                                    <Text style={styles.submitText}>Verificar y ver turnos</Text>
+                                    <Text style={styles.submitText}>
+                                        {purpose === 'change' ? 'Verificar y elegir nuevo turno' : 'Verificar y ver turnos'}
+                                    </Text>
                                 )}
                             </TouchableOpacity>
 
@@ -709,7 +867,10 @@ const TrialEnrollmentScreen = () => {
                                 ListHeaderComponent={
                                     <Animated.View entering={FadeInUp.delay(80).duration(360)}>
                                         <Text style={styles.helperTop}>
-                                            Hola{form.nombre ? `, ${form.nombre}` : ''}. Elegí un turno para tu clase de prueba.
+                                            Hola{form.nombre ? `, ${form.nombre}` : ''}.{' '}
+                                            {purpose === 'change'
+                                                ? 'Elegí el nuevo turno. Se cancela el anterior automáticamente.'
+                                                : 'Elegí un turno para tu clase de prueba.'}
                                         </Text>
                                         <Calendar
                                             onDayPress={(day) => setSelectedDate(day.dateString)}
@@ -747,7 +908,11 @@ const TrialEnrollmentScreen = () => {
                                                 <Text style={styles.fullLabel}>Sin cupos</Text>
                                             ) : (
                                                 <ClassCardAction
-                                                    title={submitting && selectedClass?._id === item._id ? 'Anotándote...' : 'Probar esta clase'}
+                                                    title={
+                                                        submitting && selectedClass?._id === item._id
+                                                            ? (purpose === 'change' ? 'Cambiando...' : 'Anotándote...')
+                                                            : (purpose === 'change' ? 'Cambiar a esta clase' : 'Probar esta clase')
+                                                    }
                                                     onPress={() => handleSelectClass(item)}
                                                     iconName="calendar-check"
                                                     color={gymColor}
@@ -799,6 +964,23 @@ const TrialEnrollmentScreen = () => {
                         </Animated.View>
                         <Text style={styles.successTitle}>¡Listo!</Text>
                         <Text style={styles.successBody}>{success}</Text>
+                        {purpose !== 'change' && (
+                            <TouchableOpacity
+                                style={[styles.linkBtn, { marginTop: 18 }]}
+                                onPress={() => {
+                                    setError('');
+                                    setSuccess('');
+                                    setVerifyCode('');
+                                    setPurpose('change');
+                                    setStep('change-form');
+                                    resetCaptcha();
+                                }}
+                            >
+                                <Text style={[styles.linkText, { color: gymColor }]}>
+                                    Me equivoqué — cambiar de turno
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </Animated.View>
                 )}
             </View>

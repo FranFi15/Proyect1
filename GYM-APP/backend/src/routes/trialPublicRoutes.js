@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import {
     getTrialPage,
     startTrial,
+    startTrialChange,
     verifyTrialEmail,
     resendTrialCode,
     getTrialClasses,
@@ -25,6 +26,7 @@ const trialStartLimiter = rateLimit({
 
 router.get('/:clientId', trialLimiter, getTrialPage);
 router.post('/:clientId/start', trialStartLimiter, startTrial);
+router.post('/:clientId/change-start', trialStartLimiter, startTrialChange);
 router.post('/:clientId/verify', trialLimiter, verifyTrialEmail);
 router.post('/:clientId/resend', trialStartLimiter, resendTrialCode);
 router.get('/:clientId/classes', trialLimiter, getTrialClasses);

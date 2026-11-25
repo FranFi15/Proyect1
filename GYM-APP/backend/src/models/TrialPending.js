@@ -7,6 +7,20 @@ const trialPendingSchema = new mongoose.Schema(
         dni: { type: String, required: true, trim: true, index: true },
         email: { type: String, required: true, trim: true, lowercase: true, index: true },
         numeroTelefono: { type: String, required: true, trim: true },
+        /** enroll = first trial signup; change = switch class after already enrolled */
+        purpose: {
+            type: String,
+            enum: ['enroll', 'change'],
+            default: 'enroll',
+            index: true,
+        },
+        /** Set when purpose is change — existing trial-only user */
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+            index: true,
+        },
         codeHash: { type: String, required: true },
         codeExpiresAt: { type: Date, required: true },
         verifiedAt: { type: Date, default: null },
